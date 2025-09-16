@@ -65,7 +65,7 @@ export default function FormularioDetalhePage() {
 
       console.log('📊 Respostas encontradas:', data?.length || 0)
       console.log('🔍 Primeira resposta (debug):', data?.[0])
-      setRespostas(data || [])
+      setRespostas((data as any) || [])
 
     } catch (error) {
       console.error('Erro:', error)

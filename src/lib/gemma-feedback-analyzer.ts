@@ -56,7 +56,7 @@ Responda no formato:
 **Prioridade:** [BAIXA/MEDIA/ALTA/CRITICA]
 **Mensagem:** [mensagem personalizada para o mentorado]`
 
-    const response = await gemmaService.analyzeFeedback(prompt, npsScore)
+    const response = await gemmaService.customerSuccessQuery(prompt)
 
     if (response.success) {
       return parseGemmaResponse(response.content, npsScore)

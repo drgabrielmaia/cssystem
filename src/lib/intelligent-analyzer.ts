@@ -453,8 +453,8 @@ function analyzePersona(respostas: any, sentiment: any, npsScore: number) {
   // Determinar persona dominante
   const maxScore = Math.max(...Object.values(scores))
   let persona = 'Equilibrado'
-  let characteristics = []
-  let preferences = []
+  let characteristics: string[] = []
+  let preferences: string[] = []
   let communicationStyle = ''
   
   if (maxScore < 5) {
@@ -708,7 +708,7 @@ function analyzeEmotionalIntelligence(text: string) {
   }
   
   const textLower = text.toLowerCase()
-  const scores = {}
+  const scores: Record<string, number> = {}
   
   Object.entries(emotionalIndicators).forEach(([trait, keywords]) => {
     const matchCount = keywords.filter(keyword => textLower.includes(keyword)).length

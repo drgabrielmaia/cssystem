@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { supabase, type FormularioResposta } from '@/lib/supabase'
 import { analyzeCompleteResponse } from '@/lib/intelligent-analyzer'
-import { gemmaAnalyzer, type GemmaAnalysis } from '@/lib/gpt-oss-analyzer'
+import { gemmaFormsAnalyzer as gemmaAnalyzer } from '@/lib/gemma-forms-analyzer'
 import { 
   Search, 
   MessageSquare, 
@@ -29,7 +29,7 @@ interface RespostaComAnalise extends FormularioResposta {
   mentorado_email: string
   mentorado_turma: string
   analysis?: ReturnType<typeof analyzeCompleteResponse>
-  gptAnalysis?: GemmaAnalysis
+  gptAnalysis?: any
 }
 
 export default function RespostasPage() {
@@ -280,8 +280,8 @@ export default function RespostasPage() {
     )
   }
 
-  const formularios = [...new Set(respostas.map(r => r.formulario))]
-  const sentiments = [...new Set(respostas.map(r => r.analysis?.sentiment.label).filter(Boolean))]
+  const formularios = Array.from(new Set(respostas.map(r => r.formulario)))
+  const sentiments = Array.from(new Set(respostas.map(r => r.analysis?.sentiment.label).filter(Boolean)))
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -355,7 +355,7 @@ export default function RespostasPage() {
                 <option value="todos">Todos os sentimentos</option>
                 {sentiments.map(sentiment => (
                   <option key={sentiment} value={sentiment}>
-                    {getSentimentIcon(sentiment)} {sentiment?.replace('_', ' ')}
+                    {getSentimentIcon(sentiment!)} {sentiment?.replace('_', ' ')}
                   </option>
                 ))}
               </select>

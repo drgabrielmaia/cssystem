@@ -414,7 +414,7 @@ export default function FormularioPage() {
   }
 
   const handleInputChange = (perguntaId: string, valor: any) => {
-    setRespostas(prev => ({
+    setRespostas((prev: any) => ({
       ...prev,
       [perguntaId]: valor
     }))
@@ -440,24 +440,25 @@ export default function FormularioPage() {
           pergunta: 'O que impediu que sua experiência fosse nota 9 ou 10?',
           placeholder: 'Conte-nos o que não funcionou bem...',
           obrigatorio: true
-        },
+        } as any,
         {
           id: 'o_que_mudar_para_melhorar',
           tipo: 'textarea',
           pergunta: 'O que devemos mudar para melhorar a mentoria?',
           placeholder: 'Suas sugestões são muito importantes...',
           obrigatorio: true
-        },
+        } as any,
         {
           id: 'ajuste_simples_maior_impacto',
           tipo: 'textarea',
           pergunta: 'Qual ajuste simples teria o maior impacto positivo?',
           placeholder: 'Uma mudança específica que faria toda diferença...'
-        },
+        } as any,
         {
           id: 'pode_contatar',
           tipo: 'boolean',
-          pergunta: 'Podemos entrar em contato para entender melhor sua experiência?'
+          pergunta: 'Podemos entrar em contato para entender melhor sua experiência?',
+          obrigatorio: false
         }
       )
     } else if (notaNPS >= 7 && notaNPS <= 8) {
@@ -469,22 +470,25 @@ export default function FormularioPage() {
           pergunta: 'O que faltou para dar nota 9 ou 10?',
           placeholder: 'Como podemos melhorar ainda mais...',
           obrigatorio: true
-        },
+        } as any,
         {
           id: 'ajuste_simples_maior_impacto',
           tipo: 'textarea',
           pergunta: 'Qual ajuste simples teria o maior impacto positivo?',
-          placeholder: 'Uma pequena mudança que faria grande diferença...'
-        },
+          placeholder: 'Uma pequena mudança que faria grande diferença...',
+          obrigatorio: false
+        } as any,
         {
           id: 'autoriza_depoimento',
           tipo: 'boolean',
-          pergunta: 'Você autoriza que usemos seu feedback como depoimento?'
+          pergunta: 'Você autoriza que usemos seu feedback como depoimento?',
+          obrigatorio: false
         },
         {
           id: 'pode_contatar',
           tipo: 'boolean',
-          pergunta: 'Podemos entrar em contato para mais feedback?'
+          pergunta: 'Podemos entrar em contato para mais feedback?',
+          obrigatorio: false
         }
       )
     } else if (notaNPS >= 9 && notaNPS <= 10) {
@@ -496,24 +500,25 @@ export default function FormularioPage() {
           pergunta: 'O que mais te surpreendeu positivamente na mentoria?',
           placeholder: 'Conte-nos o que foi incrível...',
           obrigatorio: true
-        },
+        } as any,
         {
           id: 'depoimento',
           tipo: 'textarea',
           pergunta: 'Deixe seu depoimento sobre a mentoria',
           placeholder: 'Seu depoimento inspira outros mentorados...',
           obrigatorio: true
-        },
+        } as any,
         {
           id: 'autoriza_depoimento',
           tipo: 'boolean',
           pergunta: 'Você autoriza que usemos seu depoimento publicamente?',
-          obrigatorio: true
+          obrigatorio: false
         },
         {
           id: 'pode_contatar',
           tipo: 'boolean',
-          pergunta: 'Podemos entrar em contato para um case de sucesso?'
+          pergunta: 'Podemos entrar em contato para um case de sucesso?',
+          obrigatorio: false
         }
       )
     }

@@ -33,7 +33,7 @@ export function SentimentBadge({ respostaId, npsScore, feedbackText = '', compac
       const result = await gemmaFormsAnalyzer.analyzeForm(
         { nota_nps: npsScore, feedback: feedbackText },
         'nps',
-        null
+        undefined
       )
       
       setAnalysis({

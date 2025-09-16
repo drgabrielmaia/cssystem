@@ -96,7 +96,7 @@ export default function InsightsPage() {
           npsData.forEach(item => {
             respostasDetalhadas.push({
               id: item.id,
-              mentorado: item.mentorados?.nome_completo || 'Nome não encontrado',
+              mentorado: (item.mentorados as any)?.nome_completo || 'Nome não encontrado',
               nota: item.nota_nps,
               comentario: item.depoimento || item.o_que_surpreendeu_positivamente || 'Sem comentário',
               data: new Date(item.data_resposta).toLocaleDateString('pt-BR'),
@@ -127,7 +127,7 @@ export default function InsightsPage() {
             .gte(modulo.campo_data, dataInicio.toISOString())
 
           if (moduloData && moduloData.length > 0) {
-            const npsScore = moduloData.reduce((sum, item) => sum + (item[modulo.campo_nps] || 0), 0) / moduloData.length
+            const npsScore = moduloData.reduce((sum, item) => sum + ((item as any)[modulo.campo_nps] || 0), 0) / moduloData.length
             metricas.push({
               id: modulo.tabela,
               nome: modulo.nome,
@@ -142,11 +142,11 @@ export default function InsightsPage() {
             // Adicionar respostas detalhadas do módulo
             moduloData.forEach(item => {
               respostasDetalhadas.push({
-                id: item.id,
-                mentorado: item.mentorados?.nome_completo || 'Nome não encontrado',
-                nota: item[modulo.campo_nps] || 0,
+                id: (item as any).id,
+                mentorado: ((item as any).mentorados as any)?.nome_completo || 'Nome não encontrado',
+                nota: (item as any)[modulo.campo_nps] || 0,
                 comentario: 'Resposta do módulo',
-                data: new Date(item[modulo.campo_data]).toLocaleDateString('pt-BR'),
+                data: new Date((item as any)[modulo.campo_data]).toLocaleDateString('pt-BR'),
                 formulario: modulo.nome
               })
             })
@@ -206,8 +206,8 @@ export default function InsightsPage() {
                                    'Sem comentário'
                   
                   respostasDetalhadas.push({
-                    id: item.id,
-                    mentorado: item.mentorados?.nome_completo || 'Nome não encontrado',
+                    id: (item as any).id,
+                    mentorado: ((item as any).mentorados as any)?.nome_completo || 'Nome não encontrado',
                     nota: nps,
                     comentario: comentario,
                     data: new Date(item.data_envio).toLocaleDateString('pt-BR'),

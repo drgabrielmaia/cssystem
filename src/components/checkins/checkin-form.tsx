@@ -48,7 +48,7 @@ export function CheckinForm({ mentorados, onSave, onCancel }: CheckinFormProps) 
     resolver: zodResolver(checkinSchema),
     defaultValues: {
       tipo: 'checkin',
-      duracao_minutos: '60'
+      duracao_minutos: 60
     }
   })
 
@@ -65,7 +65,7 @@ export function CheckinForm({ mentorados, onSave, onCancel }: CheckinFormProps) 
           titulo: data.titulo,
           descricao: data.descricao,
           data_agendada: dataHora,
-          duracao_minutos: parseInt(data.duracao_minutos),
+          duracao_minutos: data.duracao_minutos,
           tipo: data.tipo,
           link_reuniao: data.link_reuniao || null,
           notas_pre_reuniao: data.notas_pre_reuniao,
@@ -229,7 +229,7 @@ export function CheckinForm({ mentorados, onSave, onCancel }: CheckinFormProps) 
                   <FormItem>
                     <FormLabel>Duração (min)</FormLabel>
                     <FormControl>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value.toString()}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>

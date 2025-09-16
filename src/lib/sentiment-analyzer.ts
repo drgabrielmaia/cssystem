@@ -91,8 +91,8 @@ class SentimentAnalyzer {
         respostas,
         resposta.formulario,
         {
-          nome: resposta.mentorados.nome_completo,
-          email: resposta.mentorados.email,
+          nome: (resposta.mentorados as any)?.nome_completo,
+          email: (resposta.mentorados as any)?.email,
           turma: 'N/A'
         }
       )
@@ -114,19 +114,19 @@ class SentimentAnalyzer {
       return {
         id: resposta.id,
         mentorado: {
-          id: resposta.mentorados.id,
-          nome: resposta.mentorados.nome_completo,
-          email: resposta.mentorados.email
+          id: (resposta.mentorados as any)?.id,
+          nome: (resposta.mentorados as any)?.nome_completo,
+          email: (resposta.mentorados as any)?.email
         },
         formulario: resposta.formulario,
-        npsScore,
+        npsScore: npsScore || undefined,
         sentiment,
         keyInsights: gemmaResult.oportunidades,
         actionItems: gemmaResult.acoes_imediatas,
         urgencyLevel: gemmaResult.probabilidade_churn >= 70 ? 'critica' : 
                      gemmaResult.probabilidade_churn >= 50 ? 'alta' : 
                      gemmaResult.probabilidade_churn >= 30 ? 'media' : 'baixa',
-        personalizedMessage: `Olá ${resposta.mentorados.nome_completo}! ${gemmaResult.situacao_geral}`,
+        personalizedMessage: `Olá ${(resposta.mentorados as any)?.nome_completo}! ${gemmaResult.situacao_geral}`,
         dataAnalise: new Date()
       }
 
@@ -171,8 +171,8 @@ class SentimentAnalyzer {
             respostasData,
             resposta.formulario,
             {
-              nome: resposta.mentorados.nome_completo,
-              email: resposta.mentorados.email,
+              nome: (resposta.mentorados as any)?.nome_completo,
+              email: (resposta.mentorados as any)?.email,
               turma: 'N/A'
             }
           )
@@ -210,7 +210,7 @@ class SentimentAnalyzer {
       return {
         totalRespostas: respostas.length,
         sentimentDistribution,
-        npsDistribution: this.calculateNpsDistribution(npsScores),
+        npsDistribution: this.calculateNpsDistribution(npsScores.filter((score): score is number => score !== null)),
         overallSentiment: sentimentDistribution.positivo > sentimentDistribution.negativo ? 'positivo' :
                          sentimentDistribution.negativo > sentimentDistribution.positivo ? 'negativo' : 'neutro',
         generalTrends: allTrends,

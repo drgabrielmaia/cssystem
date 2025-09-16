@@ -489,7 +489,7 @@ async function handleFormAnalysis(userInput: string): Promise<string> {
         acc[nome] = (acc[nome] || 0) + 1
         return acc
       }, {} as Record<string, number>))
-        .sort(([,a], [,b]) => b - a)
+        .sort(([,a], [,b]) => (b as number) - (a as number))
         .slice(0, 5)
     }
 
@@ -534,7 +534,7 @@ ${analytics.ultimas_respostas.map((r, i) => `${i + 1}. ${r.nome} - ${r.formulari
 
 📋 **Formulários mais respondidos:**
 ${Object.entries(analytics.tipos_formulario)
-  .sort(([,a], [,b]) => b - a)
+  .sort(([,a], [,b]) => (b as number) - (a as number))
   .slice(0, 5)
   .map(([tipo, count]) => `• ${tipo}: ${count} respostas`)
   .join('\n')}
@@ -696,9 +696,9 @@ async function generateProactiveInsights(
           !formularios.some(f => f.mentorado_id === m.id)
         ).length
       },
-      alertas: [],
-      oportunidades: [],
-      sugestoes_acao: []
+      alertas: [] as any[],
+      oportunidades: [] as any[],
+      sugestoes_acao: [] as any[]
     }
 
     // Detectar alertas automáticos
@@ -720,7 +720,7 @@ async function generateProactiveInsights(
 
     // Detectar oportunidades
     const tiposFormularios = Object.entries(analytics.formularios.tipos_mais_respondidos)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([,a], [,b]) => (b as number) - (a as number))
 
     if (tiposFormularios.length > 0) {
       analytics.oportunidades.push({

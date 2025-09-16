@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { respostaId, formularioId, respostas, mentoradoId } = body
+    let { respostaId, formularioId, respostas, mentoradoId } = body
 
     if (!respostaId && !respostas) {
       return NextResponse.json(
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     const analysis = await gemmaFormsAnalyzer.analyzeForm(
       dadosAnalise,
       formularioId || 'unknown',
-      mentoradoInfo
+      mentoradoInfo || undefined
     )
 
     const responseTime = Date.now() - startTime
@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
     const analysis = await gemmaFormsAnalyzer.analyzeForm(
       dadosAnalise,
       respostaData.formulario || 'unknown',
-      mentoradoInfo
+      mentoradoInfo || undefined
     )
 
     const responseTime = Date.now() - startTime

@@ -30,11 +30,7 @@ export class GemmaFormsAnalyzer {
     const prompt = this.buildAnalysisPrompt(respostas, formularioTipo, mentoradoInfo)
     
     try {
-      const response = await gemmaService.chat(prompt, 'feedbackAnalysis', {
-        temperature: 0.2, // Baixa temperatura para consistência
-        maxTokens: 600,
-        includeContext: true
-      })
+      const response = await gemmaService.customerSuccessQuery(prompt)
 
       if (response.success) {
         return this.parseGemmaResponse(response.content, respostas)
@@ -115,14 +111,14 @@ ACOES: [ação_imediata1|ação_imediata2|ação_imediata3]`
 
       // Parse usando regex robusta
       const emocaoMatch = content.match(/EMOCAO:\s*(positivo|neutro|negativo|critico)/i)
-      const indicacoesMatch = content.match(/INDICACOES:\s*(.+?)(?:\n|RISCOS:|$)/is)
-      const riscosMatch = content.match(/RISCOS:\s*(.+?)(?:\n|PERSONA:|$)/is)
-      const personaMatch = content.match(/PERSONA:\s*(.+?)(?:\n|OPORTUNIDADES:|$)/is)
-      const oportunidadesMatch = content.match(/OPORTUNIDADES:\s*(.+?)(?:\n|SITUACAO:|$)/is)
-      const situacaoMatch = content.match(/SITUACAO:\s*(.+?)(?:\n|SATISFACAO:|$)/is)
+      const indicacoesMatch = content.match(/INDICACOES:\s*([\s\S]*?)(?:\n(?=RISCOS:)|$)/i)
+      const riscosMatch = content.match(/RISCOS:\s*([\s\S]*?)(?:\n(?=PERSONA:)|$)/i)
+      const personaMatch = content.match(/PERSONA:\s*([\s\S]*?)(?:\n(?=OPORTUNIDADES:)|$)/i)
+      const oportunidadesMatch = content.match(/OPORTUNIDADES:\s*([\s\S]*?)(?:\n(?=SITUACAO:)|$)/i)
+      const situacaoMatch = content.match(/SITUACAO:\s*([\s\S]*?)(?:\n(?=SATISFACAO:)|$)/i)
       const satisfacaoMatch = content.match(/SATISFACAO:\s*(\d+)/i)
       const churnMatch = content.match(/CHURN:\s*(\d+)/i)
-      const acoesMatch = content.match(/ACOES:\s*(.+?)(?:\n|$)/is)
+      const acoesMatch = content.match(/ACOES:\s*([\s\S]*?)$/i)
 
       const result = {
         emocao: emocaoMatch?.[1]?.toLowerCase() as any || this.inferEmocao(npsScore),
