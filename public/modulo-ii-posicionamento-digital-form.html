@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo II - Posicionamento Digital</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .form-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        .required {
+            color: red;
+        }
+        .question {
+            margin-bottom: 25px;
+        }
+        .question-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .radio-group.horizontal {
+            flex-direction: row;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .checkbox-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        input[type="radio"], input[type="checkbox"] {
+            margin: 0;
+        }
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        .submit-btn {
+            background-color: #1a73e8;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        .submit-btn:hover {
+            background-color: #1557b0;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+        .nps-labels {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Módulo II - Posicionamento Digital</h1>
+        <p class="subtitle">Breve avaliação de feedback sobre o conteúdo consumido</p>
+        <p><span class="required">*</span> Indica uma pergunta obrigatória</p>
+        
+        <form id="posicionamentoDigitalForm">
+            <div class="question">
+                <div class="question-title">Sua proposta de valor (Pra quem você vai falar /Como quer ser visto/por quê) ficou clara? <span class="required">*</span></div>
+                <div class="radio-group horizontal">
+                    <div class="radio-option">
+                        <input type="radio" name="proposta_valor" value="1" id="q1_1" required>
+                        <label for="q1_1">1</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="proposta_valor" value="2" id="q1_2" required>
+                        <label for="q1_2">2</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="proposta_valor" value="3" id="q1_3" required>
+                        <label for="q1_3">3</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="proposta_valor" value="4" id="q1_4" required>
+                        <label for="q1_4">4</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="proposta_valor" value="5" id="q1_5" required>
+                        <label for="q1_5">5</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="question">
+                <div class="question-title">Sua bio + CTA hoje comunica valor e próximo passo? <span class="required">*</span></div>
+                <div class="radio-group horizontal">
+                    <div class="radio-option">
+                        <input type="radio" name="bio_cta" value="1" id="q2_1" required>
+                        <label for="q2_1">1</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="bio_cta" value="2" id="q2_2" required>
+                        <label for="q2_2">2</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="bio_cta" value="3" id="q2_3" required>
+                        <label for="q2_3">3</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="bio_cta" value="4" id="q2_4" required>
+                        <label for="q2_4">4</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="bio_cta" value="5" id="q2_5" required>
+                        <label for="q2_5">5</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="question">
+                <div class="question-title">Você sabe estruturar um funil editorial de 7 dias pronto para postar? <span class="required">*</span></div>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" name="funil_editorial" value="sim" id="q3_sim" required>
+                        <label for="q3_sim">Sim</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="funil_editorial" value="nao" id="q3_nao" required>
+                        <label for="q3_nao">Não</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="question">
+                <div class="question-title">Quais formatos você aprendeu a usar de maneira intencional? <span class="required">*</span></div>
+                <textarea name="formatos_aprendidos" placeholder="Liste os formatos que você aprendeu a usar..." required></textarea>
+            </div>
+
+            <div class="question">
+                <div class="question-title">O conteúdo do módulo te deixou mais confiante para publicar com constância? <span class="required">*</span></div>
+                <div class="radio-group horizontal">
+                    <div class="radio-option">
+                        <input type="radio" name="confianca_publicar" value="1" id="q5_1" required>
+                        <label for="q5_1">1</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="confianca_publicar" value="2" id="q5_2" required>
+                        <label for="q5_2">2</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="confianca_publicar" value="3" id="q5_3" required>
+                        <label for="q5_3">3</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="confianca_publicar" value="4" id="q5_4" required>
+                        <label for="q5_4">4</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="confianca_publicar" value="5" id="q5_5" required>
+                        <label for="q5_5">5</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="question">
+                <div class="question-title">Principal bloqueio para consistência (tempo, ideias, câmera, haters, outra)? <span class="required">*</span></div>
+                <textarea name="bloqueio_consistencia" placeholder="Digite seu principal bloqueio aqui..." required></textarea>
+            </div>
+
+            <div class="question">
+                <div class="question-title">NPS do módulo digital (Recomendaria a um colega?) <span class="required">*</span></div>
+                <div class="nps-labels">
+                    <span>De jeito nenhum</span>
+                    <span>Recomendaria Muito</span>
+                </div>
+                <div class="radio-group horizontal">
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="1" id="nps_1" required>
+                        <label for="nps_1">1</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="2" id="nps_2" required>
+                        <label for="nps_2">2</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="3" id="nps_3" required>
+                        <label for="nps_3">3</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="4" id="nps_4" required>
+                        <label for="nps_4">4</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="5" id="nps_5" required>
+                        <label for="nps_5">5</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="6" id="nps_6" required>
+                        <label for="nps_6">6</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="7" id="nps_7" required>
+                        <label for="nps_7">7</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="8" id="nps_8" required>
+                        <label for="nps_8">8</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="9" id="nps_9" required>
+                        <label for="nps_9">9</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="10" id="nps_10" required>
+                        <label for="nps_10">10</label>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn">Enviar</button>
+        </form>
+
+        <div class="footer">
+            Este conteúdo não foi criado nem aprovado pelo Google.
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Configuração do Supabase (substitua pelas suas credenciais)
+        const supabaseUrl = 'https://udzmlnnztzzwrphhizol.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkem1sbm56dHp6d3JwaGhpem9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjkwNzYsImV4cCI6MjA3MzAwNTA3Nn0.KjihWHrNYxDO5ZZKpa8UYPAhw9HIU11yvAvvsNaiPZU'
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey)
+
+        // Pegar o ID do mentorado da URL
+        function getMentoradoId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('mentorado_id');
+        }
+
+        // Validar se tem mentorado_id
+        window.addEventListener('DOMContentLoaded', function() {
+            const mentoradoId = getMentoradoId();
+            if (!mentoradoId) {
+                alert('Link inválido: ID do mentorado não encontrado na URL.');
+                document.getElementById('posicionamentoDigitalForm').style.display = 'none';
+                return;
+            }
+            
+            console.log('Mentorado ID:', mentoradoId);
+        });
+
+        document.getElementById('posicionamentoDigitalForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const mentoradoId = getMentoradoId();
+            if (!mentoradoId) {
+                alert('Erro: ID do mentorado não encontrado.');
+                return;
+            }
+            
+            const formData = new FormData(this);
+            const data = {};
+
+            for (let [key, value] of formData.entries()) {
+                data[key] = value;
+            }
+            
+            // Converter dados para o formato esperado pelo Supabase
+            const supabaseData = {
+                mentorado_id: mentoradoId,
+                proposta_valor: parseInt(data.proposta_valor),
+                bio_cta: parseInt(data.bio_cta),
+                funil_editorial: data.funil_editorial,
+                formatos_aprendidos: data.formatos_aprendidos.split('\n').filter(linha => linha.trim()),
+                confianca_publicar: parseInt(data.confianca_publicar),
+                bloqueio_consistencia: data.bloqueio_consistencia,
+                nps: parseInt(data.nps)
+            };
+            
+            try {
+                // Inserir dados na tabela do Supabase
+                const { data: result, error } = await supabase
+                    .from('modulo_ii_posicionamento_digital_respostas')
+                    .insert([supabaseData]);
+
+                if (error) {
+                    console.error('Erro ao salvar:', error);
+                    alert('Erro ao salvar as respostas. Tente novamente.');
+                } else {
+                    console.log('Dados salvos com sucesso:', result);
+                    alert('Formulário enviado com sucesso! Obrigado pelo seu feedback.');
+                    this.reset();
+                }
+            } catch (err) {
+                console.error('Erro inesperado:', err);
+                alert('Erro inesperado. Tente novamente.');
+            }
+        });
+    </script>
+</body>
+</html>

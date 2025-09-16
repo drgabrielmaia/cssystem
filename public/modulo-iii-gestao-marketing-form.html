@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo III - Gestão e Marketing</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .form-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        .required {
+            color: red;
+        }
+        .question {
+            margin-bottom: 25px;
+        }
+        .question-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .radio-group.horizontal {
+            flex-direction: row;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        input[type="radio"] {
+            margin: 0;
+        }
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        .submit-btn {
+            background-color: #1a73e8;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        .submit-btn:hover {
+            background-color: #1557b0;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+        .nps-labels {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Módulo III - Gestão e Marketing</h1>
+        <p class="subtitle">Breve avaliação de feedback sobre o conteúdo consumido</p>
+        <p><span class="required">*</span> Indica uma pergunta obrigatória</p>
+        
+        <form id="gestaoMarketingForm">
+            <div class="question">
+                <div class="question-title">Você conseguiu mapear a jornada do paciente (primeiro contato → pós)? <span class="required">*</span></div>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" name="jornada_paciente" value="sim" id="q1_sim" required>
+                        <label for="q1_sim">Sim</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="jornada_paciente" value="parcialmente" id="q1_parcial" required>
+                        <label for="q1_parcial">Parcialmente</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="jornada_paciente" value="nao" id="q1_nao" required>
+                        <label for="q1_nao">Não</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="question">
+                <div class="question-title">Você conseguiu implementar ao modelo de encantamento Disney? <span class="required">*</span></div>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" name="modelo_disney" value="sim" id="q2_sim" required>
+                        <label for="q2_sim">Sim</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="modelo_disney" value="parcialmente" id="q2_parcial" required>
+                        <label for="q2_parcial">Parcialmente</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="modelo_disney" value="nao" id="q2_nao" required>
+                        <label for="q2_nao">Não</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="question">
+                <div class="question-title">Você conseguiu aplicar e entender as estratégias de neuromarketing? <span class="required">*</span></div>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" name="neuromarketing" value="sim" id="q3_sim" required>
+                        <label for="q3_sim">Sim</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="neuromarketing" value="parcialmente" id="q3_parcial" required>
+                        <label for="q3_parcial">Parcialmente</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="neuromarketing" value="nao" id="q3_nao" required>
+                        <label for="q3_nao">Não</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="question">
+                <div class="question-title">O módulo te ajudou a reduzir no-show/melhorar comparecimento? <span class="required">*</span></div>
+                <div class="radio-group horizontal">
+                    <div class="radio-option">
+                        <input type="radio" name="reduzir_noshow" value="1" id="q4_1" required>
+                        <label for="q4_1">1</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="reduzir_noshow" value="2" id="q4_2" required>
+                        <label for="q4_2">2</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="reduzir_noshow" value="3" id="q4_3" required>
+                        <label for="q4_3">3</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="reduzir_noshow" value="4" id="q4_4" required>
+                        <label for="q4_4">4</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="reduzir_noshow" value="5" id="q4_5" required>
+                        <label for="q4_5">5</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="question">
+                <div class="question-title">Você conseguiu estruturar os processos (triagem, lembrete, check-in, pós-consulta)? <span class="required">*</span></div>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" name="estruturar_processos" value="sim" id="q5_sim" required>
+                        <label for="q5_sim">Sim</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="estruturar_processos" value="parcialmente" id="q5_parcial" required>
+                        <label for="q5_parcial">Parcialmente</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="estruturar_processos" value="nao" id="q5_nao" required>
+                        <label for="q5_nao">Não</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="question">
+                <div class="question-title">O que faltou para tornar sua operação mais enxuta agora?</div>
+                <textarea name="feedback_operacao" placeholder="Digite seu feedback aqui..."></textarea>
+            </div>
+
+            <div class="question">
+                <div class="question-title">NPS do módulo gestão & marketing (você recomendaria a um colega?) <span class="required">*</span></div>
+                <div class="nps-labels">
+                    <span>De maneira nenhuma</span>
+                    <span>Recomendo muito</span>
+                </div>
+                <div class="radio-group horizontal">
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="0" id="nps_0" required>
+                        <label for="nps_0">0</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="1" id="nps_1" required>
+                        <label for="nps_1">1</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="2" id="nps_2" required>
+                        <label for="nps_2">2</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="3" id="nps_3" required>
+                        <label for="nps_3">3</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="4" id="nps_4" required>
+                        <label for="nps_4">4</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="5" id="nps_5" required>
+                        <label for="nps_5">5</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="6" id="nps_6" required>
+                        <label for="nps_6">6</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="7" id="nps_7" required>
+                        <label for="nps_7">7</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="8" id="nps_8" required>
+                        <label for="nps_8">8</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="9" id="nps_9" required>
+                        <label for="nps_9">9</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="nps" value="10" id="nps_10" required>
+                        <label for="nps_10">10</label>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn">Enviar</button>
+        </form>
+
+        <div class="footer">
+            Este conteúdo não foi criado nem aprovado pelo Google.
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Configuração do Supabase (substitua pelas suas credenciais)
+        const supabaseUrl = 'https://udzmlnnztzzwrphhizol.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkem1sbm56dHp6d3JwaGhpem9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjkwNzYsImV4cCI6MjA3MzAwNTA3Nn0.KjihWHrNYxDO5ZZKpa8UYPAhw9HIU11yvAvvsNaiPZU'
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey)
+
+        // Pegar o ID do mentorado da URL
+        function getMentoradoId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('mentorado_id');
+        }
+
+        // Validar se tem mentorado_id
+        window.addEventListener('DOMContentLoaded', function() {
+            const mentoradoId = getMentoradoId();
+            if (!mentoradoId) {
+                alert('Link inválido: ID do mentorado não encontrado na URL.');
+                document.getElementById('gestaoMarketingForm').style.display = 'none';
+                return;
+            }
+            
+            console.log('Mentorado ID:', mentoradoId);
+        });
+
+        document.getElementById('gestaoMarketingForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const mentoradoId = getMentoradoId();
+            if (!mentoradoId) {
+                alert('Erro: ID do mentorado não encontrado.');
+                return;
+            }
+            
+            const formData = new FormData(this);
+            const data = {};
+            
+            for (let [key, value] of formData.entries()) {
+                data[key] = value;
+            }
+            
+            // Converter dados para o formato esperado pelo Supabase
+            const supabaseData = {
+                mentorado_id: mentoradoId,
+                jornada_paciente: data.jornada_paciente,
+                modelo_disney: data.modelo_disney,
+                neuromarketing: data.neuromarketing,
+                reduzir_noshow: parseInt(data.reduzir_noshow),
+                estruturar_processos: data.estruturar_processos,
+                feedback_operacao: data.feedback_operacao || null,
+                nps: parseInt(data.nps)
+            };
+            
+            try {
+                // Inserir dados na tabela do Supabase
+                const { data: result, error } = await supabase
+                    .from('modulo_iii_gestao_marketing_respostas')
+                    .insert([supabaseData]);
+
+                if (error) {
+                    console.error('Erro ao salvar:', error);
+                    alert('Erro ao salvar as respostas. Tente novamente.');
+                } else {
+                    console.log('Dados salvos com sucesso:', result);
+                    alert('Formulário enviado com sucesso! Obrigado pelo seu feedback.');
+                    this.reset();
+                }
+            } catch (err) {
+                console.error('Erro inesperado:', err);
+                alert('Erro inesperado. Tente novamente.');
+            }
+        });
+    </script>
+</body>
+</html>
