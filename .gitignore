@@ -31,4 +31,10 @@ yarn-error.log*
 .vercel
 
 # Typescript
-*.tsbuildinfo
+*.tsbuildinfo.wwebjs_auth/
+.wwebjs_cache/
+api/core/.wwebjs_auth/
+api/core/.wwebjs_cache/
+node_modules/
+.env.local
+*.log

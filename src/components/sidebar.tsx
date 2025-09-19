@@ -19,14 +19,17 @@ import {
   Calendar,
   TrendingUp,
   Sparkles,
-  Zap
+  Zap,
+  MessageCircle
 } from 'lucide-react'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, description: 'Visão geral' },
   { name: 'Mentorados', href: '/mentorados', icon: Users, description: 'Gerenciar pessoas' },
-  { name: 'Check-ins', href: '/checkins', icon: Calendar, description: 'Agendar reuniões' },
+  { name: 'Calendário', href: '/calendario', icon: Calendar, description: 'Agendar eventos' },
+  { name: 'Check-ins', href: '/checkins', icon: BarChart3, description: 'Acompanhamento' },
   { name: 'Formulários', href: '/formularios', icon: FileText, description: 'Pesquisas + IA' },
+  { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle, description: 'Mensagens' },
   { name: 'Pendências', href: '/pendencias', icon: DollarSign, description: 'Financeiro' },
 ]
 

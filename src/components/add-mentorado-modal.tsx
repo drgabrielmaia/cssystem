@@ -43,11 +43,48 @@ export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoMo
     setLoading(true)
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('mentorados')
         .insert([formData])
+        .select()
 
       if (error) throw error
+
+      // Send welcome message via WhatsApp if phone number is provided
+      if (formData.telefone && data && data[0]) {
+        try {
+          const welcomeMessage = `👋 Seja muito bem-vindo(a) à mentoria!
+
+Parabéns pela decisão de estar aqui. Você acabou de dar um passo que muitos adiam — e que pode mudar completamente a forma como você atua, pensa e constrói seus resultados daqui pra frente.
+
+A nossa jornada é estratégica, direta ao ponto e personalizada. Mas, pra garantir que você aproveite o melhor do processo, precisamos fazer um alinhamento inicial.
+
+Por isso, quero que a gente agende seu onboarding 1:1 — é nessa conversa que você vai entender o caminho que vamos percorrer juntos, e eu vou te direcionar com base no seu momento atual.
+
+👉 Me avisa aqui qual melhor dia/horário nos próximos dias, e já deixo reservado.
+
+Vamos com tudo. 🔥`
+
+          const response = await fetch('/api/whatsapp/send', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              to: formData.telefone,
+              message: welcomeMessage
+            })
+          })
+
+          if (response.ok) {
+            console.log('✅ Mensagem de boas-vindas enviada com sucesso!')
+          } else {
+            console.warn('⚠️ Não foi possível enviar mensagem de boas-vindas')
+          }
+        } catch (whatsappError) {
+          console.warn('⚠️ Erro ao enviar mensagem de boas-vindas:', whatsappError)
+        }
+      }
 
       // Reset form
       setFormData({
@@ -58,7 +95,7 @@ export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoMo
         estado_entrada: 'novo',
         estado_atual: 'novo'
       })
-      
+
       onSuccess()
       onClose()
     } catch (error) {

@@ -39,6 +39,7 @@ export default function MentoradoDetailPage() {
   const [respostasCompletas, setRespostasCompletas] = useState<FormularioResposta[]>([])
   const [loading, setLoading] = useState(true)
   const [showResponses, setShowResponses] = useState(false)
+  const [enviandoWhatsapp, setEnviandoWhatsapp] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchMentoradoData() {
@@ -134,6 +135,70 @@ export default function MentoradoDetailPage() {
         return <Clock className="h-4 w-4 text-yellow-500" />
       default:
         return <XCircle className="h-4 w-4 text-gray-400" />
+    }
+  }
+
+  const enviarViaWhatsApp = async (formulario: FormularioInfo) => {
+    if (!mentorado) {
+      alert('Dados do mentorado não encontrados!')
+      return
+    }
+
+    // Verificar se tem telefone/WhatsApp
+    if (!mentorado.telefone) {
+      alert('Este mentorado não possui telefone/WhatsApp cadastrado. Adicione o número primeiro.')
+      return
+    }
+
+    setEnviandoWhatsapp(formulario.tipo)
+
+    try {
+      // Mensagem template personalizada solicitada pelo usuário
+      const mensagemTemplate = `Olá! 👋
+
+Estou te enviando um formulário rápido, mas estratégico, que vai me ajudar a entender com mais clareza sua evolução até aqui e os pontos que ainda podemos ajustar para acelerar seus resultados.
+
+Será rápido, mas faz toda diferença pro acompanhamento individual que estou preparando pra você.
+
+👉 Assim que responder, me avisa por aqui.
+
+Link: ${formulario.url}`
+
+      // Limpar o número de telefone para formato WhatsApp
+      let numeroWhatsApp = mentorado.telefone.replace(/\D/g, '') // Remove caracteres não numéricos
+
+      // Se não começar com código do país, adicionar 55 (Brasil)
+      if (!numeroWhatsApp.startsWith('55')) {
+        numeroWhatsApp = '55' + numeroWhatsApp
+      }
+
+      // Adicionar @c.us para formato WhatsApp
+      numeroWhatsApp = numeroWhatsApp + '@c.us'
+
+      const response = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: numeroWhatsApp,
+          message: mensagemTemplate
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        alert('✅ Formulário enviado via WhatsApp com sucesso!')
+      } else {
+        alert(`❌ Erro ao enviar mensagem: ${result.error}`)
+      }
+
+    } catch (error) {
+      console.error('Erro ao enviar WhatsApp:', error)
+      alert('❌ Erro ao enviar mensagem via WhatsApp')
+    } finally {
+      setEnviandoWhatsapp(null)
     }
   }
 
@@ -305,14 +370,35 @@ export default function MentoradoDetailPage() {
                             Completo
                           </Badge>
                         ) : (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => window.open(form.url, '_blank')}
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Enviar
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => window.open(form.url, '_blank')}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Enviar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => enviarViaWhatsApp(form)}
+                              disabled={enviandoWhatsapp === form.tipo || !mentorado?.telefone}
+                              className="border-green-500 text-green-600 hover:bg-green-50"
+                            >
+                              {enviandoWhatsapp === form.tipo ? (
+                                <div className="flex items-center space-x-1">
+                                  <MessageSquare className="h-3 w-3 animate-spin" />
+                                  <span className="text-xs">Enviando...</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center space-x-1">
+                                  <MessageSquare className="h-3 w-3" />
+                                  <span className="text-xs">WhatsApp</span>
+                                </div>
+                              )}
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>
