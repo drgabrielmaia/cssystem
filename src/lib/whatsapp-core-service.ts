@@ -41,11 +41,11 @@ class WhatsAppCoreService {
   private statusListeners: ((status: string) => void)[] = [];
 
   constructor() {
-    // URL da sua API core - usar localhost em desenvolvimento
+    // URL da API Express - Bohr mapeia api/core para /api
     const isProduction = process.env.NODE_ENV === 'production';
     this.baseUrl = isProduction
-      ? (process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://cs.medicosderesultado.com.br/api')
-      : 'http://localhost:3001';
+      ? 'https://cs.medicosderesultado.com.br/api'  // Bohr Functions route
+      : 'http://localhost:3001';                     // Local Express server
   }
 
   async initialize(): Promise<void> {
