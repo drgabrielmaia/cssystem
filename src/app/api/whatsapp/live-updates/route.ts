@@ -85,8 +85,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Broadcast new message to all clients
-export async function broadcastNewMessage(message: any) {
+// Broadcast new message to all clients (moved to separate utility)
+async function broadcastNewMessage(message: any) {
   const updateData = {
     type: 'new_message',
     data: message,

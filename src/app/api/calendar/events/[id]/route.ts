@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+type Params = { params: Promise<{ id: string }> }
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  segmentData: Params
 ) {
+  const params = await segmentData.params
   try {
     const { id } = params
+    const supabase = createClient()
 
     console.log('🔍 Buscando evento:', id)
 
@@ -46,10 +50,12 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  segmentData: Params
 ) {
+  const params = await segmentData.params
   try {
     const { id } = params
+    const supabase = createClient()
     const body = await request.json()
     const { title, description, start_datetime, end_datetime, all_day, mentorado_id } = body
 
@@ -125,10 +131,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  segmentData: Params
 ) {
+  const params = await segmentData.params
   try {
     const { id } = params
+    const supabase = createClient()
 
     console.log('🗑️ Excluindo evento:', id)
 

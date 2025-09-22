@@ -272,7 +272,7 @@ export default function WhatsAppPage() {
         }
 
         // Para contatos individuais: verificar se têm mensagens reais (não só de grupo)
-        const hasIndividualMessages = allMessages.some(msg => {
+        const hasIndividualMessages = allMessages.some((msg: any) => {
           // Verificar se a mensagem é realmente individual (sem @g.us)
           const isIndividualMessage = !msg.from.includes('@g.us') && !msg.to.includes('@g.us');
           const involvesContact = msg.from === contactId || msg.to === contactId;

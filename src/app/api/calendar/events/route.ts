@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = createClient()
     const url = new URL(request.url)
     const startDate = url.searchParams.get('start_date')
     const endDate = url.searchParams.get('end_date')
@@ -53,6 +54,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = createClient()
     const body = await request.json()
     const { title, description, start_datetime, end_datetime, all_day, mentorado_id } = body
 
