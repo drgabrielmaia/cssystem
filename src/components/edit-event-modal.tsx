@@ -13,6 +13,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+
+interface Mentorado {
+  id: string
+  nome: string
+  email: string
+  telefone: string | null
+  turma: string
+}
 
 interface CalendarEvent {
   id: string
@@ -33,6 +48,7 @@ interface EditEventModalProps {
 
 export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventModalProps) {
   const [loading, setLoading] = useState(false)
+  const [mentorados, setMentorados] = useState<Mentorado[]>([])
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -40,8 +56,28 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
     start_time: '',
     end_date: '',
     end_time: '',
-    all_day: false
+    all_day: false,
+    mentorado_id: ''
   })
+
+  // Buscar mentorados
+  useEffect(() => {
+    const fetchMentorados = async () => {
+      try {
+        const response = await fetch('/api/mentorados')
+        const data = await response.json()
+        if (data.success) {
+          setMentorados(data.mentorados || [])
+        }
+      } catch (error) {
+        console.error('Erro ao buscar mentorados:', error)
+      }
+    }
+
+    if (isOpen) {
+      fetchMentorados()
+    }
+  }, [isOpen])
 
   // Carregar dados do evento quando o modal abrir
   useEffect(() => {
@@ -56,7 +92,8 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
         start_time: event.all_day ? '' : startDate.toTimeString().slice(0, 5),
         end_date: endDate.toISOString().split('T')[0],
         end_time: event.all_day ? '' : endDate.toTimeString().slice(0, 5),
-        all_day: event.all_day
+        all_day: event.all_day,
+        mentorado_id: event.mentorado_id || ''
       })
     }
   }, [event, isOpen])
@@ -101,7 +138,8 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
         description: formData.description.trim() || null,
         start_datetime: startDateTime,
         end_datetime: endDateTime,
-        all_day: formData.all_day
+        all_day: formData.all_day,
+        mentorado_id: formData.mentorado_id || null
       }
 
       console.log('Atualizando evento:', eventData)
@@ -182,6 +220,26 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
                 placeholder="Descrição ou observações sobre o evento"
                 rows={3}
               />
+            </div>
+
+            {/* Mentorado */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="mentorado" className="text-right">
+                Mentorado
+              </Label>
+              <Select value={formData.mentorado_id} onValueChange={(value) => handleChange('mentorado_id', value)}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Selecione um mentorado (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Nenhum mentorado</SelectItem>
+                  {mentorados.map((mentorado) => (
+                    <SelectItem key={mentorado.id} value={mentorado.id}>
+                      {mentorado.nome} ({mentorado.turma})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Dia inteiro */}

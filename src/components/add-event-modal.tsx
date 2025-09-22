@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,6 +21,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+interface Mentorado {
+  id: string
+  nome: string
+  email: string
+  telefone: string | null
+  turma: string
+}
+
 interface AddEventModalProps {
   isOpen: boolean
   onClose: () => void
@@ -30,6 +38,7 @@ interface AddEventModalProps {
 
 export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEventModalProps) {
   const [loading, setLoading] = useState(false)
+  const [mentorados, setMentorados] = useState<Mentorado[]>([])
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -37,8 +46,28 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
     start_time: '',
     end_date: '',
     end_time: '',
-    all_day: false
+    all_day: false,
+    mentorado_id: ''
   })
+
+  // Buscar mentorados
+  useEffect(() => {
+    const fetchMentorados = async () => {
+      try {
+        const response = await fetch('/api/mentorados')
+        const data = await response.json()
+        if (data.success) {
+          setMentorados(data.mentorados || [])
+        }
+      } catch (error) {
+        console.error('Erro ao buscar mentorados:', error)
+      }
+    }
+
+    if (isOpen) {
+      fetchMentorados()
+    }
+  }, [isOpen])
 
   // Configurar data inicial se fornecida
   const getInitialDateString = () => {
@@ -86,7 +115,8 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
         description: formData.description.trim() || null,
         start_datetime: startDateTime,
         end_datetime: endDateTime,
-        all_day: formData.all_day
+        all_day: formData.all_day,
+        mentorado_id: formData.mentorado_id || null
       }
 
       console.log('Criando evento:', eventData)
@@ -110,7 +140,8 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
         start_time: '',
         end_date: '',
         end_time: '',
-        all_day: false
+        all_day: false,
+        mentorado_id: ''
       })
 
       onSuccess()
@@ -176,6 +207,26 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
                 placeholder="Descrição ou observações sobre o evento"
                 rows={3}
               />
+            </div>
+
+            {/* Mentorado */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="mentorado" className="text-right">
+                Mentorado
+              </Label>
+              <Select value={formData.mentorado_id} onValueChange={(value) => handleChange('mentorado_id', value)}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Selecione um mentorado (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Nenhum mentorado</SelectItem>
+                  {mentorados.map((mentorado) => (
+                    <SelectItem key={mentorado.id} value={mentorado.id}>
+                      {mentorado.nome} ({mentorado.turma})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Dia inteiro */}
