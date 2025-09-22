@@ -164,10 +164,12 @@ app.get('/', (req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 WhatsApp API rodando na porta ${PORT}`);
-  console.log(`📱 Aguardando QR Code...`);
-});
+// Start server only if not running as serverless function
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 WhatsApp API rodando na porta ${PORT}`);
+    console.log(`📱 Aguardando QR Code...`);
+  });
+}
 
 module.exports = app;
