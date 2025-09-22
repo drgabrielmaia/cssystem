@@ -7,7 +7,7 @@ exports.handler = void 0;
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const serverless_http_1 = __importDefault(require("serverless-http"));
-const whatsapp_service_1 = require("./src/whatsapp.service");
+const whatsapp_1 = require("./whatsapp");
 const app = (0, express_1.default)();
 // Middleware
 app.use((0, cors_1.default)({
@@ -29,7 +29,7 @@ app.get('/health', async (req, res) => {
 app.get('/status', async (req, res) => {
     console.log('📡 [Status] Processando requisição...');
     try {
-        const whatsappService = (0, whatsapp_service_1.getWhatsAppService)();
+        const whatsappService = (0, whatsapp_1.getWhatsAppService)();
         const status = whatsappService.getStatus();
         return res.status(200).json({
             success: true,
@@ -48,7 +48,7 @@ app.get('/status', async (req, res) => {
 app.get('/qr', async (req, res) => {
     console.log('📱 [QR] Processando requisição QR Code...');
     try {
-        const whatsappService = (0, whatsapp_service_1.getWhatsAppService)();
+        const whatsappService = (0, whatsapp_1.getWhatsAppService)();
         const qrData = await whatsappService.getQRCode();
         if ('error' in qrData) {
             return res.status(404).json({
@@ -82,7 +82,7 @@ app.post('/send', async (req, res) => {
             });
         }
         console.log(`📤 [Send] Enviando mensagem para ${to}: ${message}`);
-        const whatsappService = (0, whatsapp_service_1.getWhatsAppService)();
+        const whatsappService = (0, whatsapp_1.getWhatsAppService)();
         const chatId = to.includes('@') ? to : `${to}@c.us`;
         const result = await whatsappService.sendMessage(chatId, message);
         return res.status(200).json({
@@ -102,7 +102,7 @@ app.post('/send', async (req, res) => {
 app.get('/contacts', async (req, res) => {
     console.log('📞 [Contacts] Buscando contatos...');
     try {
-        const whatsappService = (0, whatsapp_service_1.getWhatsAppService)();
+        const whatsappService = (0, whatsapp_1.getWhatsAppService)();
         const contacts = whatsappService.getContacts();
         return res.status(200).json({
             success: true,
@@ -123,7 +123,7 @@ app.get('/messages', async (req, res) => {
     console.log('💬 [Messages] Buscando mensagens...');
     try {
         const limit = parseInt(req.query.limit) || 50;
-        const whatsappService = (0, whatsapp_service_1.getWhatsAppService)();
+        const whatsappService = (0, whatsapp_1.getWhatsAppService)();
         const messages = whatsappService.getMessages(limit);
         return res.status(200).json({
             success: true,
@@ -145,7 +145,7 @@ app.get('/messages/:chatId', async (req, res) => {
     try {
         const { chatId } = req.params;
         const limit = parseInt(req.query.limit) || 50;
-        const whatsappService = (0, whatsapp_service_1.getWhatsAppService)();
+        const whatsappService = (0, whatsapp_1.getWhatsAppService)();
         const messages = whatsappService.getChatMessages(chatId, limit);
         return res.status(200).json({
             success: true,
