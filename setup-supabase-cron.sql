@@ -98,7 +98,7 @@ BEGIN
             -- Enviar para o mentorado
             BEGIN
                 SELECT * INTO api_response FROM http_post(
-                    'http://localhost:3001/send',
+                    'https://cs.medicosderesultado.com.br/api/whatsapp/send',
                     json_build_object(
                         'to', event_record.telefone,
                         'message', notification_message
@@ -140,7 +140,7 @@ BEGIN
         -- Enviar para admin (Gabriel)
         BEGIN
             SELECT * INTO api_response FROM http_post(
-                'http://localhost:3001/send',
+                'https://cs.medicosderesultado.com.br/api/whatsapp/send',
                 json_build_object(
                     'to', admin_phone,
                     'message', notification_message

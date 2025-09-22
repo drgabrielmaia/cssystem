@@ -9,7 +9,7 @@ Configure essas variáveis no seu serviço de deploy:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://udzmlnnztzzwrphhizol.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkem1sbm56dHp6d3JwaGhpem9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjkwNzYsImV4cCI6MjA3MzAwNTA3Nn0.KjihWHrNYxDO5ZZKpa8UYPAhw9HIU11yvAvvsNaiPZU
-NEXT_PUBLIC_WHATSAPP_API_URL=https://SUA-API-WHATSAPP.herokuapp.com
+NEXT_PUBLIC_WHATSAPP_API_URL=https://cs.medicosderesultado.com.br/api
 ```
 
 ---
@@ -72,8 +72,8 @@ NEXT_PUBLIC_WHATSAPP_API_URL=https://SUA-API-WHATSAPP.herokuapp.com
 ## 📱 **URLs de Exemplo**
 
 ### **Depois do Deploy**
-- **Frontend**: `https://seu-app.vercel.app`
-- **API WhatsApp**: `https://sua-api.railway.app`
+- **Frontend**: `https://cs.medicosderesultado.com.br`
+- **API WhatsApp**: `https://cs.medicosderesultado.com.br/api`
 
 ### **Configurar no Supabase**
 ```sql
@@ -81,7 +81,7 @@ NEXT_PUBLIC_WHATSAPP_API_URL=https://SUA-API-WHATSAPP.herokuapp.com
 'http://localhost:3001/send'
 
 -- Por esta:
-'https://sua-api.railway.app/send'
+'https://cs.medicosderesultado.com.br/api/whatsapp/send'
 ```
 
 ---
