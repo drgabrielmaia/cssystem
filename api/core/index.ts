@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import serverless from 'serverless-http';
-import { getWhatsAppService } from './src/whatsapp.service';
+import { getWhatsAppService } from './whatsapp';
 
 const app = express();
 
