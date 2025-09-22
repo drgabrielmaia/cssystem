@@ -1,12 +1,7 @@
-const { getWhatsAppService } = require('./whatsapp.js');
-
 exports.handler = async (event) => {
-  console.log('📡 [Lambda Status] Processando requisição...');
+  console.log('🧪 [Lambda Test] Teste simples...');
 
   try {
-    const whatsappService = getWhatsAppService();
-    const status = whatsappService.getStatus();
-
     const response = {
       statusCode: 200,
       headers: {
@@ -17,15 +12,17 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({
         success: true,
-        data: status
+        message: 'Lambda handler funcionando!',
+        timestamp: new Date().toISOString(),
+        event: event
       })
     };
 
-    console.log('✅ [Lambda Status] Status retornado com sucesso');
+    console.log('✅ [Lambda Test] Teste OK');
     return response;
 
   } catch (error) {
-    console.error('❌ [Lambda Status] Erro:', error);
+    console.error('❌ [Lambda Test] Erro:', error);
     return {
       statusCode: 500,
       headers: {

@@ -1,4 +1,4 @@
-const { getWhatsAppService } = require('./core/whatsapp');
+const { getWhatsAppService } = require('./whatsapp.js');
 
 exports.handler = async (event) => {
   console.log('📤 [Lambda Send] Processando envio de mensagem...');

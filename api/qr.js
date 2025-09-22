@@ -1,4 +1,4 @@
-const { getWhatsAppService } = require('./core/whatsapp');
+const { getWhatsAppService } = require('./whatsapp.js');
 
 exports.handler = async (event) => {
   console.log('📱 [Lambda QR] Processando requisição QR Code...');
