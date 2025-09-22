@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3003', 'https://cs.medicosderesultado.com.br', 'https://your-domain.bohr.io'],
+  origin: ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3003', 'https://cs.medicosderesultado.com.br', 'https://www.cs.medicosderesultado.com.br', 'http://cs.medicosderesultado.com.br', 'https://your-domain.bohr.io'],
   credentials: true
 }));
 
