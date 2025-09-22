@@ -41,8 +41,14 @@ export async function middleware(request: NextRequest) {
   // Check if user is authenticated
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Skip middleware for API routes (handled by Bohr Functions or public)
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api')
+  if (isApiRoute) {
+    return response
+  }
+
   // Allow access to public routes without authentication
-  const publicRoutes = ['/login', '/formulario', '/api/chat-ai', '/api/analyze-form', '/api/whatsapp']
+  const publicRoutes = ['/login', '/formulario']
   const isPublicRoute = publicRoutes.some(route => request.nextUrl.pathname.startsWith(route))
   
   // If user is not authenticated and trying to access protected routes, redirect to login
