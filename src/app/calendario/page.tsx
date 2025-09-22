@@ -40,7 +40,7 @@ export default function CalendarioPage() {
   const fetchEvents = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/calendar/events')
+      const response = await fetch('/routes/calendar/events')
       const data = await response.json()
 
       if (data.success) {
@@ -78,7 +78,7 @@ export default function CalendarioPage() {
     if (!confirm('Tem certeza que deseja excluir este evento?')) return
 
     try {
-      const response = await fetch(`/api/calendar/events/${eventId}`, {
+      const response = await fetch(`/routes/calendar/events/${eventId}`, {
         method: 'DELETE'
       })
 

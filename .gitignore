@@ -2,6 +2,7 @@
 node_modules/
 /.pnp
 .pnp.js
+api/core/node_modules/
 
 # Testing
 /coverage
@@ -12,6 +13,8 @@ node_modules/
 
 # Production
 /build
+/dist
+api/core/dist/
 
 # Misc
 .DS_Store
@@ -26,15 +29,31 @@ yarn-error.log*
 # Local env files
 .env*.local
 .env
+.env.production
 
 # Vercel
 .vercel
 
-# Typescript
-*.tsbuildinfo.wwebjs_auth/
+# TypeScript
+*.tsbuildinfo
+
+# WhatsApp Web.js auth and cache
+.wwebjs_auth/
 .wwebjs_cache/
 api/core/.wwebjs_auth/
 api/core/.wwebjs_cache/
-node_modules/
-.env.local
+
+# Logs
 *.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp

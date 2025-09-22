@@ -64,7 +64,7 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
   useEffect(() => {
     const fetchMentorados = async () => {
       try {
-        const response = await fetch('/api/mentorados')
+        const response = await fetch('/routes/mentorados')
         const data = await response.json()
         if (data.success) {
           setMentorados(data.mentorados || [])
@@ -144,7 +144,7 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
 
       console.log('Atualizando evento:', eventData)
 
-      const response = await fetch(`/api/calendar/events/${event.id}`, {
+      const response = await fetch(`/routes/calendar/events/${event.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(eventData)

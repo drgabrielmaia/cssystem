@@ -54,7 +54,7 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
   useEffect(() => {
     const fetchMentorados = async () => {
       try {
-        const response = await fetch('/api/mentorados')
+        const response = await fetch('/routes/mentorados')
         const data = await response.json()
         if (data.success) {
           setMentorados(data.mentorados || [])
@@ -121,7 +121,7 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
 
       console.log('Criando evento:', eventData)
 
-      const response = await fetch('/api/calendar/events', {
+      const response = await fetch('/routes/calendar/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(eventData)
