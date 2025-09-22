@@ -1,33 +1,32 @@
-const createAPI = require('lambda-api');
+const express = require('express');
+const cors = require('cors');
+const serverless = require('serverless-http');
 const { getWhatsAppService } = require('./whatsapp');
 
-const api = createAPI({
-  logger: true
-});
+const app = express();
 
+// Middleware
+app.use(cors({
+  origin: ['http://localhost:3000', 'https://cs.medicosderesultado.com.br'],
+  credentials: true
+}));
+
+app.use(express.json());
+
+// WhatsApp routes
 // Health check
-api.get('/health', async (req, res) => {
-  console.log('🏥 [Lambda Health] Health check...');
+app.get('/health', async (req, res) => {
+  console.log('🏥 [Health] Health check...');
   return res.status(200).json({
     success: true,
-    message: 'WhatsApp API Health Check - Lambda',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Test endpoint
-api.get('/test', async (req, res) => {
-  console.log('🧪 [Lambda Test] Teste simples...');
-  return res.status(200).json({
-    success: true,
-    message: 'Lambda API funcionando!',
+    message: 'WhatsApp API Health Check - Serverless',
     timestamp: new Date().toISOString()
   });
 });
 
 // Status
-api.get('/status', async (req, res) => {
-  console.log('📡 [Lambda Status] Processando requisição...');
+app.get('/status', async (req, res) => {
+  console.log('📡 [Status] Processando requisição...');
   try {
     const whatsappService = getWhatsAppService();
     const status = whatsappService.getStatus();
@@ -37,7 +36,7 @@ api.get('/status', async (req, res) => {
       data: status
     });
   } catch (error) {
-    console.error('❌ [Lambda Status] Erro:', error);
+    console.error('❌ [Status] Erro:', error);
     return res.status(500).json({
       success: false,
       error: error.message
@@ -46,13 +45,13 @@ api.get('/status', async (req, res) => {
 });
 
 // QR Code
-api.get('/qr', async (req, res) => {
-  console.log('📱 [Lambda QR] Processando requisição QR Code...');
+app.get('/qr', async (req, res) => {
+  console.log('📱 [QR] Processando requisição QR Code...');
   try {
     const whatsappService = getWhatsAppService();
     const qrData = await whatsappService.getQRCode();
 
-    if (qrData.error) {
+    if ('error' in qrData) {
       return res.status(404).json({
         success: false,
         error: qrData.error
@@ -65,7 +64,7 @@ api.get('/qr', async (req, res) => {
       qr: qrData.qr
     });
   } catch (error) {
-    console.error('❌ [Lambda QR] Erro:', error);
+    console.error('❌ [QR] Erro:', error);
     return res.status(500).json({
       success: false,
       error: error.message
@@ -74,8 +73,8 @@ api.get('/qr', async (req, res) => {
 });
 
 // Send message
-api.post('/send', async (req, res) => {
-  console.log('📤 [Lambda Send] Processando envio de mensagem...');
+app.post('/send', async (req, res) => {
+  console.log('📤 [Send] Processando envio de mensagem...');
   try {
     const { to, message } = req.body;
 
@@ -86,7 +85,7 @@ api.post('/send', async (req, res) => {
       });
     }
 
-    console.log(`📤 [Lambda Send] Enviando mensagem para ${to}: ${message}`);
+    console.log(`📤 [Send] Enviando mensagem para ${to}: ${message}`);
 
     const whatsappService = getWhatsAppService();
     const chatId = to.includes('@') ? to : `${to}@c.us`;
@@ -97,7 +96,7 @@ api.post('/send', async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error('❌ [Lambda Send] Erro:', error);
+    console.error('❌ [Send] Erro:', error);
     return res.status(500).json({
       success: false,
       error: error.message
@@ -106,8 +105,8 @@ api.post('/send', async (req, res) => {
 });
 
 // Contacts
-api.get('/contacts', async (req, res) => {
-  console.log('📞 [Lambda Contacts] Buscando contatos...');
+app.get('/contacts', async (req, res) => {
+  console.log('📞 [Contacts] Buscando contatos...');
   try {
     const whatsappService = getWhatsAppService();
     const contacts = whatsappService.getContacts();
@@ -118,7 +117,7 @@ api.get('/contacts', async (req, res) => {
       count: contacts.length
     });
   } catch (error) {
-    console.error('❌ [Lambda Contacts] Erro:', error);
+    console.error('❌ [Contacts] Erro:', error);
     return res.status(500).json({
       success: false,
       error: error.message
@@ -127,8 +126,8 @@ api.get('/contacts', async (req, res) => {
 });
 
 // Messages
-api.get('/messages', async (req, res) => {
-  console.log('💬 [Lambda Messages] Buscando mensagens...');
+app.get('/messages', async (req, res) => {
+  console.log('💬 [Messages] Buscando mensagens...');
   try {
     const limit = parseInt(req.query.limit) || 50;
     const whatsappService = getWhatsAppService();
@@ -140,7 +139,31 @@ api.get('/messages', async (req, res) => {
       count: messages.length
     });
   } catch (error) {
-    console.error('❌ [Lambda Messages] Erro:', error);
+    console.error('❌ [Messages] Erro:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Messages from specific chat
+app.get('/messages/:chatId', async (req, res) => {
+  console.log('💬 [Messages] Buscando mensagens do chat...');
+  try {
+    const { chatId } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
+    const whatsappService = getWhatsAppService();
+    const messages = whatsappService.getChatMessages(chatId, limit);
+
+    return res.status(200).json({
+      success: true,
+      data: messages,
+      count: messages.length,
+      chatId: chatId
+    });
+  } catch (error) {
+    console.error('❌ [Messages] Erro:', error);
     return res.status(500).json({
       success: false,
       error: error.message
@@ -149,15 +172,14 @@ api.get('/messages', async (req, res) => {
 });
 
 // Root endpoint
-api.get('/', async (req, res) => {
-  console.log('🏠 [Lambda Index] Rota raiz da API...');
+app.get('/', async (req, res) => {
+  console.log('🏠 [Root] Rota raiz da API...');
   return res.status(200).json({
     success: true,
-    message: 'WhatsApp API - Lambda Functions',
-    version: '1.0.0',
+    message: 'WhatsApp API - Serverless HTTP',
+    version: '3.0.0',
     endpoints: {
       health: '/api/health',
-      test: '/api/test',
       status: '/api/status',
       qr: '/api/qr',
       send: '/api/send',
@@ -168,41 +190,14 @@ api.get('/', async (req, res) => {
   });
 });
 
-// CORS for all routes
-api.use((req, res, next) => {
-  res.cors({
-    origin: ['http://localhost:3000', 'https://cs.medicosderesultado.com.br'],
-    credentials: true
-  });
-  next();
-});
-
-// Lambda handler
-exports.handler = async (event, context) => {
-  console.log('🚀 [Lambda Handler] Event:', JSON.stringify(event, null, 2));
-  return await api.run(event, context);
-};
-
 // For local development
 if (require.main === module) {
   const PORT = process.env.PORT || 3001;
-
-  // Convert to Express for local server
-  const express = require('express');
-  const cors = require('cors');
-
-  const app = express();
-  app.use(cors({
-    origin: ['http://localhost:3000', 'https://cs.medicosderesultado.com.br'],
-    credentials: true
-  }));
-  app.use(express.json());
-
-  // Mount routes
-  app.get('/health', (req, res) => res.json({success: true, message: 'Health OK'}));
-  app.get('/test', (req, res) => res.json({success: true, message: 'Test OK'}));
-
   app.listen(PORT, () => {
     console.log(`🚀 WhatsApp API rodando na porta ${PORT}`);
+    console.log(`📱 Aguardando QR Code...`);
   });
 }
+
+// Export serverless handler
+module.exports.handler = serverless(app);
