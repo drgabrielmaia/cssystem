@@ -54,13 +54,15 @@ declare class WhatsAppService {
     };
     getContacts(): WhatsAppContact[];
     getMessages(limit?: number): WhatsAppMessage[];
-    getChatMessages(chatId: any, limit?: number): any;
-    sendMessage(to: any, message: any): Promise<{
+    getChatMessages(chatId: string, limit?: number): WhatsAppMessage[];
+    sendMessage(to: string, message: string): Promise<{
         success: boolean;
         messageId: any;
         timestamp: any;
+        to: string;
+        message: string;
     }>;
-    notifyLiveUpdate(type: any, data: any): Promise<void>;
+    notifyLiveUpdate(type: string, data: any): Promise<void>;
 }
 export declare const getWhatsAppService: () => WhatsAppService;
 export {};

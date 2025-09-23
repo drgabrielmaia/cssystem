@@ -110,10 +110,27 @@ app.post('/send', async (req: Request, res: Response) => {
   try {
     const { to, message } = req.body;
 
-    if (!to || !message) {
+    // Validação rigorosa dos parâmetros
+    if (!to || typeof to !== 'string' || to.trim().length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Campos "to" e "message" são obrigatórios'
+        error: 'Campo "to" é obrigatório e deve ser uma string não vazia'
+      });
+    }
+
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campo "message" é obrigatório e deve ser uma string não vazia'
+      });
+    }
+
+    // Validação do formato do número
+    const phoneRegex = /^[\d@c.us@g.us\-\+\s\(\)]+$/;
+    if (!phoneRegex.test(to)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Formato de número inválido'
       });
     }
 
@@ -121,7 +138,7 @@ app.post('/send', async (req: Request, res: Response) => {
 
     const whatsappService = getWhatsAppService();
     const chatId = to.includes('@') ? to : `${to}@c.us`;
-    const result = await whatsappService.sendMessage(chatId, message);
+    const result = await whatsappService.sendMessage(chatId, message.trim());
 
     return res.status(200).json({
       success: true,
@@ -131,7 +148,7 @@ app.post('/send', async (req: Request, res: Response) => {
     console.error('❌ [Send] Erro:', error);
     return res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message || 'Erro interno do servidor'
     });
   }
 });
@@ -161,20 +178,45 @@ app.get('/contacts', async (req: Request, res: Response) => {
 app.get('/messages', async (req: Request, res: Response) => {
   console.log('💬 [Messages] Buscando mensagens...');
   try {
-    const limit = parseInt(req.query.limit as string) || 50;
+    const limitParam = req.query.limit as string;
+    let limit = 50; // valor padrão
+
+    // Validação do parâmetro limit
+    if (limitParam) {
+      const parsedLimit = parseInt(limitParam);
+      if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 1000) {
+        return res.status(400).json({
+          success: false,
+          error: 'Parâmetro "limit" deve ser um número entre 1 e 1000'
+        });
+      }
+      limit = parsedLimit;
+    }
+
     const whatsappService = getWhatsAppService();
+
+    // Verificar se o serviço está pronto
+    const status = whatsappService.getStatus();
+    if (!status.isReady) {
+      return res.status(503).json({
+        success: false,
+        error: 'Serviço WhatsApp não está pronto'
+      });
+    }
+
     const messages = whatsappService.getMessages(limit);
 
     return res.status(200).json({
       success: true,
       data: messages,
-      count: messages.length
+      count: messages.length,
+      limit: limit
     });
   } catch (error: any) {
     console.error('❌ [Messages] Erro:', error);
     return res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message || 'Erro interno do servidor'
     });
   }
 });
@@ -184,26 +226,69 @@ app.get('/messages/:chatId', async (req: Request, res: Response) => {
   console.log('💬 [Messages] Buscando mensagens do chat...');
   try {
     const { chatId } = req.params;
-    const limit = parseInt(req.query.limit as string) || 50;
+
+    // Validação do chatId
+    if (!chatId || typeof chatId !== 'string' || chatId.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'ChatId é obrigatório e deve ser uma string não vazia'
+      });
+    }
+
+    // Validação do formato do chatId
+    const chatIdRegex = /^[\d@c.us@g.us\-\+\s\(\)]+$/;
+    if (!chatIdRegex.test(chatId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Formato de chatId inválido'
+      });
+    }
+
+    const limitParam = req.query.limit as string;
+    let limit = 50; // valor padrão
+
+    // Validação do parâmetro limit
+    if (limitParam) {
+      const parsedLimit = parseInt(limitParam);
+      if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 1000) {
+        return res.status(400).json({
+          success: false,
+          error: 'Parâmetro "limit" deve ser um número entre 1 e 1000'
+        });
+      }
+      limit = parsedLimit;
+    }
+
     const whatsappService = getWhatsAppService();
-    const messages = whatsappService.getChatMessages(chatId, limit);
+
+    // Verificar se o serviço está pronto
+    const status = whatsappService.getStatus();
+    if (!status.isReady) {
+      return res.status(503).json({
+        success: false,
+        error: 'Serviço WhatsApp não está pronto'
+      });
+    }
+
+    const messages = whatsappService.getChatMessages(chatId.trim(), limit);
 
     return res.status(200).json({
       success: true,
       data: messages,
       count: messages.length,
-      chatId: chatId
+      chatId: chatId.trim(),
+      limit: limit
     });
   } catch (error: any) {
     console.error('❌ [Messages] Erro:', error);
     return res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message || 'Erro interno do servidor'
     });
   }
 });
 
-if (!module.parent) {
+if (require.main === module) {
   app.listen(3001);
   console.log("Express started on port 3001");
 }

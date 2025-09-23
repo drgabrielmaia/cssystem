@@ -106,8 +106,8 @@ class WhatsAppService {
         try {
             const contacts = await this.client.getContacts();
             this.contacts = contacts
-                .filter(contact => contact.isMyContact && contact.name)
-                .map(contact => ({
+                .filter((contact) => contact.isMyContact && contact.name)
+                .map((contact) => ({
                 id: contact.id._serialized,
                 name: contact.name || contact.pushname || contact.number,
                 pushname: contact.pushname || '',
@@ -186,62 +186,116 @@ class WhatsAppService {
         return this.contacts;
     }
     getMessages(limit = 50) {
+        // Validação do parâmetro limit
+        if (typeof limit !== 'number' || isNaN(limit) || limit < 1 || limit > 1000) {
+            throw new Error('Limit deve ser um número entre 1 e 1000');
+        }
         return this.messages.slice(0, limit);
     }
     getChatMessages(chatId, limit = 50) {
-        const isGroup = chatId.includes('@g.us');
-        console.log(`🔍 [BACKEND] Buscando mensagens para: ${chatId} (isGroup: ${isGroup})`);
+        // Validação dos parâmetros
+        if (!chatId || typeof chatId !== 'string' || chatId.trim().length === 0) {
+            throw new Error('ChatId é obrigatório e deve ser uma string não vazia');
+        }
+        if (typeof limit !== 'number' || isNaN(limit) || limit < 1 || limit > 1000) {
+            throw new Error('Limit deve ser um número entre 1 e 1000');
+        }
+        // Validação do formato do chatId
+        const chatIdRegex = /^[\d@c.us@g.us\-\+\s\(\)]+$/;
+        if (!chatIdRegex.test(chatId)) {
+            throw new Error('Formato de chatId inválido');
+        }
+        const cleanChatId = chatId.trim();
+        const isGroup = cleanChatId.includes('@g.us');
+        console.log(`🔍 [BACKEND] Buscando mensagens para: ${cleanChatId} (isGroup: ${isGroup})`);
         let chatMessages;
         if (isGroup) {
             // Para grupos: SOMENTE mensagens onde FROM ou TO é exatamente o grupo
-            chatMessages = this.messages.filter(msg => {
-                const match = (msg.from === chatId || msg.to === chatId);
+            chatMessages = this.messages.filter((msg) => {
+                const match = (msg.from === cleanChatId || msg.to === cleanChatId);
                 if (match) {
                     console.log(`🔵 [GRUPO] Mensagem incluída: ${msg.from} -> ${msg.to}: ${msg.body.substring(0, 50)}...`);
                 }
                 return match;
             });
-            console.log(`🔵 [GRUPO] Total de mensagens do grupo ${chatId}: ${chatMessages.length}`);
+            console.log(`🔵 [GRUPO] Total de mensagens do grupo ${cleanChatId}: ${chatMessages.length}`);
         }
         else {
             // Para conversas individuais: NUNCA incluir mensagens de grupos
-            chatMessages = this.messages.filter(msg => {
+            chatMessages = this.messages.filter((msg) => {
                 // REJEITAR qualquer mensagem que envolva um grupo
                 if (msg.from.includes('@g.us') || msg.to.includes('@g.us')) {
                     return false;
                 }
                 // INCLUIR apenas se FROM ou TO for exatamente o contact individual
-                const match = (msg.from === chatId || msg.to === chatId);
+                const match = (msg.from === cleanChatId || msg.to === cleanChatId);
                 if (match) {
                     console.log(`👤 [INDIVIDUAL] Mensagem incluída: ${msg.from} -> ${msg.to}: ${msg.body.substring(0, 50)}...`);
                 }
                 return match;
             });
-            console.log(`👤 [INDIVIDUAL] Total de mensagens individuais para ${chatId}: ${chatMessages.length}`);
+            console.log(`👤 [INDIVIDUAL] Total de mensagens individuais para ${cleanChatId}: ${chatMessages.length}`);
         }
         const result = chatMessages.slice(0, limit);
-        console.log(`📤 [BACKEND] Retornando ${result.length} mensagens para ${chatId}`);
+        console.log(`📤 [BACKEND] Retornando ${result.length} mensagens para ${cleanChatId}`);
         return result;
     }
     async sendMessage(to, message) {
         try {
+            // Validação rigorosa dos parâmetros
+            if (!to || typeof to !== 'string' || to.trim().length === 0) {
+                throw new Error('Parâmetro "to" é obrigatório e deve ser uma string não vazia');
+            }
+            if (!message || typeof message !== 'string' || message.trim().length === 0) {
+                throw new Error('Parâmetro "message" é obrigatório e deve ser uma string não vazia');
+            }
+            // Validação do formato do número
+            const phoneRegex = /^[\d@c.us@g.us\-\+\s\(\)]+$/;
+            if (!phoneRegex.test(to)) {
+                throw new Error('Formato de número inválido');
+            }
+            // Validação do tamanho da mensagem
+            if (message.trim().length > 4096) {
+                throw new Error('Mensagem muito longa. Máximo 4096 caracteres');
+            }
             if (!this.isReady) {
                 throw new Error('WhatsApp não está conectado');
             }
-            const result = await this.client.sendMessage(to, message);
+            if (!this.client) {
+                throw new Error('Cliente WhatsApp não inicializado');
+            }
+            const cleanTo = to.trim();
+            const cleanMessage = message.trim();
+            const result = await this.client.sendMessage(cleanTo, cleanMessage);
+            if (!result || !result.id) {
+                throw new Error('Falha ao enviar mensagem - resposta inválida');
+            }
             return {
                 success: true,
                 messageId: result.id._serialized,
-                timestamp: result.timestamp
+                timestamp: result.timestamp,
+                to: cleanTo,
+                message: cleanMessage
             };
         }
         catch (error) {
-            throw error;
+            console.error('❌ Erro no sendMessage:', error);
+            throw new Error(error.message || 'Erro interno ao enviar mensagem');
         }
     }
     // Notificar sistema de atualizações em tempo real
     async notifyLiveUpdate(type, data) {
         try {
+            // Validação dos parâmetros
+            if (!type || typeof type !== 'string' || type.trim().length === 0) {
+                console.error('❌ Tipo de atualização inválido');
+                return;
+            }
+            if (data === null || data === undefined) {
+                console.error('❌ Dados da atualização são obrigatórios');
+                return;
+            }
+            const cleanType = type.trim();
             // Usar fetch nativo para Node.js v18+
             const response = await fetch('http://localhost:3002/api/whatsapp/live-updates', {
                 method: 'POST',
@@ -249,29 +303,37 @@ class WhatsAppService {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    type: type,
-                    data: data
+                    type: cleanType,
+                    data: data,
+                    timestamp: new Date().toISOString()
                 })
             });
             if (response.ok) {
-                console.log(`📡 Atualização ${type} enviada para sistema SSE`);
+                console.log(`📡 Atualização ${cleanType} enviada para sistema SSE`);
             }
             else {
-                console.log(`⚠️ Falha ao enviar atualização ${type}:`, response.status);
+                console.log(`⚠️ Falha ao enviar atualização ${cleanType}:`, response.status);
             }
         }
         catch (error) {
-            console.log(`⚠️ Erro ao notificar live update:`, error.message);
+            console.log(`⚠️ Erro ao notificar live update:`, error?.message || 'Erro desconhecido');
         }
     }
 }
 // Global instance
 let whatsappService = null;
 const getWhatsAppService = () => {
-    if (!whatsappService) {
-        whatsappService = new WhatsAppService();
+    try {
+        if (!whatsappService) {
+            console.log('🚀 Criando nova instância do WhatsAppService...');
+            whatsappService = new WhatsAppService();
+        }
+        return whatsappService;
     }
-    return whatsappService;
+    catch (error) {
+        console.error('❌ Erro ao criar/obter WhatsAppService:', error);
+        throw new Error('Falha ao inicializar serviço WhatsApp: ' + (error?.message || 'Erro desconhecido'));
+    }
 };
 exports.getWhatsAppService = getWhatsAppService;
 //# sourceMappingURL=whatsapp.js.map
