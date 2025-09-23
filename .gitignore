@@ -14,7 +14,7 @@ api/core/node_modules/
 # Production
 /build
 /dist
-./api/core/dist/
+api/core/dist/
 
 # Misc
 .DS_Store
