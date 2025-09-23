@@ -41,10 +41,10 @@ class WhatsAppCoreService {
   private statusListeners: ((status: string) => void)[] = [];
 
   constructor() {
-    // URL da API Express - Bohr mapeia api/core para /api
+    // URL da API Express - Render deployment
     const isProduction = process.env.NODE_ENV === 'production';
     this.baseUrl = isProduction
-      ? 'https://cs.medicosderesultado.com.br/api'  // Bohr Functions route
+      ? 'https://api-cs-2.onrender.com'  // Render deployment
       : 'http://localhost:3001';                     // Local Express server
   }
 
@@ -182,7 +182,7 @@ class WhatsAppCoreService {
   async getChatMessages(chatId: string, limit: number = 20): Promise<WhatsAppMessage[]> {
     console.log(`📱 [WhatsApp Service] Carregando mensagens do chat: ${chatId} (limit: ${limit})`);
     try {
-      const url = `${this.baseUrl}/chats/${encodeURIComponent(chatId)}/messages?limit=${limit}`;
+      const url = `${this.baseUrl}/messages/${encodeURIComponent(chatId)}?limit=${limit}`;
       console.log(`📡 [WhatsApp Service] URL de busca do chat: ${url}`);
 
       const response = await fetch(url);

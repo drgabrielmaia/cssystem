@@ -48,10 +48,10 @@ class WhatsAppCoreAPI {
   private baseUrl: string;
 
   constructor() {
-    // Em produção na Bohr.io, será a URL da sua aplicação
+    // Em produção no Render, será a URL da sua aplicação
     // Em desenvolvimento, será localhost:3001 (API core)
     this.baseUrl = process.env.NODE_ENV === 'production'
-      ? '/api/core' // Bohr.io vai mapear para api/core
+      ? 'https://api-cs-2.onrender.com' // Render deployment
       : 'http://localhost:3001'; // Desenvolvimento local
   }
 
@@ -95,7 +95,7 @@ class WhatsAppCoreAPI {
   }
 
   async getChatMessages(chatId: string, limit = 50): Promise<ApiResponse<Message[]>> {
-    return this.request<Message[]>(`/chats/${encodeURIComponent(chatId)}/messages?limit=${limit}`);
+    return this.request<Message[]>(`/messages/${encodeURIComponent(chatId)}?limit=${limit}`);
   }
 
   async sendMessage(to: string, message: string): Promise<ApiResponse<{ messageId: string; timestamp: number }>> {
