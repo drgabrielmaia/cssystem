@@ -68,7 +68,7 @@ class WhatsAppService {
 
   setupEventHandlers() {
     // QR Code generation
-    this.client.on('qr', async (qr) => {
+    this.client.on('qr', async (qr: string) => {
       console.log('📱 QR Code recebido');
       this.qrString = qr;
       this.isConnecting = true;
@@ -90,21 +90,21 @@ class WhatsAppService {
     });
 
     // Authentication failure
-    this.client.on('auth_failure', (msg) => {
+    this.client.on('auth_failure', (msg: any) => {
       console.error('❌ Falha na autenticação:', msg);
       this.isReady = false;
       this.isConnecting = false;
     });
 
     // Client disconnected
-    this.client.on('disconnected', (reason) => {
+    this.client.on('disconnected', (reason: any) => {
       console.log('🔌 WhatsApp desconectado:', reason);
       this.isReady = false;
       this.isConnecting = false;
     });
 
     // Message received
-    this.client.on('message', async (message) => {
+    this.client.on('message', async (message: any) => {
       const formattedMessage = await this.formatMessage(message);
       this.messages.unshift(formattedMessage);
 
@@ -120,7 +120,7 @@ class WhatsAppService {
     });
 
     // Message sent
-    this.client.on('message_create', async (message) => {
+    this.client.on('message_create', async (message: any) => {
       if (message.fromMe) {
         const formattedMessage = await this.formatMessage(message);
         this.messages.unshift(formattedMessage);
@@ -163,7 +163,7 @@ class WhatsAppService {
     }
   }
 
-  async formatMessage(message) {
+  async formatMessage(message: any) {
     const contact = await message.getContact();
 
     // Para grupos, verificar se a mensagem é de um grupo
