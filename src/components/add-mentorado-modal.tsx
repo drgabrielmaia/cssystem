@@ -65,18 +65,10 @@ Por isso, quero que a gente agende seu onboarding 1:1 — é nessa conversa que 
 
 Vamos com tudo. 🔥`
 
-          const response = await fetch('/api/whatsapp/send', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              to: formData.telefone,
-              message: welcomeMessage
-            })
-          })
+          const { whatsappService } = await import('@/lib/whatsapp-core-service')
+          const success = await whatsappService.sendMessage(formData.telefone, welcomeMessage)
 
-          if (response.ok) {
+          if (success) {
             console.log('✅ Mensagem de boas-vindas enviada com sucesso!')
           } else {
             console.warn('⚠️ Não foi possível enviar mensagem de boas-vindas')

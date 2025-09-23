@@ -122,14 +122,15 @@ export default function WhatsAppPage() {
 
   const checkStatus = useCallback(async () => {
     try {
-      const response = await fetch('/api/whatsapp/status');
-      const data = await response.json();
+      const { whatsappService } = await import('@/lib/whatsapp-core-service');
+      const statusData = await whatsappService.getStatus();
+      const qrData = await whatsappService.getQRCode();
 
-      if (data.success) {
+      if (statusData) {
         setStatus({
-          isReady: data.isReady,
-          qrCode: data.qrCode,
-          status: data.status
+          isReady: statusData.isReady,
+          qrCode: qrData?.qrImage || null,
+          status: statusData.isReady ? 'connected' : 'disconnected'
         });
       }
     } catch (error) {
@@ -143,16 +144,11 @@ export default function WhatsAppPage() {
 
     try {
       // Buscar contatos e mensagens em paralelo
-      const [contactsRes, messagesRes] = await Promise.all([
-        fetch('/api/whatsapp/contacts'),
-        fetch('/api/whatsapp/messages?limit=100')
+      const { whatsappService } = await import('@/lib/whatsapp-core-service');
+      const [allContacts, allMessages] = await Promise.all([
+        whatsappService.getContacts(),
+        whatsappService.getMessages(100)
       ]);
-
-      const contactsData = await contactsRes.json();
-      const messagesData = await messagesRes.json();
-
-      const allContacts = contactsData.success ? contactsData.contacts || [] : [];
-      const allMessages = messagesData.success ? messagesData.messages || [] : [];
 
       console.log(`📊 Carregando: ${allContacts.length} contatos, ${allMessages.length} mensagens`);
 
@@ -308,21 +304,15 @@ export default function WhatsAppPage() {
     try {
       console.log(`📱 Carregando mensagens para: ${contactId}`);
 
-      const response = await fetch(`/api/whatsapp/messages?chatId=${contactId}&limit=50`);
-      const data = await response.json();
+      const { whatsappService } = await import('@/lib/whatsapp-core-service');
+      const messages = await whatsappService.getChatMessages(contactId, 50);
 
-      if (data.success) {
-        const messages = data.messages || [];
-        // Ordenar mensagens: mais recentes PRIMEIRO (ordem decrescente de timestamp)
-        const sortedMessages = messages.sort((a: WhatsAppMessage, b: WhatsAppMessage) =>
-          b.timestamp - a.timestamp
-        );
-        setChatMessages(sortedMessages);
-        console.log(`✅ ${sortedMessages.length} mensagens carregadas (ordenadas: mais recentes primeiro)`);
-      } else {
-        console.log(`💭 Nenhuma mensagem para ${contactId}, iniciando conversa vazia`);
-        setChatMessages([]);
-      }
+      // Ordenar mensagens: mais recentes PRIMEIRO (ordem decrescente de timestamp)
+      const sortedMessages = messages.sort((a: WhatsAppMessage, b: WhatsAppMessage) =>
+        b.timestamp - a.timestamp
+      );
+      setChatMessages(sortedMessages);
+      console.log(`✅ ${sortedMessages.length} mensagens carregadas (ordenadas: mais recentes primeiro)`);
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
       setChatMessages([]);
@@ -358,18 +348,14 @@ export default function WhatsAppPage() {
       // Atualizar UI imediatamente (adicionar no INÍCIO pois ordenamos por mais recentes primeiro)
       setChatMessages(prev => [tempMessage, ...prev]);
 
-      // Usar o endpoint correto /send
-      const response = await fetch('/api/whatsapp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: selectedConversation.contact.id,
-          message: messageText
-        })
-      });
+      // Enviar mensagem usando o serviço
+      const { whatsappService } = await import('@/lib/whatsapp-core-service');
+      const success = await whatsappService.sendMessage(
+        selectedConversation.contact.id,
+        messageText
+      );
 
-      const data = await response.json();
-      if (data.success) {
+      if (success) {
         console.log('✅ Mensagem enviada com sucesso!');
 
         // Recarregar mensagens após 1 segundo para pegar a mensagem real
@@ -378,7 +364,7 @@ export default function WhatsAppPage() {
           loadConversations();
         }, 1000);
       } else {
-        console.error('❌ Falha ao enviar mensagem:', data.error);
+        console.error('❌ Falha ao enviar mensagem');
         // Remover mensagem temporária em caso de erro
         setChatMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
         setNewMessage(messageText); // Restaurar texto
@@ -419,13 +405,11 @@ export default function WhatsAppPage() {
   const initializeWhatsApp = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/whatsapp/init', { method: 'POST' });
-      const data = await response.json();
+      const { whatsappService } = await import('@/lib/whatsapp-core-service');
+      await whatsappService.initialize();
 
-      if (data.success) {
-        const interval = setInterval(checkStatus, 2000);
-        setTimeout(() => clearInterval(interval), 60000);
-      }
+      const interval = setInterval(checkStatus, 2000);
+      setTimeout(() => clearInterval(interval), 60000);
     } catch (error) {
       console.error('Erro ao inicializar WhatsApp:', error);
     } finally {
@@ -478,8 +462,10 @@ export default function WhatsAppPage() {
 
     console.log('📡 Conectando SSE para atualizações em tempo real...');
 
-    // Conectar ao SSE
-    const eventSource = new EventSource('/api/whatsapp/live-updates');
+    // Conectar ao SSE (usando URL da API)
+    const isProduction = process.env.NODE_ENV === 'production';
+    const apiUrl = isProduction ? 'https://api-cs-2.onrender.com' : 'http://localhost:3001';
+    const eventSource = new EventSource(`${apiUrl}/live-updates`);
 
     eventSource.addEventListener('message', (event) => {
       try {

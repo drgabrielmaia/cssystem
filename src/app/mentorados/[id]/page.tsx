@@ -175,23 +175,13 @@ Link: ${formulario.url}`
       // Adicionar @c.us para formato WhatsApp
       numeroWhatsApp = numeroWhatsApp + '@c.us'
 
-      const response = await fetch('/api/whatsapp/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: numeroWhatsApp,
-          message: mensagemTemplate
-        })
-      })
+      const { whatsappService } = await import('@/lib/whatsapp-core-service')
+      const success = await whatsappService.sendMessage(numeroWhatsApp, mensagemTemplate)
 
-      const result = await response.json()
-
-      if (result.success) {
+      if (success) {
         alert('✅ Formulário enviado via WhatsApp com sucesso!')
       } else {
-        alert(`❌ Erro ao enviar mensagem: ${result.error}`)
+        alert('❌ Erro ao enviar mensagem via WhatsApp')
       }
 
     } catch (error) {
