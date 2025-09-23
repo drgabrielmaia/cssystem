@@ -14,7 +14,7 @@ api/core/node_modules/
 # Production
 /build
 /dist
-api/core/dist/
+./api/core/dist/
 
 # Misc
 .DS_Store
@@ -40,8 +40,8 @@ yarn-error.log*
 # WhatsApp Web.js auth and cache
 .wwebjs_auth/
 .wwebjs_cache/
-api/core/.wwebjs_auth/
-api/core/.wwebjs_cache/
+./api/core/.wwebjs_auth/
+./api/core/.wwebjs_cache/
 
 # Logs
 *.log

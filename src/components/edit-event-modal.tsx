@@ -57,20 +57,21 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
     end_date: '',
     end_time: '',
     all_day: false,
-    mentorado_id: ''
+    mentorado_id: 'none'
   })
 
   // Buscar mentorados
   useEffect(() => {
     const fetchMentorados = async () => {
       try {
-        const response = await fetch('/routes/mentorados')
+        const response = await fetch('/api/mentorados')
         const data = await response.json()
         if (data.success) {
           setMentorados(data.mentorados || [])
         }
       } catch (error) {
         console.error('Erro ao buscar mentorados:', error)
+        setMentorados([])
       }
     }
 
@@ -93,7 +94,7 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
         end_date: endDate.toISOString().split('T')[0],
         end_time: event.all_day ? '' : endDate.toTimeString().slice(0, 5),
         all_day: event.all_day,
-        mentorado_id: event.mentorado_id || ''
+        mentorado_id: event.mentorado_id || 'none'
       })
     }
   }, [event, isOpen])
@@ -139,7 +140,7 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
         start_datetime: startDateTime,
         end_datetime: endDateTime,
         all_day: formData.all_day,
-        mentorado_id: formData.mentorado_id || null
+        mentorado_id: formData.mentorado_id && formData.mentorado_id !== 'none' ? formData.mentorado_id : null
       }
 
       console.log('Atualizando evento:', eventData)
@@ -232,7 +233,7 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
                   <SelectValue placeholder="Selecione um mentorado (opcional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum mentorado</SelectItem>
+                  <SelectItem value="none">Nenhum mentorado</SelectItem>
                   {mentorados.map((mentorado) => (
                     <SelectItem key={mentorado.id} value={mentorado.id}>
                       {mentorado.nome} ({mentorado.turma})
