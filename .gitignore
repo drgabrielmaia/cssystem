@@ -2,7 +2,6 @@
 node_modules/
 /.pnp
 .pnp.js
-api/core/node_modules/
 
 # Testing
 /coverage
@@ -14,7 +13,6 @@ api/core/node_modules/
 # Production
 /build
 /dist
-api/core/dist/
 
 # Misc
 .DS_Store
@@ -36,12 +34,6 @@ yarn-error.log*
 
 # TypeScript
 *.tsbuildinfo
-
-# WhatsApp Web.js auth and cache
-.wwebjs_auth/
-.wwebjs_cache/
-./api/core/.wwebjs_auth/
-./api/core/.wwebjs_cache/
 
 # Logs
 *.log
