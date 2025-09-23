@@ -1,7 +1,32 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const QRCode = require('qrcode');
 
+interface WhatsAppMessage {
+  id: string;
+  from: string;
+  to: string;
+  body: string;
+  type: string;
+  timestamp: number;
+  isFromMe: boolean;
+  contact: any;
+}
+
+interface WhatsAppContact {
+  id: string;
+  name: string;
+  pushname: string;
+  number: string;
+}
+
 class WhatsAppService {
+  private client: any;
+  private qrString: string | null;
+  private isReady: boolean;
+  private isConnecting: boolean;
+  private messages: WhatsAppMessage[];
+  private contacts: WhatsAppContact[];
+
   constructor() {
     this.client = null;
     this.qrString = null;
@@ -296,13 +321,11 @@ class WhatsAppService {
 }
 
 // Global instance
-let whatsappService = null;
+let whatsappService: WhatsAppService | null = null;
 
-const getWhatsAppService = () => {
+export const getWhatsAppService = (): WhatsAppService => {
   if (!whatsappService) {
     whatsappService = new WhatsAppService();
   }
   return whatsappService;
 };
-
-module.exports = { getWhatsAppService };

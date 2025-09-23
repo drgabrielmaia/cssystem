@@ -1,10 +1,8 @@
 import express, { Response, Request } from "express";
 import cors from "cors";
+import { getWhatsAppService } from './whatsapp';
 
 var app = express();
-
-// @ts-ignore
-const { getWhatsAppService } = require('./whatsapp');
 
 // Middleware
 app.use(cors({
@@ -206,8 +204,8 @@ app.get('/messages/:chatId', async (req: Request, res: Response) => {
 });
 
 if (!module.parent) {
-  app.listen(3000);
-  console.log("Express started on port 3000");
+  app.listen(3001);
+  console.log("Express started on port 3001");
 }
 
 export default app;
