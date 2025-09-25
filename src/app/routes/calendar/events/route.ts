@@ -97,6 +97,43 @@ export async function POST(request: NextRequest) {
       .insert([eventData])
       .select()
 
+    // Se evento foi criado com sucesso, enviar notificação WhatsApp para o admin
+    if (data && data.length > 0) {
+      const createdEvent = data[0]
+      try {
+        // Formatar data e hora para o Brasil
+        const eventDateTime = new Date(createdEvent.start_datetime)
+        const formattedDate = eventDateTime.toLocaleDateString('pt-BR')
+        const formattedTime = eventDateTime.toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+
+        const message = `🎯 Novo evento cadastrado!
+
+📅 ${createdEvent.title}
+📅 Data: ${formattedDate}
+⏰ Horário: ${formattedTime}
+
+${createdEvent.description ? `📋 Descrição: ${createdEvent.description}` : ''}`
+
+        // Enviar para API WhatsApp
+        await fetch('http://217.196.60.199:3001/users/default/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: '558396910414', // Admin Gabriel
+            message: message.trim()
+          })
+        })
+
+        console.log('📱 Notificação WhatsApp enviada para o admin')
+      } catch (whatsappError) {
+        console.error('⚠️ Erro ao enviar notificação WhatsApp:', whatsappError)
+        // Não falha a criação do evento se WhatsApp falhar
+      }
+    }
+
     if (error) {
       console.error('❌ Erro do Supabase ao criar evento:', error)
       throw error

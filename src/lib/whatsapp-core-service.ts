@@ -41,11 +41,11 @@ class WhatsAppCoreService {
   private statusListeners: ((status: string) => void)[] = [];
 
   constructor() {
-    // URL da API Express - Render deployment
+    // URL da API Express - Docker local ou Render deployment
     const isProduction = process.env.NODE_ENV === 'production';
     this.baseUrl = isProduction
       ? 'https://api-cs-2.onrender.com'  // Render deployment
-      : 'http://localhost:3001';                     // Local Express server
+      : 'http://localhost:3001';                     // Local API server na porta 3001
   }
 
   async initialize(): Promise<void> {
@@ -68,9 +68,24 @@ class WhatsAppCoreService {
 
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/health`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout para Docker
+
+      const response = await fetch(`${this.baseUrl}/health`, {
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return false;
+      }
+
       const data = await response.json();
-      return data.success;
+      return data.success === true;
     } catch (error) {
       console.error('❌ Erro no health check:', error);
       return false;
@@ -80,8 +95,24 @@ class WhatsAppCoreService {
   async getStatus(): Promise<WhatsAppStatus | null> {
     console.log('🔍 [WhatsApp Service] Buscando status da API core...');
     try {
-      const response = await fetch(`${this.baseUrl}/status`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout para Docker
+
+      const response = await fetch(`${this.baseUrl}/status`, {
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      clearTimeout(timeoutId);
       console.log('📡 [WhatsApp Service] Resposta da API core:', response.status);
+
+      if (!response.ok) {
+        console.log('❌ [WhatsApp Service] Resposta não ok:', response.status);
+        return null;
+      }
+
       const data = await response.json();
       console.log('📋 [WhatsApp Service] Dados do status:', data);
 
@@ -124,14 +155,26 @@ class WhatsAppCoreService {
 
   async sendMessage(to: string, message: string): Promise<boolean> {
     try {
-      console.log(`📤 Enviando mensagem para ${to}: ${message}`);
+      // Format phone number to include +55 if needed
+      let formattedNumber = to.replace(/\D/g, ''); // Remove non-digits
+
+      if (!formattedNumber.startsWith('55') && formattedNumber.length === 11) {
+        formattedNumber = '55' + formattedNumber;
+      }
+
+      // Add @s.whatsapp.net suffix if needed
+      const phoneWithSuffix = formattedNumber.includes('@')
+        ? formattedNumber
+        : `${formattedNumber}@s.whatsapp.net`;
+
+      console.log(`📤 Enviando mensagem para ${phoneWithSuffix}: ${message}`);
 
       const response = await fetch(`${this.baseUrl}/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ to, message })
+        body: JSON.stringify({ to: phoneWithSuffix, message })
       });
 
       const data = await response.json();

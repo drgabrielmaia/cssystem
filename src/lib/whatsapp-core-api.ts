@@ -21,6 +21,19 @@ export interface Contact {
   isMyContact: boolean;
 }
 
+export interface Chat {
+  id: string;
+  name: string;
+  isGroup: boolean;
+  lastMessage: {
+    body: string;
+    timestamp: number;
+    isFromMe: boolean;
+  };
+  unreadCount: number;
+  timestamp: number;
+}
+
 export interface Message {
   id: string;
   from: string;
@@ -46,13 +59,11 @@ export interface ApiResponse<T> {
 
 class WhatsAppCoreAPI {
   private baseUrl: string;
+  private userId: string = 'default'; // Default user ID for single-user mode
 
   constructor() {
-    // Em produção no Render, será a URL da sua aplicação
-    // Em desenvolvimento, será localhost:3001 (API core)
-    this.baseUrl = process.env.NODE_ENV === 'production'
-      ? 'https://api-cs-2.onrender.com' // Render deployment
-      : 'http://localhost:3001'; // Desenvolvimento local
+    // Sempre usa servidor de produção
+    this.baseUrl = 'http://217.196.60.199:3001';
   }
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
@@ -79,27 +90,35 @@ class WhatsAppCoreAPI {
   }
 
   async getStatus(): Promise<ApiResponse<WhatsAppStatus>> {
-    return this.request<WhatsAppStatus>('/status');
+    return this.request<WhatsAppStatus>(`/users/${this.userId}/status`);
   }
 
   async getQRCode(): Promise<ApiResponse<QRCodeData>> {
-    return this.request<QRCodeData>('/qr');
+    return this.request<QRCodeData>(`/users/${this.userId}/qr`);
   }
 
   async getContacts(): Promise<ApiResponse<Contact[]>> {
-    return this.request<Contact[]>('/contacts');
+    return this.request<Contact[]>(`/users/${this.userId}/contacts`);
+  }
+
+  async getChats(): Promise<ApiResponse<Chat[]>> {
+    return this.request<Chat[]>(`/users/${this.userId}/chats`);
   }
 
   async getMessages(limit = 50): Promise<ApiResponse<Message[]>> {
-    return this.request<Message[]>(`/messages?limit=${limit}`);
+    return this.request<Message[]>(`/users/${this.userId}/messages?limit=${limit}`);
   }
 
   async getChatMessages(chatId: string, limit = 50): Promise<ApiResponse<Message[]>> {
-    return this.request<Message[]>(`/messages/${encodeURIComponent(chatId)}?limit=${limit}`);
+    return this.request<Message[]>(`/users/${this.userId}/messages/${encodeURIComponent(chatId)}?limit=${limit}`);
+  }
+
+  async getChatHistory(chatId: string, limit = 5): Promise<ApiResponse<Message[]>> {
+    return this.request<Message[]>(`/users/${this.userId}/chats/${encodeURIComponent(chatId)}/history?limit=${limit}`);
   }
 
   async sendMessage(to: string, message: string): Promise<ApiResponse<{ messageId: string; timestamp: number }>> {
-    return this.request('/send', {
+    return this.request(`/users/${this.userId}/send`, {
       method: 'POST',
       body: JSON.stringify({ to, message }),
     });
@@ -107,6 +126,12 @@ class WhatsAppCoreAPI {
 
   async getHealth(): Promise<ApiResponse<{ message: string; timestamp: string }>> {
     return this.request('/health');
+  }
+
+  async registerUser(): Promise<ApiResponse<{ message: string; userId: string }>> {
+    return this.request(`/users/${this.userId}/register`, {
+      method: 'POST',
+    });
   }
 }
 

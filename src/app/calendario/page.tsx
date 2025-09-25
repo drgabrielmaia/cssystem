@@ -127,8 +127,10 @@ export default function CalendarioPage() {
 
   const getEventsForDate = (date: Date) => {
     return events.filter(event => {
-      const eventDate = new Date(event.start_datetime)
-      return eventDate.toDateString() === date.toDateString()
+      // Para garantir comparação correta de datas, usar apenas a parte da data
+      const eventDateStr = event.start_datetime.split('T')[0] // YYYY-MM-DD
+      const targetDateStr = date.toISOString().split('T')[0] // YYYY-MM-DD
+      return eventDateStr === targetDateStr
     })
   }
 

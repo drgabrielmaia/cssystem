@@ -73,9 +73,17 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
   // Configurar data inicial se fornecida
   const getInitialDateString = () => {
     if (initialDate) {
-      return initialDate.toISOString().split('T')[0]
+      // Usar timezone local ao invés de UTC para evitar mudança de dia
+      const year = initialDate.getFullYear()
+      const month = String(initialDate.getMonth() + 1).padStart(2, '0')
+      const day = String(initialDate.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
     }
-    return new Date().toISOString().split('T')[0]
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,19 +99,14 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
 
       let startDateTime, endDateTime
 
-      if (formData.all_day) {
-        // Para eventos de dia inteiro
-        startDateTime = `${formData.start_date || getInitialDateString()}T00:00:00Z`
-        endDateTime = `${formData.end_date || formData.start_date || getInitialDateString()}T23:59:59Z`
-      } else {
-        // Para eventos com horário específico
-        if (!formData.start_time || !formData.end_time) {
-          alert('Horário de início e fim são obrigatórios')
-          return
-        }
-        startDateTime = `${formData.start_date || getInitialDateString()}T${formData.start_time}:00Z`
-        endDateTime = `${formData.end_date || formData.start_date || getInitialDateString()}T${formData.end_time}:00Z`
+      // Todos os eventos agora têm horário específico
+      if (!formData.start_time || !formData.end_time) {
+        alert('Horário de início e fim são obrigatórios')
+        return
       }
+
+      startDateTime = `${formData.start_date || getInitialDateString()}T${formData.start_time}:00`
+      endDateTime = `${formData.end_date || formData.start_date || getInitialDateString()}T${formData.end_time}:00`
 
       // Validar que a data de fim é posterior à de início
       if (new Date(endDateTime) <= new Date(startDateTime)) {
@@ -116,7 +119,7 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
         description: formData.description.trim() || null,
         start_datetime: startDateTime,
         end_datetime: endDateTime,
-        all_day: formData.all_day,
+        all_day: false, // Sempre false - todos os eventos têm horário
         mentorado_id: formData.mentorado_id && formData.mentorado_id !== 'none' ? formData.mentorado_id : null
       }
 
@@ -160,14 +163,7 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const toggleAllDay = (checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      all_day: checked,
-      start_time: checked ? '' : prev.start_time,
-      end_time: checked ? '' : prev.end_time
-    }))
-  }
+  // Função toggleAllDay removida - sempre usar horários
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -230,24 +226,7 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
               </Select>
             </div>
 
-            {/* Dia inteiro */}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">
-                Tipo
-              </Label>
-              <div className="col-span-3 flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="all_day"
-                  checked={formData.all_day}
-                  onChange={(e) => toggleAllDay(e.target.checked)}
-                  className="rounded"
-                />
-                <Label htmlFor="all_day" className="text-sm">
-                  Evento de dia inteiro
-                </Label>
-              </div>
-            </div>
+            {/* Removido: opção de dia inteiro - sempre pedir horário */}
 
             {/* Data de início */}
             <div className="grid grid-cols-4 items-center gap-4">
@@ -264,22 +243,20 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
               />
             </div>
 
-            {/* Horário de início (se não for dia inteiro) */}
-            {!formData.all_day && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="start_time" className="text-right">
-                  Hora Início *
-                </Label>
-                <Input
-                  id="start_time"
-                  type="time"
-                  value={formData.start_time}
-                  onChange={(e) => handleChange('start_time', e.target.value)}
-                  className="col-span-3"
-                  required={!formData.all_day}
-                />
-              </div>
-            )}
+            {/* Horário de início */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="start_time" className="text-right">
+                Hora Início *
+              </Label>
+              <Input
+                id="start_time"
+                type="time"
+                value={formData.start_time}
+                onChange={(e) => handleChange('start_time', e.target.value)}
+                className="col-span-3"
+                required
+              />
+            </div>
 
             {/* Data de fim (opcional) */}
             <div className="grid grid-cols-4 items-center gap-4">
@@ -296,22 +273,20 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
               />
             </div>
 
-            {/* Horário de fim (se não for dia inteiro) */}
-            {!formData.all_day && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="end_time" className="text-right">
-                  Hora Fim *
-                </Label>
-                <Input
-                  id="end_time"
-                  type="time"
-                  value={formData.end_time}
-                  onChange={(e) => handleChange('end_time', e.target.value)}
-                  className="col-span-3"
-                  required={!formData.all_day}
-                />
-              </div>
-            )}
+            {/* Horário de fim */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="end_time" className="text-right">
+                Hora Fim *
+              </Label>
+              <Input
+                id="end_time"
+                type="time"
+                value={formData.end_time}
+                onChange={(e) => handleChange('end_time', e.target.value)}
+                className="col-span-3"
+                required
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>

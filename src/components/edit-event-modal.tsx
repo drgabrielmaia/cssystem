@@ -86,12 +86,20 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
       const startDate = new Date(event.start_datetime)
       const endDate = new Date(event.end_datetime)
 
+      // Função para formatar data sem problemas de timezone
+      const formatDateString = (date: Date) => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
+
       setFormData({
         title: event.title,
         description: event.description || '',
-        start_date: startDate.toISOString().split('T')[0],
+        start_date: formatDateString(startDate),
         start_time: event.all_day ? '' : startDate.toTimeString().slice(0, 5),
-        end_date: endDate.toISOString().split('T')[0],
+        end_date: formatDateString(endDate),
         end_time: event.all_day ? '' : endDate.toTimeString().slice(0, 5),
         all_day: event.all_day,
         mentorado_id: event.mentorado_id || 'none'
@@ -115,17 +123,17 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
       let startDateTime, endDateTime
 
       if (formData.all_day) {
-        // Para eventos de dia inteiro
-        startDateTime = `${formData.start_date}T00:00:00Z`
-        endDateTime = `${formData.end_date || formData.start_date}T23:59:59Z`
+        // Para eventos de dia inteiro - usar timezone local (sem Z)
+        startDateTime = `${formData.start_date}T00:00:00`
+        endDateTime = `${formData.end_date || formData.start_date}T23:59:59`
       } else {
-        // Para eventos com horário específico
+        // Para eventos com horário específico - usar timezone local (sem Z)
         if (!formData.start_time || !formData.end_time) {
           alert('Horário de início e fim são obrigatórios')
           return
         }
-        startDateTime = `${formData.start_date}T${formData.start_time}:00Z`
-        endDateTime = `${formData.end_date || formData.start_date}T${formData.end_time}:00Z`
+        startDateTime = `${formData.start_date}T${formData.start_time}:00`
+        endDateTime = `${formData.end_date || formData.start_date}T${formData.end_time}:00`
       }
 
       // Validar que a data de fim é posterior à de início
