@@ -105,8 +105,18 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
         return
       }
 
-      startDateTime = `${formData.start_date || getInitialDateString()}T${formData.start_time}:00`
-      endDateTime = `${formData.end_date || formData.start_date || getInitialDateString()}T${formData.end_time}:00`
+      // Função para criar datetime com timezone correto do Brasil
+      const createBrazilianDateTime = (dateStr: string, timeStr: string) => {
+        // Criar data/hora no formato ISO sem timezone (será tratado como local)
+        const datetime = `${dateStr}T${timeStr}:00-03:00` // UTC-3 (horário de Brasília)
+        return new Date(datetime).toISOString().slice(0, 19) // Remove 'Z' e mantém formato local
+      }
+
+      const startDateStr = formData.start_date || getInitialDateString()
+      const endDateStr = formData.end_date || formData.start_date || getInitialDateString()
+
+      startDateTime = createBrazilianDateTime(startDateStr, formData.start_time)
+      endDateTime = createBrazilianDateTime(endDateStr, formData.end_time)
 
       // Validar que a data de fim é posterior à de início
       if (new Date(endDateTime) <= new Date(startDateTime)) {

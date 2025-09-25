@@ -54,6 +54,7 @@ interface LeadStage {
 
 interface WhatsAppStatus {
   isReady: boolean;
+  isConnecting: boolean;
   qrCode: string | null;
   status: string;
 }
@@ -105,7 +106,7 @@ const getStageColor = (color: string) => {
 };
 
 export default function WhatsAppPage() {
-  const [status, setStatus] = useState<WhatsAppStatus>({ isReady: false, qrCode: null, status: 'disconnected' });
+  const [status, setStatus] = useState<WhatsAppStatus>({ isReady: false, isConnecting: false, qrCode: null, status: 'disconnected' });
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [chatMessages, setChatMessages] = useState<WhatsAppMessage[]>([]);
@@ -128,6 +129,7 @@ export default function WhatsAppPage() {
       if (statusData) {
         setStatus(prevStatus => ({
           isReady: statusData.isReady,
+          isConnecting: prevStatus.isConnecting,
           qrCode: statusData.isReady ? null : prevStatus.qrCode, // Limpar QR quando conectado
           status: statusData.isReady ? 'connected' : 'disconnected'
         }));

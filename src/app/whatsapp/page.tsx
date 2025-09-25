@@ -36,7 +36,7 @@ export default function WhatsAppCorePage() {
     try {
       const response = await whatsappCoreAPI.getMessages(50);
       if (response.success && response.data) {
-        setMessages(response.data);
+        setChatMessages(response.data);
       }
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
@@ -155,10 +155,10 @@ export default function WhatsAppCorePage() {
 
           case 'contacts_updated':
             setContacts(prev => {
-              const newContacts = data.data.filter(contact => contact.isMyContact);
+              const newContacts = data.data.filter((contact: Contact) => contact.isMyContact);
               // Remover duplicatas baseado no ID
-              const uniqueContacts = newContacts.filter((contact, index, arr) =>
-                arr.findIndex(c => c.id === contact.id) === index
+              const uniqueContacts = newContacts.filter((contact: Contact, index: number, arr: Contact[]) =>
+                arr.findIndex((c: Contact) => c.id === contact.id) === index
               );
               return uniqueContacts;
             });
