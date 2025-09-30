@@ -54,7 +54,11 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
   useEffect(() => {
     const fetchMentorados = async () => {
       try {
-        const response = await fetch('/api/mentorados')
+        const response = await fetch('/api/mentorados', {
+          headers: {
+            'ngrok-skip-browser-warning': 'true'
+          }
+        })
         const data = await response.json()
         if (data.success) {
           setMentorados(data.mentorados || [])
@@ -137,7 +141,10 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
 
       const response = await fetch('/routes/calendar/events', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
         body: JSON.stringify(eventData)
       })
 

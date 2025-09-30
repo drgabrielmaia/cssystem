@@ -40,7 +40,11 @@ export default function CalendarioPage() {
   const fetchEvents = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/routes/calendar/events')
+      const response = await fetch('/routes/calendar/events', {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      })
       const data = await response.json()
 
       if (data.success) {
@@ -79,7 +83,10 @@ export default function CalendarioPage() {
 
     try {
       const response = await fetch(`/routes/calendar/events/${eventId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
       })
 
       const result = await response.json()

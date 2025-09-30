@@ -43,7 +43,8 @@ Agora analise e retorne SOMENTE o JSON:`
     const response = await fetch('http://localhost:11434/api/generate', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true'
       },
       body: JSON.stringify({
         model: 'gemma3:1b',

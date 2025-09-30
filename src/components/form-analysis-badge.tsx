@@ -58,7 +58,11 @@ export function FormAnalysisBadge({ respostaId, compact = false, autoLoad = true
     setError(null)
 
     try {
-      const response = await fetch(`/routes/analyze-form?respostaId=${respostaId}`)
+      const response = await fetch(`/routes/analyze-form?respostaId=${respostaId}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      })
       const result = await response.json()
 
       if (result.success) {
