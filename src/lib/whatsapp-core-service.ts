@@ -130,7 +130,11 @@ class WhatsAppCoreService {
 
   async getQRCode(): Promise<QRCodeData | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/qr`);
+      const response = await fetch(`${this.baseUrl}/qr`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -173,6 +177,7 @@ class WhatsAppCoreService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
         },
         body: JSON.stringify({ to: phoneWithSuffix, message })
       });
@@ -194,7 +199,11 @@ class WhatsAppCoreService {
 
   async getMessages(limit: number = 20): Promise<WhatsAppMessage[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/messages?limit=${limit}`);
+      const response = await fetch(`${this.baseUrl}/messages?limit=${limit}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -209,7 +218,11 @@ class WhatsAppCoreService {
 
   async getContacts(): Promise<WhatsAppContact[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/contacts`);
+      const response = await fetch(`${this.baseUrl}/contacts`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -228,7 +241,11 @@ class WhatsAppCoreService {
       const url = `${this.baseUrl}/messages/${encodeURIComponent(chatId)}?limit=${limit}`;
       console.log(`📡 [WhatsApp Service] URL de busca do chat: ${url}`);
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       console.log(`📡 [WhatsApp Service] Resposta da API core (chat):`, response.status);
 
       const data = await response.json();
