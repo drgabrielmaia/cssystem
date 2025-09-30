@@ -97,7 +97,7 @@ class WhatsAppCoreService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout para Docker
 
-      const response = await fetch(`${this.baseUrl}/status`, {
+      const response = await fetch(`${this.baseUrl}/users/default/status`, {
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
@@ -130,7 +130,7 @@ class WhatsAppCoreService {
 
   async getQRCode(): Promise<QRCodeData | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/qr`, {
+      const response = await fetch(`${this.baseUrl}/users/default/qr`, {
         headers: {
           'ngrok-skip-browser-warning': 'true'
         }
@@ -166,26 +166,26 @@ class WhatsAppCoreService {
         formattedNumber = '55' + formattedNumber;
       }
 
-      // Add @s.whatsapp.net suffix if needed
+      // Add @c.us suffix if needed (Baileys format)
       const phoneWithSuffix = formattedNumber.includes('@')
         ? formattedNumber
-        : `${formattedNumber}@s.whatsapp.net`;
+        : `${formattedNumber}@c.us`;
 
       console.log(`📤 Enviando mensagem para ${phoneWithSuffix}: ${message}`);
 
-      const response = await fetch(`${this.baseUrl}/send`, {
+      const response = await fetch(`${this.baseUrl}/users/default/send-message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true'
         },
-        body: JSON.stringify({ to: phoneWithSuffix, message })
+        body: JSON.stringify({ jid: phoneWithSuffix, message })
       });
 
       const data = await response.json();
 
       if (data.success) {
-        console.log('✅ Mensagem enviada via WhatsApp Core API');
+        console.log('✅ Mensagem enviada via WhatsApp Baileys API');
         return true;
       } else {
         console.error('❌ Falha ao enviar mensagem:', data.error);
@@ -199,7 +199,7 @@ class WhatsAppCoreService {
 
   async getMessages(limit: number = 20): Promise<WhatsAppMessage[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/messages?limit=${limit}`, {
+      const response = await fetch(`${this.baseUrl}/users/default/messages?limit=${limit}`, {
         headers: {
           'ngrok-skip-browser-warning': 'true'
         }
@@ -218,7 +218,7 @@ class WhatsAppCoreService {
 
   async getContacts(): Promise<WhatsAppContact[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/contacts`, {
+      const response = await fetch(`${this.baseUrl}/users/default/contacts`, {
         headers: {
           'ngrok-skip-browser-warning': 'true'
         }
@@ -238,7 +238,7 @@ class WhatsAppCoreService {
   async getChatMessages(chatId: string, limit: number = 20): Promise<WhatsAppMessage[]> {
     console.log(`📱 [WhatsApp Service] Carregando mensagens do chat: ${chatId} (limit: ${limit})`);
     try {
-      const url = `${this.baseUrl}/messages/${encodeURIComponent(chatId)}?limit=${limit}`;
+      const url = `${this.baseUrl}/users/default/chat/${encodeURIComponent(chatId)}?limit=${limit}`;
       console.log(`📡 [WhatsApp Service] URL de busca do chat: ${url}`);
 
       const response = await fetch(url, {
