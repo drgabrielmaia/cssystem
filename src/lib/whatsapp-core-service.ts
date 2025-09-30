@@ -166,26 +166,26 @@ class WhatsAppCoreService {
         formattedNumber = '55' + formattedNumber;
       }
 
-      // Add @c.us suffix if needed (Baileys format)
+      // Add @s.whatsapp.net suffix if needed (our API format)
       const phoneWithSuffix = formattedNumber.includes('@')
         ? formattedNumber
-        : `${formattedNumber}@c.us`;
+        : `${formattedNumber}@s.whatsapp.net`;
 
       console.log(`📤 Enviando mensagem para ${phoneWithSuffix}: ${message}`);
 
-      const response = await fetch(`${this.baseUrl}/users/default/send-message`, {
+      const response = await fetch(`${this.baseUrl}/users/default/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true'
         },
-        body: JSON.stringify({ jid: phoneWithSuffix, message })
+        body: JSON.stringify({ to: phoneWithSuffix, message })
       });
 
       const data = await response.json();
 
       if (data.success) {
-        console.log('✅ Mensagem enviada via WhatsApp Baileys API');
+        console.log('✅ Mensagem enviada via WhatsApp API');
         return true;
       } else {
         console.error('❌ Falha ao enviar mensagem:', data.error);
