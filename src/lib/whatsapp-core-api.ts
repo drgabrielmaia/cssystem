@@ -71,6 +71,8 @@ class WhatsAppCoreAPI {
   private async request<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
     try {
       const url = `${this.baseUrl}${endpoint}`;
+      console.log('🌐 WhatsApp API - Fazendo request para:', url);
+      console.log('🔍 WhatsApp API - URL protocol:', new URL(url).protocol);
 
       const response = await fetch(url, {
         headers: {
