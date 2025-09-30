@@ -19,7 +19,7 @@ const checkinSchema = z.object({
   descricao: z.string().optional(),
   data_agendada: z.string().min(1, 'Data é obrigatória'),
   hora_agendada: z.string().min(1, 'Hora é obrigatória'),
-  duracao_minutos: z.string().transform(val => parseInt(val)).default('60'),
+  duracao_minutos: z.number().default(60),
   tipo: z.enum(['checkin', 'mentoria', 'follow-up', 'avaliacao']),
   link_reuniao: z.string().url('URL inválida').optional().or(z.literal('')),
   notas_pre_reuniao: z.string().optional(),
@@ -44,19 +44,26 @@ const TIPOS_CHECKIN = {
 export function CheckinForm({ mentorados, onSave, onCancel }: CheckinFormProps) {
   const [saving, setSaving] = useState(false)
 
-  const form = useForm<CheckinFormData>({
-    resolver: zodResolver(checkinSchema),
+  const form = useForm({
     defaultValues: {
-      tipo: 'checkin',
-      duracao_minutos: 60
+      tipo: 'checkin' as const,
+      duracao_minutos: 60,
+      mentorado_id: '',
+      titulo: '',
+      data_agendada: '',
+      hora_agendada: '',
+      descricao: '',
+      link_reuniao: '',
+      notas_pre_reuniao: '',
+      objetivos: ''
     }
   })
 
-  const onSubmit = async (data: CheckinFormData) => {
+  const onSubmit = async (data: any) => {
     setSaving(true)
     try {
       const dataHora = `${data.data_agendada}T${data.hora_agendada}:00`
-      const objetivosArray = data.objetivos ? data.objetivos.split('\n').filter(obj => obj.trim()) : []
+      const objetivosArray = data.objetivos ? data.objetivos.split('\n').filter((obj: string) => obj.trim()) : []
 
       const { error } = await supabase
         .from('checkins')
@@ -229,7 +236,7 @@ export function CheckinForm({ mentorados, onSave, onCancel }: CheckinFormProps) 
                   <FormItem>
                     <FormLabel>Duração (min)</FormLabel>
                     <FormControl>
-                      <Select onValueChange={field.onChange} defaultValue={field.value.toString()}>
+                      <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={field.value.toString()}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
