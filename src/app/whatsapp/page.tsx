@@ -125,7 +125,7 @@ export default function WhatsAppCorePage() {
 
   useEffect(() => {
     // Configurar Server-Sent Events para atualizações em tempo real
-    const eventSource = new EventSource('https://enigmatic-electrotonic-kala.ngrok-free.dev/users/default/events');
+    const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://217.196.60.199'}/users/default/events`);
 
     eventSource.onmessage = (event) => {
       try {

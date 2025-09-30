@@ -479,7 +479,7 @@ export default function WhatsAppPage() {
 
     // Conectar ao SSE (usando URL da API)
     const isProduction = process.env.NODE_ENV === 'production';
-    const apiUrl = 'https://enigmatic-electrotonic-kala.ngrok-free.dev';
+    const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://217.196.60.199';
     const eventSource = new EventSource(`${apiUrl}/live-updates`);
 
     eventSource.addEventListener('message', (event) => {
