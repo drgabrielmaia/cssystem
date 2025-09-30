@@ -72,7 +72,8 @@ class WhatsAppCoreService {
       const response = await fetch(`${this.baseUrl}/health`, {
         signal: controller.signal,
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
         }
       });
 
@@ -99,7 +100,8 @@ class WhatsAppCoreService {
       const response = await fetch(`${this.baseUrl}/status`, {
         signal: controller.signal,
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
         }
       });
 

@@ -120,7 +120,10 @@ ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}` : '
         // Enviar para API WhatsApp
         await fetch('https://enigmatic-electrotonic-kala.ngrok-free.dev/users/default/send', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+          },
           body: JSON.stringify({
             to: '558396910414', // Admin Gabriel
             message: message.trim()
