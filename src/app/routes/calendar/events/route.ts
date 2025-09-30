@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}` : ''}`
 
         // Enviar para API WhatsApp
-        await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL}/users/default/send`, {
+        await fetch('http://217.196.60.199:3001/users/default/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -41,9 +41,8 @@ class WhatsAppCoreService {
   private statusListeners: ((status: string) => void)[] = [];
 
   constructor() {
-    // URL da API Express - usar variável de ambiente ou fallback
-    console.log('🔍 WhatsApp Service - NEXT_PUBLIC_WHATSAPP_API_URL:', process.env.NEXT_PUBLIC_WHATSAPP_API_URL);
-    this.baseUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'http://localhost:3001';
+    // URL da API Express - hardcoded para evitar problemas de mixed content
+    this.baseUrl = 'http://217.196.60.199:3001';
     console.log('🔍 WhatsApp Service - baseUrl final:', this.baseUrl);
   }
 
