@@ -42,7 +42,9 @@ class WhatsAppCoreService {
 
   constructor() {
     // URL da API Express - usar variável de ambiente ou fallback
+    console.log('🔍 WhatsApp Service - NEXT_PUBLIC_WHATSAPP_API_URL:', process.env.NEXT_PUBLIC_WHATSAPP_API_URL);
     this.baseUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'http://localhost:3001';
+    console.log('🔍 WhatsApp Service - baseUrl final:', this.baseUrl);
   }
 
   async initialize(): Promise<void> {
