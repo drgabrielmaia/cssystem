@@ -257,37 +257,21 @@ export default function WhatsAppPage() {
         }
       });
 
-      // FILTRO FINAL: Remover contatos individuais que só aparecem em mensagens de grupo
+      // MOSTRAR TODOS OS CONTATOS (com ou sem mensagens)
       const conversationsArray = Array.from(conversationsMap.values()).filter((conversation) => {
         const contactId = conversation.contact.id;
         const isGroup = contactId.includes('@g.us');
 
         if (isGroup) {
-          // Manter todos os grupos
-          console.log(`🔵 [FILTRO FINAL] Mantendo grupo: ${conversation.contact.name}`);
+          console.log(`🔵 [FILTRO] Mantendo grupo: ${conversation.contact.name}`);
           return true;
         }
 
-        // Para contatos individuais: verificar se têm mensagens reais (não só de grupo)
-        const hasIndividualMessages = allMessages.some((msg: any) => {
-          // Verificar se a mensagem é realmente individual (sem @g.us)
-          const isIndividualMessage = !msg.from.includes('@g.us') && !msg.to.includes('@g.us');
-          const involvesContact = msg.from === contactId || msg.to === contactId;
-
-          return isIndividualMessage && involvesContact;
-        });
-
-        if (!hasIndividualMessages && conversation.lastMessage) {
-          console.log(`❌ [FILTRO FINAL] Removendo contato que só aparece em grupos: ${conversation.contact.name} (${contactId})`);
-          return false; // Remover este contato
-        }
-
-        if (hasIndividualMessages) {
-          console.log(`👤 [FILTRO FINAL] Mantendo contato individual válido: ${conversation.contact.name}`);
-        }
-
-        return true; // Manter contatos válidos
+        // SEMPRE manter contatos individuais (mesmo sem mensagens)
+        console.log(`👤 [FILTRO] Mantendo contato: ${conversation.contact.name} (${contactId})`);
+        return true;
       }).sort((a, b) => {
+        // Priorizar contatos com mensagens, depois ordem alfabética
         if (a.lastMessage && !b.lastMessage) return -1;
         if (!a.lastMessage && b.lastMessage) return 1;
         if (a.lastMessage && b.lastMessage) return b.timestamp - a.timestamp;

@@ -45,10 +45,47 @@ export default function WhatsAppCorePage() {
 
   const loadChats = useCallback(async () => {
     try {
-      const response = await whatsappCoreAPI.getChats();
-      if (response.success && response.data) {
-        setChats(response.data);
+      // Buscar chats existentes e contatos em paralelo
+      const [chatsResponse, contactsResponse] = await Promise.all([
+        whatsappCoreAPI.getChats(),
+        whatsappCoreAPI.getContacts()
+      ]);
+
+      let allChats: Chat[] = [];
+
+      // Adicionar chats existentes (com mensagens)
+      if (chatsResponse.success && chatsResponse.data) {
+        allChats = [...chatsResponse.data];
       }
+
+      // Adicionar contatos como chats (mesmo sem mensagens)
+      if (contactsResponse.success && contactsResponse.data) {
+        const contacts = contactsResponse.data.filter(contact => contact.isMyContact);
+
+        contacts.forEach(contact => {
+          // Só adicionar se não existe chat já
+          const existingChat = allChats.find(chat => chat.id === contact.id);
+          if (!existingChat) {
+            // Criar chat fake baseado no contato
+            const fakeChat: Chat = {
+              id: contact.id,
+              name: contact.name || contact.pushname || contact.number,
+              isGroup: false,
+              lastMessage: {
+                body: 'Clique para iniciar conversa',
+                timestamp: 0,
+                isFromMe: false
+              },
+              unreadCount: 0,
+              timestamp: 0
+            };
+            allChats.push(fakeChat);
+          }
+        });
+      }
+
+      setChats(allChats);
+      console.log(`📱 Carregados ${allChats.length} chats (contatos + conversas)`);
     } catch (error) {
       console.error('Erro ao carregar chats:', error);
     }
