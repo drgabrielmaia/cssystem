@@ -44,7 +44,7 @@ class WhatsAppCoreService {
     // URL da API Express - Docker local ou Render deployment
     const isProduction = process.env.NODE_ENV === 'production';
     this.baseUrl = isProduction
-      ? 'https://api-cs-2.onrender.com'  // Render deployment
+      ? 'http://217.196.60.199:3001'  // Production API server
       : 'http://localhost:3001';                     // Local API server na porta 3001
   }
 
