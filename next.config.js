@@ -9,6 +9,19 @@ const nextConfig = {
   },
   images: {
     unoptimized: true
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self' https: http: data: 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https: http: ws: wss:;"
+          }
+        ]
+      }
+    ]
   }
 }
 
