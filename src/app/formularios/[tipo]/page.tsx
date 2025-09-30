@@ -81,7 +81,8 @@ export default function FormularioDetalhePage() {
       const response = await fetch('/api/analisar-formulario', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
         },
         body: JSON.stringify({
           tipo_formulario: tipo,
