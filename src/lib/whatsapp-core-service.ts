@@ -41,11 +41,8 @@ class WhatsAppCoreService {
   private statusListeners: ((status: string) => void)[] = [];
 
   constructor() {
-    // URL da API Express - Docker local ou Render deployment
-    const isProduction = process.env.NODE_ENV === 'production';
-    this.baseUrl = isProduction
-      ? 'http://217.196.60.199:3001'  // Production API server
-      : 'http://localhost:3001';                     // Local API server na porta 3001
+    // URL da API Express - usar variável de ambiente ou fallback
+    this.baseUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'http://localhost:3001';
   }
 
   async initialize(): Promise<void> {

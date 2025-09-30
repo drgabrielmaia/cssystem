@@ -62,8 +62,8 @@ class WhatsAppCoreAPI {
   private userId: string = 'default'; // Default user ID for single-user mode
 
   constructor() {
-    // Sempre usa servidor de produção
-    this.baseUrl = 'http://217.196.60.199:3001';
+    // Usa variável de ambiente ou fallback
+    this.baseUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'http://localhost:3001';
   }
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
