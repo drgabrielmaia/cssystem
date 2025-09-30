@@ -41,8 +41,8 @@ class WhatsAppCoreService {
   private statusListeners: ((status: string) => void)[] = [];
 
   constructor() {
-    // URL da API Express - hardcoded para evitar problemas de mixed content
-    this.baseUrl = 'http://217.196.60.199:3001';
+    // URL da API Express - ngrok HTTPS tunnel
+    this.baseUrl = 'https://enigmatic-electrotonic-kala.ngrok-free.dev';
     console.log('🔍 WhatsApp Service - baseUrl final:', this.baseUrl);
   }
 

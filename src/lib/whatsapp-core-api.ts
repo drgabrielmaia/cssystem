@@ -62,8 +62,8 @@ class WhatsAppCoreAPI {
   private userId: string = 'default'; // Default user ID for single-user mode
 
   constructor() {
-    // URL da API Express - hardcoded para garantir HTTP
-    this.baseUrl = 'http://217.196.60.199:3001';
+    // URL da API Express - ngrok HTTPS tunnel
+    this.baseUrl = 'https://enigmatic-electrotonic-kala.ngrok-free.dev';
     console.log('🔍 WhatsApp API - baseUrl final:', this.baseUrl);
   }
 
