@@ -109,11 +109,13 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
         return
       }
 
-      // Função para criar datetime com timezone correto do Brasil
+      // Função para criar datetime com timezone correto do Brasil (UTC-3)
       const createBrazilianDateTime = (dateStr: string, timeStr: string) => {
-        // Criar data/hora no formato ISO sem timezone (será tratado como local)
-        const datetime = `${dateStr}T${timeStr}:00-03:00` // UTC-3 (horário de Brasília)
-        return new Date(datetime).toISOString().slice(0, 19) // Remove 'Z' e mantém formato local
+        // Criar data/hora local e converter para UTC-3
+        const localDate = new Date(`${dateStr}T${timeStr}:00`);
+        // A Paraíba usa UTC-3 (horário de Brasília)
+        const utcDate = new Date(localDate.getTime() + (3 * 60 * 60 * 1000)); // Adiciona 3 horas para converter para UTC
+        return utcDate.toISOString();
       }
 
       const startDateStr = formData.start_date || getInitialDateString()

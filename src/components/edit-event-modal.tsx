@@ -126,18 +126,29 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
 
       let startDateTime, endDateTime
 
+      // Função para criar datetime com timezone correto do Brasil (UTC-3)
+      const createBrazilianDateTime = (dateStr: string, timeStr: string) => {
+        // Criar data/hora local e converter para UTC-3
+        const localDate = new Date(`${dateStr}T${timeStr}:00`);
+        // A Paraíba usa UTC-3 (horário de Brasília)
+        const utcDate = new Date(localDate.getTime() + (3 * 60 * 60 * 1000)); // Adiciona 3 horas para converter para UTC
+        return utcDate.toISOString();
+      }
+
       if (formData.all_day) {
-        // Para eventos de dia inteiro - usar timezone local (sem Z)
-        startDateTime = `${formData.start_date}T00:00:00`
-        endDateTime = `${formData.end_date || formData.start_date}T23:59:59`
+        // Para eventos de dia inteiro
+        const startDate = new Date(`${formData.start_date}T00:00:00`);
+        const endDate = new Date(`${formData.end_date || formData.start_date}T23:59:59`);
+        startDateTime = new Date(startDate.getTime() + (3 * 60 * 60 * 1000)).toISOString();
+        endDateTime = new Date(endDate.getTime() + (3 * 60 * 60 * 1000)).toISOString();
       } else {
-        // Para eventos com horário específico - usar timezone local (sem Z)
+        // Para eventos com horário específico
         if (!formData.start_time || !formData.end_time) {
           alert('Horário de início e fim são obrigatórios')
           return
         }
-        startDateTime = `${formData.start_date}T${formData.start_time}:00`
-        endDateTime = `${formData.end_date || formData.start_date}T${formData.end_time}:00`
+        startDateTime = createBrazilianDateTime(formData.start_date, formData.start_time);
+        endDateTime = createBrazilianDateTime(formData.end_date || formData.start_date, formData.end_time);
       }
 
       // Validar que a data de fim é posterior à de início
