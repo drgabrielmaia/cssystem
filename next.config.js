@@ -17,7 +17,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https: wss: https://217.196.60.199 https://udzmlnnztzzwrphhizol.supabase.co;"
+            value: "default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https: wss: https://api.medicosderesultado.com.br https://udzmlnnztzzwrphhizol.supabase.co;"
           }
         ]
       }

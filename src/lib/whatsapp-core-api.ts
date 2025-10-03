@@ -63,7 +63,7 @@ class WhatsAppCoreAPI {
 
   constructor() {
     // Usar variável de ambiente ou fallback
-    this.baseUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://217.196.60.199';
+    this.baseUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br';
     console.log('🔍 WhatsApp API - baseUrl final:', this.baseUrl);
   }
 

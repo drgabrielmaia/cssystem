@@ -42,7 +42,7 @@ class WhatsAppCoreService {
 
   constructor() {
     // URL da API Express - ngrok HTTPS tunnel
-    this.baseUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://217.196.60.199';
+    this.baseUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br';
     console.log('🔍 WhatsApp Service - baseUrl final:', this.baseUrl);
   }
 

@@ -196,7 +196,7 @@ export default function WhatsAppPage() {
     if (!status?.isReady) return;
 
     console.log('📡 Conectando SSE para atualizações...');
-    const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://217.196.60.199'}/users/default/events`);
+    const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/default/events`);
 
     eventSource.onmessage = (event) => {
       try {
