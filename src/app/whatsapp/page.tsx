@@ -264,10 +264,10 @@ export default function WhatsAppPage() {
   }, [selectedChat, loadChatMessages]);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">WhatsApp Integration</h1>
-        <p className="text-gray-600">Sistema WhatsApp completo usando API Baileys</p>
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">WhatsApp Integration</h1>
+        <p className="text-gray-600 text-sm sm:text-base">Sistema WhatsApp completo usando API Baileys</p>
       </div>
 
       {/* Status e Conexão */}
@@ -313,7 +313,7 @@ export default function WhatsAppPage() {
       </Card>
 
       {status?.isReady && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Lista de Chats */}
           <Card>
             <CardHeader>
@@ -332,7 +332,7 @@ export default function WhatsAppPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-96">
+              <ScrollArea className="h-64 sm:h-96">
                 {filteredChats.length === 0 ? (
                   <div className="p-4 text-center text-gray-500">
                     <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />

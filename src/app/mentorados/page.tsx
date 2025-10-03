@@ -190,9 +190,9 @@ export default function MentoradosPage() {
     <div className="flex-1 overflow-y-auto">
       <Header title="Mentorados" subtitle={`${mentorados.length} mentorados cadastrados`} />
       
-      <main className="flex-1 p-6 space-y-6">
+      <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Header com ações */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-semibold">Lista de Mentorados</h2>
             {bulkActionMode && (
@@ -260,7 +260,7 @@ export default function MentoradosPage() {
         {/* Search and Filters */}
         <div className="space-y-4">
           {/* Search Bar */}
-          <div className="relative max-w-md">
+          <div className="relative w-full sm:max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Buscar por nome, email ou telefone..."
