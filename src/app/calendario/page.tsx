@@ -154,14 +154,12 @@ export default function CalendarioPage() {
   }
 
   const formatTime = (dateString: string) => {
-    // Converter UTC para horário local (UTC-3 para Paraíba)
+    // Converter para horário de São Paulo usando timezone correto
     const date = new Date(dateString);
-    // Subtrair 3 horas para compensar UTC-3
-    const localDate = new Date(date.getTime() - (3 * 60 * 60 * 1000));
-    return localDate.toLocaleTimeString('pt-BR', {
+    return date.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'America/Recife' // Horário da Paraíba
+      timeZone: 'America/Sao_Paulo' // Timezone correto de São Paulo
     })
   }
 

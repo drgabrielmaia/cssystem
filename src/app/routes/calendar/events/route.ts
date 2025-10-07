@@ -101,12 +101,15 @@ export async function POST(request: NextRequest) {
     if (data && data.length > 0) {
       const createdEvent = data[0]
       try {
-        // Formatar data e hora para o Brasil
+        // Formatar data e hora para o horário de São Paulo
         const eventDateTime = new Date(createdEvent.start_datetime)
-        const formattedDate = eventDateTime.toLocaleDateString('pt-BR')
+        const formattedDate = eventDateTime.toLocaleDateString('pt-BR', {
+          timeZone: 'America/Sao_Paulo'
+        })
         const formattedTime = eventDateTime.toLocaleTimeString('pt-BR', {
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
+          timeZone: 'America/Sao_Paulo'
         })
 
         const message = `🎯 Novo evento cadastrado!
