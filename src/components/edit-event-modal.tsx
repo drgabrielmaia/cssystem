@@ -87,6 +87,7 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
   // Carregar dados do evento quando o modal abrir
   useEffect(() => {
     if (event && isOpen) {
+      // Converter datas para horário de São Paulo para exibição correta
       const startDate = new Date(event.start_datetime)
       const endDate = new Date(event.end_datetime)
 
@@ -98,13 +99,23 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
         return `${year}-${month}-${day}`
       }
 
+      // Função para formatar horário no timezone de São Paulo
+      const formatTimeString = (date: Date) => {
+        return date.toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'America/Sao_Paulo',
+          hour12: false
+        })
+      }
+
       setFormData({
         title: event.title,
         description: event.description || '',
         start_date: formatDateString(startDate),
-        start_time: event.all_day ? '' : startDate.toTimeString().slice(0, 5),
+        start_time: event.all_day ? '' : formatTimeString(startDate),
         end_date: formatDateString(endDate),
-        end_time: event.all_day ? '' : endDate.toTimeString().slice(0, 5),
+        end_time: event.all_day ? '' : formatTimeString(endDate),
         all_day: event.all_day,
         mentorado_id: event.mentorado_id || 'none'
       })
@@ -128,19 +139,18 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
 
       // Função para criar datetime com timezone correto do Brasil (UTC-3)
       const createBrazilianDateTime = (dateStr: string, timeStr: string) => {
-        // Criar data/hora local e converter para UTC-3
+        // Criar data/hora no timezone local de Brasília (UTC-3)
         const localDate = new Date(`${dateStr}T${timeStr}:00`);
-        // A Paraíba usa UTC-3 (horário de Brasília)
-        const utcDate = new Date(localDate.getTime() + (3 * 60 * 60 * 1000)); // Adiciona 3 horas para converter para UTC
-        return utcDate.toISOString();
+        // Não fazer conversão manual - usar o horário local diretamente
+        return localDate.toISOString();
       }
 
       if (formData.all_day) {
         // Para eventos de dia inteiro
         const startDate = new Date(`${formData.start_date}T00:00:00`);
         const endDate = new Date(`${formData.end_date || formData.start_date}T23:59:59`);
-        startDateTime = new Date(startDate.getTime() + (3 * 60 * 60 * 1000)).toISOString();
-        endDateTime = new Date(endDate.getTime() + (3 * 60 * 60 * 1000)).toISOString();
+        startDateTime = startDate.toISOString();
+        endDateTime = endDate.toISOString();
       } else {
         // Para eventos com horário específico
         if (!formData.start_time || !formData.end_time) {
