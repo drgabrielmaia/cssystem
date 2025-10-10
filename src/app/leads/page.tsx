@@ -197,8 +197,9 @@ export default function LeadsPage() {
       'qualificado': { label: 'Qualificado', className: 'bg-purple-100 text-purple-800' },
       'call_agendada': { label: 'Call Agendada', className: 'bg-orange-100 text-orange-800' },
       'proposta_enviada': { label: 'Proposta Enviada', className: 'bg-indigo-100 text-indigo-800' },
-      'cliente': { label: 'Cliente', className: 'bg-green-100 text-green-800' },
-      'perdido': { label: 'Perdido', className: 'bg-red-100 text-red-800' }
+      'vendido': { label: 'Vendido', className: 'bg-green-100 text-green-800' },
+      'perdido': { label: 'Perdido', className: 'bg-red-100 text-red-800' },
+      'no-show': { label: 'No-show', className: 'bg-gray-100 text-gray-800' }
     }
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.novo
@@ -294,9 +295,9 @@ export default function LeadsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Clientes</p>
+                  <p className="text-sm font-medium text-gray-600">Vendidos</p>
                   <p className="text-2xl font-bold text-purple-600">
-                    {stats.find(s => s.status === 'cliente')?.quantidade || 0}
+                    {stats.find(s => s.status === 'vendido')?.quantidade || 0}
                   </p>
                 </div>
                 <Target className="h-8 w-8 text-purple-500" />
@@ -400,8 +401,9 @@ export default function LeadsPage() {
                         <SelectItem value="qualificado">Qualificado</SelectItem>
                         <SelectItem value="call_agendada">Call Agendada</SelectItem>
                         <SelectItem value="proposta_enviada">Proposta Enviada</SelectItem>
-                        <SelectItem value="cliente">Cliente</SelectItem>
+                        <SelectItem value="vendido">Vendido</SelectItem>
                         <SelectItem value="perdido">Perdido</SelectItem>
+                        <SelectItem value="no-show">No-show</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

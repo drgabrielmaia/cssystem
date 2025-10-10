@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS leads (
   cargo VARCHAR(255),
   origem VARCHAR(100), -- facebook, instagram, google, indicacao, etc.
   status VARCHAR(50) DEFAULT 'novo' CHECK (
-    status IN ('novo', 'contactado', 'qualificado', 'call_agendada', 'proposta_enviada', 'cliente', 'perdido')
+    status IN ('novo', 'contactado', 'qualificado', 'call_agendada', 'proposta_enviada', 'vendido', 'perdido', 'no-show')
   ),
   observacoes TEXT,
   valor_potencial DECIMAL(10,2),
@@ -110,8 +110,9 @@ ORDER BY
     WHEN 'qualificado' THEN 3
     WHEN 'call_agendada' THEN 4
     WHEN 'proposta_enviada' THEN 5
-    WHEN 'cliente' THEN 6
+    WHEN 'vendido' THEN 6
     WHEN 'perdido' THEN 7
+    WHEN 'no-show' THEN 8
   END;
 
 COMMENT ON VIEW leads_stats IS 'Estatísticas dos leads por status';
