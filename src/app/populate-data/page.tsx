@@ -136,16 +136,21 @@ export default function PopulateDataPage() {
       setLoading(true)
       setStatus('🔄 Limpando dados antigos...')
 
-      // Limpar dados antigos
+      // Limpar apenas dados fake/gerados automaticamente
       const { error: deleteCallsError } = await supabase
         .from('calendar_events')
         .delete()
-        .not('id', 'eq', '00000000-0000-0000-0000-000000000000')
+        .or('result_notes.ilike.%automaticamente%,result_notes.ilike.%gerada automaticamente%,description.ilike.%Call de vendas%')
 
       const { error: deleteLeadsError } = await supabase
         .from('leads')
         .delete()
-        .not('id', 'eq', '00000000-0000-0000-0000-000000000000')
+        .in('nome_completo', [
+          'João Silva Santos', 'Maria Fernanda Costa', 'Pedro Henrique Oliveira',
+          'Ana Paula Rodrigues', 'Carlos Eduardo Mendes', 'Juliana Alves Lima',
+          'Roberto Carlos Silva', 'Fernanda Santos Pereira', 'Marcos Antonio Costa',
+          'Beatriz Oliveira Santos'
+        ])
 
       setStatus('🔄 Inserindo leads reais...')
 
