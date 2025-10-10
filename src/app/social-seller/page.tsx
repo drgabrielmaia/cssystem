@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Header } from '@/components/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import {
   TrendingUp,
@@ -19,7 +20,8 @@ import {
   BarChart3,
   Calendar,
   Target,
-  Activity
+  Activity,
+  UserPlus
 } from 'lucide-react'
 import {
   PieChart,
@@ -226,6 +228,58 @@ export default function SocialSellerPage() {
               ))}
             </div>
           </div>
+        </main>
+      </div>
+    )
+  }
+
+  // Se não há dados, mostrar mensagem
+  if (!currentMetrics && metrics.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto">
+        <Header title="Social Seller" subtitle="Nenhuma call registrada ainda" />
+        <main className="flex-1 p-6">
+          <Card className="text-center py-12">
+            <CardContent>
+              <Phone className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Nenhuma call registrada
+              </h3>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                Para ver as métricas, você precisa:
+              </p>
+              <div className="space-y-2 text-left max-w-md mx-auto">
+                <div className="flex items-center">
+                  <UserPlus className="h-4 w-4 mr-2 text-blue-500" />
+                  <span>1. Cadastrar leads na aba "Leads"</span>
+                </div>
+                <div className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-2 text-green-500" />
+                  <span>2. Agendar calls no "Calendário"</span>
+                </div>
+                <div className="flex items-center">
+                  <Target className="h-4 w-4 mr-2 text-purple-500" />
+                  <span>3. Marcar status das calls (vendida/não vendida)</span>
+                </div>
+              </div>
+              <div className="mt-6 space-x-4">
+                <Button onClick={() => window.location.href = '/leads'}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Cadastrar Leads
+                </Button>
+                <Button variant="outline" onClick={() => window.location.href = '/calendario'}>
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Ver Calendário
+                </Button>
+              </div>
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  💡 <strong>Dica:</strong> Execute o arquivo <code>populate-social-seller-data.sql</code>
+                  no Supabase para criar dados de exemplo e ver as métricas funcionando.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </main>
       </div>
     )
