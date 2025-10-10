@@ -38,7 +38,8 @@ interface Lead {
   origem: string | null
   status: string
   observacoes: string | null
-  valor_potencial: number | null
+  valor_vendido: number | null
+  valor_arrecadado: number | null
   data_primeiro_contato: string
   created_at: string
   updated_at: string
@@ -47,8 +48,10 @@ interface Lead {
 interface LeadStats {
   status: string
   quantidade: number
-  valor_total_potencial: number | null
-  valor_medio: number | null
+  valor_total_vendido: number | null
+  valor_total_arrecadado: number | null
+  valor_medio_vendido: number | null
+  valor_medio_arrecadado: number | null
 }
 
 export default function LeadsPage() {
@@ -68,7 +71,8 @@ export default function LeadsPage() {
     origem: '',
     status: 'novo',
     observacoes: '',
-    valor_potencial: ''
+    valor_vendido: '',
+    valor_arrecadado: ''
   })
 
   useEffect(() => {
@@ -111,7 +115,8 @@ export default function LeadsPage() {
     try {
       const leadData = {
         ...formData,
-        valor_potencial: formData.valor_potencial ? parseFloat(formData.valor_potencial) : null
+        valor_vendido: formData.valor_vendido ? parseFloat(formData.valor_vendido) : null,
+        valor_arrecadado: formData.valor_arrecadado ? parseFloat(formData.valor_arrecadado) : null
       }
 
       if (editingLead) {
@@ -150,7 +155,8 @@ export default function LeadsPage() {
       origem: '',
       status: 'novo',
       observacoes: '',
-      valor_potencial: ''
+      valor_vendido: '',
+      valor_arrecadado: ''
     })
     setEditingLead(null)
   }
@@ -166,7 +172,8 @@ export default function LeadsPage() {
       origem: lead.origem || '',
       status: lead.status,
       observacoes: lead.observacoes || '',
-      valor_potencial: lead.valor_potencial?.toString() || ''
+      valor_vendido: lead.valor_vendido?.toString() || '',
+      valor_arrecadado: lead.valor_arrecadado?.toString() || ''
     })
     setIsModalOpen(true)
   }
@@ -214,8 +221,12 @@ export default function LeadsPage() {
     }).format(value)
   }
 
-  const getTotalValue = () => {
-    return stats.reduce((total, stat) => total + (stat.valor_total_potencial || 0), 0)
+  const getTotalVendido = () => {
+    return stats.reduce((total, stat) => total + (stat.valor_total_vendido || 0), 0)
+  }
+
+  const getTotalArrecadado = () => {
+    return stats.reduce((total, stat) => total + (stat.valor_total_arrecadado || 0), 0)
   }
 
   const getTotalLeads = () => {
@@ -228,8 +239,8 @@ export default function LeadsPage() {
         <Header title="Leads" subtitle="Carregando..." />
         <main className="flex-1 p-6">
           <div className="animate-pulse space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map(i => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {[1, 2, 3, 4, 5].map(i => (
                 <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
               ))}
             </div>
@@ -243,12 +254,12 @@ export default function LeadsPage() {
     <div className="flex-1 overflow-y-auto">
       <Header
         title="Leads"
-        subtitle={`${getTotalLeads()} leads • Potencial: ${formatCurrency(getTotalValue())}`}
+        subtitle={`${getTotalLeads()} leads • Vendido: ${formatCurrency(getTotalVendido())} • Arrecadado: ${formatCurrency(getTotalArrecadado())}`}
       />
 
       <main className="flex-1 p-6 space-y-6">
         {/* Cards de Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -267,12 +278,26 @@ export default function LeadsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Valor Potencial</p>
+                  <p className="text-sm font-medium text-gray-600">Valor Vendido</p>
                   <p className="text-2xl font-bold text-green-600">
-                    {formatCurrency(getTotalValue())}
+                    {formatCurrency(getTotalVendido())}
                   </p>
                 </div>
                 <DollarSign className="h-8 w-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Valor Arrecadado</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {formatCurrency(getTotalArrecadado())}
+                  </p>
+                </div>
+                <DollarSign className="h-8 w-8 text-blue-500" />
               </div>
             </CardContent>
           </Card>
@@ -409,15 +434,29 @@ export default function LeadsPage() {
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="valor_potencial">Valor Potencial (R$)</Label>
-                  <Input
-                    id="valor_potencial"
-                    type="number"
-                    step="0.01"
-                    value={formData.valor_potencial}
-                    onChange={(e) => setFormData({...formData, valor_potencial: e.target.value})}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="valor_vendido">Valor Vendido (R$)</Label>
+                    <Input
+                      id="valor_vendido"
+                      type="number"
+                      step="0.01"
+                      placeholder="Valor total da venda"
+                      value={formData.valor_vendido}
+                      onChange={(e) => setFormData({...formData, valor_vendido: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="valor_arrecadado">Valor Arrecadado (R$)</Label>
+                    <Input
+                      id="valor_arrecadado"
+                      type="number"
+                      step="0.01"
+                      placeholder="Valor já recebido"
+                      value={formData.valor_arrecadado}
+                      onChange={(e) => setFormData({...formData, valor_arrecadado: e.target.value})}
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -455,7 +494,7 @@ export default function LeadsPage() {
                     <th className="text-left p-4">Empresa</th>
                     <th className="text-left p-4">Origem</th>
                     <th className="text-left p-4">Status</th>
-                    <th className="text-right p-4">Valor Potencial</th>
+                    <th className="text-right p-4">Valores</th>
                     <th className="text-center p-4">Ações</th>
                   </tr>
                 </thead>
@@ -500,8 +539,15 @@ export default function LeadsPage() {
                       <td className="p-4">
                         {getStatusBadge(lead.status)}
                       </td>
-                      <td className="p-4 text-right font-medium">
-                        {formatCurrency(lead.valor_potencial)}
+                      <td className="p-4 text-right">
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-green-600">
+                            {lead.valor_vendido ? `Vendido: ${formatCurrency(lead.valor_vendido)}` : '-'}
+                          </div>
+                          <div className="text-xs text-blue-600">
+                            {lead.valor_arrecadado ? `Arrecadado: ${formatCurrency(lead.valor_arrecadado)}` : '-'}
+                          </div>
+                        </div>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center justify-center space-x-2">
