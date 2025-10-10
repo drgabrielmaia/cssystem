@@ -22,13 +22,15 @@ import {
   Zap,
   MessageCircle,
   Menu,
-  X
+  X,
+  Phone
 } from 'lucide-react'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, description: 'Visão geral' },
   { name: 'Mentorados', href: '/mentorados', icon: Users, description: 'Gerenciar pessoas' },
   { name: 'Calendário', href: '/calendario', icon: Calendar, description: 'Agendar eventos' },
+  { name: 'Social Seller', href: '/social-seller', icon: Phone, description: 'Métricas de vendas' },
   { name: 'Check-ins', href: '/checkins', icon: BarChart3, description: 'Acompanhamento' },
   { name: 'Formulários', href: '/formularios', icon: FileText, description: 'Pesquisas + IA' },
   { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle, description: 'Mensagens' },

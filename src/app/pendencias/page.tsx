@@ -40,6 +40,7 @@ interface DespesaMensal {
   junho: number
   julho: number
   ano: number
+  data_vencimento: string | null
   created_at: string
   updated_at: string
 }
@@ -80,6 +81,7 @@ export default function PendenciasPage() {
   const [selectedMentorado, setSelectedMentorado] = useState('')
   const [selectedMes, setSelectedMes] = useState('')
   const [valorPendencia, setValorPendencia] = useState('')
+  const [dataVencimento, setDataVencimento] = useState('')
 
   useEffect(() => {
     loadPendenciasData()
@@ -194,7 +196,7 @@ export default function PendenciasPage() {
   }
 
   const handleNovaPendencia = async () => {
-    if (!selectedMentorado || !selectedMes || !valorPendencia) {
+    if (!selectedMentorado || !selectedMes || !valorPendencia || !dataVencimento) {
       alert('Preencha todos os campos')
       return
     }
@@ -208,6 +210,7 @@ export default function PendenciasPage() {
         .upsert({
           nome: mentoradoSelecionado?.nome_completo,
           [selectedMes]: valorNumerico,
+          data_vencimento: dataVencimento,
           ano: 2025
         }, {
           onConflict: 'nome,ano'
@@ -217,13 +220,14 @@ export default function PendenciasPage() {
 
       // Recarregar dados
       await loadPendenciasData()
-      
+
       // Limpar formulário
       setSelectedMentorado('')
       setSelectedMes('')
       setValorPendencia('')
+      setDataVencimento('')
       setIsModalOpen(false)
-      
+
     } catch (error) {
       console.error('Erro ao salvar pendência:', error)
       alert('Erro ao salvar pendência')
@@ -385,6 +389,15 @@ export default function PendenciasPage() {
                       onChange={(e) => setValorPendencia(e.target.value)}
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="dataVencimento">Data de Vencimento</Label>
+                    <Input
+                      id="dataVencimento"
+                      type="date"
+                      value={dataVencimento}
+                      onChange={(e) => setDataVencimento(e.target.value)}
+                    />
+                  </div>
                   <div className="flex justify-end space-x-2 pt-4">
                     <Button variant="outline" onClick={() => setIsModalOpen(false)}>
                       Cancelar
@@ -434,6 +447,9 @@ export default function PendenciasPage() {
                   <div className="grid grid-cols-6 gap-4">
                     {MESES.map((mes) => {
                       const valor = mentorado.despesas?.[mes.key as keyof DespesaMensal] as number || 0
+                      const dataVencimento = mentorado.despesas?.data_vencimento
+                      const dataFormatada = dataVencimento ? new Date(dataVencimento).toLocaleDateString('pt-BR') : ''
+
                       return valor > 0 ? (
                         <div key={mes.key} className="relative text-center p-3 bg-red-50 rounded-lg border border-red-200 group">
                           <button
@@ -445,6 +461,11 @@ export default function PendenciasPage() {
                           </button>
                           <p className="text-xs font-medium text-red-800">{mes.nome_completo}</p>
                           <p className="text-sm font-bold text-red-600">{formatCurrency(valor)}</p>
+                          {dataFormatada && (
+                            <p className="text-xs text-red-600 mt-1">
+                              📅 {dataFormatada}
+                            </p>
+                          )}
                         </div>
                       ) : (
                         <div key={mes.key} className="text-center p-3 bg-gray-50 rounded-lg">
