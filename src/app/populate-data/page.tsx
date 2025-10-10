@@ -217,7 +217,7 @@ export default function PopulateDataPage() {
 
     } catch (error) {
       console.error('Erro:', error)
-      setStatus(`❌ Erro: ${error.message}`)
+      setStatus(`❌ Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     } finally {
       setLoading(false)
     }
