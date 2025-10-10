@@ -54,8 +54,9 @@ AND EXISTS (
   AND ce.sale_value IS NOT NULL
 );
 
--- 6. Recriar a view de estatísticas com os novos campos
-CREATE OR REPLACE VIEW leads_stats AS
+-- 6. Remover a view antiga e recriar com os novos campos
+DROP VIEW IF EXISTS leads_stats;
+CREATE VIEW leads_stats AS
 SELECT
   status,
   COUNT(*) as quantidade,
