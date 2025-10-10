@@ -29,6 +29,15 @@ interface Mentorado {
   turma: string
 }
 
+interface Lead {
+  id: string
+  nome_completo: string
+  email: string | null
+  telefone: string | null
+  empresa: string | null
+  status: string
+}
+
 interface AddEventModalProps {
   isOpen: boolean
   onClose: () => void

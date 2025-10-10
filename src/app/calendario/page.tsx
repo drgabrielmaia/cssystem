@@ -17,6 +17,10 @@ interface CalendarEvent {
   end_datetime: string
   all_day: boolean
   mentorado_id?: string
+  lead_id?: string
+  call_status?: string
+  sale_value?: number
+  result_notes?: string
   created_at: string
 }
 
