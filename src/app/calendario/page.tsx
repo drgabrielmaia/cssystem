@@ -5,7 +5,7 @@ import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Plus, Calendar as CalendarIcon, Clock, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Calendar as CalendarIcon, Clock, Edit, Trash2, ChevronLeft, ChevronRight, MessageCircle, CheckCircle } from 'lucide-react'
 import { AddEventModal } from '@/components/add-event-modal'
 import { EditEventModal } from '@/components/edit-event-modal'
 
@@ -22,6 +22,7 @@ interface CalendarEvent {
   sale_value?: number
   result_notes?: string
   created_at: string
+  mensagem_enviada?: boolean
 }
 
 const MONTHS = [
@@ -165,6 +166,34 @@ export default function CalendarioPage() {
       minute: '2-digit',
       timeZone: 'America/Sao_Paulo' // Timezone correto de São Paulo
     })
+  }
+
+  const renderMessageStatus = (event: CalendarEvent) => {
+    if (event.mensagem_enviada) {
+      return (
+        <div className="flex items-center gap-1 text-green-600" title="Mensagem de lembrete enviada">
+          <CheckCircle className="h-4 w-4" />
+          <span className="text-xs font-medium">Enviado</span>
+        </div>
+      )
+    }
+
+    // Verificar se é um evento futuro que pode receber lembrete
+    const eventStart = new Date(event.start_datetime)
+    const now = new Date()
+    const timeDiff = eventStart.getTime() - now.getTime()
+    const hoursDiff = timeDiff / (1000 * 60 * 60)
+
+    if (hoursDiff > 0.5 && hoursDiff < 24) { // Entre 30min e 24h no futuro
+      return (
+        <div className="flex items-center gap-1 text-gray-400" title="Aguardando envio de lembrete (30min antes)">
+          <MessageCircle className="h-4 w-4" />
+          <span className="text-xs">Pendente</span>
+        </div>
+      )
+    }
+
+    return null
   }
 
   const isToday = (date: Date) => {
@@ -334,8 +363,12 @@ export default function CalendarioPage() {
                           </div>
                         )}
                         {event.description && (
-                          <p className="text-sm text-gray-600">{event.description}</p>
+                          <p className="text-sm text-gray-600 mb-2">{event.description}</p>
                         )}
+                        {/* Status da mensagem de lembrete */}
+                        <div className="mt-2">
+                          {renderMessageStatus(event)}
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <Button
