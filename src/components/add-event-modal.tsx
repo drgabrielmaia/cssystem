@@ -137,9 +137,9 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
       const createBrazilianDateTime = (dateStr: string, timeStr: string) => {
         // Criar data/hora em horário de São Paulo
         const localDate = new Date(`${dateStr}T${timeStr}:00`);
-        // Subtrair 3h para salvar o horário SP como UTC (17h SP vira 17h UTC)
-        const adjustedDate = new Date(localDate.getTime() - 3 * 60 * 60 * 1000);
-        return adjustedDate.toISOString();
+        // O horário já está sendo interpretado como UTC pelo navegador
+        // Não precisa converter, apenas retornar
+        return localDate.toISOString();
       }
 
       const startDateStr = formData.start_date || getInitialDateString()
