@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,6 +21,7 @@ export default function WhatsAppPage() {
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Filtrar chats baseado na busca
   const filteredChats = chats.filter(chat =>
@@ -124,10 +125,33 @@ export default function WhatsAppPage() {
   const loadChatMessages = useCallback(async (chatId: string) => {
     try {
       console.log(`📨 Carregando mensagens para: ${chatId}`);
-      const response = await whatsappCoreAPI.getChatHistory(chatId, 50);
+      const response = await whatsappCoreAPI.getChatMessages(chatId, 50);
       if (response.success && response.data) {
-        setChatMessages(response.data);
-        console.log(`✅ ${response.data.length} mensagens carregadas`);
+        // Filtrar mensagens apenas do chat selecionado e ordenar da mais antiga para mais nova
+        const filteredMessages = response.data
+          .filter(message => {
+            // Para mensagens enviadas por mim, verificar se o 'to' é o chat atual
+            // Para mensagens recebidas, verificar se o 'from' é o chat atual
+            return (message.isFromMe && message.to === chatId) ||
+                   (!message.isFromMe && message.from === chatId);
+          })
+          .sort((a, b) => a.timestamp - b.timestamp); // Ordenar: mais antiga primeiro, mais nova por último
+
+        setChatMessages(filteredMessages);
+        console.log(`✅ ${filteredMessages.length} mensagens carregadas para ${chatId}`);
+        console.log('🔍 Mensagens filtradas:', filteredMessages.map(m => ({
+          id: m.id.slice(-4),
+          from: m.from.slice(-4),
+          to: m.to.slice(-4),
+          isFromMe: m.isFromMe,
+          body: m.body.substring(0, 30),
+          timestamp: new Date(m.timestamp).toLocaleTimeString()
+        })));
+
+        // Scroll para o final das mensagens
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
       } else {
         setChatMessages([]);
         console.log('📭 Nenhuma mensagem encontrada');
@@ -155,7 +179,11 @@ export default function WhatsAppPage() {
         setTimeout(() => {
           loadChatMessages(selectedChat.id);
           loadChats(); // Atualizar lista para mostrar última mensagem
-        }, 1000);
+          // Scroll para o final das mensagens
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 200);
+        }, 500);
       } else {
         console.error('❌ Erro ao enviar:', response.error);
         alert('Erro ao enviar mensagem: ' + response.error);
@@ -583,6 +611,8 @@ export default function WhatsAppPage() {
                           );
                         })
                       )}
+                      {/* Referência para scroll automático */}
+                      <div ref={messagesEndRef} />
                     </div>
                   </div>
 
