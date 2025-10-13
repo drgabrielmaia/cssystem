@@ -139,13 +139,16 @@ export default function WhatsAppPage() {
 
         setChatMessages(filteredMessages);
         console.log(`✅ ${filteredMessages.length} mensagens carregadas para ${chatId}`);
-        console.log('🔍 Mensagens filtradas:', filteredMessages.map(m => ({
+        console.log(`🔍 Chat selecionado: ${chatId}`);
+        console.log('📊 Total mensagens recebidas da API:', response.data.length);
+        console.log('✅ Mensagens filtradas para este chat:', filteredMessages.length);
+        console.log('📝 Detalhes das mensagens:', filteredMessages.map(m => ({
           id: m.id.slice(-4),
-          from: m.from.slice(-4),
-          to: m.to.slice(-4),
-          isFromMe: m.isFromMe,
+          direção: m.isFromMe ? `EU → ${m.to.slice(-4)}` : `${m.from.slice(-4)} → EU`,
           body: m.body.substring(0, 30),
-          timestamp: new Date(m.timestamp).toLocaleTimeString()
+          timestamp: new Date(m.timestamp).toLocaleTimeString(),
+          pertenceAoChat: (m.isFromMe && m.to === chatId) ? '✅ Minha msg para este chat' :
+                         (!m.isFromMe && m.from === chatId) ? '✅ Msg dele para mim' : '❌ Não pertence'
         })));
 
         // Scroll para o final das mensagens
