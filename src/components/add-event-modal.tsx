@@ -133,12 +133,10 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
         return
       }
 
-      // Função para criar datetime com timezone correto do Brasil (UTC-3)
+      // Função para criar datetime no horário de São Paulo
       const createBrazilianDateTime = (dateStr: string, timeStr: string) => {
-        // Criar data/hora em horário de São Paulo
-        const localDate = new Date(`${dateStr}T${timeStr}:00`);
-        // O horário já está sendo interpretado como UTC pelo navegador
-        // Não precisa converter, apenas retornar
+        // Criar data/hora explicitamente no timezone de São Paulo (UTC-3)
+        const localDate = new Date(`${dateStr}T${timeStr}:00-03:00`);
         return localDate.toISOString();
       }
 
