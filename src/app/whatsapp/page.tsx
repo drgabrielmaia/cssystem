@@ -53,10 +53,26 @@ export default function WhatsAppPage() {
 
       let allChats: Chat[] = [];
 
-      // Adicionar chats existentes (com mensagens)
+      // Adicionar chats existentes (com mensagens) - com deduplicação
       if (chatsResponse.success && chatsResponse.data) {
-        allChats = [...chatsResponse.data];
-        console.log(`💬 Chats com mensagens: ${chatsResponse.data.length}`);
+        // Agrupar chats duplicados por ID
+        const chatMap = new Map<string, Chat>();
+
+        chatsResponse.data.forEach(chat => {
+          const existingChat = chatMap.get(chat.id);
+          if (!existingChat) {
+            // Primeiro chat com este ID
+            chatMap.set(chat.id, chat);
+          } else {
+            // Chat duplicado - manter o que tem mensagem mais recente
+            if (chat.lastMessage?.timestamp > existingChat.lastMessage?.timestamp) {
+              chatMap.set(chat.id, chat);
+            }
+          }
+        });
+
+        allChats = Array.from(chatMap.values());
+        console.log(`💬 Chats com mensagens (após deduplicação): ${allChats.length} de ${chatsResponse.data.length} originais`);
       }
 
       // Adicionar contatos como chats (mesmo sem mensagens)
