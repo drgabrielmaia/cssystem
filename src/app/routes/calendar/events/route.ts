@@ -56,9 +56,9 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createClient()
     const body = await request.json()
-    const { title, description, start_datetime, end_datetime, all_day, mentorado_id } = body
+    const { title, description, start_datetime, end_datetime, all_day, mentorado_id, lead_id } = body
 
-    console.log('📅 Criando novo evento:', { title, start_datetime, end_datetime })
+    console.log('📅 Criando novo evento:', { title, start_datetime, end_datetime, mentorado_id, lead_id })
 
     // Validações
     if (!title?.trim()) {
@@ -89,7 +89,8 @@ export async function POST(request: NextRequest) {
       start_datetime,
       end_datetime,
       all_day: Boolean(all_day),
-      mentorado_id: mentorado_id || null
+      mentorado_id: mentorado_id || null,
+      lead_id: lead_id || null
     }
 
     const { data, error } = await supabase
