@@ -6,12 +6,15 @@ import { Header } from '@/components/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Users, 
-  Calendar, 
-  DollarSign, 
+import {
+  Users,
+  Calendar,
+  DollarSign,
   TrendingUp,
-  ArrowRight
+  ArrowRight,
+  Target,
+  UserPlus,
+  CheckCircle
 } from 'lucide-react'
 
 export default function Dashboard() {
@@ -20,6 +23,12 @@ export default function Dashboard() {
     totalCheckins: 0,
     totalFormularios: 0,
     npsMedia: 0
+  })
+  const [leadsStats, setLeadsStats] = useState({
+    totalLeads: 0,
+    valorVendido: 0,
+    valorArrecadado: 0,
+    leadsVendidos: 0
   })
   const [loading, setLoading] = useState(true)
 
@@ -54,11 +63,39 @@ export default function Dashboard() {
         }, 0)
       }
 
+      // Buscar dados dos leads
+      const { data: leadsStatsData } = await supabase
+        .from('leads_stats')
+        .select('*')
+
+      const { data: allLeads } = await supabase
+        .from('leads')
+        .select('id, status, valor_vendido, valor_arrecadado')
+
+      let totalLeads = 0
+      let valorVendido = 0
+      let valorArrecadado = 0
+      let leadsVendidos = 0
+
+      if (leadsStatsData) {
+        totalLeads = leadsStatsData.reduce((sum, stat) => sum + stat.quantidade, 0)
+        valorVendido = leadsStatsData.reduce((sum, stat) => sum + (stat.valor_total_vendido || 0), 0)
+        valorArrecadado = leadsStatsData.reduce((sum, stat) => sum + (stat.valor_total_arrecadado || 0), 0)
+        leadsVendidos = leadsStatsData.find(s => s.status === 'vendido')?.quantidade || 0
+      }
+
       setStats({
         totalMentorados: mentorados?.length || 0,
         totalCheckins: checkins?.length || 0,
         totalFormularios: despesas?.length || 0,
         npsMedia: totalPendencias
+      })
+
+      setLeadsStats({
+        totalLeads,
+        valorVendido,
+        valorArrecadado,
+        leadsVendidos
       })
     } catch (error) {
       console.error('Erro ao carregar stats:', error)
@@ -83,7 +120,7 @@ export default function Dashboard() {
       <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -139,6 +176,49 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Novos Cards dos Leads */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Total Leads</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {loading ? '...' : leadsStats.totalLeads}
+                      </p>
+                    </div>
+                    <UserPlus className="h-8 w-8 text-indigo-500" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Leads Vendidos</p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {loading ? '...' : leadsStats.leadsVendidos}
+                      </p>
+                    </div>
+                    <CheckCircle className="h-8 w-8 text-green-500" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Valor Vendido</p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {loading ? '...' : formatCurrency(leadsStats.valorVendido)}
+                      </p>
+                    </div>
+                    <Target className="h-8 w-8 text-green-500" />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
         {/* Quick Actions */}
@@ -147,7 +227,7 @@ export default function Dashboard() {
             <CardTitle>Ações Rápidas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Button 
                 className="h-20 flex-col space-y-2" 
                 variant="outline"
@@ -166,13 +246,22 @@ export default function Dashboard() {
                 <span>Agendar Check-in</span>
               </Button>
               
-              <Button 
-                className="h-20 flex-col space-y-2" 
+              <Button
+                className="h-20 flex-col space-y-2"
                 variant="outline"
                 onClick={() => window.location.href = '/pendencias'}
               >
                 <DollarSign className="h-6 w-6" />
                 <span>Ver Pendências</span>
+              </Button>
+
+              <Button
+                className="h-20 flex-col space-y-2"
+                variant="outline"
+                onClick={() => window.location.href = '/leads'}
+              >
+                <Target className="h-6 w-6" />
+                <span>Gerenciar Leads</span>
               </Button>
             </div>
           </CardContent>

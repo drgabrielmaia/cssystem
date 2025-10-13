@@ -59,18 +59,59 @@ export function EditMentoradoModal({ isOpen, onClose, onSuccess, mentorado }: Ed
 
     setLoading(true)
     try {
-      const { error } = await supabase
+      console.log('🔍 Iniciando atualização do mentorado:', mentorado.id)
+      console.log('📋 Dados a serem atualizados:', formData)
+
+      // Verificar sessão de autenticação
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('🔐 Sessão de autenticação:', session ? 'Ativa' : 'Inativa')
+
+      // Validar campos obrigatórios
+      if (!formData.nome_completo.trim()) {
+        alert('Nome completo é obrigatório')
+        return
+      }
+      if (!formData.email.trim()) {
+        alert('Email é obrigatório')
+        return
+      }
+      if (!formData.turma.trim()) {
+        alert('Turma é obrigatória')
+        return
+      }
+
+      // Filtrar dados vazios e nulos para evitar problemas
+      const dataToUpdate = Object.fromEntries(
+        Object.entries(formData).filter(([_, value]) => value !== '' && value !== null && value !== undefined)
+      )
+
+      console.log('📋 Dados filtrados para atualização:', dataToUpdate)
+
+      const { data, error } = await supabase
         .from('mentorados')
-        .update(formData)
+        .update(dataToUpdate)
         .eq('id', mentorado.id)
+        .select()
 
-      if (error) throw error
+      if (error) {
+        console.error('❌ Erro do Supabase:', error)
+        console.error('📋 Detalhes do erro:', {
+          message: error.message,
+          code: error.code,
+          hint: error.hint,
+          details: error.details
+        })
+        throw error
+      }
 
+      console.log('✅ Mentorado atualizado com sucesso:', data)
+      alert('Mentorado atualizado com sucesso!')
       onSuccess()
       onClose()
     } catch (error) {
-      console.error('Erro ao atualizar mentorado:', error)
-      alert('Erro ao atualizar mentorado')
+      console.error('💥 Erro ao atualizar mentorado:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+      alert(`Erro ao atualizar mentorado: ${errorMessage}`)
     } finally {
       setLoading(false)
     }

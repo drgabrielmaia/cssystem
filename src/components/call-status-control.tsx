@@ -69,6 +69,15 @@ export function CallStatusControl({
 
       if (error) throw error
 
+      console.log('✅ Status da call atualizado:', { eventId, status: newStatus, value: updateData.sale_value })
+
+      // Forçar recálculo das métricas atualizando um timestamp na tabela
+      // Isso força a view social_seller_metrics a recalcular
+      await supabase
+        .from('calendar_events')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', eventId)
+
       onUpdate()
     } catch (error) {
       console.error('Erro ao atualizar status:', error)
@@ -96,6 +105,14 @@ export function CallStatusControl({
         .eq('id', eventId)
 
       if (error) throw error
+
+      console.log('✅ Call salva:', { eventId, status, value: updateData.sale_value })
+
+      // Forçar recálculo das métricas
+      await supabase
+        .from('calendar_events')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', eventId)
 
       setIsOpen(false)
       onUpdate()
