@@ -13,7 +13,24 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('calendar_events')
-      .select('*')
+      .select(`
+        *,
+        mentorados (
+          id,
+          nome_completo,
+          email,
+          telefone,
+          turma
+        ),
+        leads (
+          id,
+          nome_completo,
+          email,
+          telefone,
+          empresa,
+          status
+        )
+      `)
       .order('start_datetime', { ascending: true })
 
     // Filtrar por intervalo de datas se fornecido
@@ -136,6 +153,31 @@ ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}` : '
 
         console.log('📱 Notificação WhatsApp enviada para o admin')
 
+        // Função para normalizar telefone brasileiro
+        const normalizePhone = (phone: string): string => {
+          if (!phone) return '';
+
+          // Remover todos os caracteres não numéricos
+          const cleanPhone = phone.replace(/\D/g, '');
+
+          // Se começar com 55, já está no formato internacional
+          if (cleanPhone.startsWith('55')) {
+            return cleanPhone;
+          }
+
+          // Se tem 11 dígitos (celular), adicionar 55
+          if (cleanPhone.length === 11) {
+            return `55${cleanPhone}`;
+          }
+
+          // Se tem 10 dígitos (fixo), adicionar 55
+          if (cleanPhone.length === 10) {
+            return `55${cleanPhone}`;
+          }
+
+          return cleanPhone;
+        };
+
         // Enviar mensagem de confirmação para Lead/Mentorado
         if (createdEvent.lead_id || createdEvent.mentorado_id) {
           try {
@@ -151,8 +193,9 @@ ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}` : '
                 .single()
 
               if (leadData && leadData.telefone) {
-                recipientPhone = leadData.telefone
+                recipientPhone = normalizePhone(leadData.telefone)
                 recipientName = leadData.nome_completo
+                console.log(`📞 Lead phone: ${leadData.telefone} → normalized: ${recipientPhone}`)
               }
             } else if (createdEvent.mentorado_id) {
               const { data: mentoradoData } = await supabase
@@ -162,8 +205,9 @@ ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}` : '
                 .single()
 
               if (mentoradoData && mentoradoData.telefone) {
-                recipientPhone = mentoradoData.telefone
+                recipientPhone = normalizePhone(mentoradoData.telefone)
                 recipientName = mentoradoData.nome_completo
+                console.log(`📞 Mentorado phone: ${mentoradoData.telefone} → normalized: ${recipientPhone}`)
               }
             }
 
