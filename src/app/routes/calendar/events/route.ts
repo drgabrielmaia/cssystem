@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
 
 ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}` : ''}`
 
-        // Enviar para API WhatsApp
+        // Enviar notificação para Admin
         await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/default/send`, {
           method: 'POST',
           headers: {
@@ -135,6 +135,65 @@ ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}` : '
         })
 
         console.log('📱 Notificação WhatsApp enviada para o admin')
+
+        // Enviar mensagem de confirmação para Lead/Mentorado
+        if (createdEvent.lead_id || createdEvent.mentorado_id) {
+          try {
+            // Buscar dados do lead ou mentorado para obter telefone
+            let recipientPhone = null
+            let recipientName = null
+
+            if (createdEvent.lead_id) {
+              const { data: leadData } = await supabase
+                .from('leads')
+                .select('telefone, nome_completo')
+                .eq('id', createdEvent.lead_id)
+                .single()
+
+              if (leadData && leadData.telefone) {
+                recipientPhone = leadData.telefone
+                recipientName = leadData.nome_completo
+              }
+            } else if (createdEvent.mentorado_id) {
+              const { data: mentoradoData } = await supabase
+                .from('mentorados')
+                .select('telefone, nome_completo')
+                .eq('id', createdEvent.mentorado_id)
+                .single()
+
+              if (mentoradoData && mentoradoData.telefone) {
+                recipientPhone = mentoradoData.telefone
+                recipientName = mentoradoData.nome_completo
+              }
+            }
+
+            if (recipientPhone && recipientName) {
+              const confirmationMessage = `✅ Confirmado seu agendamento com o Dr. Gabriel Maia!
+
+📅 Data: ${formattedDate}
+⏰ Horário: ${formattedTime}
+📝 ${createdEvent.title}
+
+Aguardo você! 🙌`
+
+              await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/default/send`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'ngrok-skip-browser-warning': 'true'
+                },
+                body: JSON.stringify({
+                  to: recipientPhone,
+                  message: confirmationMessage
+                })
+              })
+
+              console.log(`📱 Mensagem de confirmação enviada para: ${recipientName} (${recipientPhone})`)
+            }
+          } catch (confirmationError) {
+            console.error('⚠️ Erro ao enviar confirmação para lead/mentorado:', confirmationError)
+          }
+        }
       } catch (whatsappError) {
         console.error('⚠️ Erro ao enviar notificação WhatsApp:', whatsappError)
         // Não falha a criação do evento se WhatsApp falhar
