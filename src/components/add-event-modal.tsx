@@ -135,11 +135,9 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
 
       // Função para salvar horário SP como está no banco (sem conversão)
       const createBrazilianDateTime = (dateStr: string, timeStr: string) => {
-        // Criar data local e subtrair 3h para compensar conversão automática
-        // 17:30 SP - 3h = 14:30, que quando convertido vira 17:30 UTC no banco
+        // Criar data/hora local diretamente - backend agora gerencia timezone corretamente
         const localDate = new Date(`${dateStr}T${timeStr}:00`);
-        const adjustedDate = new Date(localDate.getTime() - 3 * 60 * 60 * 1000);
-        return adjustedDate.toISOString();
+        return localDate.toISOString();
       }
 
       const startDateStr = formData.start_date || getInitialDateString()

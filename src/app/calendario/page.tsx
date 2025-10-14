@@ -159,13 +159,12 @@ export default function CalendarioPage() {
   }
 
   const formatTime = (dateString: string) => {
-    // Como o horário já está salvo correto no banco (17:30 UTC = 17:30 SP),
-    // não precisamos converter timezone, apenas formatar
+    // Converter UTC para horário de São Paulo para exibição visual
     const date = new Date(dateString);
     return date.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
-      minute: '2-digit'
-      // Removido timeZone para não converter novamente
+      minute: '2-digit',
+      timeZone: 'America/Sao_Paulo'
     })
   }
 
