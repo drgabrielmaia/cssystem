@@ -448,7 +448,23 @@ export default function PendenciasPage() {
                     {MESES.map((mes) => {
                       const valor = mentorado.despesas?.[mes.key as keyof DespesaMensal] as number || 0
                       const dataVencimento = mentorado.despesas?.data_vencimento
-                      const dataFormatada = dataVencimento ? new Date(dataVencimento).toLocaleDateString('pt-BR') : ''
+
+                      // Calcular data específica para este mês
+                      let dataFormatada = ''
+                      if (dataVencimento) {
+                        // Parsear corretamente evitando problemas de timezone
+                        const baseDate = new Date(dataVencimento + 'T12:00:00') // Meio-dia para evitar timezone
+                        const diaVencimento = baseDate.getDate()
+
+                        // Criar data para o mês específico
+                        const anoAtual = new Date().getFullYear()
+                        const mesIndex = MESES.findIndex(m => m.key === mes.key)
+
+                        // Criar data no meio-dia para evitar problemas de timezone
+                        const dataEspecifica = new Date(anoAtual, mesIndex, diaVencimento, 12, 0, 0)
+
+                        dataFormatada = dataEspecifica.toLocaleDateString('pt-BR')
+                      }
 
                       return valor > 0 ? (
                         <div key={mes.key} className="relative text-center p-3 bg-red-50 rounded-lg border border-red-200 group">
