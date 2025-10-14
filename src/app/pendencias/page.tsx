@@ -458,7 +458,8 @@ export default function PendenciasPage() {
 
                         // Criar data para o mês específico
                         const anoAtual = new Date().getFullYear()
-                        const mesIndex = MESES.findIndex(m => m.key === mes.key)
+                        const mesObj = MESES.find(m => m.key === mes.key)
+                        const mesIndex = mesObj ? mesObj.index - 1 : 0 // -1 porque Date usa 0-11
 
                         // Criar data no meio-dia para evitar problemas de timezone
                         const dataEspecifica = new Date(anoAtual, mesIndex, diaVencimento, 12, 0, 0)
