@@ -22,6 +22,7 @@ export default function WhatsAppPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Filtrar chats baseado na busca
   const filteredChats = chats.filter(chat =>
@@ -139,38 +140,39 @@ export default function WhatsAppPage() {
   }, []);
 
   const loadChatMessages = useCallback(async (chatId: string) => {
-    try {
-      console.log(`📨 Carregando mensagens para: ${chatId}`);
-      const response = await whatsappCoreAPI.getChatMessages(chatId, 50);
-      if (response.success && response.data) {
-        // Ordenar mensagens da mais antiga para mais nova
-        const sortedMessages = response.data.sort((a, b) => a.timestamp - b.timestamp);
-
-        setChatMessages(sortedMessages);
-        console.log(`✅ ${sortedMessages.length} mensagens carregadas para ${chatId}`);
-        console.log('📝 Detalhes das mensagens:', sortedMessages.map(m => ({
-          id: m.id?.slice(-4),
-          direção: m.isFromMe ? `EU → ${m.to?.slice(-4)}` : `${m.from?.slice(-4)} → EU`,
-          body: m.body?.substring(0, 30),
-          timestamp: new Date(m.timestamp).toLocaleTimeString()
-        })));
-
-        // Scroll para o final das mensagens
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-      } else {
-        setChatMessages([]);
-        console.log('📭 Nenhuma mensagem encontrada');
-      }
-    } catch (error) {
-      console.error('Erro ao carregar mensagens do chat:', error);
-      setChatMessages([]);
+    // Debounce: cancelar carregamento anterior se ainda não executou
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
     }
+
+    loadingTimeoutRef.current = setTimeout(async () => {
+      try {
+        console.log(`📨 Carregando mensagens para: ${chatId}`);
+        const response = await whatsappCoreAPI.getChatMessages(chatId, 50);
+        if (response.success && response.data) {
+          // Ordenar mensagens da mais antiga para mais nova
+          const sortedMessages = response.data.sort((a, b) => a.timestamp - b.timestamp);
+
+          setChatMessages(sortedMessages);
+          console.log(`✅ ${sortedMessages.length} mensagens carregadas para ${chatId}`);
+
+          // Scroll para o final das mensagens
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        } else {
+          setChatMessages([]);
+          console.log('📭 Nenhuma mensagem encontrada');
+        }
+      } catch (error) {
+        console.error('Erro ao carregar mensagens do chat:', error);
+        setChatMessages([]);
+      }
+    }, 300); // Debounce de 300ms
   }, []);
 
   const sendMessage = async () => {
-    if (!selectedChat || !newMessage.trim()) return;
+    if (!selectedChat || !newMessage.trim() || isLoading) return;
 
     setIsLoading(true);
     try {
@@ -182,15 +184,10 @@ export default function WhatsAppPage() {
         setNewMessage('');
         console.log('✅ Mensagem enviada com sucesso');
 
-        // Atualizar mensagens do chat
+        // Apenas scroll - SSE vai atualizar automaticamente as mensagens
         setTimeout(() => {
-          loadChatMessages(selectedChat.id);
-          loadChats(); // Atualizar lista para mostrar última mensagem
-          // Scroll para o final das mensagens
-          setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-          }, 200);
-        }, 500);
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
       } else {
         console.error('❌ Erro ao enviar:', response.error);
         alert('Erro ao enviar mensagem: ' + response.error);
@@ -258,13 +255,18 @@ export default function WhatsAppPage() {
             break;
 
           case 'new_message':
-            console.log('📲 Nova mensagem recebida');
-            loadChats(); // Atualizar lista de chats
+            console.log('📲 Nova mensagem recebida via SSE');
 
-            // Se estamos na conversa ativa, atualizar mensagens
-            if (selectedChat) {
+            // Sempre atualizar lista de chats
+            loadChats();
+
+            // Se estamos na conversa ativa, atualizar mensagens apenas se for dessa conversa
+            if (selectedChat && data.data) {
               const messageFrom = data.data.isFromMe ? data.data.to : data.data.from;
+              console.log(`🔍 Verificando mensagem: ${messageFrom} vs ${selectedChat.id}`);
+
               if (messageFrom === selectedChat.id) {
+                console.log('🔄 Atualizando mensagens do chat ativo');
                 loadChatMessages(selectedChat.id);
               }
             }
