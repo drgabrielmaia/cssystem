@@ -143,28 +143,16 @@ export default function WhatsAppPage() {
       console.log(`📨 Carregando mensagens para: ${chatId}`);
       const response = await whatsappCoreAPI.getChatMessages(chatId, 50);
       if (response.success && response.data) {
-        // Filtrar mensagens apenas do chat selecionado e ordenar da mais antiga para mais nova
-        const filteredMessages = response.data
-          .filter(message => {
-            // Para mensagens enviadas por mim, verificar se o 'to' é o chat atual
-            // Para mensagens recebidas, verificar se o 'from' é o chat atual
-            return (message.isFromMe && message.to === chatId) ||
-                   (!message.isFromMe && message.from === chatId);
-          })
-          .sort((a, b) => a.timestamp - b.timestamp); // Ordenar: mais antiga primeiro, mais nova por último
+        // Ordenar mensagens da mais antiga para mais nova
+        const sortedMessages = response.data.sort((a, b) => a.timestamp - b.timestamp);
 
-        setChatMessages(filteredMessages);
-        console.log(`✅ ${filteredMessages.length} mensagens carregadas para ${chatId}`);
-        console.log(`🔍 Chat selecionado: ${chatId}`);
-        console.log('📊 Total mensagens recebidas da API:', response.data.length);
-        console.log('✅ Mensagens filtradas para este chat:', filteredMessages.length);
-        console.log('📝 Detalhes das mensagens:', filteredMessages.map(m => ({
-          id: m.id.slice(-4),
-          direção: m.isFromMe ? `EU → ${m.to.slice(-4)}` : `${m.from.slice(-4)} → EU`,
-          body: m.body.substring(0, 30),
-          timestamp: new Date(m.timestamp).toLocaleTimeString(),
-          pertenceAoChat: (m.isFromMe && m.to === chatId) ? '✅ Minha msg para este chat' :
-                         (!m.isFromMe && m.from === chatId) ? '✅ Msg dele para mim' : '❌ Não pertence'
+        setChatMessages(sortedMessages);
+        console.log(`✅ ${sortedMessages.length} mensagens carregadas para ${chatId}`);
+        console.log('📝 Detalhes das mensagens:', sortedMessages.map(m => ({
+          id: m.id?.slice(-4),
+          direção: m.isFromMe ? `EU → ${m.to?.slice(-4)}` : `${m.from?.slice(-4)} → EU`,
+          body: m.body?.substring(0, 30),
+          timestamp: new Date(m.timestamp).toLocaleTimeString()
         })));
 
         // Scroll para o final das mensagens
