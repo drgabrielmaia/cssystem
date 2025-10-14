@@ -29,6 +29,15 @@ interface Mentorado {
   turma: string
 }
 
+interface Lead {
+  id: string
+  nome_completo: string
+  email: string | null
+  telefone: string | null
+  empresa: string | null
+  status: string
+}
+
 interface CalendarEvent {
   id: string
   title: string
@@ -37,6 +46,7 @@ interface CalendarEvent {
   end_datetime: string
   all_day: boolean
   mentorado_id?: string
+  lead_id?: string
 }
 
 interface EditEventModalProps {
@@ -49,6 +59,7 @@ interface EditEventModalProps {
 export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventModalProps) {
   const [loading, setLoading] = useState(false)
   const [mentorados, setMentorados] = useState<Mentorado[]>([])
+  const [leads, setLeads] = useState<Lead[]>([])
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -57,30 +68,44 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
     end_date: '',
     end_time: '',
     all_day: false,
-    mentorado_id: 'none'
+    mentorado_id: 'none',
+    lead_id: 'none'
   })
 
-  // Buscar mentorados
+  // Buscar mentorados e leads
   useEffect(() => {
-    const fetchMentorados = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/mentorados', {
+        // Buscar mentorados
+        const mentoradosResponse = await fetch('/api/mentorados', {
           headers: {
             'ngrok-skip-browser-warning': 'true'
           }
         })
-        const data = await response.json()
-        if (data.success) {
-          setMentorados(data.mentorados || [])
+        const mentoradosData = await mentoradosResponse.json()
+        if (mentoradosData.success) {
+          setMentorados(mentoradosData.mentorados || [])
+        }
+
+        // Buscar leads
+        const leadsResponse = await fetch('/routes/leads', {
+          headers: {
+            'ngrok-skip-browser-warning': 'true'
+          }
+        })
+        const leadsData = await leadsResponse.json()
+        if (leadsData.success) {
+          setLeads(leadsData.leads || [])
         }
       } catch (error) {
-        console.error('Erro ao buscar mentorados:', error)
+        console.error('Erro ao buscar dados:', error)
         setMentorados([])
+        setLeads([])
       }
     }
 
     if (isOpen) {
-      fetchMentorados()
+      fetchData()
     }
   }, [isOpen])
 
@@ -117,7 +142,8 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
         end_date: formatDateString(endDate),
         end_time: event.all_day ? '' : formatTimeString(endDate),
         all_day: event.all_day,
-        mentorado_id: event.mentorado_id || 'none'
+        mentorado_id: event.mentorado_id || 'none',
+        lead_id: event.lead_id || 'none'
       })
     }
   }, [event, isOpen])
@@ -173,7 +199,8 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
         start_datetime: startDateTime,
         end_datetime: endDateTime,
         all_day: formData.all_day,
-        mentorado_id: formData.mentorado_id && formData.mentorado_id !== 'none' ? formData.mentorado_id : null
+        mentorado_id: formData.mentorado_id && formData.mentorado_id !== 'none' ? formData.mentorado_id : null,
+        lead_id: formData.lead_id && formData.lead_id !== 'none' ? formData.lead_id : null
       }
 
       console.log('Atualizando evento:', eventData)
@@ -273,6 +300,26 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
                   {mentorados.map((mentorado) => (
                     <SelectItem key={mentorado.id} value={mentorado.id}>
                       {mentorado.nome} ({mentorado.turma})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Lead */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="lead" className="text-right">
+                Lead
+              </Label>
+              <Select value={formData.lead_id} onValueChange={(value) => handleChange('lead_id', value)}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Selecione um lead (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum lead</SelectItem>
+                  {leads.map((lead) => (
+                    <SelectItem key={lead.id} value={lead.id}>
+                      {lead.nome_completo} - {lead.status}
                     </SelectItem>
                   ))}
                 </SelectContent>
