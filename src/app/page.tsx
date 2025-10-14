@@ -49,18 +49,31 @@ export default function Dashboard() {
         .select('id')
         .eq('status', 'agendado')
       
-      // Buscar pendências financeiras
+      // Buscar pendências financeiras - calcular corretamente
       const { data: despesas } = await supabase
         .from('despesas_mensais')
         .select('*')
-      
-      // Calcular total de pendências
+
+      // Calcular total de pendências (apenas valores > 0)
       let totalPendencias = 0
+      let pessoasComPendencias = 0
+
       if (despesas) {
-        totalPendencias = despesas.reduce((sum, despesa) => {
-          const meses = ['agosto', 'setembro', 'outubro', 'novembro', 'dezembro', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho']
-          return sum + meses.reduce((mesSum, mes) => mesSum + (despesa[mes] || 0), 0)
-        }, 0)
+        const meses = ['agosto', 'setembro', 'outubro', 'novembro', 'dezembro', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho']
+
+        despesas.forEach(despesa => {
+          let totalPessoa = 0
+          meses.forEach(mes => {
+            const valor = despesa[mes] || 0
+            if (valor > 0) {
+              totalPessoa += valor
+            }
+          })
+          if (totalPessoa > 0) {
+            totalPendencias += totalPessoa
+            pessoasComPendencias++
+          }
+        })
       }
 
       // Buscar dados dos leads
@@ -87,7 +100,7 @@ export default function Dashboard() {
       setStats({
         totalMentorados: mentorados?.length || 0,
         totalCheckins: checkins?.length || 0,
-        totalFormularios: despesas?.length || 0,
+        totalFormularios: pessoasComPendencias,
         npsMedia: totalPendencias
       })
 
