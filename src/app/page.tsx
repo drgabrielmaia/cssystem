@@ -49,28 +49,41 @@ export default function Dashboard() {
         .select('id')
         .eq('status', 'agendado')
       
-      // Buscar pendências financeiras - calcular corretamente
-      const { data: despesas } = await supabase
+      // Buscar pendências financeiras - MESMA LÓGICA DA PÁGINA DE PENDÊNCIAS
+      const { data: mentoradosData } = await supabase
+        .from('mentorados')
+        .select('*')
+        .order('nome_completo')
+
+      const { data: despesasData } = await supabase
         .from('despesas_mensais')
         .select('*')
 
-      // Calcular total de pendências (apenas valores > 0)
       let totalPendencias = 0
       let pessoasComPendencias = 0
 
-      if (despesas) {
-        const meses = ['agosto', 'setembro', 'outubro', 'novembro', 'dezembro', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho']
+      if (mentoradosData && despesasData) {
+        const meses = [
+          { key: 'agosto' }, { key: 'setembro' }, { key: 'outubro' }, { key: 'novembro' },
+          { key: 'dezembro' }, { key: 'janeiro' }, { key: 'fevereiro' }, { key: 'marco' },
+          { key: 'abril' }, { key: 'maio' }, { key: 'junho' }, { key: 'julho' }
+        ]
 
-        despesas.forEach(despesa => {
-          let totalPessoa = 0
-          meses.forEach(mes => {
-            const valor = despesa[mes] || 0
-            if (valor > 0) {
-              totalPessoa += valor
-            }
-          })
-          if (totalPessoa > 0) {
-            totalPendencias += totalPessoa
+        mentoradosData.forEach(mentorado => {
+          const despesas = despesasData.find(d => d.nome === mentorado.nome_completo) || null
+          let totalPendente = 0
+
+          if (despesas) {
+            meses.forEach(mes => {
+              const valor = despesas[mes.key] || 0
+              if (valor && valor > 0) {
+                totalPendente += valor
+              }
+            })
+          }
+
+          if (totalPendente > 0) {
+            totalPendencias += totalPendente
             pessoasComPendencias++
           }
         })
