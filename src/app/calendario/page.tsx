@@ -159,12 +159,12 @@ export default function CalendarioPage() {
   }
 
   const formatTime = (dateString: string) => {
-    // Converter UTC para horário de São Paulo para exibição visual
+    // CORREÇÃO TEMPORÁRIA: Adicionar 3h para compensar timezone errado nos dados antigos
     const date = new Date(dateString);
-    return date.toLocaleTimeString('pt-BR', {
+    const correctedDate = new Date(date.getTime() + 3 * 60 * 60 * 1000); // +3h
+    return correctedDate.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'America/Sao_Paulo'
+      minute: '2-digit'
     })
   }
 
