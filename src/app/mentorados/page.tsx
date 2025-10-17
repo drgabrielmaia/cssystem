@@ -394,7 +394,7 @@ export default function MentoradosPage() {
                   <Calendar className="h-3 w-3" />
                   <span>
                     {mentorado.data_inicio_mentoria
-                      ? `Início: ${new Date(mentorado.data_inicio_mentoria).toLocaleDateString('pt-BR')}`
+                      ? `Início: ${new Date(mentorado.data_inicio_mentoria + 'T00:00:00').toLocaleDateString('pt-BR')}`
                       : `Cadastrado: ${new Date(mentorado.data_entrada).toLocaleDateString('pt-BR')}`
                     }
                   </span>

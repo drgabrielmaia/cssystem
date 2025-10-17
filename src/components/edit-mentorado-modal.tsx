@@ -33,6 +33,32 @@ export function EditMentoradoModal({ isOpen, onClose, onSuccess, mentorado }: Ed
     data_inicio_mentoria: ''
   })
 
+  // Função para converter data para formato YYYY-MM-DD sem problemas de timezone
+  const formatDateForInput = (dateString: string | null | undefined) => {
+    if (!dateString) return '';
+
+    try {
+      // Se já está no formato YYYY-MM-DD, retorna como está
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+      }
+
+      // Para datas ISO, pegar apenas a parte da data (YYYY-MM-DD)
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+
+      // Usar UTC para evitar problemas de timezone
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+
+      return `${year}-${month}-${day}`;
+    } catch (error) {
+      console.error('Erro ao formatar data:', error);
+      return '';
+    }
+  };
+
   useEffect(() => {
     if (mentorado) {
       setFormData({
@@ -42,13 +68,13 @@ export function EditMentoradoModal({ isOpen, onClose, onSuccess, mentorado }: Ed
         turma: mentorado.turma || '',
         estado_entrada: mentorado.estado_entrada || '',
         estado_atual: mentorado.estado_atual || '',
-        data_nascimento: mentorado.data_nascimento || '',
+        data_nascimento: formatDateForInput(mentorado.data_nascimento),
         cpf: mentorado.cpf || '',
         rg: mentorado.rg || '',
         endereco: mentorado.endereco || '',
         crm: mentorado.crm || '',
         origem_conhecimento: mentorado.origem_conhecimento || '',
-        data_inicio_mentoria: mentorado.data_inicio_mentoria || ''
+        data_inicio_mentoria: formatDateForInput(mentorado.data_inicio_mentoria)
       })
     }
   }, [mentorado])
