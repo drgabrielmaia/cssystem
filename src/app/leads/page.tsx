@@ -202,14 +202,14 @@ export default function LeadsPage() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      'novo': { label: 'Novo', className: 'bg-blue-100 text-blue-800' },
-      'contactado': { label: 'Contactado', className: 'bg-yellow-100 text-yellow-800' },
-      'qualificado': { label: 'Qualificado', className: 'bg-purple-100 text-purple-800' },
-      'call_agendada': { label: 'Call Agendada', className: 'bg-orange-100 text-orange-800' },
-      'proposta_enviada': { label: 'Proposta Enviada', className: 'bg-indigo-100 text-indigo-800' },
-      'vendido': { label: 'Vendido', className: 'bg-green-100 text-green-800' },
-      'perdido': { label: 'Perdido', className: 'bg-red-100 text-red-800' },
-      'no-show': { label: 'No-show', className: 'bg-gray-100 text-gray-800' }
+      'novo': { label: 'Novo', className: 'bg-blue-500 text-white shadow-md' },
+      'contactado': { label: 'Contactado', className: 'bg-purple-500 text-white shadow-md' },
+      'qualificado': { label: 'Qualificado', className: 'bg-indigo-500 text-white shadow-md' },
+      'call_agendada': { label: 'Call Agendada', className: 'bg-orange-500 text-white shadow-md' },
+      'proposta_enviada': { label: 'Proposta Enviada', className: 'bg-amber-500 text-white shadow-md' },
+      'vendido': { label: 'Vendido', className: 'bg-green-600 text-white shadow-md' },
+      'perdido': { label: 'Perdido', className: 'bg-red-500 text-white shadow-md' },
+      'no-show': { label: 'No-show', className: 'bg-yellow-500 text-white shadow-md' }
     }
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.novo
@@ -406,140 +406,109 @@ export default function LeadsPage() {
                   Novo Lead
                 </Button>
               </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingLead ? 'Editar Lead' : 'Novo Lead'}
+            <DialogContent className="max-w-lg bg-gradient-to-br from-green-50 to-yellow-50 border-2 border-green-200">
+              <DialogHeader className="text-center pb-6">
+                <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-green-700 to-yellow-600 bg-clip-text text-transparent">
+                  {editingLead ? '✨ Editar Lead' : '🌟 Novo Lead'}
                 </DialogTitle>
+                <p className="text-sm text-green-600 mt-2">Informações essenciais do prospect</p>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="nome_completo">Nome Completo *</Label>
-                    <Input
-                      id="nome_completo"
-                      value={formData.nome_completo}
-                      onChange={(e) => setFormData({...formData, nome_completo: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    />
-                  </div>
+
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Nome Completo */}
+                <div className="space-y-2">
+                  <Label htmlFor="nome_completo" className="text-green-800 font-semibold">
+                    👤 Nome Completo *
+                  </Label>
+                  <Input
+                    id="nome_completo"
+                    value={formData.nome_completo}
+                    onChange={(e) => setFormData({...formData, nome_completo: e.target.value})}
+                    required
+                    className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
+                    placeholder="Digite o nome completo..."
+                  />
                 </div>
 
+                {/* Origem e Status */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="telefone">Telefone</Label>
-                    <Input
-                      id="telefone"
-                      value={formData.telefone}
-                      onChange={(e) => setFormData({...formData, telefone: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="empresa">Empresa</Label>
-                    <Input
-                      id="empresa"
-                      value={formData.empresa}
-                      onChange={(e) => setFormData({...formData, empresa: e.target.value})}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="cargo">Cargo</Label>
-                    <Input
-                      id="cargo"
-                      value={formData.cargo}
-                      onChange={(e) => setFormData({...formData, cargo: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="origem">Origem</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="origem" className="text-green-800 font-semibold">
+                      📍 Origem
+                    </Label>
                     <Select value={formData.origem} onValueChange={(value) => setFormData({...formData, origem: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione..." />
+                      <SelectTrigger className="border-2 border-green-200 focus:border-yellow-400 bg-white/70">
+                        <SelectValue placeholder="Selecione a origem..." />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="facebook">Facebook</SelectItem>
-                        <SelectItem value="instagram">Instagram</SelectItem>
-                        <SelectItem value="google">Google</SelectItem>
-                        <SelectItem value="indicacao">Indicação</SelectItem>
-                        <SelectItem value="linkedin">LinkedIn</SelectItem>
-                        <SelectItem value="website">Website</SelectItem>
-                        <SelectItem value="outros">Outros</SelectItem>
+                      <SelectContent className="bg-white border-green-200">
+                        <SelectItem value="facebook">📘 Facebook</SelectItem>
+                        <SelectItem value="instagram">📸 Instagram</SelectItem>
+                        <SelectItem value="google">🔍 Google</SelectItem>
+                        <SelectItem value="indicacao">🤝 Indicação</SelectItem>
+                        <SelectItem value="linkedin">💼 LinkedIn</SelectItem>
+                        <SelectItem value="website">🌐 Website</SelectItem>
+                        <SelectItem value="outros">📋 Outros</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label htmlFor="status">Status</Label>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="status" className="text-green-800 font-semibold">
+                      🎯 Status
+                    </Label>
                     <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
-                      <SelectTrigger>
+                      <SelectTrigger className="border-2 border-green-200 focus:border-yellow-400 bg-white/70">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="novo">Novo</SelectItem>
-                        <SelectItem value="contactado">Contactado</SelectItem>
-                        <SelectItem value="qualificado">Qualificado</SelectItem>
-                        <SelectItem value="call_agendada">Call Agendada</SelectItem>
-                        <SelectItem value="proposta_enviada">Proposta Enviada</SelectItem>
-                        <SelectItem value="vendido">Vendido</SelectItem>
-                        <SelectItem value="perdido">Perdido</SelectItem>
-                        <SelectItem value="no-show">No-show</SelectItem>
+                      <SelectContent className="bg-white border-green-200">
+                        <SelectItem value="novo">🔵 Novo</SelectItem>
+                        <SelectItem value="contactado">🟣 Contactado</SelectItem>
+                        <SelectItem value="qualificado">🟦 Qualificado</SelectItem>
+                        <SelectItem value="call_agendada">🟠 Call Agendada</SelectItem>
+                        <SelectItem value="proposta_enviada">🟡 Proposta Enviada</SelectItem>
+                        <SelectItem value="vendido">🟢 Vendido</SelectItem>
+                        <SelectItem value="perdido">🔴 Perdido</SelectItem>
+                        <SelectItem value="no-show">🟨 No-show</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="valor_vendido">Valor Vendido (R$)</Label>
-                    <Input
-                      id="valor_vendido"
-                      type="number"
-                      step="0.01"
-                      placeholder="Valor total da venda"
-                      value={formData.valor_vendido}
-                      onChange={(e) => setFormData({...formData, valor_vendido: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="valor_arrecadado">Valor Arrecadado (R$)</Label>
-                    <Input
-                      id="valor_arrecadado"
-                      type="number"
-                      step="0.01"
-                      placeholder="Valor já recebido"
-                      value={formData.valor_arrecadado}
-                      onChange={(e) => setFormData({...formData, valor_arrecadado: e.target.value})}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="observacoes">Observações</Label>
+                {/* Observações - Destaque especial */}
+                <div className="space-y-2">
+                  <Label htmlFor="observacoes" className="text-green-800 font-semibold flex items-center gap-2">
+                    📝 Observações Importantes
+                    <span className="text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded-full">
+                      Campo essencial
+                    </span>
+                  </Label>
                   <Textarea
                     id="observacoes"
                     value={formData.observacoes}
                     onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
-                    rows={3}
+                    rows={4}
+                    className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70 resize-none"
+                    placeholder="Adicione observações sobre o lead, contexto da conversa, interesses, objeções, próximos passos..."
                   />
+                  <p className="text-xs text-green-600">
+                    💡 Dica: Detalhe o máximo possível para um melhor acompanhamento
+                  </p>
                 </div>
 
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
-                    Cancelar
+                <div className="flex justify-end space-x-3 pt-4 border-t border-green-200">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsModalOpen(false)}
+                    className="border-2 border-gray-300 hover:border-red-300 hover:text-red-600"
+                  >
+                    ❌ Cancelar
                   </Button>
-                  <Button type="submit">
-                    {editingLead ? 'Atualizar' : 'Criar'} Lead
+                  <Button
+                    type="submit"
+                    className="bg-gradient-to-r from-green-600 to-yellow-500 hover:from-green-700 hover:to-yellow-600 text-white font-semibold shadow-lg"
+                  >
+                    {editingLead ? '✅ Atualizar Lead' : '🚀 Criar Lead'}
                   </Button>
                 </div>
               </form>
@@ -553,67 +522,48 @@ export default function LeadsPage() {
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50">
+                <thead className="bg-gradient-to-r from-green-100 to-yellow-100">
                   <tr>
-                    <th className="text-left p-4">Lead</th>
-                    <th className="text-left p-4">Contato</th>
-                    <th className="text-left p-4">Empresa</th>
-                    <th className="text-left p-4">Origem</th>
-                    <th className="text-left p-4">Status</th>
-                    <th className="text-right p-4">Valores</th>
-                    <th className="text-center p-4">Ações</th>
+                    <th className="text-left p-4 font-semibold text-green-800">👤 Lead</th>
+                    <th className="text-left p-4 font-semibold text-green-800">📍 Origem</th>
+                    <th className="text-left p-4 font-semibold text-green-800">🎯 Status</th>
+                    <th className="text-left p-4 font-semibold text-green-800">📝 Observações</th>
+                    <th className="text-center p-4 font-semibold text-green-800">⚙️ Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {leads.map((lead) => (
-                    <tr key={lead.id} className="border-t hover:bg-gray-50">
+                    <tr key={lead.id} className="border-t hover:bg-gradient-to-r hover:from-green-50 hover:to-yellow-50 transition-all duration-200">
                       <td className="p-4">
                         <div>
-                          <p className="font-medium">{lead.nome_completo}</p>
-                          <p className="text-xs text-gray-500">{lead.cargo}</p>
+                          <p className="font-medium text-green-800">{lead.nome_completo}</p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(lead.created_at).toLocaleDateString('pt-BR')}
+                          </p>
                         </div>
                       </td>
                       <td className="p-4">
-                        <div className="space-y-1">
-                          {lead.email && (
-                            <div className="flex items-center text-xs">
-                              <Mail className="w-3 h-3 mr-1" />
-                              {lead.email}
-                            </div>
-                          )}
-                          {lead.telefone && (
-                            <div className="flex items-center text-xs">
-                              <Phone className="w-3 h-3 mr-1" />
-                              {lead.telefone}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        {lead.empresa && (
-                          <div className="flex items-center text-sm">
-                            <Building className="w-3 h-3 mr-1" />
-                            {lead.empresa}
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <Badge variant="outline" className="text-xs">
-                          {lead.origem}
+                        <Badge variant="outline" className="text-xs border-green-300 text-green-700 bg-green-50">
+                          {lead.origem || 'Não informado'}
                         </Badge>
                       </td>
                       <td className="p-4">
                         {getStatusBadge(lead.status)}
                       </td>
-                      <td className="p-4 text-right">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-green-600">
-                            {lead.valor_vendido ? `Vendido: ${formatCurrency(lead.valor_vendido)}` : '-'}
+                      <td className="p-4 max-w-xs">
+                        {lead.observacoes ? (
+                          <div className="relative group">
+                            <p className="text-sm text-gray-700 line-clamp-2 cursor-help">
+                              {lead.observacoes}
+                            </p>
+                            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 max-w-xs shadow-lg">
+                              {lead.observacoes}
+                              <div className="absolute top-full left-4 border-4 border-transparent border-t-gray-800"></div>
+                            </div>
                           </div>
-                          <div className="text-xs text-blue-600">
-                            {lead.valor_arrecadado ? `Arrecadado: ${formatCurrency(lead.valor_arrecadado)}` : '-'}
-                          </div>
-                        </div>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">Sem observações</span>
+                        )}
                       </td>
                       <td className="p-4">
                         <div className="flex items-center justify-center space-x-2">
@@ -621,6 +571,8 @@ export default function LeadsPage() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleEdit(lead)}
+                            className="border-green-300 text-green-700 hover:bg-green-50"
+                            title="Editar lead"
                           >
                             <Edit className="w-3 h-3" />
                           </Button>
@@ -628,6 +580,8 @@ export default function LeadsPage() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleDelete(lead.id)}
+                            className="border-red-300 text-red-700 hover:bg-red-50"
+                            title="Excluir lead"
                           >
                             <Trash2 className="w-3 h-3" />
                           </Button>

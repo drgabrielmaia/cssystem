@@ -137,6 +137,12 @@ class WhatsAppCoreAPI {
       method: 'POST',
     });
   }
+
+  async syncChat(chatId: string): Promise<ApiResponse<{ chatId: string; messageCount: number; messages: Message[] }>> {
+    return this.request(`/users/${this.userId}/chats/${encodeURIComponent(chatId)}/sync`, {
+      method: 'POST',
+    });
+  }
 }
 
 export const whatsappCoreAPI = new WhatsAppCoreAPI();

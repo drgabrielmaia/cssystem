@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Bell, User } from 'lucide-react'
+import { Search, Bell, User, LogOut } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { NotificationCenter } from '@/components/notifications'
+import { useAuth } from '@/contexts/auth'
 
 interface HeaderProps {
   title: string
@@ -22,6 +23,7 @@ interface HeaderProps {
 
 export function Header({ title, subtitle }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const { user, signOut } = useAuth()
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-2 sm:gap-4 border-b border-gray-200 bg-white px-4 sm:px-6">
@@ -63,7 +65,7 @@ export function Header({ title, subtitle }: HeaderProps) {
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">Customer Success</p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  cs@empresa.com
+                  {user?.email || 'cs@empresa.com'}
                 </p>
               </div>
             </DropdownMenuLabel>
@@ -76,7 +78,8 @@ export function Header({ title, subtitle }: HeaderProps) {
               <span>Configurações</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={signOut} className="text-red-600 focus:text-red-600">
+              <LogOut className="mr-2 h-4 w-4" />
               <span>Sair</span>
             </DropdownMenuItem>
           </DropdownMenuContent>

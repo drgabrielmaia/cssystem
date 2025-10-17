@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { MessageCircle, Phone, QrCode, Send, Users, Wifi, WifiOff, ExternalLink, Search } from 'lucide-react';
+import { MessageCircle, Phone, QrCode, Send, Users, Wifi, WifiOff, ExternalLink, Search, RefreshCw } from 'lucide-react';
 import { whatsappCoreAPI, type WhatsAppStatus, type Contact, type Chat, type Message } from '@/lib/whatsapp-core-api';
 import Link from 'next/link';
 
@@ -20,6 +20,7 @@ export default function WhatsAppPage() {
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncingChat, setIsSyncingChat] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -200,6 +201,40 @@ export default function WhatsAppPage() {
     }
   };
 
+  const syncCurrentChat = async () => {
+    if (!selectedChat || isSyncingChat) return;
+
+    setIsSyncingChat(true);
+    try {
+      console.log(`🔄 Sincronizando conversa: ${selectedChat.id}`);
+
+      const response = await whatsappCoreAPI.syncChat(selectedChat.id);
+
+      if (response.success && response.data) {
+        console.log(`✅ Conversa sincronizada: ${response.data.messageCount} mensagens`);
+
+        // Atualizar mensagens do chat atual
+        setChatMessages(response.data.messages || []);
+
+        // Scroll para o final
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+
+        // Feedback visual
+        alert(`Conversa atualizada! ${response.data.messageCount} mensagens carregadas.`);
+      } else {
+        console.error('❌ Erro ao sincronizar:', response.error);
+        alert('Erro ao atualizar conversa: ' + response.error);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao sincronizar conversa:', error);
+      alert('Erro ao atualizar conversa');
+    } finally {
+      setIsSyncingChat(false);
+    }
+  };
+
   const formatTime = (timestamp: number) => {
     if (!timestamp || timestamp <= 0) return '';
     return new Date(timestamp).toLocaleTimeString('pt-BR', {
@@ -274,6 +309,14 @@ export default function WhatsAppPage() {
 
           case 'chats_updated':
             loadChats();
+            break;
+
+          case 'chat_updated':
+            console.log('🔄 Chat atualizado via SSE:', data.data);
+            // Se é o chat atual, recarregar mensagens
+            if (selectedChat && data.data?.chatId === selectedChat.id) {
+              loadChatMessages(selectedChat.id);
+            }
             break;
 
           case 'contacts_updated':
@@ -529,6 +572,16 @@ export default function WhatsAppPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-white hover:bg-white/10 rounded-full h-10 w-10 p-0"
+                      onClick={syncCurrentChat}
+                      disabled={isSyncingChat}
+                      title="Atualizar conversa"
+                    >
+                      <RefreshCw className={`h-5 w-5 ${isSyncingChat ? 'animate-spin' : ''}`} />
+                    </Button>
                     <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 rounded-full h-10 w-10 p-0">
                       <Phone className="h-5 w-5" />
                     </Button>
