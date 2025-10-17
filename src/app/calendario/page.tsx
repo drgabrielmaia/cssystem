@@ -159,13 +159,26 @@ export default function CalendarioPage() {
   }
 
   const formatTime = (dateString: string) => {
-    // CORREÇÃO TEMPORÁRIA: Adicionar 3h para compensar timezone errado nos dados antigos
-    const date = new Date(dateString);
-    const correctedDate = new Date(date.getTime() + 3 * 60 * 60 * 1000); // +3h
-    return correctedDate.toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    try {
+      // Converter para Date e formatar em timezone local brasileiro
+      const date = new Date(dateString);
+
+      // Verificar se a data é válida
+      if (isNaN(date.getTime())) {
+        console.warn('Data inválida:', dateString);
+        return '--:--';
+      }
+
+      // Forçar timezone brasileiro (UTC-3) para exibição correta
+      return date.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'America/Sao_Paulo'
+      });
+    } catch (error) {
+      console.error('Erro ao formatar horário:', error);
+      return '--:--';
+    }
   }
 
   const renderMessageStatus = (event: CalendarEvent) => {
