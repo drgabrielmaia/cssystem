@@ -242,18 +242,18 @@ export default function LeadsPage() {
     // Título do documento com estilo Rolex (verde e dourado)
     doc.setFontSize(24)
     doc.setTextColor(22, 101, 52) // Verde escuro
-    doc.text('📊 Relatório de Leads', 14, 25)
+    doc.text('Relatorio de Leads', 14, 25)
 
     // Linha decorativa dourada
     doc.setDrawColor(212, 175, 55) // Dourado
     doc.setLineWidth(1)
     doc.line(14, 30, 196, 30)
 
-    // Informações gerais com ícones
+    // Informações gerais
     doc.setFontSize(11)
     doc.setTextColor(60, 60, 60)
-    doc.text(`📅 Data de geração: ${new Date().toLocaleDateString('pt-BR')}`, 14, 42)
-    doc.text(`👥 Total de leads: ${leads.length}`, 14, 50)
+    doc.text(`Data de geracao: ${new Date().toLocaleDateString('pt-BR')}`, 14, 42)
+    doc.text(`Total de leads: ${leads.length}`, 14, 50)
 
     // Preparar dados da tabela - APENAS as 4 colunas essenciais
     const tableData = leads.map(lead => [
@@ -265,7 +265,7 @@ export default function LeadsPage() {
 
     // Gerar tabela com visual verde e dourado
     autoTable(doc, {
-      head: [['👤 Lead', '📍 Origem', '🎯 Status', '📝 Observações']],
+      head: [['Lead', 'Origem', 'Status', 'Observacoes']],
       body: tableData,
       startY: 60,
       styles: {
@@ -316,7 +316,7 @@ export default function LeadsPage() {
 
     doc.setFontSize(9)
     doc.setTextColor(120, 120, 120)
-    doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')} | Sistema de Gestão de Leads`, 14, finalY + 8)
+    doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')} | Sistema de Gestao de Leads`, 14, finalY + 8)
 
     // Salvar PDF
     doc.save(`leads_relatorio_${new Date().toISOString().split('T')[0]}.pdf`)
@@ -554,8 +554,11 @@ export default function LeadsPage() {
                 <thead className="bg-gradient-to-r from-green-100 to-yellow-100">
                   <tr>
                     <th className="text-left p-4 font-semibold text-green-800">👤 Lead</th>
+                    <th className="text-left p-4 font-semibold text-green-800">📞 Contato</th>
+                    <th className="text-left p-4 font-semibold text-green-800">🏢 Empresa</th>
                     <th className="text-left p-4 font-semibold text-green-800">📍 Origem</th>
                     <th className="text-left p-4 font-semibold text-green-800">🎯 Status</th>
+                    <th className="text-right p-4 font-semibold text-green-800">💰 Valores</th>
                     <th className="text-left p-4 font-semibold text-green-800">📝 Observações</th>
                     <th className="text-center p-4 font-semibold text-green-800">⚙️ Ações</th>
                   </tr>
@@ -566,10 +569,32 @@ export default function LeadsPage() {
                       <td className="p-4">
                         <div>
                           <p className="font-medium text-green-800">{lead.nome_completo}</p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(lead.created_at).toLocaleDateString('pt-BR')}
-                          </p>
+                          <p className="text-xs text-gray-500">{lead.cargo}</p>
                         </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="space-y-1">
+                          {lead.email && (
+                            <div className="flex items-center text-xs">
+                              <Mail className="w-3 h-3 mr-1 text-gray-400" />
+                              <span className="text-gray-700">{lead.email}</span>
+                            </div>
+                          )}
+                          {lead.telefone && (
+                            <div className="flex items-center text-xs">
+                              <Phone className="w-3 h-3 mr-1 text-gray-400" />
+                              <span className="text-gray-700">{lead.telefone}</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        {lead.empresa && (
+                          <div className="flex items-center text-sm">
+                            <Building className="w-3 h-3 mr-1 text-gray-400" />
+                            <span className="text-gray-700">{lead.empresa}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="p-4">
                         <Badge variant="outline" className="text-xs border-green-300 text-green-700 bg-green-50">
@@ -578,6 +603,16 @@ export default function LeadsPage() {
                       </td>
                       <td className="p-4">
                         {getStatusBadge(lead.status)}
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-green-600">
+                            {lead.valor_vendido ? `Vendido: ${formatCurrency(lead.valor_vendido)}` : '-'}
+                          </div>
+                          <div className="text-xs text-blue-600">
+                            {lead.valor_arrecadado ? `Arrecadado: ${formatCurrency(lead.valor_arrecadado)}` : '-'}
+                          </div>
+                        </div>
                       </td>
                       <td className="p-4 max-w-xs">
                         {lead.observacoes ? (
