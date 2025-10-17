@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { Header } from '@/components/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,7 +27,8 @@ import {
   Users,
   DollarSign,
   TrendingUp,
-  FileText
+  FileText,
+  Download
 } from 'lucide-react'
 
 interface Lead {
@@ -233,6 +236,63 @@ export default function LeadsPage() {
     return stats.reduce((total, stat) => total + stat.quantidade, 0)
   }
 
+  const exportLeadsToPDF = () => {
+    const doc = new jsPDF()
+
+    // Título do documento
+    doc.setFontSize(20)
+    doc.text('Relatório de Leads', 14, 22)
+
+    // Informações gerais
+    doc.setFontSize(12)
+    doc.text(`Data de geração: ${new Date().toLocaleDateString('pt-BR')}`, 14, 32)
+    doc.text(`Total de leads: ${leads.length}`, 14, 40)
+    doc.text(`Valor total vendido: ${formatCurrency(getTotalVendido())}`, 14, 48)
+    doc.text(`Valor total arrecadado: ${formatCurrency(getTotalArrecadado())}`, 14, 56)
+
+    // Preparar dados para a tabela
+    const tableData = leads.map(lead => [
+      lead.nome_completo,
+      lead.email || '-',
+      lead.telefone || '-',
+      lead.empresa || '-',
+      lead.cargo || '-',
+      lead.origem || '-',
+      lead.status,
+      lead.valor_vendido ? formatCurrency(lead.valor_vendido) : '-',
+      lead.valor_arrecadado ? formatCurrency(lead.valor_arrecadado) : '-'
+    ])
+
+    // Gerar tabela
+    autoTable(doc, {
+      head: [['Nome', 'Email', 'Telefone', 'Empresa', 'Cargo', 'Origem', 'Status', 'Vendido', 'Arrecadado']],
+      body: tableData,
+      startY: 70,
+      styles: {
+        fontSize: 8,
+        cellPadding: 2
+      },
+      headStyles: {
+        fillColor: [66, 139, 202],
+        textColor: 255
+      },
+      columnStyles: {
+        0: { cellWidth: 25 }, // Nome
+        1: { cellWidth: 30 }, // Email
+        2: { cellWidth: 20 }, // Telefone
+        3: { cellWidth: 25 }, // Empresa
+        4: { cellWidth: 20 }, // Cargo
+        5: { cellWidth: 15 }, // Origem
+        6: { cellWidth: 20 }, // Status
+        7: { cellWidth: 20 }, // Vendido
+        8: { cellWidth: 20 }  // Arrecadado
+      }
+    })
+
+    // Salvar PDF
+    doc.save(`leads_${new Date().toISOString().split('T')[0]}.pdf`)
+  }
+
   if (loading) {
     return (
       <div className="flex-1 overflow-y-auto">
@@ -334,13 +394,18 @@ export default function LeadsPage() {
         {/* Botão para Novo Lead */}
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold">Todos os Leads</h2>
-          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm}>
-                <Plus className="w-4 h-4 mr-2" />
-                Novo Lead
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={exportLeadsToPDF}>
+              <Download className="w-4 h-4 mr-2" />
+              Exportar PDF
+            </Button>
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={resetForm}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Novo Lead
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>
@@ -480,6 +545,7 @@ export default function LeadsPage() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Lista de Leads */}
