@@ -239,58 +239,87 @@ export default function LeadsPage() {
   const exportLeadsToPDF = () => {
     const doc = new jsPDF()
 
-    // Título do documento
-    doc.setFontSize(20)
-    doc.text('Relatório de Leads', 14, 22)
+    // Título do documento com estilo Rolex (verde e dourado)
+    doc.setFontSize(24)
+    doc.setTextColor(22, 101, 52) // Verde escuro
+    doc.text('📊 Relatório de Leads', 14, 25)
 
-    // Informações gerais
-    doc.setFontSize(12)
-    doc.text(`Data de geração: ${new Date().toLocaleDateString('pt-BR')}`, 14, 32)
-    doc.text(`Total de leads: ${leads.length}`, 14, 40)
-    doc.text(`Valor total vendido: ${formatCurrency(getTotalVendido())}`, 14, 48)
-    doc.text(`Valor total arrecadado: ${formatCurrency(getTotalArrecadado())}`, 14, 56)
+    // Linha decorativa dourada
+    doc.setDrawColor(212, 175, 55) // Dourado
+    doc.setLineWidth(1)
+    doc.line(14, 30, 196, 30)
 
-    // Preparar dados para a tabela
+    // Informações gerais com ícones
+    doc.setFontSize(11)
+    doc.setTextColor(60, 60, 60)
+    doc.text(`📅 Data de geração: ${new Date().toLocaleDateString('pt-BR')}`, 14, 42)
+    doc.text(`👥 Total de leads: ${leads.length}`, 14, 50)
+
+    // Preparar dados da tabela - APENAS as 4 colunas essenciais
     const tableData = leads.map(lead => [
       lead.nome_completo,
-      lead.email || '-',
-      lead.telefone || '-',
-      lead.empresa || '-',
-      lead.cargo || '-',
-      lead.origem || '-',
+      lead.origem || 'Não informado',
       lead.status,
-      lead.valor_vendido ? formatCurrency(lead.valor_vendido) : '-',
-      lead.valor_arrecadado ? formatCurrency(lead.valor_arrecadado) : '-'
+      lead.observacoes || 'Sem observações'
     ])
 
-    // Gerar tabela
+    // Gerar tabela com visual verde e dourado
     autoTable(doc, {
-      head: [['Nome', 'Email', 'Telefone', 'Empresa', 'Cargo', 'Origem', 'Status', 'Vendido', 'Arrecadado']],
+      head: [['👤 Lead', '📍 Origem', '🎯 Status', '📝 Observações']],
       body: tableData,
-      startY: 70,
+      startY: 60,
       styles: {
-        fontSize: 8,
-        cellPadding: 2
+        fontSize: 10,
+        cellPadding: 4,
+        textColor: [40, 40, 40],
+        lineColor: [22, 101, 52],
+        lineWidth: 0.2
       },
       headStyles: {
-        fillColor: [66, 139, 202],
-        textColor: 255
+        fillColor: [22, 101, 52], // Verde escuro
+        textColor: [255, 255, 255], // Branco
+        fontSize: 11,
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      alternateRowStyles: {
+        fillColor: [245, 247, 245] // Verde muito claro
       },
       columnStyles: {
-        0: { cellWidth: 25 }, // Nome
-        1: { cellWidth: 30 }, // Email
-        2: { cellWidth: 20 }, // Telefone
-        3: { cellWidth: 25 }, // Empresa
-        4: { cellWidth: 20 }, // Cargo
-        5: { cellWidth: 15 }, // Origem
-        6: { cellWidth: 20 }, // Status
-        7: { cellWidth: 20 }, // Vendido
-        8: { cellWidth: 20 }  // Arrecadado
-      }
+        0: {
+          cellWidth: 50, // Lead (nome)
+          fontStyle: 'bold',
+          textColor: [22, 101, 52]
+        },
+        1: {
+          cellWidth: 35, // Origem
+          halign: 'center'
+        },
+        2: {
+          cellWidth: 30, // Status
+          halign: 'center',
+          fontStyle: 'bold'
+        },
+        3: {
+          cellWidth: 70, // Observações
+          cellPadding: 3
+        }
+      },
+      margin: { left: 14, right: 14 },
+      theme: 'grid'
     })
 
+    // Rodapé elegante
+    const finalY = (doc as any).lastAutoTable.finalY + 15
+    doc.setDrawColor(212, 175, 55) // Dourado
+    doc.line(14, finalY, 196, finalY)
+
+    doc.setFontSize(9)
+    doc.setTextColor(120, 120, 120)
+    doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')} | Sistema de Gestão de Leads`, 14, finalY + 8)
+
     // Salvar PDF
-    doc.save(`leads_${new Date().toISOString().split('T')[0]}.pdf`)
+    doc.save(`leads_relatorio_${new Date().toISOString().split('T')[0]}.pdf`)
   }
 
   if (loading) {
