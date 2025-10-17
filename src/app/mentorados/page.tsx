@@ -389,11 +389,14 @@ export default function MentoradosPage() {
                   )}
                 </div>
 
-                {/* Data de entrada */}
+                {/* Data de início da mentoria */}
                 <div className="flex items-center space-x-2 text-xs text-gray-500">
                   <Calendar className="h-3 w-3" />
                   <span>
-                    Desde {new Date(mentorado.data_entrada).toLocaleDateString('pt-BR')}
+                    {mentorado.data_inicio_mentoria
+                      ? `Início: ${new Date(mentorado.data_inicio_mentoria).toLocaleDateString('pt-BR')}`
+                      : `Cadastrado: ${new Date(mentorado.data_entrada).toLocaleDateString('pt-BR')}`
+                    }
                   </span>
                 </div>
 
