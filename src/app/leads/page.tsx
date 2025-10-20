@@ -459,6 +459,65 @@ export default function LeadsPage() {
                   />
                 </div>
 
+                {/* Email e Telefone */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-green-800 font-semibold">
+                      📧 Email
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
+                      placeholder="email@exemplo.com"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="telefone" className="text-green-800 font-semibold">
+                      📞 Telefone
+                    </Label>
+                    <Input
+                      id="telefone"
+                      value={formData.telefone}
+                      onChange={(e) => setFormData({...formData, telefone: e.target.value})}
+                      className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
+                      placeholder="(11) 99999-9999"
+                    />
+                  </div>
+                </div>
+
+                {/* Empresa e Cargo */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="empresa" className="text-green-800 font-semibold">
+                      🏢 Empresa
+                    </Label>
+                    <Input
+                      id="empresa"
+                      value={formData.empresa}
+                      onChange={(e) => setFormData({...formData, empresa: e.target.value})}
+                      className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
+                      placeholder="Nome da empresa..."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="cargo" className="text-green-800 font-semibold">
+                      👔 Cargo
+                    </Label>
+                    <Input
+                      id="cargo"
+                      value={formData.cargo}
+                      onChange={(e) => setFormData({...formData, cargo: e.target.value})}
+                      className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
+                      placeholder="Cargo/função..."
+                    />
+                  </div>
+                </div>
+
                 {/* Origem e Status */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -500,6 +559,39 @@ export default function LeadsPage() {
                         <SelectItem value="no-show">🟨 No-show</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+
+                {/* Valores Financeiros */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="valor_vendido" className="text-green-800 font-semibold">
+                      💰 Valor Vendido
+                    </Label>
+                    <Input
+                      id="valor_vendido"
+                      type="number"
+                      step="0.01"
+                      value={formData.valor_vendido}
+                      onChange={(e) => setFormData({...formData, valor_vendido: e.target.value})}
+                      className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
+                      placeholder="Ex: 1500.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="valor_arrecadado" className="text-green-800 font-semibold">
+                      💵 Valor Arrecadado
+                    </Label>
+                    <Input
+                      id="valor_arrecadado"
+                      type="number"
+                      step="0.01"
+                      value={formData.valor_arrecadado}
+                      onChange={(e) => setFormData({...formData, valor_arrecadado: e.target.value})}
+                      className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
+                      placeholder="Ex: 750.00"
+                    />
                   </div>
                 </div>
 
