@@ -343,12 +343,20 @@ export default function LeadsPage() {
     <div className="flex-1 overflow-y-auto">
       <Header
         title="Leads"
-        subtitle={`${getTotalLeads()} leads • Vendido: ${formatCurrency(getTotalVendido())} • Arrecadado: ${formatCurrency(getTotalArrecadado())}`}
+        subtitle={
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+            <span>{getTotalLeads()} leads</span>
+            <span className="hidden sm:inline">•</span>
+            <span>Vendido: {formatCurrency(getTotalVendido())}</span>
+            <span className="hidden sm:inline">•</span>
+            <span>Arrecadado: {formatCurrency(getTotalArrecadado())}</span>
+          </div>
+        }
       />
 
-      <main className="flex-1 p-6 space-y-6">
+      <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Cards de Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -421,9 +429,9 @@ export default function LeadsPage() {
         </div>
 
         {/* Botão para Novo Lead */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h2 className="text-xl font-semibold">Todos os Leads</h2>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Button variant="outline" onClick={exportLeadsToPDF}>
               <Download className="w-4 h-4 mr-2" />
               Exportar PDF
@@ -435,7 +443,7 @@ export default function LeadsPage() {
                   Novo Lead
                 </Button>
               </DialogTrigger>
-            <DialogContent className="max-w-lg bg-gradient-to-br from-green-50 to-yellow-50 border-2 border-green-200">
+            <DialogContent className="max-w-lg w-[95vw] max-h-[90vh] overflow-y-auto bg-gradient-to-br from-green-50 to-yellow-50 border-2 border-green-200">
               <DialogHeader className="text-center pb-6">
                 <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-green-700 to-yellow-600 bg-clip-text text-transparent">
                   {editingLead ? '✨ Editar Lead' : '🌟 Novo Lead'}
@@ -460,7 +468,7 @@ export default function LeadsPage() {
                 </div>
 
                 {/* Email e Telefone */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-green-800 font-semibold">
                       📧 Email
@@ -490,7 +498,7 @@ export default function LeadsPage() {
                 </div>
 
                 {/* Empresa e Cargo */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="empresa" className="text-green-800 font-semibold">
                       🏢 Empresa
@@ -519,7 +527,7 @@ export default function LeadsPage() {
                 </div>
 
                 {/* Origem e Status */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="origem" className="text-green-800 font-semibold">
                       📍 Origem
@@ -563,7 +571,7 @@ export default function LeadsPage() {
                 </div>
 
                 {/* Valores Financeiros */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="valor_vendido" className="text-green-800 font-semibold">
                       💰 Valor Vendido
@@ -616,7 +624,7 @@ export default function LeadsPage() {
                   </p>
                 </div>
 
-                <div className="flex justify-end space-x-3 pt-4 border-t border-green-200">
+                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t border-green-200">
                   <Button
                     type="button"
                     variant="outline"
@@ -642,7 +650,7 @@ export default function LeadsPage() {
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[800px]">
                 <thead className="bg-gradient-to-r from-green-100 to-yellow-100">
                   <tr>
                     <th className="text-left p-4 font-semibold text-green-800">👤 Lead</th>

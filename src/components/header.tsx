@@ -18,7 +18,7 @@ import { useAuth } from '@/contexts/auth'
 
 interface HeaderProps {
   title: string
-  subtitle?: string
+  subtitle?: string | React.ReactNode
 }
 
 export function Header({ title, subtitle }: HeaderProps) {
@@ -31,7 +31,7 @@ export function Header({ title, subtitle }: HeaderProps) {
       <div className="flex flex-col min-w-0 flex-1 lg:flex-initial">
         <h1 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{title}</h1>
         {subtitle && (
-          <p className="text-xs sm:text-sm text-gray-500 truncate">{subtitle}</p>
+          <div className="text-xs sm:text-sm text-gray-500">{subtitle}</div>
         )}
       </div>
 

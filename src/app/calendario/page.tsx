@@ -231,10 +231,10 @@ export default function CalendarioPage() {
     <div className="flex-1 overflow-y-auto">
       <Header title="Calendário" subtitle={`${events.length} eventos agendados`} />
 
-      <main className="flex-1 p-6 space-y-6">
+      <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Header do Calendário */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full sm:w-auto">
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -263,7 +263,7 @@ export default function CalendarioPage() {
             </Button>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Button
               variant={view === 'month' ? 'default' : 'outline'}
               size="sm"
@@ -279,18 +279,18 @@ export default function CalendarioPage() {
         </div>
 
         {/* Grid do Calendário */}
-        <div className="bg-white rounded-lg border shadow-sm">
+        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
           {/* Header dos dias da semana */}
-          <div className="grid grid-cols-7 border-b">
+          <div className="grid grid-cols-7 border-b min-w-[700px]">
             {DAYS.map(day => (
-              <div key={day} className="p-4 text-center text-sm font-medium text-gray-500">
+              <div key={day} className="p-2 sm:p-4 text-center text-xs sm:text-sm font-medium text-gray-500">
                 {day}
               </div>
             ))}
           </div>
 
           {/* Grid dos dias */}
-          <div className="grid grid-cols-7">
+          <div className="grid grid-cols-7 min-w-[700px]">
             {days.map((day, index) => {
               const dayEvents = getEventsForDate(day.date)
               const isCurrentMonth = day.isCurrentMonth
@@ -299,7 +299,7 @@ export default function CalendarioPage() {
               return (
                 <div
                   key={index}
-                  className={`min-h-[120px] p-2 border-b border-r border-gray-100 ${
+                  className={`min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 border-b border-r border-gray-100 ${
                     !isCurrentMonth ? 'bg-gray-50' : 'bg-white'
                   } hover:bg-gray-50 cursor-pointer transition-colors`}
                   onClick={() => setSelectedDate(day.date)}
