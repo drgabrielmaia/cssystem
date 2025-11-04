@@ -28,7 +28,9 @@ import {
   DollarSign,
   TrendingUp,
   FileText,
-  Download
+  Download,
+  Search,
+  Filter
 } from 'lucide-react'
 
 interface Lead {
@@ -63,6 +65,9 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('todos')
+  const [origemFilter, setOrigemFilter] = useState('todas')
 
   // Estados do formulário
   const [formData, setFormData] = useState({
@@ -235,6 +240,25 @@ export default function LeadsPage() {
   const getTotalLeads = () => {
     return stats.reduce((total, stat) => total + stat.quantidade, 0)
   }
+
+  // Filtrar leads baseado na pesquisa e filtros
+  const filteredLeads = leads.filter(lead => {
+    const matchesSearch = searchTerm === '' ||
+      lead.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (lead.telefone && lead.telefone.includes(searchTerm)) ||
+      (lead.empresa && lead.empresa.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (lead.cargo && lead.cargo.toLowerCase().includes(searchTerm.toLowerCase()))
+
+    const matchesStatus = statusFilter === 'todos' || lead.status === statusFilter
+    const matchesOrigem = origemFilter === 'todas' || lead.origem === origemFilter
+
+    return matchesSearch && matchesStatus && matchesOrigem
+  })
+
+  // Obter listas únicas para filtros
+  const statusOptions = ['todos', ...Array.from(new Set(leads.map(l => l.status).filter(Boolean)))]
+  const origemOptions = ['todas', ...Array.from(new Set(leads.map(l => l.origem).filter(Boolean)))]
 
   const exportLeadsToPDF = () => {
     const doc = new jsPDF()
@@ -430,7 +454,7 @@ export default function LeadsPage() {
 
         {/* Botão para Novo Lead */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h2 className="text-xl font-semibold">Todos os Leads</h2>
+          <h2 className="text-xl font-semibold">Todos os Leads ({filteredLeads.length})</h2>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Button variant="outline" onClick={exportLeadsToPDF}>
               <Download className="w-4 h-4 mr-2" />
@@ -646,6 +670,61 @@ export default function LeadsPage() {
           </div>
         </div>
 
+        {/* Seção de Pesquisa e Filtros */}
+        <div className="space-y-4">
+          {/* Barra de Pesquisa */}
+          <div className="relative w-full sm:max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Buscar por nome, email, telefone, empresa ou cargo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {/* Filtros */}
+          <div className="flex flex-wrap gap-4">
+            {/* Filtro por Status */}
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-gray-500" />
+              <span className="text-sm text-gray-600">Status:</span>
+              <div className="flex flex-wrap gap-1">
+                {statusOptions.map(status => (
+                  <Button
+                    key={status}
+                    variant={statusFilter === status ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setStatusFilter(status)}
+                    className="capitalize text-xs"
+                  >
+                    {status === 'todos' ? 'Todos' : status.replace('_', ' ')}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Filtro por Origem */}
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4"></div>
+              <span className="text-sm text-gray-600">Origem:</span>
+              <div className="flex flex-wrap gap-1">
+                {origemOptions.map(origem => (
+                  <Button
+                    key={origem}
+                    variant={origemFilter === origem ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setOrigemFilter(origem || 'todas')}
+                    className="capitalize text-xs"
+                  >
+                    {origem === 'todas' ? 'Todas' : origem}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Lista de Leads */}
         <Card>
           <CardContent className="p-0">
@@ -664,7 +743,7 @@ export default function LeadsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {leads.map((lead) => (
+                  {filteredLeads.map((lead) => (
                     <tr key={lead.id} className="border-t hover:bg-gradient-to-r hover:from-green-50 hover:to-yellow-50 transition-all duration-200">
                       <td className="p-4">
                         <div>
@@ -758,6 +837,39 @@ export default function LeadsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Mensagem quando não há leads filtrados */}
+        {filteredLeads.length === 0 && leads.length > 0 && (
+          <div className="text-center py-12">
+            <Users className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum lead encontrado</h3>
+            <p className="text-gray-500">
+              Tente ajustar os filtros ou termo de pesquisa para encontrar leads.
+            </p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => {
+                setSearchTerm('')
+                setStatusFilter('todos')
+                setOrigemFilter('todas')
+              }}
+            >
+              Limpar Filtros
+            </Button>
+          </div>
+        )}
+
+        {/* Mensagem quando não há leads no sistema */}
+        {leads.length === 0 && !loading && (
+          <div className="text-center py-12">
+            <Users className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum lead cadastrado</h3>
+            <p className="text-gray-500">
+              Comece adicionando seu primeiro lead no sistema.
+            </p>
+          </div>
+        )}
       </main>
     </div>
   )

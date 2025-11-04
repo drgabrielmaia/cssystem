@@ -29,6 +29,7 @@ export default function MentoradosPage() {
   const [showStatusModal, setShowStatusModal] = useState(false)
   const [newStatus, setNewStatus] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [quickFilter, setQuickFilter] = useState('')
 
   const fetchMentorados = async () => {
     try {
@@ -143,16 +144,24 @@ export default function MentoradosPage() {
 
   const turmas = ['todas', ...Array.from(new Set(mentorados.map(m => m.turma).filter(Boolean)))]
   const statusOptions = ['todos', ...Array.from(new Set(mentorados.map(m => m.estado_atual).filter(Boolean)))]
-  
+
   const mentoradosFiltrados = mentorados.filter(mentorado => {
     const matchesTurma = selectedTurma === 'todas' || mentorado.turma === selectedTurma
     const matchesStatus = selectedStatus === 'todos' || mentorado.estado_atual === selectedStatus
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       mentorado.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       mentorado.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (mentorado.telefone && mentorado.telefone.includes(searchTerm))
-    
-    return matchesTurma && matchesStatus && matchesSearch
+
+    // Quick filters
+    const matchesQuickFilter = quickFilter === '' ||
+      (quickFilter === 'ativos' && ['ativo', 'engajado'].includes(mentorado.estado_atual?.toLowerCase() || '')) ||
+      (quickFilter === 'inativos' && ['inativo', 'pausado', 'cancelado'].includes(mentorado.estado_atual?.toLowerCase() || '')) ||
+      (quickFilter === 'sem_telefone' && !mentorado.telefone) ||
+      (quickFilter === 'sem_email' && !mentorado.email) ||
+      (quickFilter === 'recentes' && mentorado.data_entrada && new Date(mentorado.data_entrada) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+
+    return matchesTurma && matchesStatus && matchesSearch && matchesQuickFilter
   })
 
   // Paginação
@@ -188,7 +197,14 @@ export default function MentoradosPage() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <Header title="Mentorados" subtitle={`${mentorados.length} mentorados cadastrados`} />
+      <Header
+        title="Mentorados"
+        subtitle={
+          mentoradosFiltrados.length === mentorados.length
+            ? `${mentorados.length} mentorados cadastrados`
+            : `${mentoradosFiltrados.length} de ${mentorados.length} mentorados (filtrados)`
+        }
+      />
       
       <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Header com ações */}
@@ -260,14 +276,58 @@ export default function MentoradosPage() {
         {/* Search and Filters */}
         <div className="space-y-4">
           {/* Search Bar */}
-          <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Buscar por nome, email ou telefone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1 sm:max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Buscar por nome, email ou telefone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Botão limpar filtros */}
+            {(searchTerm || selectedTurma !== 'todas' || selectedStatus !== 'todos' || quickFilter) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm('')
+                  setSelectedTurma('todas')
+                  setSelectedStatus('todos')
+                  setQuickFilter('')
+                }}
+                className="whitespace-nowrap"
+              >
+                Limpar Filtros
+              </Button>
+            )}
+          </div>
+
+          {/* Quick Filters */}
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600 font-medium">Filtros rápidos:</span>
+            </div>
+            {[
+              { key: '', label: 'Todos' },
+              { key: 'ativos', label: '🟢 Ativos' },
+              { key: 'inativos', label: '🔴 Inativos' },
+              { key: 'sem_telefone', label: '📞 Sem Telefone' },
+              { key: 'sem_email', label: '📧 Sem Email' },
+              { key: 'recentes', label: '⏰ Últimos 30 dias' }
+            ].map(filter => (
+              <Button
+                key={filter.key}
+                variant={quickFilter === filter.key ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setQuickFilter(filter.key)}
+                className="text-xs"
+              >
+                {filter.label}
+              </Button>
+            ))}
           </div>
 
           {/* Filter Pills */}

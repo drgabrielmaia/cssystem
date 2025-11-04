@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Header } from '@/components/header'
-import { FileText, Users, BarChart3, ArrowRight, Calendar } from 'lucide-react'
+import { FileText, Users, BarChart3, ArrowRight, Calendar, Search, Filter } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 interface FormularioInfo {
@@ -20,6 +21,9 @@ interface FormularioInfo {
 export default function FormulariosPage() {
   const [formularios, setFormularios] = useState<FormularioInfo[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [dateFilter, setDateFilter] = useState('todos')
+  const [participantFilter, setParticipantFilter] = useState('todos')
   const router = useRouter()
 
   useEffect(() => {
@@ -108,6 +112,27 @@ export default function FormulariosPage() {
     return descricoes[tipo] || 'Respostas de formulário personalizado'
   }
 
+  // Filtrar formulários
+  const filteredFormularios = formularios.filter(formulario => {
+    const matchesSearch = searchTerm === '' ||
+      getFormularioNome(formulario.tipo).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      formulario.tipo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      getFormularioDescricao(formulario.tipo).toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesDate = dateFilter === 'todos' ||
+      (dateFilter === 'recentes' && formulario.ultima_resposta &&
+        new Date(formulario.ultima_resposta) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) ||
+      (dateFilter === 'mes_passado' && formulario.ultima_resposta &&
+        new Date(formulario.ultima_resposta) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+
+    const matchesParticipants = participantFilter === 'todos' ||
+      (participantFilter === 'poucos' && formulario.mentorados_unicos < 5) ||
+      (participantFilter === 'medios' && formulario.mentorados_unicos >= 5 && formulario.mentorados_unicos < 15) ||
+      (participantFilter === 'muitos' && formulario.mentorados_unicos >= 15)
+
+    return matchesSearch && matchesDate && matchesParticipants
+  })
+
   if (loading) {
     return (
       <div className="flex-1 overflow-y-auto">
@@ -126,10 +151,95 @@ export default function FormulariosPage() {
     <div className="flex-1 overflow-y-auto">
       <Header
         title="📋 Formulários"
-        subtitle={`${formularios.length} tipos de formulários disponíveis`}
+        subtitle={
+          filteredFormularios.length === formularios.length
+            ? `${formularios.length} tipos de formulários disponíveis`
+            : `${filteredFormularios.length} de ${formularios.length} formulários (filtrados)`
+        }
       />
 
       <main className="flex-1 p-6 space-y-6">
+        {/* Pesquisa e Filtros */}
+        <div className="space-y-4">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                placeholder="Buscar formulários por nome ou descrição..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {/* Botão limpar filtros */}
+            {(searchTerm || dateFilter !== 'todos' || participantFilter !== 'todos') && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm('')
+                  setDateFilter('todos')
+                  setParticipantFilter('todos')
+                }}
+                className="whitespace-nowrap"
+              >
+                Limpar Filtros
+              </Button>
+            )}
+          </div>
+
+          {/* Filtros */}
+          <div className="flex flex-wrap gap-4">
+            {/* Filtro por Data */}
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-gray-500" />
+              <span className="text-sm text-gray-600">Data:</span>
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { key: 'todos', label: 'Todos' },
+                  { key: 'recentes', label: '📅 Últimos 7 dias' },
+                  { key: 'mes_passado', label: '📆 Último mês' }
+                ].map(date => (
+                  <Button
+                    key={date.key}
+                    variant={dateFilter === date.key ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDateFilter(date.key)}
+                    className="text-xs"
+                  >
+                    {date.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Filtro por Participantes */}
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4"></div>
+              <span className="text-sm text-gray-600">Participantes:</span>
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { key: 'todos', label: 'Todos' },
+                  { key: 'poucos', label: '👥 < 5' },
+                  { key: 'medios', label: '👥👥 5-15' },
+                  { key: 'muitos', label: '👥👥👥 15+' }
+                ].map(participant => (
+                  <Button
+                    key={participant.key}
+                    variant={participantFilter === participant.key ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setParticipantFilter(participant.key)}
+                    className="text-xs"
+                  >
+                    {participant.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Estatísticas gerais */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
@@ -194,7 +304,7 @@ export default function FormulariosPage() {
 
         {/* Lista de formulários */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {formularios.map((formulario) => (
+          {filteredFormularios.map((formulario) => (
             <Card key={formulario.tipo} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -241,7 +351,33 @@ export default function FormulariosPage() {
           ))}
         </div>
 
-        {formularios.length === 0 && (
+        {/* Mensagens quando não há resultados */}
+        {filteredFormularios.length === 0 && formularios.length > 0 && (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Nenhum formulário encontrado
+              </h3>
+              <p className="text-gray-500">
+                Tente ajustar os filtros ou termo de pesquisa para encontrar formulários.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => {
+                  setSearchTerm('')
+                  setDateFilter('todos')
+                  setParticipantFilter('todos')
+                }}
+              >
+                Limpar Filtros
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {filteredFormularios.length === 0 && formularios.length === 0 && (
           <Card>
             <CardContent className="p-12 text-center">
               <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
