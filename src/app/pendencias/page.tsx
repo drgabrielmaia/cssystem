@@ -81,6 +81,7 @@ export default function PendenciasPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [mentoradosDisponiveis, setMentoradosDisponiveis] = useState<any[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
+  const [weekOffset, setWeekOffset] = useState(0)
 
   // Estados do formulário de nova pendência
   const [selectedMentorado, setSelectedMentorado] = useState('')
@@ -299,7 +300,7 @@ export default function PendenciasPage() {
     const hoje = new Date()
     const diasSemana = []
     const inicioSemana = new Date(hoje)
-    inicioSemana.setDate(hoje.getDate() - hoje.getDay())
+    inicioSemana.setDate(hoje.getDate() - hoje.getDay() + (weekOffset * 7))
 
     for (let i = 0; i < 7; i++) {
       const dia = new Date(inicioSemana)
@@ -339,6 +340,34 @@ export default function PendenciasPage() {
   const diasDaSemana = getDiasDaSemana()
   const vencimentosProximos = getVencimentosProximos()
   const notificacoesCount = vencimentosHoje.length + vencimentosProximos.filter(v => v.diasRestantes > 0).length
+
+  const handlePreviousWeek = () => {
+    setWeekOffset(weekOffset - 1)
+  }
+
+  const handleNextWeek = () => {
+    setWeekOffset(weekOffset + 1)
+  }
+
+  const handleCurrentWeek = () => {
+    setWeekOffset(0)
+  }
+
+  const getWeekRangeText = () => {
+    const dias = getDiasDaSemana()
+    if (dias.length > 0) {
+      const inicio = dias[0].data
+      const fim = dias[dias.length - 1].data
+      const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+      if (inicio.getMonth() === fim.getMonth()) {
+        return `${inicio.getDate()} - ${fim.getDate()} de ${meses[inicio.getMonth()]}`
+      } else {
+        return `${inicio.getDate()} ${meses[inicio.getMonth()]} - ${fim.getDate()} ${meses[fim.getMonth()]}`
+      }
+    }
+    return ''
+  }
 
   const getStatusBadge = (totalPendente: number, totalMeses: number) => {
     if (totalPendente === 0) {
@@ -491,12 +520,37 @@ export default function PendenciasPage() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Agenda da Semana</span>
+              <div className="flex items-center space-x-3">
+                <span>Agenda da Semana</span>
+                <span className="text-sm font-normal text-gray-500">
+                  {getWeekRangeText()}
+                </span>
+                {weekOffset !== 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCurrentWeek}
+                    className="text-xs"
+                  >
+                    Semana Atual
+                  </Button>
+                )}
+              </div>
               <div className="flex items-center space-x-2">
-                <Button variant="ghost" size="sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handlePreviousWeek}
+                  title="Semana anterior"
+                >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleNextWeek}
+                  title="Próxima semana"
+                >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -525,6 +579,18 @@ export default function PendenciasPage() {
                   }`}>
                     {dia.data.getDate()}
                   </div>
+                  {weekOffset === 0 && (
+                    <div className={`text-xs ${
+                      dia.isHoje ? 'text-blue-500' : 'text-gray-400'
+                    }`}>
+                      {dia.data.toLocaleDateString('pt-BR', { month: 'short' })}
+                    </div>
+                  )}
+                  {weekOffset !== 0 && (
+                    <div className="text-xs text-gray-400">
+                      {dia.data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                    </div>
+                  )}
                   {dia.valor > 0 && (
                     <div className="text-xs font-semibold text-green-600 mt-1">
                       {formatCurrency(dia.valor)}
