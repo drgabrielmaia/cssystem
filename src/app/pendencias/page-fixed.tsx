@@ -21,11 +21,7 @@ import {
   Download,
   Plus,
   X,
-  Edit,
-  Bell,
-  Clock,
-  ChevronLeft,
-  ChevronRight
+  Edit
 } from 'lucide-react'
 
 interface Divida {
@@ -82,13 +78,6 @@ export default function PendenciasPage() {
   const [editingDivida, setEditingDivida] = useState<Divida | null>(null)
   const [novoValor, setNovoValor] = useState('')
   const [novaDataVencimento, setNovaDataVencimento] = useState('')
-
-  // Estados da agenda semanal
-  const [weekOffset, setWeekOffset] = useState(0)
-  const [showNotifications, setShowNotifications] = useState(false)
-
-  // Estado do filtro de turma
-  const [turmaSelecionada, setTurmaSelecionada] = useState('todas')
 
   useEffect(() => {
     loadDividasData()
@@ -181,17 +170,8 @@ export default function PendenciasPage() {
     mentorado.totalPendente > 0 &&
     (searchTerm === '' ||
      mentorado.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     mentorado.email.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    (turmaSelecionada === 'todas' || mentorado.turma === turmaSelecionada)
+     mentorado.email.toLowerCase().includes(searchTerm.toLowerCase()))
   )
-
-  // Obter lista única de turmas
-  const getTurmasDisponiveis = () => {
-    const turmas = new Set(mentorados.map(m => m.turma).filter(Boolean))
-    return Array.from(turmas).sort()
-  }
-
-  const turmasDisponiveis = getTurmasDisponiveis()
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -206,12 +186,7 @@ export default function PendenciasPage() {
 
   const calcularDiasRestantes = (dataVencimento: string) => {
     const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0) // Zerar horário para comparação apenas por data
-
-    // Criar data de vencimento no timezone local (meio-dia para evitar problemas)
-    const vencimento = new Date(dataVencimento + 'T12:00:00')
-    vencimento.setHours(0, 0, 0, 0) // Zerar horário para comparação
-
+    const vencimento = new Date(dataVencimento)
     const diffTime = vencimento.getTime() - hoje.getTime()
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
   }
@@ -353,166 +328,6 @@ export default function PendenciasPage() {
     return grupos
   }
 
-  // Funções para previsibilidade de recebimento
-  const getPrevisibilidadeRecebimento = () => {
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
-
-    const inicioSemana = new Date(hoje)
-    inicioSemana.setDate(hoje.getDate() - hoje.getDay())
-    const fimSemana = new Date(inicioSemana)
-    fimSemana.setDate(inicioSemana.getDate() + 6)
-
-    const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-    const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
-
-    let recebimentoHoje = 0
-    let recebimentoSemana = 0
-    let recebimentoMes = 0
-
-    mentorados.forEach(mentorado => {
-      mentorado.dividas.forEach(divida => {
-        if (divida.status === 'pendente') {
-          // Criar data no timezone local
-          const dataVencimento = new Date(divida.data_vencimento + 'T12:00:00')
-          dataVencimento.setHours(0, 0, 0, 0)
-
-          if (dataVencimento.toDateString() === hoje.toDateString()) {
-            recebimentoHoje += divida.valor
-          }
-          if (dataVencimento >= inicioSemana && dataVencimento <= fimSemana) {
-            recebimentoSemana += divida.valor
-          }
-          if (dataVencimento >= inicioMes && dataVencimento <= fimMes) {
-            recebimentoMes += divida.valor
-          }
-        }
-      })
-    })
-
-    return { recebimentoHoje, recebimentoSemana, recebimentoMes }
-  }
-
-  const getVencimentosHoje = () => {
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
-
-    const vencimentosHoje: Array<{nome: string, valor: number, data: string}> = []
-
-    mentorados.forEach(mentorado => {
-      mentorado.dividas.forEach(divida => {
-        if (divida.status === 'pendente') {
-          // Criar data no timezone local
-          const dataVencimento = new Date(divida.data_vencimento + 'T12:00:00')
-          dataVencimento.setHours(0, 0, 0, 0)
-
-          if (dataVencimento.toDateString() === hoje.toDateString()) {
-            vencimentosHoje.push({
-              nome: mentorado.nome_completo,
-              valor: divida.valor,
-              data: divida.data_vencimento
-            })
-          }
-        }
-      })
-    })
-
-    return vencimentosHoje
-  }
-
-  const getVencimentosProximos = () => {
-    const hoje = new Date()
-    const vencimentos: Array<{nome: string, valor: number, data: string, diasRestantes: number}> = []
-
-    mentorados.forEach(mentorado => {
-      mentorado.dividas.forEach(divida => {
-        if (divida.status === 'pendente') {
-          const diasRestantes = calcularDiasRestantes(divida.data_vencimento)
-          if (diasRestantes >= -1 && diasRestantes <= 3) {
-            vencimentos.push({
-              nome: mentorado.nome_completo,
-              valor: divida.valor,
-              data: divida.data_vencimento,
-              diasRestantes
-            })
-          }
-        }
-      })
-    })
-
-    return vencimentos.sort((a, b) => a.diasRestantes - b.diasRestantes)
-  }
-
-  const getDiasDaSemana = () => {
-    const hoje = new Date()
-    const diasSemana = []
-    const inicioSemana = new Date(hoje)
-    inicioSemana.setDate(hoje.getDate() - hoje.getDay() + (weekOffset * 7))
-
-    for (let i = 0; i < 7; i++) {
-      const dia = new Date(inicioSemana)
-      dia.setDate(inicioSemana.getDate() + i)
-
-      let valorDia = 0
-      mentorados.forEach(mentorado => {
-        mentorado.dividas.forEach(divida => {
-          if (divida.status === 'pendente') {
-            // Criar data no timezone local
-            const dataVencimento = new Date(divida.data_vencimento + 'T12:00:00')
-            dataVencimento.setHours(0, 0, 0, 0)
-
-            if (dataVencimento.toDateString() === dia.toDateString()) {
-              valorDia += divida.valor
-            }
-          }
-        })
-      })
-
-      diasSemana.push({
-        data: dia,
-        valor: valorDia,
-        isHoje: dia.toDateString() === hoje.toDateString()
-      })
-    }
-
-    return diasSemana
-  }
-
-  const handlePreviousWeek = () => {
-    setWeekOffset(weekOffset - 1)
-  }
-
-  const handleNextWeek = () => {
-    setWeekOffset(weekOffset + 1)
-  }
-
-  const handleCurrentWeek = () => {
-    setWeekOffset(0)
-  }
-
-  const getWeekRangeText = () => {
-    const dias = getDiasDaSemana()
-    if (dias.length > 0) {
-      const inicio = dias[0].data
-      const fim = dias[dias.length - 1].data
-      const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-
-      if (inicio.getMonth() === fim.getMonth()) {
-        return `${inicio.getDate()} - ${fim.getDate()} de ${meses[inicio.getMonth()]}`
-      } else {
-        return `${inicio.getDate()} ${meses[inicio.getMonth()]} - ${fim.getDate()} ${meses[fim.getMonth()]}`
-      }
-    }
-    return ''
-  }
-
-  // Calcular valores para exibição
-  const vencimentosHoje = getVencimentosHoje()
-  const { recebimentoHoje, recebimentoSemana, recebimentoMes } = getPrevisibilidadeRecebimento()
-  const diasDaSemana = getDiasDaSemana()
-  const vencimentosProximos = getVencimentosProximos()
-  const notificacoesCount = vencimentosHoje.length + vencimentosProximos.filter(v => v.diasRestantes > 0).length
-
   return (
     <div className="flex-1 overflow-y-auto">
       <Header
@@ -531,171 +346,10 @@ export default function PendenciasPage() {
             </Select>
           </div>
         }
-        subtitle={
-          filteredMentorados.length === mentorados.filter(m => m.totalPendente > 0).length
-            ? `${mentorados.filter(m => m.totalPendente > 0).length} com pendências • ${formatCurrency(getTotalGeral())} total pendente`
-            : `${filteredMentorados.length} de ${mentorados.filter(m => m.totalPendente > 0).length} com pendências (filtrados) • ${formatCurrency(filteredMentorados.reduce((sum, m) => sum + m.totalPendente, 0))} filtrado`
-        }
+        subtitle={`${filteredMentorados.length} com pendências • ${formatCurrency(getTotalGeral())} total pendente`}
       />
 
       <main className="flex-1 p-6 space-y-6">
-        {/* Previsibilidade de Recebimento */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-700">Recebimento Hoje</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {formatCurrency(recebimentoHoje)}
-                  </p>
-                  {vencimentosHoje.length > 0 && (
-                    <div className="mt-2 flex items-center text-xs text-green-600">
-                      <Bell className="h-3 w-3 mr-1" />
-                      <span className="bg-red-500 text-white px-2 py-1 rounded-full">
-                        {vencimentosHoje.length}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <Calendar className="h-8 w-8 text-green-500" />
-              </div>
-              {vencimentosHoje.length > 0 && (
-                <div className="mt-3 space-y-1">
-                  {vencimentosHoje.slice(0, 2).map((venc, index) => (
-                    <div key={index} className="text-xs text-green-700 flex justify-between">
-                      <span className="truncate">{venc.nome}</span>
-                      <span>{formatCurrency(venc.valor)}</span>
-                    </div>
-                  ))}
-                  {vencimentosHoje.length > 2 && (
-                    <div className="text-xs text-green-600">+{vencimentosHoje.length - 2} mais</div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-blue-50 to-sky-50 border-blue-200">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-blue-700">Recebimento Semana</p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(recebimentoSemana)}
-                  </p>
-                </div>
-                <Clock className="h-8 w-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-purple-50 to-violet-50 border-purple-200">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-purple-700">Recebimento Mês</p>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {formatCurrency(recebimentoMes)}
-                  </p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Visualização da Semana */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <span>Agenda da Semana</span>
-                <span className="text-sm font-normal text-gray-500">
-                  {getWeekRangeText()}
-                </span>
-                {weekOffset !== 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCurrentWeek}
-                    className="text-xs"
-                  >
-                    Semana Atual
-                  </Button>
-                )}
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handlePreviousWeek}
-                  title="Semana anterior"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleNextWeek}
-                  title="Próxima semana"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 gap-2">
-              {diasDaSemana.map((dia, index) => (
-                <div
-                  key={index}
-                  className={`text-center p-3 rounded-lg border transition-all ${
-                    dia.isHoje
-                      ? 'bg-blue-100 border-blue-300 shadow-md'
-                      : dia.valor > 0
-                        ? 'bg-green-50 border-green-200'
-                        : 'bg-gray-50 border-gray-200'
-                  }`}
-                >
-                  <div className={`text-xs font-medium ${
-                    dia.isHoje ? 'text-blue-700' : 'text-gray-600'
-                  }`}>
-                    {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'][index]}
-                  </div>
-                  <div className={`text-lg font-bold ${
-                    dia.isHoje ? 'text-blue-600' : 'text-gray-900'
-                  }`}>
-                    {dia.data.getDate()}
-                  </div>
-                  {weekOffset === 0 && (
-                    <div className={`text-xs ${
-                      dia.isHoje ? 'text-blue-500' : 'text-gray-400'
-                    }`}>
-                      {dia.data.toLocaleDateString('pt-BR', { month: 'short' })}
-                    </div>
-                  )}
-                  {weekOffset !== 0 && (
-                    <div className="text-xs text-gray-400">
-                      {dia.data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                    </div>
-                  )}
-                  {dia.valor > 0 && (
-                    <div className="text-xs font-semibold text-green-600 mt-1">
-                      {formatCurrency(dia.valor)}
-                    </div>
-                  )}
-                  {dia.isHoje && (
-                    <div className="mt-1">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mx-auto"></div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
@@ -755,158 +409,26 @@ export default function PendenciasPage() {
           </Card>
         </div>
 
-        {/* Notificações de Vencimentos */}
-        {(vencimentosHoje.length > 0 || vencimentosProximos.length > 0) && (
-          <Card className="mb-6 border-orange-200 bg-orange-50">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="relative">
-                    <Bell className="h-5 w-5 text-orange-600" />
-                    {notificacoesCount > 0 && (
-                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                        {notificacoesCount}
-                      </div>
-                    )}
-                  </div>
-                  <CardTitle className="text-orange-800">Notificações de Vencimento</CardTitle>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="text-orange-600 hover:text-orange-700"
-                >
-                  {showNotifications ? 'Ocultar' : 'Ver Todas'}
-                </Button>
-              </div>
-            </CardHeader>
-            {showNotifications && (
-              <CardContent>
-                <div className="space-y-3">
-                  {vencimentosHoje.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-red-700 mb-2 flex items-center">
-                        <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
-                        Vencimentos Hoje ({vencimentosHoje.length})
-                      </h4>
-                      <div className="space-y-2">
-                        {vencimentosHoje.map((venc, index) => (
-                          <div key={index} className="flex justify-between items-center p-2 bg-red-100 rounded-lg">
-                            <div>
-                              <span className="font-medium text-red-800">{venc.nome}</span>
-                            </div>
-                            <span className="font-bold text-red-700">{formatCurrency(venc.valor)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {vencimentosProximos.filter(v => v.diasRestantes > 0).length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-orange-700 mb-2 flex items-center">
-                        <div className="w-2 h-2 bg-orange-500 rounded-full mr-2"></div>
-                        Próximos Vencimentos
-                      </h4>
-                      <div className="space-y-2">
-                        {vencimentosProximos.filter(v => v.diasRestantes > 0).map((venc, index) => (
-                          <div key={index} className="flex justify-between items-center p-2 bg-orange-100 rounded-lg">
-                            <div>
-                              <span className="font-medium text-orange-800">{venc.nome}</span>
-                              <span className="text-xs text-orange-500 ml-2">
-                                {venc.diasRestantes === 1 ? 'amanhã' : `em ${venc.diasRestantes} dias`}
-                              </span>
-                            </div>
-                            <span className="font-bold text-orange-700">{formatCurrency(venc.valor)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {vencimentosProximos.filter(v => v.diasRestantes < 0).length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-red-700 mb-2 flex items-center">
-                        <div className="w-2 h-2 bg-red-600 rounded-full mr-2"></div>
-                        Vencimentos em Atraso
-                      </h4>
-                      <div className="space-y-2">
-                        {vencimentosProximos.filter(v => v.diasRestantes < 0).map((venc, index) => (
-                          <div key={index} className="flex justify-between items-center p-2 bg-red-200 rounded-lg">
-                            <div>
-                              <span className="font-medium text-red-900">{venc.nome}</span>
-                              <span className="text-xs text-red-600 ml-2">
-                                {Math.abs(venc.diasRestantes)} dia(s) em atraso
-                              </span>
-                            </div>
-                            <span className="font-bold text-red-800">{formatCurrency(venc.valor)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            )}
-          </Card>
-        )}
-
-        {/* Busca e Filtros */}
+        {/* Busca e Ações */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3 flex-1">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                placeholder="Buscar por nome ou email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            {/* Filtro por Turma */}
-            <div className="min-w-[180px]">
-              <Select value={turmaSelecionada} onValueChange={setTurmaSelecionada}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filtrar por turma" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas as turmas</SelectItem>
-                  {turmasDisponiveis.map((turma) => (
-                    <SelectItem key={turma} value={turma}>
-                      {turma}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Buscar por nome ou email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
           </div>
 
-        <div className="flex items-center justify-end space-x-2">
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowNotifications(!showNotifications)}
-              className={notificacoesCount > 0 ? 'text-red-600 border-red-300' : ''}
-            >
-              <Bell className="h-4 w-4 mr-2" />
-              Notificações
-              {notificacoesCount > 0 && (
-                <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  {notificacoesCount}
-                </div>
-              )}
-            </Button>
-          </div>
-          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Dívida
-              </Button>
-            </DialogTrigger>
+          <div className="flex items-center justify-end space-x-2">
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Dívida
+                </Button>
+              </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Adicionar Nova Dívida</DialogTitle>
@@ -1030,37 +552,6 @@ export default function PendenciasPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="flex items-center justify-end space-x-2 mb-2">
-                        {(() => {
-                          const temVencimentoHoje = vencimentosHoje.some(v => v.nome === mentorado.nome_completo)
-                          const temVencimentoProximo = vencimentosProximos.some(v => v.nome === mentorado.nome_completo && v.diasRestantes > 0)
-                          const temAtraso = vencimentosProximos.some(v => v.nome === mentorado.nome_completo && v.diasRestantes < 0)
-
-                          if (temVencimentoHoje) {
-                            return (
-                              <div className="flex items-center space-x-1">
-                                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                                <span className="text-xs font-semibold text-red-600">HOJE</span>
-                              </div>
-                            )
-                          } else if (temAtraso) {
-                            return (
-                              <div className="flex items-center space-x-1">
-                                <div className="w-2 h-2 bg-red-600 rounded-full"></div>
-                                <span className="text-xs font-semibold text-red-700">ATRASO</span>
-                              </div>
-                            )
-                          } else if (temVencimentoProximo) {
-                            return (
-                              <div className="flex items-center space-x-1">
-                                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                                <span className="text-xs font-semibold text-orange-600">PRÓXIMO</span>
-                              </div>
-                            )
-                          }
-                          return null
-                        })()}
-                      </div>
                       <div className="text-lg font-bold text-red-600">
                         {formatCurrency(mentorado.totalPendente)}
                       </div>
@@ -1142,7 +633,7 @@ export default function PendenciasPage() {
                             </p>
 
                             <p className={`text-xs mt-1 ${getCorTexto(diasRestantes)}`}>
-                              📅 {new Date(primeiraData + 'T12:00:00').toLocaleDateString('pt-BR')}
+                              📅 {new Date(primeiraData).toLocaleDateString('pt-BR')}
                             </p>
 
                             {(diasRestantes <= 3) && (

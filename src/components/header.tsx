@@ -17,7 +17,7 @@ import { NotificationCenter } from '@/components/notifications'
 import { useAuth } from '@/contexts/auth'
 
 interface HeaderProps {
-  title: string
+  title: string | React.ReactNode
   subtitle?: string | React.ReactNode
 }
 

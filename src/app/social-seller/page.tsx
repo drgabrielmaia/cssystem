@@ -5,6 +5,7 @@ import { Header } from '@/components/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
 import {
   TrendingUp,
@@ -16,7 +17,8 @@ import {
   Calendar,
   Target,
   UserPlus,
-  RefreshCw
+  RefreshCw,
+  Filter
 } from 'lucide-react'
 import {
   PieChart,
@@ -43,6 +45,24 @@ export default function SocialSellerPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
+  const [filtroTempo, setFiltroTempo] = useState('todos') // semana, mes, ano, todos
+
+  const getDateFilter = () => {
+    const now = new Date()
+    switch (filtroTempo) {
+      case 'semana':
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        return oneWeekAgo.toISOString()
+      case 'mes':
+        const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+        return oneMonthAgo.toISOString()
+      case 'ano':
+        const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
+        return oneYearAgo.toISOString()
+      default:
+        return null
+    }
+  }
 
   useEffect(() => {
     loadSocialSellerData()
@@ -55,7 +75,7 @@ export default function SocialSellerPage() {
 
     // Limpar interval ao desmontar componente
     return () => clearInterval(interval)
-  }, [])
+  }, [filtroTempo])
 
   const loadSocialSellerData = async (isManualRefresh = false) => {
     try {
@@ -67,10 +87,10 @@ export default function SocialSellerPage() {
 
       console.log('📊 Carregando métricas baseadas em leads...')
 
-      // Carregar todos os leads e suas estatísticas
+      // Carregar TODOS os leads primeiro, depois filtrar
       const { data: allLeads, error: leadsError } = await supabase
         .from('leads')
-        .select('id, status, valor_vendido, valor_arrecadado')
+        .select('id, status, valor_vendido, valor_arrecadado, data_primeiro_contato, convertido_em, status_updated_at')
 
       if (leadsError) {
         console.error('Erro ao carregar leads:', leadsError)
@@ -79,15 +99,35 @@ export default function SocialSellerPage() {
 
       console.log('📊 Leads carregados:', allLeads)
 
-      // Calcular métricas baseadas nos status dos leads
-      const totalLeads = allLeads?.length || 0
-      const leadsVendidos = allLeads?.filter(l => l.status === 'vendido').length || 0
-      const leadsNaoVendidos = allLeads?.filter(l => l.status === 'perdido').length || 0
-      const leadsNoShow = allLeads?.filter(l => l.status === 'no-show').length || 0
-      const leadsQualificados = allLeads?.filter(l => ['qualificado', 'call_agendada', 'proposta_enviada'].includes(l.status)).length || 0
+      // Aplicar filtro de data se necessário
+      const dateFilter = getDateFilter()
+      let leadsParaContar = allLeads || []
 
-      const valorVendido = allLeads?.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0) || 0
-      const valorArrecadado = allLeads?.reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0) || 0
+      if (dateFilter && allLeads) {
+        leadsParaContar = allLeads.filter(lead => {
+          const dataFiltro = new Date(dateFilter)
+
+          // Para leads vendidos, usar convertido_em se disponível
+          if (lead.status === 'vendido') {
+            const dataConversao = lead.convertido_em || lead.status_updated_at || lead.data_primeiro_contato
+            return dataConversao && new Date(dataConversao) >= dataFiltro
+          }
+          // Para todos os outros status, usar status_updated_at (quando mudou para esse status)
+          else {
+            const dataStatus = lead.status_updated_at || lead.data_primeiro_contato
+            return dataStatus && new Date(dataStatus) >= dataFiltro
+          }
+        })
+      }
+
+      const totalLeads = leadsParaContar.length
+      const leadsVendidos = leadsParaContar.filter(l => l.status === 'vendido').length
+      const leadsNaoVendidos = leadsParaContar.filter(l => l.status === 'perdido').length
+      const leadsNoShow = leadsParaContar.filter(l => l.status === 'no-show').length
+      const leadsQualificados = leadsParaContar.filter(l => ['qualificado', 'call_agendada', 'proposta_enviada'].includes(l.status)).length
+
+      const valorVendido = leadsParaContar.filter(l => l.status === 'vendido').reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
+      const valorArrecadado = leadsParaContar.filter(l => l.status === 'vendido').reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0)
 
       const taxaConversao = (leadsVendidos + leadsNaoVendidos) > 0
         ? Math.round((leadsVendidos / (leadsVendidos + leadsNaoVendidos)) * 100 * 100) / 100
@@ -227,6 +267,32 @@ export default function SocialSellerPage() {
       </div>
 
       <main className="flex-1 p-6 space-y-6">
+        {/* Filtro de Período */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center space-x-4">
+                <Filter className="h-5 w-5 text-gray-500" />
+                <span className="text-sm font-medium text-gray-700">Período:</span>
+                <Select value={filtroTempo} onValueChange={setFiltroTempo}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">📅 Todos os dados</SelectItem>
+                    <SelectItem value="semana">📆 Última semana</SelectItem>
+                    <SelectItem value="mes">📅 Último mês</SelectItem>
+                    <SelectItem value="ano">📄 Último ano</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="text-sm text-gray-500">
+                {filtroTempo !== 'todos' && `Dados filtrados: ${filtroTempo === 'semana' ? 'últimos 7 dias' : filtroTempo === 'mes' ? 'últimos 30 dias' : 'últimos 365 dias'}`}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Cards de Métricas Principais */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>

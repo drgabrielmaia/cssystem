@@ -6,21 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase, type Mentorado } from '@/lib/supabase'
+import { AddEventModal } from '@/components/add-event-modal'
 import {
   User,
   CheckCircle,
   Clock,
   Calendar,
   Search,
-  ChevronLeft,
-  ChevronRight,
+  UserX,
   UserCheck,
   ImageIcon,
   Target,
-  AlertCircle,
-  TrendingUp,
-  X
+  AlertTriangle,
+  TrendingUp
 } from 'lucide-react'
 
 interface CheckinStatus {
@@ -31,16 +31,19 @@ interface CheckinStatus {
   consultoria_imagem_realizada: boolean
   consultoria_imagem_agendada: boolean
   consultoria_imagem_data?: string
-  ultima_atualizacao?: string
 }
+
+type FiltroStatus = 'todos' | 'onboarding_pendente' | 'onboarding_agendado' | 'consultoria_pendente' | 'consultoria_agendado'
 
 export default function CheckInsPage() {
   const [mentorados, setMentorados] = useState<Mentorado[]>([])
   const [checkinsStatus, setCheckinsStatus] = useState<CheckinStatus[]>([])
   const [loading, setLoading] = useState(true)
-  const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState('')
-  const itemsPerPage = 10
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [selectedMentorado, setSelectedMentorado] = useState<Mentorado | null | undefined>(null)
+  const [tipoAgendamento, setTipoAgendamento] = useState<'onboarding' | 'consultoria' | null>(null)
 
   useEffect(() => {
     loadData()
@@ -65,7 +68,7 @@ export default function CheckInsPage() {
       console.log('📊 Mentorados encontrados:', mentoradosData?.length || 0)
       setMentorados(mentoradosData || [])
 
-      // Buscar check-ins para determinar status de onboarding e consultoria
+      // Buscar check-ins para determinar status
       const { data: checkinsData, error: checkinsError } = await supabase
         .from('checkins')
         .select('mentorado_id, tipo, status, data_agendada, created_at')
@@ -120,44 +123,10 @@ export default function CheckInsPage() {
     }
   }
 
-  // Filtrar mentorados baseado na busca
-  const filteredMentorados = mentorados.filter(mentorado =>
-    mentorado.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    mentorado.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    mentorado.turma.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  // Paginação
-  const totalPages = Math.ceil(filteredMentorados.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const currentMentorados = filteredMentorados.slice(startIndex, endIndex)
-
-  // Estatísticas
-  const stats = {
-    total: mentorados.length,
-    onboardingRealizado: checkinsStatus.filter(s => s.onboarding_realizado).length,
-    onboardingAgendado: checkinsStatus.filter(s => s.onboarding_agendado && !s.onboarding_realizado).length,
-    consultoriaRealizada: checkinsStatus.filter(s => s.consultoria_imagem_realizada).length,
-    consultoriaAgendada: checkinsStatus.filter(s => s.consultoria_imagem_agendada && !s.consultoria_imagem_realizada).length,
-  }
-
-  const getStatusOnboarding = (mentoradoId: string) => {
-    const status = checkinsStatus.find(s => s.mentorado_id === mentoradoId)
-    if (!status) return { type: 'pendente', label: 'Pendente' }
-
-    if (status.onboarding_realizado) return { type: 'realizado', label: 'Realizado' }
-    if (status.onboarding_agendado) return { type: 'agendado', label: 'Agendado' }
-    return { type: 'pendente', label: 'Pendente' }
-  }
-
-  const getStatusConsultoria = (mentoradoId: string) => {
-    const status = checkinsStatus.find(s => s.mentorado_id === mentoradoId)
-    if (!status) return { type: 'pendente', label: 'Pendente' }
-
-    if (status.consultoria_imagem_realizada) return { type: 'realizado', label: 'Realizada' }
-    if (status.consultoria_imagem_agendada) return { type: 'agendado', label: 'Agendada' }
-    return { type: 'pendente', label: 'Pendente' }
+  const abrirModalOnboarding = (mentorado: Mentorado) => {
+    setSelectedMentorado(mentorado)
+    setTipoAgendamento('onboarding')
+    setModalOpen(true)
   }
 
   const marcarOnboarding = async (mentoradoId: string, realizado: boolean) => {
@@ -165,7 +134,6 @@ export default function CheckInsPage() {
       const agora = new Date().toISOString()
 
       if (realizado) {
-        // Marcar como realizado
         const { error } = await supabase
           .from('checkins')
           .upsert({
@@ -179,7 +147,6 @@ export default function CheckInsPage() {
 
         if (error) throw error
       } else {
-        // Marcar como agendado
         const { error } = await supabase
           .from('checkins')
           .upsert({
@@ -206,7 +173,6 @@ export default function CheckInsPage() {
       const agora = new Date().toISOString()
 
       if (realizada) {
-        // Marcar como realizada
         const { error } = await supabase
           .from('checkins')
           .upsert({
@@ -220,7 +186,6 @@ export default function CheckInsPage() {
 
         if (error) throw error
       } else {
-        // Marcar como agendada
         const { error } = await supabase
           .from('checkins')
           .upsert({
@@ -242,42 +207,57 @@ export default function CheckInsPage() {
     }
   }
 
-  const resetarOnboarding = async (mentoradoId: string) => {
-    try {
-      const { error } = await supabase
-        .from('checkins')
-        .delete()
-        .eq('mentorado_id', mentoradoId)
-        .eq('tipo', 'onboarding')
+  // Filtrar mentorados baseado no status e busca
+  const filteredMentorados = mentorados.filter(mentorado => {
+    const status = checkinsStatus.find(s => s.mentorado_id === mentorado.id)
+    if (!status) return false
 
-      if (error) throw error
-      await loadData()
-    } catch (error) {
-      console.error('Erro ao resetar onboarding:', error)
-      alert('Erro ao resetar onboarding')
+    // Filtro por busca
+    const matchesSearch = mentorado.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         mentorado.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         mentorado.turma.toLowerCase().includes(searchTerm.toLowerCase())
+
+    if (!matchesSearch) return false
+
+    // Filtro por status
+    switch (filtroStatus) {
+      case 'onboarding_pendente':
+        return !status.onboarding_realizado && !status.onboarding_agendado
+      case 'onboarding_agendado':
+        return status.onboarding_agendado && !status.onboarding_realizado
+      case 'consultoria_pendente':
+        return !status.consultoria_imagem_realizada && !status.consultoria_imagem_agendada
+      case 'consultoria_agendado':
+        return status.consultoria_imagem_agendada && !status.consultoria_imagem_realizada
+      default:
+        return true
     }
+  })
+
+  // Estatísticas para os cards
+  const stats = {
+    onboardingPendente: checkinsStatus.filter(s => !s.onboarding_realizado && !s.onboarding_agendado).length,
+    onboardingAgendado: checkinsStatus.filter(s => s.onboarding_agendado && !s.onboarding_realizado).length,
+    consultoriaPendente: checkinsStatus.filter(s => !s.consultoria_imagem_realizada && !s.consultoria_imagem_agendada).length,
+    consultoriaAgendado: checkinsStatus.filter(s => s.consultoria_imagem_agendada && !s.consultoria_imagem_realizada).length,
   }
 
-  const resetarConsultoria = async (mentoradoId: string) => {
-    try {
-      const { error } = await supabase
-        .from('checkins')
-        .delete()
-        .eq('mentorado_id', mentoradoId)
-        .eq('tipo', 'consultoria_imagem')
-
-      if (error) throw error
-      await loadData()
-    } catch (error) {
-      console.error('Erro ao resetar consultoria:', error)
-      alert('Erro ao resetar consultoria')
+  const getStatusBadge = (status: CheckinStatus, tipo: 'onboarding' | 'consultoria') => {
+    if (tipo === 'onboarding') {
+      if (status.onboarding_realizado) return { color: 'bg-green-100 text-green-800 border-green-200', label: 'Realizado' }
+      if (status.onboarding_agendado) return { color: 'bg-blue-100 text-blue-800 border-blue-200', label: 'Agendado' }
+      return { color: 'bg-red-100 text-red-800 border-red-200', label: 'Pendente' }
+    } else {
+      if (status.consultoria_imagem_realizada) return { color: 'bg-green-100 text-green-800 border-green-200', label: 'Realizada' }
+      if (status.consultoria_imagem_agendada) return { color: 'bg-blue-100 text-blue-800 border-blue-200', label: 'Agendada' }
+      return { color: 'bg-red-100 text-red-800 border-red-200', label: 'Pendente' }
     }
   }
 
   if (loading) {
     return (
       <div className="flex-1 overflow-y-auto">
-        <Header title="📋 Checkin Onboarding & Consultoria" subtitle="Carregando dados..." />
+        <Header title="📋 Check-ins Onboarding & Consultoria" subtitle="Carregando dados..." />
         <div className="flex items-center justify-center h-96">
           <div className="text-gray-500">Organizando informações...</div>
         </div>
@@ -286,123 +266,157 @@ export default function CheckInsPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div className="flex-1 overflow-y-auto">
       <Header
-        title="📋 Checkin Onboarding & Consultoria"
-        subtitle={`${stats.total} mentorados • ${stats.onboardingRealizado} onboardings • ${stats.consultoriaRealizada} consultorias`}
+        title="📋 Check-ins Onboarding & Consultoria"
+        subtitle={`${mentorados.length} mentorados • ${filteredMentorados.length} listados`}
       />
 
       <main className="flex-1 p-6 space-y-6">
-        {/* Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="p-4">
+        {/* Cards de Status - 4 principais */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card
+            className="cursor-pointer transition-all hover:shadow-lg border-l-4 border-l-red-500"
+            onClick={() => setFiltroStatus('onboarding_pendente')}
+          >
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total</p>
-                  <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
+                  <p className="text-sm font-medium text-red-700">Onboarding Pendente</p>
+                  <p className="text-3xl font-bold text-red-600">{stats.onboardingPendente}</p>
+                  <p className="text-xs text-red-500 mt-1">Não fizeram onboarding</p>
                 </div>
-                <User className="h-8 w-8 text-blue-500" />
+                <UserX className="h-8 w-8 text-red-500" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-green-500">
-            <CardContent className="p-4">
+          <Card
+            className="cursor-pointer transition-all hover:shadow-lg border-l-4 border-l-blue-500"
+            onClick={() => setFiltroStatus('onboarding_agendado')}
+          >
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Onboarding ✓</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.onboardingRealizado}</p>
+                  <p className="text-sm font-medium text-blue-700">Onboarding Agendado</p>
+                  <p className="text-3xl font-bold text-blue-600">{stats.onboardingAgendado}</p>
+                  <p className="text-xs text-blue-500 mt-1">Onboarding marcado</p>
                 </div>
-                <CheckCircle className="h-8 w-8 text-green-500" />
+                <Clock className="h-8 w-8 text-blue-500" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-yellow-500">
-            <CardContent className="p-4">
+          <Card
+            className="cursor-pointer transition-all hover:shadow-lg border-l-4 border-l-orange-500"
+            onClick={() => setFiltroStatus('consultoria_pendente')}
+          >
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Onboarding ⏰</p>
-                  <p className="text-2xl font-bold text-yellow-600">{stats.onboardingAgendado}</p>
+                  <p className="text-sm font-medium text-orange-700">Consultoria Pendente</p>
+                  <p className="text-3xl font-bold text-orange-600">{stats.consultoriaPendente}</p>
+                  <p className="text-xs text-orange-500 mt-1">Não fizeram consultoria</p>
                 </div>
-                <Clock className="h-8 w-8 text-yellow-500" />
+                <ImageIcon className="h-8 w-8 text-orange-500" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-purple-500">
-            <CardContent className="p-4">
+          <Card
+            className="cursor-pointer transition-all hover:shadow-lg border-l-4 border-l-purple-500"
+            onClick={() => setFiltroStatus('consultoria_agendado')}
+          >
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Consultoria ✓</p>
-                  <p className="text-2xl font-bold text-purple-600">{stats.consultoriaRealizada}</p>
+                  <p className="text-sm font-medium text-purple-700">Consultoria Agendada</p>
+                  <p className="text-3xl font-bold text-purple-600">{stats.consultoriaAgendado}</p>
+                  <p className="text-xs text-purple-500 mt-1">Consultoria marcada</p>
                 </div>
-                <ImageIcon className="h-8 w-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-pink-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Consultoria ⏰</p>
-                  <p className="text-2xl font-bold text-pink-600">{stats.consultoriaAgendada}</p>
-                </div>
-                <Calendar className="h-8 w-8 text-pink-500" />
+                <Calendar className="h-8 w-8 text-purple-500" />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Busca */}
+        {/* Filtros e Busca */}
         <Card>
           <CardContent className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Buscar por nome, email ou turma..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value)
-                  setCurrentPage(1) // Reset para primeira página ao buscar
-                }}
-                className="pl-10"
-              />
+            <div className="flex items-center space-x-4">
+              <div className="flex-1 max-w-md">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Buscar por nome, email ou turma..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="min-w-[200px]">
+                <Select value={filtroStatus} onValueChange={(value: FiltroStatus) => setFiltroStatus(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os mentorados</SelectItem>
+                    <SelectItem value="onboarding_pendente">🔴 Onboarding Pendente</SelectItem>
+                    <SelectItem value="onboarding_agendado">🔵 Onboarding Agendado</SelectItem>
+                    <SelectItem value="consultoria_pendente">🟠 Consultoria Pendente</SelectItem>
+                    <SelectItem value="consultoria_agendado">🟣 Consultoria Agendada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {filtroStatus !== 'todos' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFiltroStatus('todos')}
+                >
+                  Limpar Filtro
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Lista de Mentorados */}
+        {/* Lista Organizada */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>📝 Lista de Mentorados</span>
+              <span>👥 Lista de Mentorados</span>
               <span className="text-sm font-normal text-gray-600">
-                Página {currentPage} de {totalPages} • {filteredMentorados.length} mentorados
+                {filteredMentorados.length} mentorados listados
               </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {currentMentorados.map(mentorado => {
-                const statusOnboarding = getStatusOnboarding(mentorado.id)
-                const statusConsultoria = getStatusConsultoria(mentorado.id)
+            <div className="space-y-4">
+              {filteredMentorados.map(mentorado => {
+                const status = checkinsStatus.find(s => s.mentorado_id === mentorado.id)
+                if (!status) return null
+
+                const badgeOnboarding = getStatusBadge(status, 'onboarding')
+                const badgeConsultoria = getStatusBadge(status, 'consultoria')
 
                 return (
                   <Card key={mentorado.id} className="border border-gray-200 hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
+                        {/* Info do Mentorado */}
                         <div className="flex-1">
                           <div className="flex items-center space-x-3">
                             <div className="flex-shrink-0">
-                              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
                                 {mentorado.nome_completo.split(' ').map(n => n[0]).join('').slice(0, 2)}
                               </div>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-lg font-medium text-gray-900 truncate">
+                              <h3 className="text-lg font-semibold text-gray-900">
                                 {mentorado.nome_completo}
                               </h3>
                               <p className="text-sm text-gray-600">{mentorado.email}</p>
@@ -411,95 +425,72 @@ export default function CheckInsPage() {
                           </div>
                         </div>
 
+                        {/* Status e Ações */}
                         <div className="flex items-center space-x-6">
                           {/* Onboarding */}
                           <div className="text-center">
                             <p className="text-xs font-medium text-gray-600 mb-2">Onboarding</p>
-                            <div className="flex items-center space-x-2">
-                              <Badge
-                                variant={
-                                  statusOnboarding.type === 'realizado' ? 'success' :
-                                  statusOnboarding.type === 'agendado' ? 'default' : 'warning'
-                                }
-                                className="text-xs"
-                              >
-                                {statusOnboarding.label}
-                              </Badge>
+                            <div className="space-y-2">
+                              <div className={`px-3 py-1 rounded-full text-xs font-medium border ${badgeOnboarding.color}`}>
+                                {badgeOnboarding.label}
+                              </div>
                               <div className="flex space-x-1">
-                                <Button
-                                  size="sm"
-                                  variant={statusOnboarding.type === 'agendado' ? 'default' : 'outline'}
-                                  onClick={() => marcarOnboarding(mentorado.id, false)}
-                                  disabled={statusOnboarding.type === 'realizado'}
-                                  className="h-6 w-6 p-0"
-                                  title="Agendar"
-                                >
-                                  <Clock className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={statusOnboarding.type === 'realizado' ? 'default' : 'outline'}
-                                  onClick={() => marcarOnboarding(mentorado.id, true)}
-                                  className="h-6 w-6 p-0"
-                                  title="Marcar como realizado"
-                                >
-                                  <CheckCircle className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => resetarOnboarding(mentorado.id)}
-                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                                  title="Resetar (voltar para pendente)"
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
+                                {!status.onboarding_realizado && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant={status.onboarding_agendado ? 'default' : 'outline'}
+                                      onClick={() => abrirModalOnboarding(mentorado)}
+                                      className="h-7 px-2"
+                                    >
+                                      <Clock className="h-3 w-3 mr-1" />
+                                      Agendar
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={() => marcarOnboarding(mentorado.id, true)}
+                                      className="h-7 px-2 bg-green-600 hover:bg-green-700"
+                                    >
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Feito
+                                    </Button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
 
-                          {/* Consultoria de Imagem */}
+                          {/* Consultoria */}
                           <div className="text-center">
-                            <p className="text-xs font-medium text-gray-600 mb-2">Consultoria Imagem</p>
-                            <div className="flex items-center space-x-2">
-                              <Badge
-                                variant={
-                                  statusConsultoria.type === 'realizado' ? 'success' :
-                                  statusConsultoria.type === 'agendado' ? 'default' : 'warning'
-                                }
-                                className="text-xs"
-                              >
-                                {statusConsultoria.label}
-                              </Badge>
+                            <p className="text-xs font-medium text-gray-600 mb-2">Consultoria</p>
+                            <div className="space-y-2">
+                              <div className={`px-3 py-1 rounded-full text-xs font-medium border ${badgeConsultoria.color}`}>
+                                {badgeConsultoria.label}
+                              </div>
                               <div className="flex space-x-1">
-                                <Button
-                                  size="sm"
-                                  variant={statusConsultoria.type === 'agendado' ? 'default' : 'outline'}
-                                  onClick={() => marcarConsultoria(mentorado.id, false)}
-                                  disabled={statusConsultoria.type === 'realizado'}
-                                  className="h-6 w-6 p-0"
-                                  title="Agendar"
-                                >
-                                  <Clock className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={statusConsultoria.type === 'realizado' ? 'default' : 'outline'}
-                                  onClick={() => marcarConsultoria(mentorado.id, true)}
-                                  className="h-6 w-6 p-0"
-                                  title="Marcar como realizada"
-                                >
-                                  <CheckCircle className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => resetarConsultoria(mentorado.id)}
-                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                                  title="Resetar (voltar para pendente)"
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
+                                {!status.consultoria_imagem_realizada && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant={status.consultoria_imagem_agendada ? 'default' : 'outline'}
+                                      onClick={() => marcarConsultoria(mentorado.id, false)}
+                                      className="h-7 px-2"
+                                    >
+                                      <Clock className="h-3 w-3 mr-1" />
+                                      Agendar
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={() => marcarConsultoria(mentorado.id, true)}
+                                      className="h-7 px-2 bg-green-600 hover:bg-green-700"
+                                    >
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Feito
+                                    </Button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -511,70 +502,35 @@ export default function CheckInsPage() {
               })}
             </div>
 
-            {/* Paginação */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-6 pt-4 border-t">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="flex items-center space-x-2"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span>Anterior</span>
-                </Button>
-
-                <div className="flex items-center space-x-2">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(page =>
-                      page === 1 ||
-                      page === totalPages ||
-                      (page >= currentPage - 2 && page <= currentPage + 2)
-                    )
-                    .map((page, index, array) => (
-                      <div key={page} className="flex items-center space-x-2">
-                        {index > 0 && array[index - 1] !== page - 1 && (
-                          <span className="text-gray-400">...</span>
-                        )}
-                        <Button
-                          variant={currentPage === page ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setCurrentPage(page)}
-                          className="w-8 h-8 p-0"
-                        >
-                          {page}
-                        </Button>
-                      </div>
-                    ))}
-                </div>
-
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="flex items-center space-x-2"
-                >
-                  <span>Próxima</span>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+            {filteredMentorados.length === 0 && (
+              <div className="text-center py-12">
+                <User className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Nenhum mentorado encontrado
+                </h3>
+                <p className="text-gray-500">
+                  {searchTerm ? 'Tente buscar com outros termos.' : 'Não há mentorados neste filtro.'}
+                </p>
               </div>
             )}
           </CardContent>
         </Card>
-
-        {/* Empty State */}
-        {filteredMentorados.length === 0 && (
-          <div className="text-center py-12">
-            <User className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Nenhum mentorado encontrado
-            </h3>
-            <p className="text-gray-500">
-              {searchTerm ? 'Tente buscar com outros termos.' : 'Não há mentorados cadastrados.'}
-            </p>
-          </div>
-        )}
       </main>
+
+      {/* Modal de agendamento */}
+      <AddEventModal
+        isOpen={modalOpen}
+        onClose={() => {
+          setModalOpen(false)
+          setSelectedMentorado(null)
+          setTipoAgendamento(null)
+        }}
+        onSuccess={() => {
+          loadData()
+        }}
+        selectedMentorado={selectedMentorado}
+        tipoEvento={tipoAgendamento}
+      />
     </div>
   )
 }

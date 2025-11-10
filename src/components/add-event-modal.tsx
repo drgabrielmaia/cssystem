@@ -21,13 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-interface Mentorado {
-  id: string
-  nome: string
-  email: string
-  telefone: string | null
-  turma: string
-}
+import { type Mentorado } from '@/lib/supabase'
 
 interface Lead {
   id: string
@@ -43,9 +37,11 @@ interface AddEventModalProps {
   onClose: () => void
   onSuccess: () => void
   initialDate?: Date | null
+  selectedMentorado?: Mentorado | null
+  tipoEvento?: 'onboarding' | 'consultoria' | null
 }
 
-export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEventModalProps) {
+export function AddEventModal({ isOpen, onClose, onSuccess, initialDate, selectedMentorado, tipoEvento }: AddEventModalProps) {
   const [loading, setLoading] = useState(false)
   const [mentorados, setMentorados] = useState<Mentorado[]>([])
   const [leads, setLeads] = useState<Lead[]>([])
@@ -61,7 +57,7 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
     lead_id: 'none'
   })
 
-  // Buscar mentorados e leads
+  // Buscar mentorados e leads + configurar dados pré-carregados
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -95,8 +91,30 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
 
     if (isOpen) {
       fetchData()
+
+      // Pre-carregar informações se fornecidas
+      if (selectedMentorado && tipoEvento) {
+        const tituloMap = {
+          onboarding: 'Onboarding - ' + selectedMentorado.nome_completo,
+          consultoria: 'Consultoria de Imagem - ' + selectedMentorado.nome_completo
+        }
+
+        const descricaoMap = {
+          onboarding: 'Sessão de onboarding para apresentação da mentoria e alinhamento de expectativas',
+          consultoria: 'Consultoria de imagem personalizada para otimização do perfil profissional'
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          title: tituloMap[tipoEvento],
+          description: descricaoMap[tipoEvento],
+          mentorado_id: selectedMentorado.id,
+          start_time: tipoEvento === 'onboarding' ? '14:00' : '16:00', // Horários sugeridos
+          end_time: tipoEvento === 'onboarding' ? '15:00' : '17:00'
+        }))
+      }
     }
-  }, [isOpen])
+  }, [isOpen, selectedMentorado, tipoEvento])
 
   // Configurar data inicial se fornecida
   const getInitialDateString = () => {
@@ -263,7 +281,7 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate }: AddEv
                   <SelectItem value="none">Nenhum mentorado</SelectItem>
                   {mentorados.map((mentorado) => (
                     <SelectItem key={mentorado.id} value={mentorado.id}>
-                      {mentorado.nome} ({mentorado.turma})
+                      {mentorado.nome_completo} ({mentorado.turma})
                     </SelectItem>
                   ))}
                 </SelectContent>

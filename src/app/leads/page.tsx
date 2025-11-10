@@ -24,6 +24,7 @@ import {
   Eye,
   Edit,
   Trash2,
+  Activity,
   Users,
   DollarSign,
   TrendingUp,
@@ -46,6 +47,12 @@ interface Lead {
   valor_vendido: number | null
   valor_arrecadado: number | null
   data_primeiro_contato: string
+  convertido_em: string | null
+  origem_detalhada: string | null
+  lead_score: number | null
+  temperatura: string | null
+  probabilidade_compra: number | null
+  valor_estimado: number | null
   created_at: string
   updated_at: string
 }
@@ -68,6 +75,14 @@ export default function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('todos')
   const [origemFilter, setOrigemFilter] = useState('todas')
+  const [temperaturaFilter, setTemperaturaFilter] = useState('todas')
+  const [periodoFilter, setPeriodoFilter] = useState('todos')
+
+  // Estados para paginação e otimização
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [hasNextPage, setHasNextPage] = useState(false)
+  const leadsPerPage = 20 // Mostrar apenas 20 leads por vez
 
   // Estados do formulário
   const [formData, setFormData] = useState({
@@ -80,38 +95,146 @@ export default function LeadsPage() {
     status: 'novo',
     observacoes: '',
     valor_vendido: '',
-    valor_arrecadado: ''
+    valor_arrecadado: '',
+    origem_detalhada: '',
+    lead_score: '',
+    temperatura: 'frio',
+    probabilidade_compra: '',
+    valor_estimado: ''
   })
+
+  // Cache das estatísticas para evitar recálculo
+  const [statsCache, setStatsCache] = useState<{ [key: string]: LeadStats[] }>({})
+  const [searchDebounceTimer, setSearchDebounceTimer] = useState<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     loadLeads()
-    loadStats()
+    loadStatsWithCache()
   }, [])
 
-  const loadLeads = async () => {
+  // Debounce para busca
+  useEffect(() => {
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer)
+    }
+
+    const timer = setTimeout(() => {
+      if (searchTerm || statusFilter !== 'todos' || origemFilter !== 'todas' || temperaturaFilter !== 'todas' || periodoFilter !== 'todos') {
+        loadLeads(1, false) // Recarregar da primeira página quando filtrar
+      }
+    }, 300)
+
+    setSearchDebounceTimer(timer)
+
+    return () => {
+      if (timer) clearTimeout(timer)
+    }
+  }, [searchTerm, statusFilter, origemFilter, temperaturaFilter, periodoFilter])
+
+  const loadLeads = async (page = 1, append = false) => {
     try {
-      const { data, error } = await supabase
+      setLoading(page === 1) // Só mostrar loading na primeira página
+
+      const from = (page - 1) * leadsPerPage
+      const to = from + leadsPerPage - 1
+
+      // Construir query com filtros do servidor
+      let query = supabase
         .from('leads')
-        .select('*')
+        .select('id, nome_completo, email, telefone, empresa, cargo, status, origem, temperatura, observacoes, valor_vendido, valor_arrecadado, data_primeiro_contato, convertido_em, origem_detalhada, lead_score, probabilidade_compra, valor_estimado, created_at, updated_at', { count: 'exact' })
+
+      // Aplicar filtros de texto
+      if (searchTerm) {
+        query = query.or(`nome_completo.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,empresa.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%`)
+      }
+
+      // Aplicar filtros de status
+      if (statusFilter !== 'todos') {
+        query = query.eq('status', statusFilter)
+      }
+
+      if (origemFilter !== 'todas') {
+        query = query.eq('origem', origemFilter)
+      }
+
+      if (temperaturaFilter !== 'todas') {
+        query = query.eq('temperatura', temperaturaFilter)
+      }
+
+      // Aplicar filtro de período
+      if (periodoFilter !== 'todos') {
+        const now = new Date()
+        let startDate = new Date()
+
+        switch (periodoFilter) {
+          case 'semana':
+            startDate.setDate(now.getDate() - 7)
+            break
+          case 'mes':
+            startDate.setMonth(now.getMonth() - 1)
+            break
+          case 'ano':
+            startDate.setFullYear(now.getFullYear() - 1)
+            break
+        }
+
+        if (periodoFilter !== 'todos') {
+          query = query.gte('data_primeiro_contato', startDate.toISOString())
+        }
+      }
+
+      const { data, error, count } = await query
         .order('created_at', { ascending: false })
+        .range(from, to)
 
       if (error) throw error
-      setLeads(data || [])
+
+      if (append) {
+        setLeads(prev => [...prev, ...(data || [])])
+      } else {
+        setLeads(data || [])
+      }
+
+      setTotalCount(count || 0)
+      setHasNextPage(data && data.length === leadsPerPage)
+      setCurrentPage(page)
     } catch (error) {
       console.error('Erro ao carregar leads:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const loadStats = async () => {
+  const loadStatsWithCache = async () => {
+    const cacheKey = 'stats_general'
+
+    // Verificar cache (válido por 5 minutos)
+    if (statsCache[cacheKey]) {
+      const cacheTime = parseInt(localStorage.getItem('stats_cache_time') || '0')
+      if (Date.now() - cacheTime < 5 * 60 * 1000) {
+        setStats(statsCache[cacheKey])
+        setLoading(false)
+        return
+      }
+    }
+
     try {
       const { data, error } = await supabase
         .from('leads_stats')
         .select('*')
 
       if (error) throw error
+
+      // Salvar no cache
+      setStatsCache(prev => ({ ...prev, [cacheKey]: data || [] }))
+      localStorage.setItem('stats_cache_time', Date.now().toString())
       setStats(data || [])
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error)
+      // Tentar usar cache antigo se disponível
+      if (statsCache[cacheKey]) {
+        setStats(statsCache[cacheKey])
+      }
     } finally {
       setLoading(false)
     }
@@ -124,7 +247,12 @@ export default function LeadsPage() {
       const leadData = {
         ...formData,
         valor_vendido: formData.valor_vendido ? parseFloat(formData.valor_vendido) : null,
-        valor_arrecadado: formData.valor_arrecadado ? parseFloat(formData.valor_arrecadado) : null
+        valor_arrecadado: formData.valor_arrecadado ? parseFloat(formData.valor_arrecadado) : null,
+        origem_detalhada: formData.origem_detalhada || null,
+        lead_score: formData.lead_score ? parseInt(formData.lead_score) : null,
+        temperatura: formData.temperatura,
+        probabilidade_compra: formData.probabilidade_compra ? parseInt(formData.probabilidade_compra) : null,
+        valor_estimado: formData.valor_estimado ? parseFloat(formData.valor_estimado) : null
       }
 
       if (editingLead) {
@@ -143,7 +271,7 @@ export default function LeadsPage() {
       }
 
       await loadLeads()
-      await loadStats()
+      await loadStatsWithCache()
       resetForm()
       setIsModalOpen(false)
 
@@ -164,7 +292,12 @@ export default function LeadsPage() {
       status: 'novo',
       observacoes: '',
       valor_vendido: '',
-      valor_arrecadado: ''
+      valor_arrecadado: '',
+      origem_detalhada: '',
+      lead_score: '',
+      temperatura: 'frio',
+      probabilidade_compra: '',
+      valor_estimado: ''
     })
     setEditingLead(null)
   }
@@ -181,7 +314,12 @@ export default function LeadsPage() {
       status: lead.status,
       observacoes: lead.observacoes || '',
       valor_vendido: lead.valor_vendido?.toString() || '',
-      valor_arrecadado: lead.valor_arrecadado?.toString() || ''
+      valor_arrecadado: lead.valor_arrecadado?.toString() || '',
+      origem_detalhada: lead.origem_detalhada || '',
+      lead_score: lead.lead_score?.toString() || '',
+      temperatura: lead.temperatura || 'frio',
+      probabilidade_compra: lead.probabilidade_compra?.toString() || '',
+      valor_estimado: lead.valor_estimado?.toString() || ''
     })
     setIsModalOpen(true)
   }
@@ -198,7 +336,7 @@ export default function LeadsPage() {
       if (error) throw error
 
       await loadLeads()
-      await loadStats()
+      await loadStatsWithCache()
     } catch (error) {
       console.error('Erro ao excluir lead:', error)
       alert('Erro ao excluir lead')
@@ -242,23 +380,25 @@ export default function LeadsPage() {
   }
 
   // Filtrar leads baseado na pesquisa e filtros
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch = searchTerm === '' ||
-      lead.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (lead.telefone && lead.telefone.includes(searchTerm)) ||
-      (lead.empresa && lead.empresa.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (lead.cargo && lead.cargo.toLowerCase().includes(searchTerm.toLowerCase()))
-
-    const matchesStatus = statusFilter === 'todos' || lead.status === statusFilter
-    const matchesOrigem = origemFilter === 'todas' || lead.origem === origemFilter
-
-    return matchesSearch && matchesStatus && matchesOrigem
-  })
+  // Como os filtros agora são aplicados no servidor, usamos leads diretamente
+  const filteredLeads = leads
 
   // Obter listas únicas para filtros
   const statusOptions = ['todos', ...Array.from(new Set(leads.map(l => l.status).filter(Boolean)))]
   const origemOptions = ['todas', ...Array.from(new Set(leads.map(l => l.origem).filter(Boolean)))]
+  const temperaturaOptions = ['todas', 'frio', 'morno', 'quente']
+
+  // Função para obter badge de temperatura
+  const getTemperaturaBadge = (temperatura: string | null) => {
+    const tempConfig = {
+      'frio': { label: '❄️ Frio', className: 'bg-blue-100 text-blue-700 border-blue-200' },
+      'morno': { label: '🔥 Morno', className: 'bg-orange-100 text-orange-700 border-orange-200' },
+      'quente': { label: '🚀 Quente', className: 'bg-red-100 text-red-700 border-red-200' }
+    }
+
+    const config = tempConfig[temperatura as keyof typeof tempConfig] || tempConfig.frio
+    return <Badge className={config.className}>{config.label}</Badge>
+  }
 
   const exportLeadsToPDF = () => {
     const doc = new jsPDF()
@@ -568,6 +708,8 @@ export default function LeadsPage() {
                         <SelectItem value="linkedin">💼 LinkedIn</SelectItem>
                         <SelectItem value="website">🌐 Website</SelectItem>
                         <SelectItem value="outros">📋 Outros</SelectItem>
+                        <SelectItem value="whatsapp">💬 WhatsApp</SelectItem>
+                        <SelectItem value="youtube">📺 YouTube</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -589,6 +731,22 @@ export default function LeadsPage() {
                         <SelectItem value="vendido">🟢 Vendido</SelectItem>
                         <SelectItem value="perdido">🔴 Perdido</SelectItem>
                         <SelectItem value="no-show">🟨 No-show</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="temperatura" className="text-sm font-semibold text-green-800 flex items-center gap-2">
+                      🌡️ Temperatura
+                    </Label>
+                    <Select value={formData.temperatura} onValueChange={(value) => setFormData({...formData, temperatura: value})}>
+                      <SelectTrigger className="border-2 border-green-200 focus:border-yellow-400 bg-white/70">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-green-200">
+                        <SelectItem value="frio">❄️ Frio</SelectItem>
+                        <SelectItem value="morno">🔥 Morno</SelectItem>
+                        <SelectItem value="quente">🚀 Quente</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -722,6 +880,65 @@ export default function LeadsPage() {
                 ))}
               </div>
             </div>
+
+            {/* Filtro por Temperatura */}
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4"></div>
+              <span className="text-sm text-gray-600">Temperatura:</span>
+              <div className="flex flex-wrap gap-1">
+                {temperaturaOptions.map(temp => (
+                  <Button
+                    key={temp}
+                    variant={temperaturaFilter === temp ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTemperaturaFilter(temp)}
+                    className="capitalize text-xs"
+                  >
+                    {temp === 'todas' ? 'Todas' : temp === 'frio' ? '❄️ Frio' : temp === 'morno' ? '🔥 Morno' : '🚀 Quente'}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Filtro por Período */}
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4"></div>
+              <span className="text-sm text-gray-600">Período:</span>
+              <div className="flex flex-wrap gap-1">
+                <Button
+                  variant={periodoFilter === 'todos' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPeriodoFilter('todos')}
+                  className="text-xs"
+                >
+                  📅 Todos
+                </Button>
+                <Button
+                  variant={periodoFilter === 'semana' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPeriodoFilter('semana')}
+                  className="text-xs"
+                >
+                  📆 Última semana
+                </Button>
+                <Button
+                  variant={periodoFilter === 'mes' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPeriodoFilter('mes')}
+                  className="text-xs"
+                >
+                  📅 Último mês
+                </Button>
+                <Button
+                  variant={periodoFilter === 'ano' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPeriodoFilter('ano')}
+                  className="text-xs"
+                >
+                  📄 Último ano
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -809,7 +1026,16 @@ export default function LeadsPage() {
                         )}
                       </td>
                       <td className="p-4">
-                        <div className="flex items-center justify-center space-x-2">
+                        <div className="flex items-center justify-center space-x-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.location.href = `/leads/${lead.id}`}
+                            className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                            title="Tracking completo do lead"
+                          >
+                            <Activity className="w-3 h-3" />
+                          </Button>
                           <Button
                             size="sm"
                             variant="outline"
@@ -834,6 +1060,39 @@ export default function LeadsPage() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Skeleton Loading */}
+              {loading && (
+                <div className="space-y-4 p-4">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="animate-pulse flex space-x-4">
+                      <div className="rounded-full bg-gray-200 h-10 w-10"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Botão Carregar Mais */}
+              {hasNextPage && !loading && (
+                <div className="p-4 text-center">
+                  <Button
+                    onClick={() => loadLeads(currentPage + 1, true)}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Carregar Mais ({totalCount - leads.length} restantes)
+                  </Button>
+                </div>
+              )}
+
+              {/* Info de paginação */}
+              <div className="p-4 text-sm text-gray-500 text-center border-t">
+                Mostrando {leads.length} de {totalCount} leads
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -853,6 +1112,8 @@ export default function LeadsPage() {
                 setSearchTerm('')
                 setStatusFilter('todos')
                 setOrigemFilter('todas')
+                setTemperaturaFilter('todas')
+                setPeriodoFilter('todos')
               }}
             >
               Limpar Filtros
