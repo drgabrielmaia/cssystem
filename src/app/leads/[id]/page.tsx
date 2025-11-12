@@ -98,8 +98,10 @@ export default function LeadTrackingPage() {
     tipo: 'call',
     prioridade: 'media'
   })
+  const [editandoFollowUp, setEditandoFollowUp] = useState<FollowUp | null>(null)
   const [novaAnotacao, setNovaAnotacao] = useState('')
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false)
+  const [isEditFollowUpModalOpen, setIsEditFollowUpModalOpen] = useState(false)
 
   useEffect(() => {
     if (leadId) {
@@ -178,6 +180,36 @@ export default function LeadTrackingPage() {
 
       if (error) throw error
 
+      // Enviar notificação sobre o novo follow-up
+      if (lead) {
+        try {
+          await fetch('/api/notify-followup', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              followUp: {
+                ...novoFollowUp,
+                lead_id: leadId
+              },
+              lead: {
+                nome_completo: lead.nome_completo,
+                empresa: lead.empresa,
+                telefone: lead.telefone,
+                temperatura: lead.temperatura,
+                nivel_interesse: lead.nivel_interesse,
+                urgencia_compra: lead.urgencia_compra,
+                orcamento_disponivel: lead.orcamento_disponivel,
+                responsavel_vendas: lead.responsavel_vendas
+              }
+            })
+          })
+        } catch (notifyError) {
+          console.error('Erro ao enviar notificação de follow-up:', notifyError)
+        }
+      }
+
       setNovoFollowUp({
         titulo: '',
         descricao: '',
@@ -190,6 +222,54 @@ export default function LeadTrackingPage() {
     } catch (error) {
       console.error('Erro ao adicionar follow-up:', error)
     }
+  }
+
+  const editarFollowUp = async () => {
+    if (!editandoFollowUp) return
+
+    try {
+      const { error } = await supabase
+        .from('lead_followups')
+        .update({
+          titulo: editandoFollowUp.titulo,
+          descricao: editandoFollowUp.descricao,
+          data_agendada: editandoFollowUp.data_agendada,
+          tipo: editandoFollowUp.tipo,
+          prioridade: editandoFollowUp.prioridade,
+          status: editandoFollowUp.status
+        })
+        .eq('id', editandoFollowUp.id)
+
+      if (error) throw error
+
+      setEditandoFollowUp(null)
+      setIsEditFollowUpModalOpen(false)
+      await loadLeadData()
+    } catch (error) {
+      console.error('Erro ao editar follow-up:', error)
+    }
+  }
+
+  const excluirFollowUp = async (followUpId: number) => {
+    if (!confirm('Tem certeza que deseja excluir este follow-up?')) return
+
+    try {
+      const { error } = await supabase
+        .from('lead_followups')
+        .delete()
+        .eq('id', followUpId)
+
+      if (error) throw error
+
+      await loadLeadData()
+    } catch (error) {
+      console.error('Erro ao excluir follow-up:', error)
+    }
+  }
+
+  const iniciarEdicaoFollowUp = (followUp: FollowUp) => {
+    setEditandoFollowUp({ ...followUp })
+    setIsEditFollowUpModalOpen(true)
   }
 
   const adicionarAnotacao = async () => {
@@ -575,6 +655,99 @@ export default function LeadTrackingPage() {
               </Dialog>
             </div>
 
+            {/* Modal de edição de follow-up */}
+            <Dialog open={isEditFollowUpModalOpen} onOpenChange={setIsEditFollowUpModalOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Editar Follow-up</DialogTitle>
+                </DialogHeader>
+                {editandoFollowUp && (
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Título</Label>
+                      <Input
+                        value={editandoFollowUp.titulo}
+                        onChange={(e) => setEditandoFollowUp(prev => prev ? { ...prev, titulo: e.target.value } : null)}
+                        placeholder="Ex: Ligar para verificar interesse"
+                      />
+                    </div>
+                    <div>
+                      <Label>Tipo</Label>
+                      <Select
+                        value={editandoFollowUp.tipo}
+                        onValueChange={(value) => setEditandoFollowUp(prev => prev ? { ...prev, tipo: value } : null)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="call">📞 Ligação</SelectItem>
+                          <SelectItem value="email">📧 Email</SelectItem>
+                          <SelectItem value="whatsapp">💬 WhatsApp</SelectItem>
+                          <SelectItem value="meeting">🤝 Reunião</SelectItem>
+                          <SelectItem value="proposal">📄 Proposta</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Data e Hora</Label>
+                      <Input
+                        type="datetime-local"
+                        value={editandoFollowUp.data_agendada}
+                        onChange={(e) => setEditandoFollowUp(prev => prev ? { ...prev, data_agendada: e.target.value } : null)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Prioridade</Label>
+                      <Select
+                        value={editandoFollowUp.prioridade}
+                        onValueChange={(value) => setEditandoFollowUp(prev => prev ? { ...prev, prioridade: value } : null)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="baixa">🟦 Baixa</SelectItem>
+                          <SelectItem value="media">🟨 Média</SelectItem>
+                          <SelectItem value="alta">🟧 Alta</SelectItem>
+                          <SelectItem value="urgente">🟥 Urgente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Status</Label>
+                      <Select
+                        value={editandoFollowUp.status}
+                        onValueChange={(value) => setEditandoFollowUp(prev => prev ? { ...prev, status: value } : null)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pendente">🟡 Pendente</SelectItem>
+                          <SelectItem value="concluido">🟢 Concluído</SelectItem>
+                          <SelectItem value="cancelado">🔴 Cancelado</SelectItem>
+                          <SelectItem value="adiado">🟠 Adiado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Descrição</Label>
+                      <Textarea
+                        value={editandoFollowUp.descricao}
+                        onChange={(e) => setEditandoFollowUp(prev => prev ? { ...prev, descricao: e.target.value } : null)}
+                        placeholder="Detalhes do follow-up..."
+                        rows={3}
+                      />
+                    </div>
+                    <Button onClick={editarFollowUp} className="w-full">
+                      Salvar Alterações
+                    </Button>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+
             <div className="space-y-3">
               {followUps.map((followUp) => (
                 <Card key={followUp.id}>
@@ -604,15 +777,31 @@ export default function LeadTrackingPage() {
                           <p className="text-sm text-gray-600 mt-1">{followUp.descricao}</p>
                         )}
                       </div>
-                      <Badge
-                        className={
-                          followUp.status === 'pendente' ? 'bg-yellow-100 text-yellow-700' :
-                          followUp.status === 'concluido' ? 'bg-green-100 text-green-700' :
-                          'bg-gray-100 text-gray-700'
-                        }
-                      >
-                        {followUp.status}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => iniciarEdicaoFollowUp(followUp)}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => excluirFollowUp(followUp.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                        <Badge
+                          className={
+                            followUp.status === 'pendente' ? 'bg-yellow-100 text-yellow-700' :
+                            followUp.status === 'concluido' ? 'bg-green-100 text-green-700' :
+                            'bg-gray-100 text-gray-700'
+                          }
+                        >
+                          {followUp.status}
+                        </Badge>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
