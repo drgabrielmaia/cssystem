@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Header } from '@/components/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,10 +18,17 @@ import {
   UserPlus,
   CheckCircle,
   Filter,
-  RefreshCw
+  RefreshCw,
+  FileText,
+  CreditCard,
+  BarChart3,
+  Eye,
+  ExternalLink,
+  Sparkles
 } from 'lucide-react'
 
 export default function Dashboard() {
+  const router = useRouter()
   const [stats, setStats] = useState({
     totalMentorados: 0,
     totalCheckins: 0,
@@ -227,262 +235,299 @@ export default function Dashboard() {
     }).format(value)
   }
 
+  // Função para navegar para as páginas
+  const navigateTo = (path: string) => {
+    router.push(path)
+  }
+
+  // Componente Card Minimalista
+  const MinimalStatsCard = ({
+    title,
+    value,
+    subtitle,
+    icon: Icon,
+    onClick,
+    loading,
+    trend
+  }: {
+    title: string
+    value: string | number
+    subtitle?: string
+    icon: any
+    onClick: () => void
+    loading: boolean
+    trend?: 'up' | 'down' | 'neutral'
+  }) => (
+    <Card
+      className="group relative bg-white border border-gray-200 hover:border-gray-300 cursor-pointer transition-all duration-200 hover:shadow-lg"
+      onClick={onClick}
+    >
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-gray-600">{title}</p>
+            <p className="text-2xl font-semibold text-gray-900">
+              {loading ? (
+                <div className="h-8 w-20 bg-gray-200 animate-pulse rounded"></div>
+              ) : (
+                value
+              )}
+            </p>
+            {subtitle && (
+              <p className="text-xs text-gray-500">{subtitle}</p>
+            )}
+          </div>
+          <div className="flex flex-col items-center space-y-2">
+            <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-gray-100 transition-colors duration-200">
+              <Icon className="h-5 w-5 text-gray-600" />
+            </div>
+            <ArrowRight className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+          </div>
+        </div>
+
+        {/* Subtle bottom line on hover */}
+        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-200"></div>
+      </CardContent>
+    </Card>
+  )
+
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto bg-gray-50 min-h-screen">
       <Header
         title="Dashboard"
         subtitle={`Visão geral do Customer Success ${filtroTempo !== 'todos' ? `- ${filtroTempo === 'semana' ? 'Última semana' : filtroTempo === 'mes' ? 'Último mês' : 'Último ano'}` : ''}`}
       />
 
-      <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
-        {/* Filtro de Período */}
-        <Card>
-          <CardContent className="p-4">
+      <main className="flex-1 p-4 sm:p-6 space-y-6 sm:space-y-8">
+        {/* Filtro de Período Minimalista */}
+        <Card className="bg-white border border-gray-200">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center space-x-4">
-                <Filter className="h-5 w-5 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">Período:</span>
+                <div className="flex items-center space-x-3">
+                  <Filter className="h-5 w-5 text-gray-600" />
+                  <span className="text-sm font-medium text-gray-900">
+                    Período de Análise
+                  </span>
+                </div>
                 <Select value={filtroTempo} onValueChange={setFiltroTempo}>
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-48 h-10 border border-gray-300 focus:border-gray-400 bg-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">📅 Todos os dados</SelectItem>
-                    <SelectItem value="semana">📆 Última semana</SelectItem>
-                    <SelectItem value="mes">📅 Último mês</SelectItem>
-                    <SelectItem value="ano">📄 Último ano</SelectItem>
+                  <SelectContent className="bg-white border-gray-200">
+                    <SelectItem value="todos">Todos os dados</SelectItem>
+                    <SelectItem value="semana">Última semana</SelectItem>
+                    <SelectItem value="mes">Último mês</SelectItem>
+                    <SelectItem value="ano">Último ano</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <Button
                 variant="outline"
-                size="sm"
+                className="h-10 px-4 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
                 onClick={loadDashboardStats}
                 disabled={loading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Atualizar
+                {loading ? 'Atualizando...' : 'Atualizar'}
               </Button>
             </div>
           </CardContent>
         </Card>
 
-            {/* Stats Grid - Reorganizado em 3 seções */}
-            <div className="space-y-6">
-              {/* Seção 1: Mentorados e Check-ins */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">👥 Mentorados & Check-ins</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Total Mentorados</p>
-                          <p className="text-2xl font-bold text-blue-600">
-                            {loading ? '...' : stats.totalMentorados}
-                          </p>
-                        </div>
-                        <Users className="h-8 w-8 text-blue-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Check-ins Agendados</p>
-                          <p className="text-2xl font-bold text-green-600">
-                            {loading ? '...' : stats.totalCheckins}
-                          </p>
-                        </div>
-                        <Calendar className="h-8 w-8 text-green-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Pessoas c/ Dívidas</p>
-                          <p className="text-2xl font-bold text-purple-600">
-                            {loading ? '...' : dividasStats.pessoasComDividas}
-                          </p>
-                        </div>
-                        <DollarSign className="h-8 w-8 text-purple-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Seção 2: Financeiro - Dívidas */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">💰 Financeiro - Dívidas Pendentes</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Total Dívidas</p>
-                          <p className="text-2xl font-bold text-red-600">
-                            {loading ? '...' : dividasStats.totalDividas}
-                          </p>
-                        </div>
-                        <TrendingUp className="h-8 w-8 text-red-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Valor Total Pendente</p>
-                          <p className="text-2xl font-bold text-red-600">
-                            {loading ? '...' : formatCurrency(dividasStats.valorTotalPendente)}
-                          </p>
-                        </div>
-                        <DollarSign className="h-8 w-8 text-red-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Taxa de Pendências</p>
-                          <p className="text-2xl font-bold text-orange-600">
-                            {loading ? '...' : stats.totalMentorados > 0 ? `${Math.round((dividasStats.pessoasComDividas / stats.totalMentorados) * 100)}%` : '0%'}
-                          </p>
-                        </div>
-                        <TrendingUp className="h-8 w-8 text-orange-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Seção 3: Leads & Vendas */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">🎯 Leads & Vendas {filtroTempo !== 'todos' && `(${filtroTempo === 'semana' ? 'Última semana' : filtroTempo === 'mes' ? 'Último mês' : 'Último ano'})`}</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Total Leads</p>
-                          <p className="text-2xl font-bold text-blue-600">
-                            {loading ? '...' : leadsStats.totalLeads}
-                          </p>
-                        </div>
-                        <UserPlus className="h-8 w-8 text-blue-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Leads Convertidos</p>
-                          <p className="text-2xl font-bold text-green-600">
-                            {loading ? '...' : leadsStats.leadsVendidos}
-                          </p>
-                          {leadsStats.totalLeads > 0 && (
-                            <p className="text-xs text-green-500">
-                              {Math.round((leadsStats.leadsVendidos / leadsStats.totalLeads) * 100)}% taxa
-                            </p>
-                          )}
-                        </div>
-                        <CheckCircle className="h-8 w-8 text-green-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Valor Vendido</p>
-                          <p className="text-2xl font-bold text-green-600">
-                            {loading ? '...' : formatCurrency(leadsStats.valorVendido)}
-                          </p>
-                        </div>
-                        <Target className="h-8 w-8 text-green-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Valor Arrecadado</p>
-                          <p className="text-2xl font-bold text-blue-600">
-                            {loading ? '...' : formatCurrency(leadsStats.valorArrecadado)}
-                          </p>
-                          {leadsStats.valorVendido > 0 && (
-                            <p className="text-xs text-blue-500">
-                              {Math.round((leadsStats.valorArrecadado / leadsStats.valorVendido) * 100)}% recebido
-                            </p>
-                          )}
-                        </div>
-                        <DollarSign className="h-8 w-8 text-blue-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
+        {/* Dashboard Principal */}
+        <div className="space-y-8">
+          {/* Métricas Principais */}
+          <div className="space-y-6">
+            <div className="border-b border-gray-200 pb-4">
+              <h2 className="text-2xl font-semibold text-gray-900">
+                Métricas Principais
+              </h2>
+              <p className="text-gray-600 mt-1">
+                Indicadores-chave do sistema
+              </p>
             </div>
 
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Ações Rápidas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Button 
-                className="h-20 flex-col space-y-2" 
-                variant="outline"
-                onClick={() => window.location.href = '/mentorados'}
-              >
-                <Users className="h-6 w-6" />
-                <span>Ver Mentorados</span>
-              </Button>
-              
-              <Button 
-                className="h-20 flex-col space-y-2" 
-                variant="outline"
-                onClick={() => window.location.href = '/checkins'}
-              >
-                <Calendar className="h-6 w-6" />
-                <span>Agendar Check-in</span>
-              </Button>
-              
-              <Button
-                className="h-20 flex-col space-y-2"
-                variant="outline"
-                onClick={() => window.location.href = '/pendencias'}
-              >
-                <DollarSign className="h-6 w-6" />
-                <span>Ver Pendências</span>
-              </Button>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+              <MinimalStatsCard
+                title="Total Mentorados"
+                value={stats.totalMentorados}
+                subtitle="Gerenciar mentorados"
+                icon={Users}
+                onClick={() => navigateTo('/mentorados')}
+                loading={loading}
+              />
 
-              <Button
-                className="h-20 flex-col space-y-2"
-                variant="outline"
-                onClick={() => window.location.href = '/leads'}
-              >
-                <Target className="h-6 w-6" />
-                <span>Gerenciar Leads</span>
-              </Button>
+              <MinimalStatsCard
+                title="Check-ins Agendados"
+                value={stats.totalCheckins}
+                subtitle="Visualizar check-ins"
+                icon={Calendar}
+                onClick={() => navigateTo('/checkins')}
+                loading={loading}
+              />
+
+              <MinimalStatsCard
+                title="Pessoas c/ Pendências"
+                value={dividasStats.pessoasComDividas}
+                subtitle="Ver pendências"
+                icon={CreditCard}
+                onClick={() => navigateTo('/pendencias')}
+                loading={loading}
+              />
+
+              <MinimalStatsCard
+                title="Total de Leads"
+                value={leadsStats.totalLeads}
+                subtitle="Gerenciar leads"
+                icon={Target}
+                onClick={() => navigateTo('/leads')}
+                loading={loading}
+              />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Análise Financeira */}
+          <div className="space-y-6">
+            <div className="border-b border-gray-200 pb-4">
+              <h2 className="text-2xl font-semibold text-gray-900">
+                Análise Financeira
+              </h2>
+              <p className="text-gray-600 mt-1">
+                Pendências e situação financeira
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <MinimalStatsCard
+                title="Total de Dívidas"
+                value={dividasStats.totalDividas}
+                subtitle="Ver detalhes"
+                icon={TrendingUp}
+                onClick={() => navigateTo('/pendencias')}
+                loading={loading}
+              />
+
+              <MinimalStatsCard
+                title="Valor Pendente"
+                value={formatCurrency(dividasStats.valorTotalPendente)}
+                subtitle="Total em aberto"
+                icon={DollarSign}
+                onClick={() => navigateTo('/pendencias')}
+                loading={loading}
+              />
+
+              <MinimalStatsCard
+                title="Taxa de Pendências"
+                value={stats.totalMentorados > 0 ? `${Math.round((dividasStats.pessoasComDividas / stats.totalMentorados) * 100)}%` : '0%'}
+                subtitle="% com dívidas"
+                icon={BarChart3}
+                onClick={() => navigateTo('/pendencias')}
+                loading={loading}
+              />
+            </div>
+          </div>
+
+          {/* Performance de Vendas */}
+          <div className="space-y-6">
+            <div className="border-b border-gray-200 pb-4">
+              <h2 className="text-2xl font-semibold text-gray-900">
+                Performance de Vendas
+                {filtroTempo !== 'todos' && (
+                  <span className="text-lg text-gray-500 ml-2 font-normal">
+                    ({filtroTempo === 'semana' ? 'Última semana' : filtroTempo === 'mes' ? 'Último mês' : 'Último ano'})
+                  </span>
+                )}
+              </h2>
+              <p className="text-gray-600 mt-1">
+                Leads e conversões
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+              <MinimalStatsCard
+                title="Total de Leads"
+                value={leadsStats.totalLeads}
+                subtitle="Todos os prospects"
+                icon={UserPlus}
+                onClick={() => navigateTo('/leads')}
+                loading={loading}
+              />
+
+              <MinimalStatsCard
+                title="Leads Convertidos"
+                value={leadsStats.leadsVendidos}
+                subtitle={
+                  leadsStats.totalLeads > 0
+                    ? `${Math.round((leadsStats.leadsVendidos / leadsStats.totalLeads) * 100)}% conversão`
+                    : 'Taxa de conversão'
+                }
+                icon={CheckCircle}
+                onClick={() => navigateTo('/leads')}
+                loading={loading}
+              />
+
+              <MinimalStatsCard
+                title="Valor Vendido"
+                value={formatCurrency(leadsStats.valorVendido)}
+                subtitle="Receita total"
+                icon={Target}
+                onClick={() => navigateTo('/leads')}
+                loading={loading}
+              />
+
+              <MinimalStatsCard
+                title="Valor Recebido"
+                value={formatCurrency(leadsStats.valorArrecadado)}
+                subtitle={
+                  leadsStats.valorVendido > 0
+                    ? `${Math.round((leadsStats.valorArrecadado / leadsStats.valorVendido) * 100)}% recebido`
+                    : '% recebido'
+                }
+                icon={DollarSign}
+                onClick={() => navigateTo('/leads')}
+                loading={loading}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Navegação Rápida */}
+        <div className="space-y-6">
+          <div className="border-b border-gray-200 pb-4">
+            <h2 className="text-2xl font-semibold text-gray-900">
+              Navegação Rápida
+            </h2>
+            <p className="text-gray-600 mt-1">
+              Acesso direto às funcionalidades
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { icon: Users, label: 'Mentorados', path: '/mentorados' },
+              { icon: Calendar, label: 'Check-ins', path: '/checkins' },
+              { icon: CreditCard, label: 'Pendências', path: '/pendencias' },
+              { icon: Target, label: 'Leads', path: '/leads' },
+              { icon: FileText, label: 'Formulários', path: '/formularios' },
+              { icon: BarChart3, label: 'Calendário', path: '/calendario' },
+              { icon: DollarSign, label: 'Despesas', path: '/despesas' },
+              { icon: Eye, label: 'Insights', path: '/insights' }
+            ].map((item, index) => (
+              <Button
+                key={index}
+                variant="outline"
+                className="h-20 flex-col space-y-2 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 group"
+                onClick={() => navigateTo(item.path)}
+              >
+                <item.icon className="h-5 w-5 text-gray-600 group-hover:text-gray-900 transition-colors duration-200" />
+                <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors duration-200">
+                  {item.label}
+                </span>
+              </Button>
+            ))}
+          </div>
+        </div>
       </main>
     </div>
   )

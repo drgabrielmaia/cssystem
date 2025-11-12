@@ -24,7 +24,9 @@ import {
   Menu,
   X,
   Phone,
-  UserPlus
+  UserPlus,
+  Wrench,
+  Eye
 } from 'lucide-react'
 
 const navigation = [
@@ -35,6 +37,8 @@ const navigation = [
   { name: 'Social Seller', href: '/social-seller', icon: Phone, description: 'Métricas de vendas' },
   { name: 'Check-ins', href: '/checkins', icon: BarChart3, description: 'Acompanhamento' },
   { name: 'Formulários', href: '/formularios', icon: FileText, description: 'Pesquisas + IA' },
+  { name: 'Form Builder', href: '/form-builder', icon: Wrench, description: 'Criar formulários' },
+  { name: 'Respostas Forms', href: '/form-responses', icon: Eye, description: 'Ver respostas' },
   { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle, description: 'Mensagens' },
   { name: 'Pendências', href: '/pendencias', icon: DollarSign, description: 'Financeiro' },
 ]

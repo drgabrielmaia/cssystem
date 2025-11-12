@@ -23,7 +23,7 @@ export async function GET() {
     // Format data for the frontend
     const formattedMentorados = mentorados?.map(m => ({
       id: m.id,
-      nome: m.nome_completo,
+      nome_completo: m.nome_completo,
       turma: m.turma || 'Sem turma'
     })) || []
 
