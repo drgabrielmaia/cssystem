@@ -275,13 +275,18 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate, selecte
               </Label>
               <Select value={formData.mentorado_id} onValueChange={(value) => handleChange('mentorado_id', value)}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Selecione um mentorado (opcional)" />
+                  <SelectValue placeholder="Selecione um mentorado (opcional)">
+                    {formData.mentorado_id !== 'none' ?
+                      mentorados.find(m => m.id === formData.mentorado_id)?.nome_completo || 'Mentorado selecionado'
+                      : undefined
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhum mentorado</SelectItem>
                   {mentorados.map((mentorado) => (
                     <SelectItem key={mentorado.id} value={mentorado.id}>
-                      {mentorado.nome_completo} ({mentorado.turma})
+                      {mentorado.nome_completo || 'Nome não disponível'} {mentorado.turma ? `(${mentorado.turma})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
