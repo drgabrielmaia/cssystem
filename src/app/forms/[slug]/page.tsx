@@ -131,9 +131,15 @@ export default function FormPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const createLeadFromSubmission = async (submissionData: Record<string, any>) => {
+  const processFormSubmission = async (submissionData: Record<string, any>) => {
     try {
-      console.log('🔄 Iniciando criação de lead:', submissionData)
+      console.log('🔄 Iniciando processamento do formulário:', submissionData, 'Tipo:', template?.form_type)
+
+      // Se não for formulário de lead, apenas salvar submissão sem criar lead
+      if (template?.form_type !== 'lead') {
+        console.log('📋 Formulário não é de lead, não criando lead')
+        return null
+      }
 
       // Mapear campos do formulário para campos do lead
       const leadData: Record<string, any> = {
@@ -142,6 +148,7 @@ export default function FormPage() {
         observacoes: ''
       }
 
+      const activityData: Record<string, any> = {}
       const notesData: string[] = []
 
       template?.fields.forEach(field => {
@@ -155,18 +162,11 @@ export default function FormPage() {
           leadData[field.mapToLead] = value
           console.log(`✅ Mapeado para lead.${field.mapToLead}:`, value)
         } else {
-          // Adicionar às notas
-          notesData.push(`${field.label}: ${value}`)
-          console.log(`📋 Adicionado às notas:`, `${field.label}: ${value}`)
+          // Adicionar ao histórico de atividade
+          activityData[field.label] = value
+          console.log(`📋 Adicionado ao histórico:`, `${field.label}: ${value}`)
         }
       })
-
-      // Adicionar informações extras às notas
-      if (notesData.length > 0) {
-        const formName = template?.name || 'Formulário'
-        const timestamp = new Date().toLocaleString('pt-BR')
-        leadData.observacoes = `=== ${formName} (${timestamp}) ===\n${notesData.join('\n')}`
-      }
 
       console.log('💾 Dados finais do lead:', leadData)
 
@@ -183,6 +183,31 @@ export default function FormPage() {
       }
 
       console.log('✅ Lead criado com sucesso:', lead)
+
+      // Criar atividade no histórico com todos os dados do formulário
+      if (lead && Object.keys(activityData).length > 0) {
+        try {
+          console.log('📝 Criando atividade no histórico:', activityData)
+
+          const { data: activity, error: activityError } = await supabase
+            .rpc('create_form_activity', {
+              p_lead_id: lead.id,
+              p_form_name: template?.name || 'Formulário',
+              p_form_data: activityData,
+              p_source_url: sourceUrl
+            })
+
+          if (activityError) {
+            console.error('❌ Erro ao criar atividade:', activityError)
+          } else {
+            console.log('✅ Atividade criada no histórico:', activity)
+          }
+        } catch (activityErr) {
+          console.error('💥 Erro ao processar atividade:', activityErr)
+          // Não falha o processo principal se der erro na atividade
+        }
+      }
+
       return lead
     } catch (error) {
       console.error('💥 Erro ao processar lead:', error)
@@ -200,8 +225,8 @@ export default function FormPage() {
     setSubmitting(true)
 
     try {
-      // 1. Criar lead automaticamente
-      const lead = await createLeadFromSubmission(formData)
+      // 1. Processar formulário (criar lead só se for tipo 'lead')
+      const lead = await processFormSubmission(formData)
 
       // 2. Salvar submissão do formulário
       const submissionData = {

@@ -49,6 +49,7 @@ interface FormTemplate {
   name: string
   description: string
   slug: string // URL amigável
+  form_type: 'lead' | 'nps' | 'survey' | 'feedback' | 'other' // Tipo do formulário
   fields: FormField[]
   created_at?: string
   updated_at?: string
@@ -60,6 +61,7 @@ export default function FormBuilderPage() {
     name: '',
     description: '',
     slug: '',
+    form_type: 'lead',
     fields: []
   })
   const [showEditor, setShowEditor] = useState(false)
@@ -84,6 +86,14 @@ export default function FormBuilderPage() {
     { value: 'telefone', label: 'Telefone' },
     { value: 'empresa', label: 'Empresa' },
     { value: 'cargo', label: 'Cargo' }
+  ]
+
+  const formTypes = [
+    { value: 'lead', label: 'Captura de Lead', description: 'Formulário para capturar novos prospects' },
+    { value: 'nps', label: 'Pesquisa NPS', description: 'Net Promoter Score - satisfação do cliente' },
+    { value: 'survey', label: 'Pesquisa', description: 'Pesquisa de opinião ou feedback geral' },
+    { value: 'feedback', label: 'Feedback', description: 'Coleta de feedback específico' },
+    { value: 'other', label: 'Outro', description: 'Outro tipo de formulário' }
   ]
 
   useEffect(() => {
@@ -165,6 +175,7 @@ export default function FormBuilderPage() {
         name: currentTemplate.name,
         description: currentTemplate.description,
         slug: currentTemplate.slug,
+        form_type: currentTemplate.form_type,
         fields: currentTemplate.fields,
         updated_at: new Date().toISOString()
       }
@@ -234,6 +245,7 @@ export default function FormBuilderPage() {
       name: `${template.name} (Cópia)`,
       description: template.description,
       slug: `${template.slug}-copia`,
+      form_type: template.form_type,
       fields: template.fields.map(field => ({
         ...field,
         id: `field_${Date.now()}_${Math.random()}`
@@ -289,24 +301,26 @@ export default function FormBuilderPage() {
               </Select>
             </div>
 
-            <div>
-              <Label>Mapear para Lead</Label>
-              <Select
-                value={field.mapToLead || 'none'}
-                onValueChange={(value) => updateField(field.id, { mapToLead: value === 'none' ? undefined : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {leadFields.map(leadField => (
-                    <SelectItem key={leadField.value} value={leadField.value}>
-                      {leadField.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {currentTemplate.form_type === 'lead' && (
+              <div>
+                <Label>Mapear para Lead</Label>
+                <Select
+                  value={field.mapToLead || 'none'}
+                  onValueChange={(value) => updateField(field.id, { mapToLead: value === 'none' ? undefined : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leadFields.map(leadField => (
+                      <SelectItem key={leadField.value} value={leadField.value}>
+                        {leadField.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <div>
@@ -395,6 +409,7 @@ export default function FormBuilderPage() {
                 name: '',
                 description: '',
                 slug: '',
+                form_type: 'lead',
                 fields: []
               })
               setShowEditor(true)
@@ -412,9 +427,14 @@ export default function FormBuilderPage() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>{template.name}</span>
-                  <Badge variant="secondary">
-                    {template.fields.length} campos
-                  </Badge>
+                  <div className="flex gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {formTypes.find(t => t.value === template.form_type)?.label || 'Lead'}
+                    </Badge>
+                    <Badge variant="secondary">
+                      {template.fields.length} campos
+                    </Badge>
+                  </div>
                 </CardTitle>
                 <p className="text-gray-600 text-sm">{template.description}</p>
               </CardHeader>
@@ -529,8 +549,32 @@ export default function FormBuilderPage() {
                         slug: prev.slug || generateSlug(name)
                       }))
                     }}
-                    placeholder="Ex: Formulário Paralítice"
+                    placeholder="Ex: Formulário de Mentoria"
                   />
+                </div>
+
+                <div>
+                  <Label>Tipo de Formulário</Label>
+                  <Select
+                    value={currentTemplate.form_type}
+                    onValueChange={(value: 'lead' | 'nps' | 'survey' | 'feedback' | 'other') =>
+                      setCurrentTemplate(prev => ({ ...prev, form_type: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo do formulário" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {formTypes.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{type.label}</span>
+                            <span className="text-xs text-gray-500">{type.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>

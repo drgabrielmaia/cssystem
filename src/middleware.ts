@@ -42,7 +42,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Allow access to public routes without authentication
-  const publicRoutes = ['/login', '/formulario', '/api/chat-ai', '/api/analyze-form', '/api/analisar-formulario']
+  const publicRoutes = ['/login', '/formulario', '/forms', '/api/chat-ai', '/api/analyze-form', '/api/analisar-formulario']
   const isPublicRoute = publicRoutes.some(route => request.nextUrl.pathname.startsWith(route))
   
   // If user is not authenticated and trying to access protected routes, redirect to login

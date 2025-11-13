@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS form_templates (
   name VARCHAR(255) NOT NULL,
   description TEXT,
   slug VARCHAR(100) UNIQUE NOT NULL,
+  form_type VARCHAR(20) DEFAULT 'lead' CHECK (form_type IN ('lead', 'nps', 'survey', 'feedback', 'other')),
   fields JSONB NOT NULL DEFAULT '[]',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -15,7 +16,11 @@ CREATE TABLE IF NOT EXISTS form_templates (
 
 -- Criar índices para performance
 CREATE INDEX IF NOT EXISTS idx_form_templates_slug ON form_templates(slug);
+CREATE INDEX IF NOT EXISTS idx_form_templates_form_type ON form_templates(form_type);
 CREATE INDEX IF NOT EXISTS idx_form_templates_created_at ON form_templates(created_at);
+
+-- Comentários para documentação dos tipos de formulário
+COMMENT ON COLUMN form_templates.form_type IS 'Tipo do formulário: lead (captura de leads), nps (Net Promoter Score), survey (pesquisas), feedback (opiniões), other (outros tipos)';
 
 -- Criar tabela para respostas dos formulários personalizados
 CREATE TABLE IF NOT EXISTS form_submissions (
@@ -58,11 +63,12 @@ ALTER TABLE form_templates DISABLE ROW LEVEL SECURITY;
 ALTER TABLE form_submissions DISABLE ROW LEVEL SECURITY;
 
 -- Inserir template de exemplo - Formulário Mentoria
-INSERT INTO form_templates (name, description, slug, fields) VALUES
+INSERT INTO form_templates (name, description, slug, form_type, fields) VALUES
 (
   'Formulário de Mentoria Médica',
   'Formulário para captura de leads interessados em mentoria para médicos',
   'mentoria',
+  'lead',
   '[
     {
       "id": "field_1",
