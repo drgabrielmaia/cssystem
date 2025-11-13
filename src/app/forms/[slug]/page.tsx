@@ -25,6 +25,7 @@ interface FormTemplate {
   name: string
   description: string
   slug: string
+  form_type: 'lead' | 'nps' | 'survey' | 'feedback' | 'other'
   fields: FormField[]
 }
 

@@ -206,6 +206,7 @@ export default function FormBuilderPage() {
         name: '',
         description: '',
         slug: '',
+        form_type: 'lead',
         fields: []
       })
 
@@ -513,6 +514,7 @@ export default function FormBuilderPage() {
                     name: '',
                     description: '',
                     slug: '',
+                    form_type: 'lead',
                     fields: []
                   })
                   setShowEditor(true)
