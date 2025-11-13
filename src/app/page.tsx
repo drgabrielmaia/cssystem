@@ -46,6 +46,12 @@ export default function Dashboard() {
     valorTotalPendente: 0,
     pessoasComDividas: 0
   })
+  const [callsStats, setCallsStats] = useState({
+    noShow: 0,
+    rejeitadas: 0,
+    vendidas: 0,
+    totalCalls: 0
+  })
   const [filtroTempo, setFiltroTempo] = useState('todos') // semana, mes, ano, todos
   const [loading, setLoading] = useState(true)
 
@@ -57,11 +63,18 @@ export default function Dashboard() {
     const now = new Date()
     switch (filtroTempo) {
       case 'semana':
-        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        return oneWeekAgo.toISOString()
+        // Início da semana (segunda-feira)
+        const dayOfWeek = now.getDay() // 0 = domingo, 1 = segunda, etc.
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // Se for domingo, volta 6 dias
+        const startOfWeek = new Date(now)
+        startOfWeek.setDate(now.getDate() - daysToMonday)
+        startOfWeek.setHours(0, 0, 0, 0)
+        return startOfWeek.toISOString()
       case 'mes':
-        const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
-        return oneMonthAgo.toISOString()
+        // Primeiro dia do mês atual
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        startOfMonth.setHours(0, 0, 0, 0)
+        return startOfMonth.toISOString()
       case 'ano':
         const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
         return oneYearAgo.toISOString()
@@ -159,6 +172,36 @@ export default function Dashboard() {
         valorArrecadado = leadsVendidosParaContar.reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0)
       }
 
+      // Buscar calls por status (no-show, rejeitadas, vendidas)
+      let noShow = 0
+      let rejeitadas = 0
+      let vendidas = 0
+      let totalCalls = 0
+
+      if (allLeads) {
+        // Filtrar leads por data primeiro
+        let leadsParaCall = allLeads
+        if (dateFilter) {
+          leadsParaCall = allLeads.filter(lead =>
+            lead.data_primeiro_contato && new Date(lead.data_primeiro_contato) >= new Date(dateFilter)
+          )
+        }
+
+        // Contar calls por status
+        leadsParaCall.forEach(lead => {
+          if (lead.status === 'no-show') {
+            noShow++
+            totalCalls++
+          } else if (lead.status === 'rejeitado' || lead.status === 'rejeitada') {
+            rejeitadas++
+            totalCalls++
+          } else if (lead.status === 'vendido') {
+            vendidas++
+            totalCalls++
+          }
+        })
+      }
+
       // Buscar pendências financeiras - MESMA LÓGICA DA PÁGINA DE PENDÊNCIAS
       const { data: mentoradosCompletos } = await supabase
         .from('mentorados')
@@ -221,6 +264,13 @@ export default function Dashboard() {
         totalDividas,
         valorTotalPendente,
         pessoasComDividas
+      })
+
+      setCallsStats({
+        noShow,
+        rejeitadas,
+        vendidas,
+        totalCalls
       })
     } catch (error) {
       console.error('Erro ao carregar stats:', error)
@@ -295,7 +345,7 @@ export default function Dashboard() {
     <div className="flex-1 overflow-y-auto bg-gray-50 min-h-screen">
       <Header
         title="Dashboard"
-        subtitle={`Visão geral do Customer Success ${filtroTempo !== 'todos' ? `- ${filtroTempo === 'semana' ? 'Última semana' : filtroTempo === 'mes' ? 'Último mês' : 'Último ano'}` : ''}`}
+        subtitle={`Visão geral do Customer Success ${filtroTempo !== 'todos' ? `- ${filtroTempo === 'semana' ? 'Esta semana' : filtroTempo === 'mes' ? 'Este mês' : 'Último ano'}` : ''}`}
       />
 
       <main className="flex-1 p-4 sm:p-6 space-y-6 sm:space-y-8">
@@ -316,8 +366,8 @@ export default function Dashboard() {
                   </SelectTrigger>
                   <SelectContent className="bg-white border-gray-200">
                     <SelectItem value="todos">Todos os dados</SelectItem>
-                    <SelectItem value="semana">Última semana</SelectItem>
-                    <SelectItem value="mes">Último mês</SelectItem>
+                    <SelectItem value="semana">Esta semana (seg-dom)</SelectItem>
+                    <SelectItem value="mes">Este mês (dia 1 até hoje)</SelectItem>
                     <SelectItem value="ano">Último ano</SelectItem>
                   </SelectContent>
                 </Select>
@@ -435,7 +485,7 @@ export default function Dashboard() {
                 Performance de Vendas
                 {filtroTempo !== 'todos' && (
                   <span className="text-lg text-gray-500 ml-2 font-normal">
-                    ({filtroTempo === 'semana' ? 'Última semana' : filtroTempo === 'mes' ? 'Último mês' : 'Último ano'})
+                    ({filtroTempo === 'semana' ? 'Esta semana' : filtroTempo === 'mes' ? 'Este mês' : 'Último ano'})
                   </span>
                 )}
               </h2>
@@ -485,6 +535,61 @@ export default function Dashboard() {
                     : '% recebido'
                 }
                 icon={DollarSign}
+                onClick={() => navigateTo('/leads')}
+                loading={loading}
+              />
+            </div>
+          </div>
+
+          {/* Performance de Calls */}
+          <div className="space-y-6">
+            <div className="border-b border-gray-200 pb-4">
+              <h2 className="text-2xl font-semibold text-gray-900">
+                Performance de Calls
+                {filtroTempo !== 'todos' && (
+                  <span className="text-lg text-gray-500 ml-2 font-normal">
+                    ({filtroTempo === 'semana' ? 'Esta semana' : filtroTempo === 'mes' ? 'Este mês' : 'Último ano'})
+                  </span>
+                )}
+              </h2>
+              <p className="text-gray-600 mt-1">
+                Resultado das chamadas realizadas
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+              <MinimalStatsCard
+                title="No-show"
+                value={callsStats.noShow}
+                subtitle="Não compareceram"
+                icon={Users}
+                onClick={() => navigateTo('/leads')}
+                loading={loading}
+              />
+
+              <MinimalStatsCard
+                title="Rejeitadas"
+                value={callsStats.rejeitadas}
+                subtitle="Não interessados"
+                icon={Target}
+                onClick={() => navigateTo('/leads')}
+                loading={loading}
+              />
+
+              <MinimalStatsCard
+                title="Vendidas"
+                value={callsStats.vendidas}
+                subtitle="Convertidas em venda"
+                icon={CheckCircle}
+                onClick={() => navigateTo('/leads')}
+                loading={loading}
+              />
+
+              <MinimalStatsCard
+                title="Taxa de Conversão"
+                value={callsStats.totalCalls > 0 ? `${Math.round((callsStats.vendidas / callsStats.totalCalls) * 100)}%` : '0%'}
+                subtitle={`${callsStats.totalCalls} calls total`}
+                icon={TrendingUp}
                 onClick={() => navigateTo('/leads')}
                 loading={loading}
               />
