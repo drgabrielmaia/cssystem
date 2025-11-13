@@ -1,72 +1,37 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Bell, X, CheckCircle, AlertTriangle, Info, Clock } from 'lucide-react'
+import { Bell, X, CheckCircle, AlertTriangle, Info, Clock, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-interface Notification {
-  id: string
-  type: 'success' | 'warning' | 'info' | 'error'
-  title: string
-  message: string
-  timestamp: Date
-  read: boolean
-  actionRequired?: boolean
-}
+import { useNotifications } from '@/hooks/useNotifications'
 
 export function NotificationCenter() {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      type: 'warning',
-      title: 'Mentorados Inativos',
-      message: '12 mentorados não respondem formulários há mais de 2 semanas',
-      timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 min ago
-      read: false,
-      actionRequired: true
-    },
-    {
-      id: '2',
-      type: 'success',
-      title: 'Novo Formulário Recebido',
-      message: 'Ana Paula completou o Módulo IV - Vendas com NPS 9',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
-      read: false
-    },
-    {
-      id: '3',
-      type: 'info',
-      title: 'Relatório Mensal Pronto',
-      message: 'Dados de setembro compilados com insights detalhados',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-      read: true
-    }
-  ])
   const [isOpen, setIsOpen] = useState(false)
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    error,
+    markAsRead,
+    markAllAsRead,
+    removeNotification,
+    refetch
+  } = useNotifications()
 
-  const unreadCount = notifications.filter(n => !n.read).length
-
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id 
-          ? { ...notification, read: true }
-          : notification
-      )
-    )
+  // Funções de ação da notificação
+  const handleMarkAsRead = (id: string) => {
+    markAsRead(id)
   }
 
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, read: true }))
-    )
+  const handleMarkAllAsRead = () => {
+    markAllAsRead()
   }
 
-  const removeNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id))
+  const handleRemoveNotification = (id: string) => {
+    removeNotification(id)
   }
 
   const getIcon = (type: string) => {
@@ -87,10 +52,11 @@ export function NotificationCenter() {
     }
   }
 
-  const formatTimeAgo = (date: Date) => {
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString)
     const now = new Date()
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
-    
+
     if (diffInMinutes < 60) {
       return `${diffInMinutes}m atrás`
     } else if (diffInMinutes < 1440) {
@@ -124,13 +90,25 @@ export function NotificationCenter() {
           <Card className="shadow-lg border-0 bg-white">
             <CardHeader className="pb-3 border-b">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Notificações</CardTitle>
+                <CardTitle className="text-lg">
+                  Notificações
+                  {loading && <RefreshCw className="inline-block ml-2 h-4 w-4 animate-spin" />}
+                </CardTitle>
                 <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={refetch}
+                    className="text-xs p-1"
+                    title="Atualizar"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                  </Button>
                   {unreadCount > 0 && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={markAllAsRead}
+                      onClick={handleMarkAllAsRead}
                       className="text-xs"
                     >
                       Marcar todas como lidas
@@ -148,22 +126,32 @@ export function NotificationCenter() {
               </div>
             </CardHeader>
             <CardContent className="p-0 max-h-96 overflow-y-auto">
-              {notifications.length === 0 ? (
+              {error && (
+                <div className="p-4 text-center text-red-600">
+                  <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+                  <p className="text-sm">Erro ao carregar notificações</p>
+                  <p className="text-xs text-gray-500">{error}</p>
+                </div>
+              )}
+
+              {!error && notifications.length === 0 && !loading && (
                 <div className="p-6 text-center text-gray-500">
                   <Bell className="h-12 w-12 mx-auto text-gray-300 mb-2" />
                   <p>Nenhuma notificação</p>
                 </div>
-              ) : (
+              )}
+
+              {!error && notifications.length > 0 && (
                 <div className="space-y-1">
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
                       className={cn(
-                        "p-4 border-l-4 cursor-pointer transition-colors hover:bg-gray-50",
+                        "p-4 border-l-4 cursor-pointer transition-colors hover:bg-gray-50 group",
                         getTypeColor(notification.type),
                         !notification.read && "bg-opacity-70"
                       )}
-                      onClick={() => markAsRead(notification.id)}
+                      onClick={() => handleMarkAsRead(notification.id)}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-3 flex-1">
@@ -178,7 +166,7 @@ export function NotificationCenter() {
                               )}>
                                 {notification.title}
                               </p>
-                              {notification.actionRequired && (
+                              {notification.action_required && (
                                 <Badge variant="outline" className="text-xs">
                                   Ação necessária
                                 </Badge>
@@ -189,7 +177,7 @@ export function NotificationCenter() {
                             </p>
                             <div className="flex items-center mt-2 text-xs text-gray-500">
                               <Clock className="h-3 w-3 mr-1" />
-                              {formatTimeAgo(notification.timestamp)}
+                              {formatTimeAgo(notification.created_at)}
                             </div>
                           </div>
                         </div>
@@ -198,7 +186,7 @@ export function NotificationCenter() {
                           size="icon"
                           onClick={(e) => {
                             e.stopPropagation()
-                            removeNotification(notification.id)
+                            handleRemoveNotification(notification.id)
                           }}
                           className="h-6 w-6 opacity-0 group-hover:opacity-100"
                         >

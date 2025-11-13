@@ -51,11 +51,18 @@ export default function SocialSellerPage() {
     const now = new Date()
     switch (filtroTempo) {
       case 'semana':
-        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        return oneWeekAgo.toISOString()
+        // Segunda-feira da semana atual
+        const monday = new Date(now)
+        const dayOfWeek = monday.getDay()
+        const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+        monday.setDate(now.getDate() - daysToSubtract)
+        monday.setHours(0, 0, 0, 0)
+        return monday.toISOString()
       case 'mes':
-        const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
-        return oneMonthAgo.toISOString()
+        // Primeiro dia do mês atual
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        firstDayOfMonth.setHours(0, 0, 0, 0)
+        return firstDayOfMonth.toISOString()
       case 'ano':
         const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
         return oneYearAgo.toISOString()

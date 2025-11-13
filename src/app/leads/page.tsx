@@ -168,10 +168,18 @@ export default function LeadsPage() {
 
         switch (periodoFilter) {
           case 'semana':
-            startDate.setDate(now.getDate() - 7)
+            // Segunda-feira da semana atual
+            const monday = new Date(now)
+            const dayOfWeek = monday.getDay()
+            const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+            monday.setDate(now.getDate() - daysToSubtract)
+            monday.setHours(0, 0, 0, 0)
+            startDate = monday
             break
           case 'mes':
-            startDate.setMonth(now.getMonth() - 1)
+            // Primeiro dia do mês atual
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+            startDate.setHours(0, 0, 0, 0)
             break
           case 'ano':
             startDate.setFullYear(now.getFullYear() - 1)

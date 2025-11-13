@@ -198,6 +198,10 @@ export default function Dashboard() {
           } else if (lead.status === 'vendido') {
             vendidas++
             totalCalls++
+          } else if (lead.status === 'proposta_enviada') {
+            // Proposta enviada também conta como call realizada (vendida)
+            vendidas++
+            totalCalls++
           }
         })
       }
