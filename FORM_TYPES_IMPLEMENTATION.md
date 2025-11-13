@@ -32,7 +32,7 @@ Agora o sistema diferencia tipos de formulários e processa cada um de forma ade
 
 **Fluxo anterior:** Todos os formulários → Criavam leads
 **Fluxo atual:**
-- **Tipo "Lead"** → Cria lead + atividades (como antes)
+- **Tipo "Lead"** → Cria lead + adiciona dados extras nas observações
 - **Outros tipos** → Apenas salva submissão (sem criar lead)
 
 **Código modificado em `/src/app/forms/[slug]/page.tsx`:**
@@ -50,11 +50,15 @@ const processFormSubmission = async (submissionData: Record<string, any>) => {
 
 ### 4. **Banco de Dados Atualizado**
 
-**Novo campo:** `form_type`
+**Novo campo:** `form_type` na tabela `form_templates`
 - Tipo: `VARCHAR(20)`
 - Valores permitidos: `'lead', 'nps', 'survey', 'feedback', 'other'`
 - Padrão: `'lead'`
 - Índice criado para performance
+
+**Reutilização inteligente:**
+- Campo `observacoes` da tabela `leads` usado para armazenar dados extras do formulário
+- Campo `origem_detalhada` usado para URL de origem
 
 **Arquivos de migração:**
 1. `create-form-templates-system.sql` - Schema principal atualizado

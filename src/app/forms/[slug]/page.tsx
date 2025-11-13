@@ -184,27 +184,38 @@ export default function FormPage() {
 
       console.log('✅ Lead criado com sucesso:', lead)
 
-      // Criar atividade no histórico com todos os dados do formulário
+      // Adicionar dados extras nas observações do lead
       if (lead && Object.keys(activityData).length > 0) {
         try {
-          console.log('📝 Criando atividade no histórico:', activityData)
+          console.log('📝 Adicionando dados extras nas observações:', activityData)
 
-          const { data: activity, error: activityError } = await supabase
-            .rpc('create_form_activity', {
-              p_lead_id: lead.id,
-              p_form_name: template?.name || 'Formulário',
-              p_form_data: activityData,
-              p_source_url: sourceUrl
+          // Construir texto das informações extras
+          const extraInfo = Object.entries(activityData)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join('\n')
+
+          const currentDate = new Date().toLocaleString('pt-BR')
+          const formInfo = `\n\n--- ${template?.name || 'Formulário'} (${currentDate}) ---\n${extraInfo}`
+
+          // Adicionar às observações existentes
+          const updatedObservations = (lead.observacoes || '') + formInfo
+
+          const { error: updateError } = await supabase
+            .from('leads')
+            .update({
+              observacoes: updatedObservations,
+              origem_detalhada: sourceUrl
             })
+            .eq('id', lead.id)
 
-          if (activityError) {
-            console.error('❌ Erro ao criar atividade:', activityError)
+          if (updateError) {
+            console.error('❌ Erro ao atualizar observações:', updateError)
           } else {
-            console.log('✅ Atividade criada no histórico:', activity)
+            console.log('✅ Observações atualizadas com sucesso')
           }
-        } catch (activityErr) {
-          console.error('💥 Erro ao processar atividade:', activityErr)
-          // Não falha o processo principal se der erro na atividade
+        } catch (err) {
+          console.error('💥 Erro ao processar observações:', err)
+          // Não falha o processo principal se der erro nas observações
         }
       }
 
