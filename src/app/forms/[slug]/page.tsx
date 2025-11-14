@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { debounce } from 'lodash'
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -45,6 +46,7 @@ export default function FormPage() {
   const slug = params.slug as string
 
   useEffect(() => {
+    console.log(`📋 FORMULÁRIO CARREGADO - Slug:`, slug)
     // Capturar URL de origem
     const urlParams = new URLSearchParams(window.location.search)
     const ref = urlParams.get('ref') || urlParams.get('source') || ''
@@ -78,6 +80,7 @@ export default function FormPage() {
     }
 
     setSourceUrl(source)
+    console.log(`🔍 ORIGEM DETECTADA:`, source)
 
     fetchTemplate()
   }, [slug])
@@ -96,6 +99,7 @@ export default function FormPage() {
       }
 
       if (data) {
+        console.log(`✅ TEMPLATE CARREGADO:`, data.name, '- Campos:', data.fields?.length)
         setTemplate(data)
       }
     } catch (error) {
@@ -229,12 +233,16 @@ export default function FormPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log(`🚀 INICIANDO SUBMIT DO FORMULÁRIO`)
+    console.log(`📊 DADOS FINAIS:`, formData)
 
     if (!validateForm()) {
+      console.log(`❌ VALIDAÇÃO FALHOU`)
       return
     }
 
     setSubmitting(true)
+    console.log(`⏳ ENVIANDO FORMULÁRIO...`)
 
     try {
       // 1. Processar formulário (criar lead só se for tipo 'lead')
@@ -262,6 +270,7 @@ export default function FormPage() {
       }
 
       setSubmitted(true)
+      console.log(`✅ FORMULÁRIO ENVIADO COM SUCESSO!`)
 
       // Redirect opcional após sucesso
       setTimeout(() => {
@@ -278,11 +287,80 @@ export default function FormPage() {
   }
 
   const updateFormData = (name: string, value: any) => {
+    console.log(`⌨️ DIGITANDO [${name.toUpperCase()}]:`, value)
     setFormData(prev => ({ ...prev, [name]: value }))
 
     // Limpar erro quando o usuário corrigir
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }))
+    }
+
+    // Auto-save com debounce de 800ms
+    console.log(`💾 PREPARANDO AUTO-SAVE para [${name}]`)
+    debouncedAutoSave(name, value)
+  }
+
+  // Debounced auto-save function
+  const debouncedAutoSave = useCallback(debounce(async (fieldName: string, fieldValue: any) => {
+    console.log(`⏱️ DEBOUNCE ATIVADO - AUTO-SAVE [${fieldName.toUpperCase()}]:`, fieldValue)
+    await autoSaveField(fieldName, fieldValue)
+  }, 800), [])
+
+  // Função de auto-save campo por campo
+  const autoSaveField = async (fieldName: string, fieldValue: any) => {
+    console.log(`🚀 AUTO-SAVE ACIONADO [${fieldName.toUpperCase()}]:`, fieldValue)
+
+    try {
+      // Verificar se é um campo mapeado para lead
+      const field = template?.fields.find(f => f.name === fieldName)
+      if (!field || !field.mapToLead || field.mapToLead === 'none') {
+        console.log(`⚠️ Campo [${fieldName}] não é mapeado para lead, pulando auto-save`)
+        return
+      }
+
+      // Criar ou atualizar lead temporário
+      const leadData = {
+        [field.mapToLead]: fieldValue,
+        origem: sourceUrl || 'formulario_temp',
+        status: 'preenchendo'
+      }
+
+      console.log(`💾 SALVANDO NO BANCO [${fieldName}] -> lead.${field.mapToLead}:`, fieldValue)
+
+      // Verificar se já existe um lead temporário para este formulário
+      let tempLeadId = sessionStorage.getItem(`tempLead_${slug}`)
+
+      if (tempLeadId) {
+        // Atualizar lead existente
+        const { error } = await supabase
+          .from('leads')
+          .update(leadData)
+          .eq('id', tempLeadId)
+
+        if (error) {
+          console.error(`❌ Erro ao atualizar lead temporário [${fieldName}]:`, error)
+        } else {
+          console.log(`✅ AUTO-SAVE SUCESSO [${fieldName}] - Lead atualizado:`, tempLeadId)
+        }
+      } else {
+        // Criar novo lead temporário
+        const { data, error } = await supabase
+          .from('leads')
+          .insert([{ ...leadData, nome_completo: `Lead em preenchimento ${Date.now()}` }])
+          .select('id')
+          .single()
+
+        if (error) {
+          console.error(`❌ Erro ao criar lead temporário [${fieldName}]:`, error)
+        } else if (data?.id) {
+          const leadId = data.id as string
+          tempLeadId = leadId
+          sessionStorage.setItem(`tempLead_${slug}`, leadId)
+          console.log(`✅ AUTO-SAVE SUCESSO [${fieldName}] - Lead criado:`, leadId)
+        }
+      }
+    } catch (error) {
+      console.error(`💥 Erro geral no auto-save [${fieldName}]:`, error)
     }
   }
 
@@ -374,7 +452,13 @@ export default function FormPage() {
               id={field.id}
               type={field.type}
               value={formData[field.name] || ''}
-              onChange={(e) => updateFormData(field.name, e.target.value)}
+              onChange={(e) => {
+                console.log(`✏️ INPUT [${field.name.toUpperCase()}] - Valor:`, e.target.value)
+                updateFormData(field.name, e.target.value)
+              }}
+              onBlur={() => {
+                console.log(`👋 SAIU DO CAMPO [${field.name.toUpperCase()}] - Valor final:`, formData[field.name])
+              }}
               placeholder={field.placeholder || `Digite ${field.label.toLowerCase()}`}
               className={`h-14 text-lg border-2 rounded-xl transition-all duration-200 ${
                 hasError
@@ -398,7 +482,13 @@ export default function FormPage() {
             <Textarea
               id={field.id}
               value={formData[field.name] || ''}
-              onChange={(e) => updateFormData(field.name, e.target.value)}
+              onChange={(e) => {
+                console.log(`📝 TEXTAREA [${field.name.toUpperCase()}] - Valor:`, e.target.value)
+                updateFormData(field.name, e.target.value)
+              }}
+              onBlur={() => {
+                console.log(`👋 SAIU DO TEXTAREA [${field.name.toUpperCase()}] - Valor final:`, formData[field.name])
+              }}
               placeholder={field.placeholder || `Conte-nos mais sobre ${field.label.toLowerCase()}...`}
               className={`min-h-[120px] text-lg border-2 rounded-xl transition-all duration-200 resize-none ${
                 hasError
@@ -421,7 +511,10 @@ export default function FormPage() {
           <div className="space-y-3">
             <Select
               value={formData[field.name] || ''}
-              onValueChange={(value) => updateFormData(field.name, value)}
+              onValueChange={(value) => {
+                console.log(`📋 SELECT [${field.name.toUpperCase()}] - Valor selecionado:`, value)
+                updateFormData(field.name, value)
+              }}
             >
               <SelectTrigger className={`h-14 text-lg border-2 rounded-xl ${hasError ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
                 <SelectValue placeholder={field.placeholder || `Selecione ${field.label.toLowerCase()}`} />
@@ -453,7 +546,10 @@ export default function FormPage() {
                   <button
                     key={index}
                     type="button"
-                    onClick={() => updateFormData(field.name, option)}
+                    onClick={() => {
+                      console.log(`🔘 RADIO [${field.name.toUpperCase()}] - Valor selecionado:`, option)
+                      updateFormData(field.name, option)
+                    }}
                     className={`p-4 text-left rounded-xl border-2 transition-all duration-200 hover:scale-[1.02] ${
                       isSelected
                         ? 'border-blue-500 bg-blue-50 text-blue-900'
@@ -495,11 +591,13 @@ export default function FormPage() {
                     key={index}
                     type="button"
                     onClick={() => {
-                      if (isChecked) {
-                        updateFormData(field.name, currentValues.filter((v: string) => v !== option))
-                      } else {
-                        updateFormData(field.name, [...currentValues, option])
-                      }
+                      const newValues = isChecked
+                        ? currentValues.filter((v: string) => v !== option)
+                        : [...currentValues, option]
+
+                      console.log(`☑️ CHECKBOX [${field.name.toUpperCase()}] - ${isChecked ? 'Desmarcado' : 'Marcado'}:`, option, 'Total:', newValues)
+
+                      updateFormData(field.name, newValues)
                     }}
                     className={`p-4 text-left rounded-xl border-2 transition-all duration-200 hover:scale-[1.02] ${
                       isChecked
@@ -537,7 +635,13 @@ export default function FormPage() {
               id={field.id}
               type="date"
               value={formData[field.name] || ''}
-              onChange={(e) => updateFormData(field.name, e.target.value)}
+              onChange={(e) => {
+                console.log(`📅 DATE [${field.name.toUpperCase()}] - Valor:`, e.target.value)
+                updateFormData(field.name, e.target.value)
+              }}
+              onBlur={() => {
+                console.log(`👋 SAIU DO DATE [${field.name.toUpperCase()}] - Valor final:`, formData[field.name])
+              }}
               className={`h-14 text-lg border-2 rounded-xl transition-all duration-200 ${
                 hasError
                   ? 'border-red-500 bg-red-50'
