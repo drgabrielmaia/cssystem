@@ -13,6 +13,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { supabase } from '@/lib/supabase'
 import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import {
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
   Plus,
   Trash2,
   Eye,
@@ -104,6 +123,14 @@ export default function FormBuilderPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('fields')
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop')
+
+  // Drag and Drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   const fieldTypes = [
     { value: 'text', label: 'Texto', icon: Type, description: 'Campo de texto simples' },
@@ -320,6 +347,175 @@ export default function FormBuilderPage() {
       primaryColor: preset.primary,
       backgroundColor: preset.bg
     })
+  }
+
+  // Handle drag end for reordering fields
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (active.id !== over?.id) {
+      setCurrentTemplate(prev => {
+        const oldIndex = prev.fields.findIndex(field => field.id === active.id)
+        const newIndex = prev.fields.findIndex(field => field.id === over?.id)
+
+        return {
+          ...prev,
+          fields: arrayMove(prev.fields, oldIndex, newIndex)
+        }
+      })
+    }
+  }
+
+  // Sortable Field Component
+  const SortableField = ({ field, index }: { field: FormField, index: number }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: field.id })
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    }
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`border rounded-lg p-4 space-y-3 ${isDragging ? 'z-50 shadow-lg' : ''}`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div
+              {...attributes}
+              {...listeners}
+              className="cursor-grab hover:cursor-grabbing flex items-center justify-center w-6 h-6 text-gray-400 hover:text-gray-600"
+            >
+              <GripVertical className="h-4 w-4" />
+            </div>
+            <Badge variant="secondary">
+              {fieldTypes.find(t => t.value === field.type)?.label}
+            </Badge>
+            <span className="font-medium">{field.label}</span>
+            {field.required && <Badge variant="destructive">Obrigatório</Badge>}
+          </div>
+          <div className="flex items-center space-x-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => duplicateField(field.id)}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => removeField(field.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Rótulo</Label>
+            <Input
+              value={field.label}
+              onChange={(e) => updateField(field.id, { label: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label>Nome do campo</Label>
+            <Input
+              value={field.name}
+              onChange={(e) => updateField(field.id, { name: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label>Placeholder</Label>
+            <Input
+              value={field.placeholder || ''}
+              onChange={(e) => updateField(field.id, { placeholder: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label>Mapear para Lead</Label>
+            <Select
+              value={field.mapToLead}
+              onValueChange={(value) => updateField(field.id, { mapToLead: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {leadFields.map((lf) => (
+                  <SelectItem key={lf.value} value={lf.value}>
+                    {lf.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Options for select/radio/checkbox */}
+        {(field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && (
+          <div>
+            <Label>Opções</Label>
+            <div className="space-y-2">
+              {field.options?.map((option, optIndex) => (
+                <div key={optIndex} className="flex items-center space-x-2">
+                  <Input
+                    value={option}
+                    onChange={(e) => {
+                      const newOptions = [...(field.options || [])]
+                      newOptions[optIndex] = e.target.value
+                      updateField(field.id, { options: newOptions })
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      const newOptions = field.options?.filter((_, i) => i !== optIndex)
+                      updateField(field.id, { options: newOptions })
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const newOptions = [...(field.options || []), `Opção ${(field.options?.length || 0) + 1}`]
+                  updateField(field.id, { options: newOptions })
+                }}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Adicionar Opção
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            checked={field.required}
+            onChange={(e) => updateField(field.id, { required: e.target.checked })}
+          />
+          <Label>Campo obrigatório</Label>
+        </div>
+      </div>
+    )
   }
 
   // Preview Component
@@ -603,129 +799,20 @@ export default function FormBuilderPage() {
                           <p className="text-sm">Comece adicionando um campo acima</p>
                         </div>
                       ) : (
-                        currentTemplate.fields.map((field, index) => (
-                          <div key={field.id} className="border rounded-lg p-4 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-2">
-                                <GripVertical className="h-4 w-4 text-gray-400" />
-                                <Badge variant="secondary">
-                                  {fieldTypes.find(t => t.value === field.type)?.label}
-                                </Badge>
-                                <span className="font-medium">{field.label}</span>
-                                {field.required && <Badge variant="destructive">Obrigatório</Badge>}
-                              </div>
-                              <div className="flex items-center space-x-1">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => duplicateField(field.id)}
-                                >
-                                  <Copy className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => removeField(field.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <Label>Rótulo</Label>
-                                <Input
-                                  value={field.label}
-                                  onChange={(e) => updateField(field.id, { label: e.target.value })}
-                                />
-                              </div>
-                              <div>
-                                <Label>Nome do campo</Label>
-                                <Input
-                                  value={field.name}
-                                  onChange={(e) => updateField(field.id, { name: e.target.value })}
-                                />
-                              </div>
-                              <div>
-                                <Label>Placeholder</Label>
-                                <Input
-                                  value={field.placeholder || ''}
-                                  onChange={(e) => updateField(field.id, { placeholder: e.target.value })}
-                                />
-                              </div>
-                              <div>
-                                <Label>Mapear para Lead</Label>
-                                <Select
-                                  value={field.mapToLead}
-                                  onValueChange={(value) => updateField(field.id, { mapToLead: value })}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {leadFields.map((lf) => (
-                                      <SelectItem key={lf.value} value={lf.value}>
-                                        {lf.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-
-                            {/* Options for select/radio/checkbox */}
-                            {(field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && (
-                              <div>
-                                <Label>Opções</Label>
-                                <div className="space-y-2">
-                                  {field.options?.map((option, optIndex) => (
-                                    <div key={optIndex} className="flex items-center space-x-2">
-                                      <Input
-                                        value={option}
-                                        onChange={(e) => {
-                                          const newOptions = [...(field.options || [])]
-                                          newOptions[optIndex] = e.target.value
-                                          updateField(field.id, { options: newOptions })
-                                        }}
-                                      />
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => {
-                                          const newOptions = field.options?.filter((_, i) => i !== optIndex)
-                                          updateField(field.id, { options: newOptions })
-                                        }}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      const newOptions = [...(field.options || []), `Opção ${(field.options?.length || 0) + 1}`]
-                                      updateField(field.id, { options: newOptions })
-                                    }}
-                                  >
-                                    <Plus className="h-4 w-4 mr-1" />
-                                    Adicionar Opção
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="checkbox"
-                                checked={field.required}
-                                onChange={(e) => updateField(field.id, { required: e.target.checked })}
-                              />
-                              <Label>Campo obrigatório</Label>
-                            </div>
-                          </div>
-                        ))
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={handleDragEnd}
+                        >
+                          <SortableContext
+                            items={currentTemplate.fields.map(f => f.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {currentTemplate.fields.map((field, index) => (
+                              <SortableField key={field.id} field={field} index={index} />
+                            ))}
+                          </SortableContext>
+                        </DndContext>
                       )}
                     </CardContent>
                   </Card>
