@@ -423,12 +423,14 @@ export default function FormPage() {
 
   const handleNext = async () => {
     if (validateCurrentField()) {
-      // Se for último campo, salvar e finalizar
+      // SEMPRE salvar quando clica próximo
+      await saveFormData()
+
+      // Se for último campo, finalizar
       if (template && currentStep === template.fields.length - 1) {
-        await saveFormData()
         setSubmitted(true)
       } else {
-        // Se não for último, só vai para próximo (auto-save já cuida do banco)
+        // Se não for último, vai para próxima página
         goToNextStep()
       }
     }
