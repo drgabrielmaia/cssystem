@@ -295,14 +295,12 @@ export default function FormPage() {
       setErrors(prev => ({ ...prev, [name]: '' }))
     }
 
-    // Auto-save com debounce de 200ms (mais responsivo)
-    debouncedAutoSave(name, value)
+    // SALVAR IMEDIATAMENTE quando digitar (sem debounce)
+    console.log('💾 SALVANDO IMEDIATAMENTE:', name, value)
+    autoSaveField(name, value)
   }
 
-  // Debounced auto-save function
-  const debouncedAutoSave = useCallback(debounce(async (fieldName: string, fieldValue: any) => {
-    await autoSaveField(fieldName, fieldValue)
-  }, 200), [])
+  // Função de auto-save imediata (sem debounce)
 
   // Função de auto-save campo por campo
   const autoSaveField = async (fieldName: string, fieldValue: any) => {
@@ -415,6 +413,24 @@ export default function FormPage() {
           }
         } else {
           console.log('❌ Erro ao criar lead:', error)
+        }
+      }
+
+      // ATUALIZAR form_submission A CADA DIGITAÇÃO (para leads existentes)
+      if (currentLeadId) {
+        console.log('📝 Atualizando form_submission a cada digitação')
+        const { error: updateError } = await supabase
+          .from('form_submissions')
+          .update({
+            submission_data: { ...formData, [fieldName]: fieldValue }
+          })
+          .eq('lead_id', currentLeadId)
+          .eq('template_slug', slug)
+
+        if (!updateError) {
+          console.log('✅ Form_submission atualizado na digitação')
+        } else {
+          console.log('❌ Erro ao atualizar form_submission:', updateError)
         }
       }
     } catch (error) {
