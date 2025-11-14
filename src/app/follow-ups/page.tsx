@@ -49,6 +49,11 @@ export default function FollowUpsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('todos')
   const [prioridadeFilter, setPrioridadeFilter] = useState('todas')
+  const [quickResultModal, setQuickResultModal] = useState<{open: boolean, followUpId: string}>({
+    open: false,
+    followUpId: ''
+  })
+  const [quickResult, setQuickResult] = useState('')
 
   const [formData, setFormData] = useState({
     lead_id: '',
@@ -224,6 +229,53 @@ export default function FollowUpsPage() {
     }
   }
 
+  const handleQuickStatusUpdate = async (id: string, newStatus: string) => {
+    // Se marcar como concluído, abrir modal para resultado
+    if (newStatus === 'concluido') {
+      setQuickResultModal({ open: true, followUpId: id })
+      return
+    }
+
+    try {
+      const updateData: any = { status: newStatus }
+
+      const { error } = await supabase
+        .from('lead_followups')
+        .update(updateData)
+        .eq('id', id)
+
+      if (error) throw error
+      fetchFollowUps()
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error)
+      alert('Erro ao atualizar status')
+    }
+  }
+
+  const handleQuickComplete = async () => {
+    try {
+      const updateData = {
+        status: 'concluido',
+        resultado: quickResult,
+        updated_at: new Date().toISOString()
+      }
+
+      const { error } = await supabase
+        .from('lead_followups')
+        .update(updateData)
+        .eq('id', quickResultModal.followUpId)
+
+      if (error) throw error
+
+      fetchFollowUps()
+      setQuickResultModal({ open: false, followUpId: '' })
+      setQuickResult('')
+    } catch (error) {
+      console.error('Erro ao concluir follow-up:', error)
+      alert('Erro ao concluir follow-up')
+    }
+  }
+
   const filteredFollowUps = followUps.filter(followUp => {
     const searchMatch =
       followUp.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -390,13 +442,67 @@ export default function FollowUpsPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 ml-4">
-                    <Button variant="outline" size="sm" onClick={() => handleEdit(followUp)}>
-                      Editar
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={() => handleDelete(followUp.id)}>
-                      Deletar
-                    </Button>
+                  <div className="flex flex-col items-end gap-2 ml-4">
+                    {/* Botões de Status Rápido */}
+                    {followUp.status === 'pendente' && (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 text-xs"
+                          onClick={() => handleQuickStatusUpdate(followUp.id, 'concluido')}
+                        >
+                          ✓ Concluir
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="px-2 py-1 text-xs"
+                          onClick={() => handleQuickStatusUpdate(followUp.id, 'adiado')}
+                        >
+                          ⏸️ Adiar
+                        </Button>
+                      </div>
+                    )}
+
+                    {followUp.status === 'concluido' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="px-2 py-1 text-xs"
+                        onClick={() => handleQuickStatusUpdate(followUp.id, 'pendente')}
+                      >
+                        ↩️ Reabrir
+                      </Button>
+                    )}
+
+                    {followUp.status === 'adiado' && (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 text-xs"
+                          onClick={() => handleQuickStatusUpdate(followUp.id, 'pendente')}
+                        >
+                          🔄 Reativar
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 text-xs"
+                          onClick={() => handleQuickStatusUpdate(followUp.id, 'concluido')}
+                        >
+                          ✓ Concluir
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Botões de Ação */}
+                    <div className="flex items-center gap-1">
+                      <Button variant="outline" size="sm" className="px-2 py-1 text-xs" onClick={() => handleEdit(followUp)}>
+                        ✏️ Editar
+                      </Button>
+                      <Button variant="destructive" size="sm" className="px-2 py-1 text-xs" onClick={() => handleDelete(followUp.id)}>
+                        🗑️ Deletar
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -582,6 +688,43 @@ export default function FollowUpsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Rápido de Conclusão */}
+      <Dialog open={quickResultModal.open} onOpenChange={(open) => setQuickResultModal({open, followUpId: ''})}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Concluir Follow-up</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="quick-result">Como foi o resultado? (opcional)</Label>
+              <Textarea
+                id="quick-result"
+                value={quickResult}
+                onChange={(e) => setQuickResult(e.target.value)}
+                placeholder="Ex: Cliente interessado, agendar nova reunião..."
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setQuickResultModal({ open: false, followUpId: '' })
+                setQuickResult('')
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleQuickComplete} className="bg-green-600 hover:bg-green-700">
+              ✓ Concluir
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
