@@ -400,6 +400,7 @@ export default function FormPage() {
 
   const handleNext = () => {
     if (validateCurrentField()) {
+      console.log('Submit')
       if (template && currentStep === template.fields.length - 1) {
         // Último campo, submeter formulário
         handleSubmit({ preventDefault: () => {} } as any)
