@@ -31,6 +31,7 @@ interface FormTemplate {
 }
 
 export default function FormPage() {
+  console.log('🔥 COMPONENT CARREGADO - FormPage iniciado')
   const params = useParams()
   const router = useRouter()
   const [template, setTemplate] = useState<FormTemplate | null>(null)
@@ -287,6 +288,7 @@ export default function FormPage() {
   }
 
   const updateFormData = (name: string, value: any) => {
+    console.log('🚨 UPDATE FORM DATA CHAMADO!', name, value)
     console.log(`⌨️ DIGITANDO [${name.toUpperCase()}]:`, value)
     setFormData(prev => ({ ...prev, [name]: value }))
 
