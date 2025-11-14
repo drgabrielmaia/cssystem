@@ -202,15 +202,14 @@ Vamos com tudo. 🔥`
     }
   }
 
-  // Watch para auto-save no banco
-  const watchedValues = form.watch()
 
-  // Auto-save conforme usuario digita
-  useEffect(() => {
-    if (isOpen && Object.keys(watchedValues).some(key => watchedValues[key as keyof MentoradoFormData] !== '')) {
-      autoSaveToDatabase(watchedValues)
-    }
-  }, [watchedValues, isOpen, autoSaveToDatabase])
+  // Função para salvar quando sair de um campo
+  const handleFieldBlur = useCallback((fieldName: keyof MentoradoFormData, value: any) => {
+    if (!isOpen || !value) return
+
+    const fieldData = { [fieldName]: value }
+    autoSaveToDatabase(fieldData)
+  }, [isOpen, autoSaveToDatabase])
 
   // Reset ao abrir modal
   useEffect(() => {
@@ -241,7 +240,7 @@ Vamos com tudo. 🔥`
         <DialogHeader>
           <DialogTitle>Adicionar Novo Mentorado</DialogTitle>
           <DialogDescription className="flex items-center gap-2">
-            Preencha os dados do novo mentorado. Os dados são salvos automaticamente no banco.
+            Preencha os dados do novo mentorado. Os dados são salvos automaticamente quando você vai para o próximo campo.
             {isAutoSaving && (
               <span className="text-blue-600 text-xs flex items-center gap-1">
                 <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -261,7 +260,10 @@ Vamos com tudo. 🔥`
                   render={({ field }) => (
                     <FormItem className="col-span-3">
                       <FormControl>
-                        <Input {...field} />
+                        <Input
+                          {...field}
+                          onBlur={() => handleFieldBlur('nome_completo', field.value)}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -277,7 +279,11 @@ Vamos com tudo. 🔥`
                   render={({ field }) => (
                     <FormItem className="col-span-3">
                       <FormControl>
-                        <Input type="email" {...field} />
+                        <Input
+                          type="email"
+                          {...field}
+                          onBlur={() => handleFieldBlur('email', field.value)}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -293,7 +299,10 @@ Vamos com tudo. 🔥`
                   render={({ field }) => (
                     <FormItem className="col-span-3">
                       <FormControl>
-                        <Input {...field} />
+                        <Input
+                          {...field}
+                          onBlur={() => handleFieldBlur('telefone', field.value)}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -309,7 +318,13 @@ Vamos com tudo. 🔥`
                   render={({ field }) => (
                     <FormItem className="col-span-3">
                       <FormControl>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select
+                          onValueChange={(value) => {
+                            field.onChange(value)
+                            handleFieldBlur('turma', value)
+                          }}
+                          value={field.value}
+                        >
                           <SelectTrigger>
                             <SelectValue placeholder="Selecionar turma" />
                           </SelectTrigger>
@@ -334,7 +349,13 @@ Vamos com tudo. 🔥`
                   render={({ field }) => (
                     <FormItem className="col-span-3">
                       <FormControl>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select
+                          onValueChange={(value) => {
+                            field.onChange(value)
+                            handleFieldBlur('estado_atual', value)
+                          }}
+                          value={field.value}
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
