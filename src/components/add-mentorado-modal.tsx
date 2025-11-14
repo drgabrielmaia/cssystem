@@ -71,11 +71,15 @@ export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoMo
     if (tempMentoradoId) return tempMentoradoId
 
     try {
+      // Gerar email único para evitar conflitos
+      const timestamp = Date.now()
+      const randomId = Math.random().toString(36).substring(7)
+
       const { data, error } = await supabase
         .from('mentorados')
         .insert([{
-          nome_completo: 'Novo mentorado...',
-          email: 'temp@example.com',
+          nome_completo: `Lead em preenchimento ${timestamp}`,
+          email: `temp_${timestamp}_${randomId}@leadtemp.com`,
           estado_entrada: 'novo',
           estado_atual: 'novo'
         }])
@@ -86,16 +90,22 @@ export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoMo
 
       const newId = data.id
       setTempMentoradoId(newId)
+      console.log('✅ Mentorado temporário criado:', newId)
       return newId
     } catch (error) {
-      console.error('Erro ao criar mentorado temporário:', error)
+      console.error('❌ Erro ao criar mentorado temporário:', error)
       return null
     }
   }, [tempMentoradoId])
 
   // Função para auto-salvar dados no banco
   const autoSaveToDatabase = useCallback(debounce(async (data: Partial<MentoradoFormData>) => {
-    if (!isOpen) return
+    console.log('🚀 Auto-save iniciado com dados:', data)
+
+    if (!isOpen) {
+      console.log('❌ Modal não está aberto, cancelando auto-save')
+      return
+    }
 
     setIsAutoSaving(true)
     try {
@@ -103,8 +113,12 @@ export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoMo
 
       // Criar mentorado temporário se não existir
       if (!mentoradoId) {
+        console.log('📝 Criando mentorado temporário...')
         mentoradoId = await createTempMentorado()
-        if (!mentoradoId) return
+        if (!mentoradoId) {
+          console.log('❌ Falhou ao criar mentorado temporário')
+          return
+        }
       }
 
       // Filtrar campos vazios
@@ -114,24 +128,30 @@ export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoMo
         )
       )
 
-      if (Object.keys(dataToUpdate).length === 0) return
+      console.log('📊 Dados filtrados para update:', dataToUpdate)
 
+      if (Object.keys(dataToUpdate).length === 0) {
+        console.log('⚠️ Nenhum dado válido para atualizar')
+        return
+      }
+
+      console.log(`💾 Salvando no mentorado ID ${mentoradoId}...`)
       const { error } = await supabase
         .from('mentorados')
         .update(dataToUpdate)
         .eq('id', mentoradoId)
 
       if (error) {
-        console.error('Erro no auto-save:', error)
+        console.error('❌ Erro no auto-save:', error)
       } else {
-        console.log('✅ Auto-save realizado:', dataToUpdate)
+        console.log('✅ Auto-save realizado com sucesso:', dataToUpdate)
       }
     } catch (error) {
-      console.error('Erro no auto-save:', error)
+      console.error('💥 Erro geral no auto-save:', error)
     } finally {
       setIsAutoSaving(false)
     }
-  }, 1000), [tempMentoradoId, isOpen, createTempMentorado])
+  }, 1500), [tempMentoradoId, isOpen, createTempMentorado])
 
   const onSubmit = async (data: MentoradoFormData) => {
     setLoading(true)
@@ -205,8 +225,12 @@ Vamos com tudo. 🔥`
 
   // Função para salvar quando sair de um campo
   const handleFieldBlur = useCallback((fieldName: keyof MentoradoFormData, value: any) => {
-    if (!isOpen || !value) return
+    if (!isOpen) return
 
+    // Só salva se o campo tem conteúdo
+    if (!value || value.trim() === '') return
+
+    console.log(`🔄 Auto-save acionado para ${fieldName}:`, value)
     const fieldData = { [fieldName]: value }
     autoSaveToDatabase(fieldData)
   }, [isOpen, autoSaveToDatabase])
@@ -220,14 +244,27 @@ Vamos com tudo. 🔥`
   }, [isOpen, form])
 
   // Limpar dados temporários
-  const handleClose = () => {
+  const handleClose = async () => {
     if (tempMentoradoId) {
-      // Opcional: deletar mentorado temporário se não foi finalizado
-      supabase
-        .from('mentorados')
-        .delete()
-        .eq('id', tempMentoradoId)
-        .then(() => console.log('Mentorado temporário deletado'))
+      // Verificar se o mentorado tem dados válidos antes de deletar
+      const formValues = form.getValues()
+      const hasValidData = Object.values(formValues).some(value =>
+        value && value.toString().trim() !== '' &&
+        !value.toString().includes('Lead em preenchimento') &&
+        !value.toString().includes('@leadtemp.com')
+      )
+
+      if (!hasValidData) {
+        // Só deleta se não tem nenhum dado válido preenchido
+        console.log('🗑️ Deletando mentorado temporário vazio...')
+        await supabase
+          .from('mentorados')
+          .delete()
+          .eq('id', tempMentoradoId)
+        console.log('✅ Mentorado temporário deletado')
+      } else {
+        console.log('💾 Mantendo mentorado temporário com dados:', formValues)
+      }
     }
     form.reset()
     setTempMentoradoId(null)
