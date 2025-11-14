@@ -21,6 +21,15 @@ interface FormField {
   mapToLead?: string
 }
 
+interface FormStyle {
+  primaryColor: string
+  backgroundColor: string
+  textColor: string
+  cardColor: string
+  borderRadius: string
+  fontFamily: string
+}
+
 interface FormTemplate {
   id: string
   name: string
@@ -28,6 +37,7 @@ interface FormTemplate {
   slug: string
   form_type: 'lead' | 'nps' | 'survey' | 'feedback' | 'other'
   fields: FormField[]
+  style?: FormStyle
 }
 
 export default function FormPage() {
@@ -700,14 +710,33 @@ export default function FormPage() {
   const progress = ((currentStep + 1) / totalSteps) * 100
   const FieldIcon = getFieldIcon(currentField.type)
 
+  // Aplicar estilo personalizado ou padrão
+  const style = template.style || {
+    primaryColor: '#3b82f6',
+    backgroundColor: '#f8fafc',
+    textColor: '#1e293b',
+    cardColor: '#ffffff',
+    borderRadius: '12',
+    fontFamily: 'Inter'
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div
+      className="min-h-screen transition-all duration-300"
+      style={{
+        background: `linear-gradient(135deg, ${style.backgroundColor} 0%, ${style.primaryColor}10 100%)`,
+        fontFamily: style.fontFamily
+      }}
+    >
       {/* Progress Bar */}
       <div className="fixed top-0 left-0 w-full z-50 bg-white/80 backdrop-blur-sm">
         <div className="h-1 bg-gray-200">
           <div
-            className="h-full bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-500 ease-out"
-            style={{ width: `${progress}%` }}
+            className="h-full transition-all duration-500 ease-out"
+            style={{
+              width: `${progress}%`,
+              backgroundColor: style.primaryColor
+            }}
           />
         </div>
       </div>
@@ -726,10 +755,23 @@ export default function FormPage() {
           </div>
 
           {/* Question Card */}
-          <div className={`bg-white rounded-2xl shadow-xl p-6 md:p-8 transition-all duration-300 ${isAnimating ? 'scale-95 opacity-50' : 'scale-100 opacity-100'}`}>
+          <div
+            className={`shadow-xl p-6 md:p-8 transition-all duration-300 ${isAnimating ? 'scale-95 opacity-50' : 'scale-100 opacity-100'}`}
+            style={{
+              backgroundColor: style.cardColor,
+              borderRadius: `${style.borderRadius}px`,
+              color: style.textColor
+            }}
+          >
             {/* Question Icon & Title */}
             <div className="flex items-center mb-6">
-              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl mr-4 flex-shrink-0">
+              <div
+                className="flex items-center justify-center w-12 h-12 rounded-xl mr-4 flex-shrink-0"
+                style={{
+                  backgroundColor: style.primaryColor,
+                  borderRadius: `${style.borderRadius}px`
+                }}
+              >
                 <FieldIcon className="h-6 w-6 text-white" />
               </div>
               <div className="flex-1">
@@ -771,7 +813,11 @@ export default function FormPage() {
                 type="button"
                 onClick={handleNext}
                 disabled={submitting}
-                className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                className="flex items-center space-x-2 text-white font-medium transition-all hover:opacity-90"
+                style={{
+                  backgroundColor: style.primaryColor,
+                  borderRadius: `${style.borderRadius}px`
+                }}
               >
                 <span>
                   {currentStep === totalSteps - 1
