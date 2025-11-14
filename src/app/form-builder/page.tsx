@@ -253,7 +253,8 @@ export default function FormBuilderPage() {
         return
       }
 
-      const slug = generateSlug(currentTemplate.name)
+      // Usar o slug definido pelo usuário ou gerar automaticamente se vazio
+      const slug = currentTemplate.slug?.trim() || generateSlug(currentTemplate.name)
       const templateData = {
         ...currentTemplate,
         slug,
@@ -712,7 +713,15 @@ export default function FormBuilderPage() {
                         <Input
                           id="name"
                           value={currentTemplate.name}
-                          onChange={(e) => setCurrentTemplate(prev => ({ ...prev, name: e.target.value }))}
+                          onChange={(e) => {
+                            const newName = e.target.value
+                            setCurrentTemplate(prev => ({
+                              ...prev,
+                              name: newName,
+                              // Só atualiza o slug automaticamente se ainda não foi definido manualmente
+                              slug: prev.slug ? prev.slug : generateSlug(newName)
+                            }))
+                          }}
                           placeholder="Ex: Formulário de Contato"
                         />
                       </div>
@@ -726,6 +735,21 @@ export default function FormBuilderPage() {
                           placeholder="Breve descrição do formulário"
                           rows={3}
                         />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="slug">Link do Formulário (Slug)</Label>
+                        <div className="space-y-2">
+                          <Input
+                            id="slug"
+                            value={currentTemplate.slug}
+                            onChange={(e) => setCurrentTemplate(prev => ({ ...prev, slug: e.target.value }))}
+                            placeholder="exemplo-formulario-contato"
+                          />
+                          <p className="text-sm text-gray-500">
+                            URL final: {typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/forms/{currentTemplate.slug || 'seu-slug'}
+                          </p>
+                        </div>
                       </div>
 
                       <div>
