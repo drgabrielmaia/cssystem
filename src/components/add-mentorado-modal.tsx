@@ -37,8 +37,8 @@ const mentoradoSchema = z.object({
   email: z.string().email('Email inválido'),
   telefone: z.string().optional(),
   turma: z.string().min(1, 'Turma é obrigatória'),
-  estado_entrada: z.string().default('novo'),
-  estado_atual: z.string().default('novo')
+  estado_entrada: z.string().optional().default('novo'),
+  estado_atual: z.string().optional().default('novo')
 })
 
 type MentoradoFormData = z.infer<typeof mentoradoSchema>
@@ -55,7 +55,7 @@ export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoMo
   const [isAutoSaving, setIsAutoSaving] = useState(false)
 
   const form = useForm<MentoradoFormData>({
-    resolver: zodResolver(mentoradoSchema),
+    // resolver: zodResolver(mentoradoSchema),
     defaultValues: {
       nome_completo: '',
       email: '',
