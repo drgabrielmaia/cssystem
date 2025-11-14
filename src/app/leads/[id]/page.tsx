@@ -54,6 +54,7 @@ interface Lead {
   objetivo_principal: string
   objecoes_principais: string
   responsavel_vendas: string
+  call_agendada: string
   created_at: string
 }
 
@@ -153,6 +154,75 @@ export default function LeadTrackingPage() {
     }
   }
 
+  // Função para criar follow-ups automáticos quando call_agendada
+  const criarFollowUpsAutomaticos = async () => {
+    if (!lead?.call_agendada) return
+
+    try {
+      const dataCall = new Date(lead.call_agendada)
+
+      // Calcular as datas dos follow-ups
+      const umDiaAntes = new Date(dataCall)
+      umDiaAntes.setDate(dataCall.getDate() - 1)
+      umDiaAntes.setHours(20, 0, 0, 0) // 20:00 (noite)
+
+      const manhaDaCall = new Date(dataCall)
+      manhaDaCall.setHours(8, 0, 0, 0) // 08:00 (manhã)
+
+      const umaHoraAntes = new Date(dataCall)
+      umaHoraAntes.setHours(dataCall.getHours() - 1)
+
+      const meiaHoraAntes = new Date(dataCall)
+      meiaHoraAntes.setHours(dataCall.getHours(), dataCall.getMinutes() - 30)
+
+      // Criar os 4 follow-ups
+      const followUps = [
+        {
+          lead_id: leadId,
+          tipo: 'lembrete_call',
+          descricao: 'Lembrete: Call agendada para amanhã',
+          data_prevista: umDiaAntes.toISOString(),
+          status: 'pendente',
+          prioridade: 'media'
+        },
+        {
+          lead_id: leadId,
+          tipo: 'lembrete_call',
+          descricao: 'Lembrete: Call hoje pela manhã',
+          data_prevista: manhaDaCall.toISOString(),
+          status: 'pendente',
+          prioridade: 'alta'
+        },
+        {
+          lead_id: leadId,
+          tipo: 'lembrete_call',
+          descricao: 'Lembrete: Call em 1 hora',
+          data_prevista: umaHoraAntes.toISOString(),
+          status: 'pendente',
+          prioridade: 'alta'
+        },
+        {
+          lead_id: leadId,
+          tipo: 'lembrete_call',
+          descricao: 'Lembrete: Call em 30 minutos',
+          data_prevista: meiaHoraAntes.toISOString(),
+          status: 'pendente',
+          prioridade: 'urgente'
+        }
+      ]
+
+      const { error } = await supabase
+        .from('lead_followups')
+        .insert(followUps)
+
+      if (error) throw error
+
+      console.log(`✅ Criados 4 follow-ups automáticos para call de ${lead.nome_completo}`)
+    } catch (error) {
+      console.error('Erro ao criar follow-ups automáticos:', error)
+    }
+  }
+
   const updateLeadField = async (field: string, value: any) => {
     try {
       const { error } = await supabase
@@ -163,6 +233,17 @@ export default function LeadTrackingPage() {
       if (error) throw error
 
       setLead(prev => prev ? { ...prev, [field]: value } : null)
+
+      // Se mudou status para call_agendada, criar follow-ups automáticos
+      if (field === 'status' && value === 'call_agendada' && lead?.call_agendada) {
+        await criarFollowUpsAutomaticos()
+      }
+
+      // Se atualizou call_agendada e status já é call_agendada, criar follow-ups
+      if (field === 'call_agendada' && value && lead?.status === 'call_agendada') {
+        await criarFollowUpsAutomaticos()
+      }
+
       await loadLeadData() // Recarregar para atualizar histórico
     } catch (error) {
       console.error('Erro ao atualizar lead:', error)
