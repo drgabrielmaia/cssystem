@@ -155,7 +155,7 @@ export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoMo
     } finally {
       setIsAutoSaving(false)
     }
-  }, 1500), [tempMentoradoId, isOpen, createTempMentorado])
+  }, 800), [tempMentoradoId, isOpen, createTempMentorado])
 
   const onSubmit = async (data: MentoradoFormData) => {
     setLoading(true)
@@ -227,8 +227,8 @@ Vamos com tudo. 🔥`
   }
 
 
-  // Função para salvar quando sair de um campo
-  const handleFieldBlur = useCallback((fieldName: keyof MentoradoFormData, value: any) => {
+  // Função para salvar quando mudar de campo (onChange + onBlur)
+  const handleFieldChange = useCallback((fieldName: keyof MentoradoFormData, value: any) => {
     if (!isOpen) return
 
     // Salva qualquer valor, mesmo se vazio
@@ -236,6 +236,11 @@ Vamos com tudo. 🔥`
     const fieldData = { [fieldName]: value || '' }
     autoSaveToDatabase(fieldData)
   }, [isOpen, autoSaveToDatabase])
+
+  // Função de debounce mais rápida para onChange
+  const handleFieldChangeInstant = useCallback(debounce((fieldName: keyof MentoradoFormData, value: any) => {
+    handleFieldChange(fieldName, value)
+  }, 500), [handleFieldChange])
 
   // Reset ao abrir modal
   useEffect(() => {
@@ -301,7 +306,11 @@ Vamos com tudo. 🔥`
                       <FormControl>
                         <Input
                           {...field}
-                          onBlur={() => handleFieldBlur('nome_completo', field.value)}
+                          onChange={(e) => {
+                            field.onChange(e)
+                            handleFieldChangeInstant('nome_completo', e.target.value)
+                          }}
+                          onBlur={() => handleFieldChange('nome_completo', field.value)}
                         />
                       </FormControl>
                       <FormMessage />
@@ -321,7 +330,11 @@ Vamos com tudo. 🔥`
                         <Input
                           type="email"
                           {...field}
-                          onBlur={() => handleFieldBlur('email', field.value)}
+                          onChange={(e) => {
+                            field.onChange(e)
+                            handleFieldChangeInstant('email', e.target.value)
+                          }}
+                          onBlur={() => handleFieldChange('email', field.value)}
                         />
                       </FormControl>
                       <FormMessage />
@@ -340,7 +353,11 @@ Vamos com tudo. 🔥`
                       <FormControl>
                         <Input
                           {...field}
-                          onBlur={() => handleFieldBlur('telefone', field.value)}
+                          onChange={(e) => {
+                            field.onChange(e)
+                            handleFieldChangeInstant('telefone', e.target.value)
+                          }}
+                          onBlur={() => handleFieldChange('telefone', field.value)}
                         />
                       </FormControl>
                       <FormMessage />
@@ -360,7 +377,7 @@ Vamos com tudo. 🔥`
                         <Select
                           onValueChange={(value) => {
                             field.onChange(value)
-                            handleFieldBlur('turma', value)
+                            handleFieldChange('turma', value)
                           }}
                           value={field.value}
                         >
@@ -391,7 +408,7 @@ Vamos com tudo. 🔥`
                         <Select
                           onValueChange={(value) => {
                             field.onChange(value)
-                            handleFieldBlur('estado_atual', value)
+                            handleFieldChange('estado_atual', value)
                           }}
                           value={field.value}
                         >
