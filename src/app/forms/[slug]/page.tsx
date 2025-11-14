@@ -295,54 +295,90 @@ export default function FormPage() {
       setErrors(prev => ({ ...prev, [name]: '' }))
     }
 
-    // Auto-save com debounce de 800ms
+    // Auto-save com debounce de 200ms (mais responsivo)
     debouncedAutoSave(name, value)
   }
 
   // Debounced auto-save function
   const debouncedAutoSave = useCallback(debounce(async (fieldName: string, fieldValue: any) => {
     await autoSaveField(fieldName, fieldValue)
-  }, 800), [])
+  }, 200), [])
 
   // Função de auto-save campo por campo
   const autoSaveField = async (fieldName: string, fieldValue: any) => {
     try {
       console.log(`🔧 autoSaveField: ${fieldName} = ${fieldValue}`)
 
-      // Verificar se é um campo mapeado para lead
-      const field = template?.fields.find(f => f.name === fieldName)
-      if (!field || !field.mapToLead || field.mapToLead === 'none') {
-        console.log(`❌ Campo ${fieldName} não mapeado para lead`)
+      // Se não for formulário de lead, não fazer nada
+      if (template?.form_type !== 'lead') {
+        console.log(`❌ Não é formulário de lead`)
         return
       }
 
-      console.log(`✅ Campo ${fieldName} mapeado para: ${field.mapToLead}`)
-
-      // Preparar apenas o campo atual para atualizar
-      const updateData = {
-        [field.mapToLead]: fieldValue
+      const field = template?.fields.find(f => f.name === fieldName)
+      if (!field) {
+        console.log(`❌ Campo ${fieldName} não encontrado`)
+        return
       }
 
       if (currentLeadId) {
         console.log(`🔄 Atualizando lead existente: ${currentLeadId}`)
-        // ATUALIZAR lead existente - só o campo atual
-        const { error } = await supabase
-          .from('leads')
-          .update(updateData)
-          .eq('id', currentLeadId)
 
-        if (!error) {
-          console.log('✅ Update')
+        // Para lead existente, só atualizar se o campo tem mapeamento específico
+        if (field.mapToLead && field.mapToLead !== 'none') {
+          const updateData = {
+            [field.mapToLead]: fieldValue
+          }
+
+          const { error } = await supabase
+            .from('leads')
+            .update(updateData)
+            .eq('id', currentLeadId)
+
+          if (!error) {
+            console.log('✅ Update específico')
+          } else {
+            console.log('❌ Erro no update:', error)
+          }
         } else {
-          console.log('❌ Erro no update:', error)
+          // Campo sem mapeamento - adicionar às observações
+          const observacao = `${field.label}: ${fieldValue}`
+
+          // Primeiro pegar as observações atuais
+          const { data: leadAtual } = await supabase
+            .from('leads')
+            .select('observacoes')
+            .eq('id', currentLeadId)
+            .single()
+
+          const novasObservacoes = (leadAtual?.observacoes || '') + '\n' + observacao
+
+          const { error } = await supabase
+            .from('leads')
+            .update({ observacoes: novasObservacoes })
+            .eq('id', currentLeadId)
+
+          if (!error) {
+            console.log('✅ Adicionado às observações')
+          } else {
+            console.log('❌ Erro ao adicionar observações:', error)
+          }
         }
       } else {
-        console.log(`🆕 Criando novo lead`)
-        // CRIAR novo lead no BD
-        const initialLeadData = {
-          ...updateData,
+        console.log(`🆕 CRIANDO NOVO LEAD - PRIMEIRA PERGUNTA`)
+
+        // PRIMEIRA pergunta SEMPRE cria o lead no BD
+        const initialLeadData: Record<string, any> = {
           origem: sourceUrl || 'formulario_temp',
           status: 'preenchendo'
+        }
+
+        // Se o campo tem mapeamento específico, usar
+        if (field.mapToLead && field.mapToLead !== 'none') {
+          initialLeadData[field.mapToLead] = fieldValue
+        } else {
+          // Se não tem mapeamento, adicionar às observações
+          initialLeadData.observacoes = `${field.label}: ${fieldValue}`
         }
 
         const { data, error } = await supabase
@@ -353,7 +389,28 @@ export default function FormPage() {
 
         if (!error && data?.id) {
           setCurrentLeadId(data.id) // Salvar ID no estado
-          console.log('✅ Criou lead:', data.id)
+          console.log('✅ CRIOU LEAD PRIMEIRA PERGUNTA:', data.id)
+
+          // TAMBÉM criar form_submission imediatamente
+          const submissionData = {
+            template_id: template?.id,
+            template_slug: slug,
+            lead_id: data.id,
+            source_url: sourceUrl,
+            submission_data: { [fieldName]: fieldValue },
+            ip_address: null,
+            user_agent: navigator.userAgent
+          }
+
+          const { error: submissionError } = await supabase
+            .from('form_submissions')
+            .insert([submissionData])
+
+          if (!submissionError) {
+            console.log('✅ CRIOU FORM_SUBMISSION PRIMEIRA PERGUNTA')
+          } else {
+            console.log('❌ Erro ao criar form_submission:', submissionError)
+          }
         } else {
           console.log('❌ Erro ao criar lead:', error)
         }
@@ -417,59 +474,57 @@ export default function FormPage() {
   }
 
   const saveFormData = async () => {
-    console.log('Submit')
+    console.log('🏁 Finalizando formulário')
 
     try {
-      // Verificar se já existe um lead temporário
-      let lead = null
+      if (currentLeadId && template?.form_type === 'lead') {
+        // FINALIZAR o lead - mudar status e adicionar todas as observações extras
+        const observacoesExtras: string[] = []
 
-      if (currentLeadId) {
-        // Usar lead existente - só atualizar com dados completos
-        if (template?.form_type === 'lead') {
-          // Mapear todos os campos preenchidos para o lead
-          const leadData: Record<string, any> = {
-            origem: sourceUrl || 'formulario_personalizado',
-            status: 'novo' // Mudar status para 'novo' quando completar
+        template.fields.forEach(field => {
+          const value = formData[field.name]
+          if (value && (!field.mapToLead || field.mapToLead === 'none')) {
+            observacoesExtras.push(`${field.label}: ${value}`)
           }
+        })
 
-          template.fields.forEach(field => {
-            const value = formData[field.name]
-            if (value && field.mapToLead && field.mapToLead !== 'none') {
-              leadData[field.mapToLead] = value
-            }
-          })
-
-          const { data } = await supabase
-            .from('leads')
-            .update(leadData)
-            .eq('id', currentLeadId)
-            .select()
-
-          if (data && data[0]) {
-            lead = data[0]
-          }
+        const updateData: Record<string, any> = {
+          status: 'novo' // Mudar status para 'novo' quando completar o formulário
         }
-      } else {
-        // Se não existe lead temporário, não fazer nada
-        // O lead deve ser criado pelo auto-save individual
-        console.log('❌ Lead temporário não encontrado - auto-save deve ter criado')
-        return
+
+        // Se tem observações extras, adicionar
+        if (observacoesExtras.length > 0) {
+          // Primeiro pegar as observações atuais
+          const { data: leadAtual } = await supabase
+            .from('leads')
+            .select('observacoes')
+            .eq('id', currentLeadId)
+            .single()
+
+          const currentDate = new Date().toLocaleString('pt-BR')
+          const extraInfo = `\n\n--- Dados extras do formulário (${currentDate}) ---\n` + observacoesExtras.join('\n')
+          updateData.observacoes = (leadAtual?.observacoes || '') + extraInfo
+        }
+
+        await supabase
+          .from('leads')
+          .update(updateData)
+          .eq('id', currentLeadId)
+
+        console.log('✅ Lead finalizado')
       }
 
-      // Salvar submissão do formulário
-      const submissionData = {
-        template_id: template?.id,
-        template_slug: slug,
-        lead_id: lead?.id || currentLeadId,
-        source_url: sourceUrl,
-        submission_data: formData,
-        ip_address: null,
-        user_agent: navigator.userAgent
-      }
-
+      // ATUALIZAR form_submission com dados completos (já foi criado na primeira pergunta)
       await supabase
         .from('form_submissions')
-        .insert([submissionData])
+        .update({
+          submission_data: formData,
+          completed_at: new Date().toISOString()
+        })
+        .eq('lead_id', currentLeadId)
+        .eq('template_slug', slug)
+
+      console.log('✅ Form_submission atualizado')
 
     } catch (error) {
       console.error('Erro ao salvar:', error)
