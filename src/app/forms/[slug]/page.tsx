@@ -408,14 +408,46 @@ export default function FormPage() {
     console.log('Submit')
 
     try {
-      // Processar formulário (criar lead só se for tipo 'lead')
-      const lead = await processFormSubmission(formData)
+      // Verificar se já existe um lead temporário
+      let tempLeadId = sessionStorage.getItem(`tempLead_${slug}`)
+      let lead = null
+
+      if (tempLeadId) {
+        // Usar lead existente - só atualizar com dados completos
+        if (template?.form_type === 'lead') {
+          // Mapear todos os campos preenchidos para o lead
+          const leadData: Record<string, any> = {
+            origem: sourceUrl || 'formulario_personalizado',
+            status: 'novo' // Mudar status para 'novo' quando completar
+          }
+
+          template.fields.forEach(field => {
+            const value = formData[field.name]
+            if (value && field.mapToLead && field.mapToLead !== 'none') {
+              leadData[field.mapToLead] = value
+            }
+          })
+
+          const { data } = await supabase
+            .from('leads')
+            .update(leadData)
+            .eq('id', tempLeadId)
+            .select()
+
+          if (data && data[0]) {
+            lead = data[0]
+          }
+        }
+      } else {
+        // Se não existe lead temporário, criar novo (só deveria acontecer em casos raros)
+        lead = await processFormSubmission(formData)
+      }
 
       // Salvar submissão do formulário
       const submissionData = {
         template_id: template?.id,
         template_slug: slug,
-        lead_id: lead?.id || null,
+        lead_id: lead?.id || tempLeadId,
         source_url: sourceUrl,
         submission_data: formData,
         ip_address: null,
