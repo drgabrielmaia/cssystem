@@ -27,12 +27,14 @@ import {
   UserPlus,
   Wrench,
   Eye,
-  Activity
+  Activity,
+  Clock
 } from 'lucide-react'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, description: 'Visão geral' },
   { name: 'Leads', href: '/leads', icon: UserPlus, description: 'Novos prospects' },
+  { name: 'Follow-ups', href: '/follow-ups', icon: Clock, description: 'Acompanhamentos' },
   { name: 'Mentorados', href: '/mentorados', icon: Users, description: 'Gerenciar pessoas' },
   { name: 'Calendário', href: '/calendario', icon: Calendar, description: 'Agendar eventos' },
   { name: 'Social Seller', href: '/social-seller', icon: Phone, description: 'Métricas de vendas' },
