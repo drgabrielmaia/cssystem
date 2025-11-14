@@ -330,19 +330,21 @@ export default function FormPage() {
             [field.mapToLead]: fieldValue
           }
 
+          console.log(`📝 Atualizando campo mapeado ${field.mapToLead}:`, fieldValue)
           const { error } = await supabase
             .from('leads')
             .update(updateData)
             .eq('id', currentLeadId)
 
           if (!error) {
-            console.log('✅ Update específico')
+            console.log(`✅ Campo ${field.mapToLead} atualizado com sucesso`)
           } else {
             console.log('❌ Erro no update:', error)
           }
         } else {
           // Campo sem mapeamento - adicionar às observações
           const observacao = `${field.label}: ${fieldValue}`
+          console.log(`📋 Adicionando às observações:`, observacao)
 
           // Primeiro pegar as observações atuais
           const { data: leadAtual } = await supabase
@@ -359,7 +361,7 @@ export default function FormPage() {
             .eq('id', currentLeadId)
 
           if (!error) {
-            console.log('✅ Adicionado às observações')
+            console.log('✅ Observação adicionada com sucesso')
           } else {
             console.log('❌ Erro ao adicionar observações:', error)
           }
@@ -540,11 +542,23 @@ export default function FormPage() {
       if (currentValue && template.form_type === 'lead') {
         console.log('🚀 Salvando campo atual no Próximo:', currentField.name, currentValue)
         await autoSaveField(currentField.name, currentValue)
+
+        // ATUALIZAR form_submission com dados atuais a cada passo
+        if (currentLeadId) {
+          console.log('📝 Atualizando form_submission com dados atuais')
+          await supabase
+            .from('form_submissions')
+            .update({
+              submission_data: formData // Dados completos até agora
+            })
+            .eq('lead_id', currentLeadId)
+            .eq('template_slug', slug)
+        }
       }
 
       // Se for último campo, finalizar
       if (currentStep === template.fields.length - 1) {
-        await saveFormData() // SÓ chama saveFormData no ÚLTIMO campo
+        await saveFormData() // SÓ chama saveFormData no ÚLTIMO campo para finalizar
         setSubmitted(true)
       } else {
         // Se não for último, vai para próxima página
