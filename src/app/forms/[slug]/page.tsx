@@ -232,10 +232,6 @@ export default function FormPage() {
     e.preventDefault()
     console.log('Submit')
 
-    if (!validateForm()) {
-      return
-    }
-
     setSubmitting(true)
 
     try {
