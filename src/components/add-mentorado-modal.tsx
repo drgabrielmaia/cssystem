@@ -80,6 +80,8 @@ export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoMo
         .insert([{
           nome_completo: `Lead em preenchimento ${timestamp}`,
           email: `temp_${timestamp}_${randomId}@leadtemp.com`,
+          telefone: '',
+          turma: '',
           estado_entrada: 'novo',
           estado_atual: 'novo'
         }])
@@ -121,30 +123,32 @@ export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoMo
         }
       }
 
-      // Filtrar campos vazios
-      const dataToUpdate = Object.fromEntries(
-        Object.entries(data).filter(([_, value]) =>
-          value !== '' && value !== null && value !== undefined
-        )
-      )
+      // Usar os dados como estão (permitir campos vazios)
+      const dataToUpdate = data
 
-      console.log('📊 Dados filtrados para update:', dataToUpdate)
+      console.log('📊 Dados para update:', dataToUpdate)
 
       if (Object.keys(dataToUpdate).length === 0) {
-        console.log('⚠️ Nenhum dado válido para atualizar')
+        console.log('⚠️ Nenhum dado para atualizar')
         return
       }
 
       console.log(`💾 Salvando no mentorado ID ${mentoradoId}...`)
-      const { error } = await supabase
+
+      const { data: updateResult, error } = await supabase
         .from('mentorados')
         .update(dataToUpdate)
         .eq('id', mentoradoId)
+        .select()
 
       if (error) {
         console.error('❌ Erro no auto-save:', error)
+        console.error('📊 Dados que causaram erro:', dataToUpdate)
+        console.error('🆔 ID do mentorado:', mentoradoId)
       } else {
-        console.log('✅ Auto-save realizado com sucesso:', dataToUpdate)
+        console.log('✅ Auto-save realizado com sucesso!')
+        console.log('📊 Dados salvos:', dataToUpdate)
+        console.log('🔄 Resultado da atualização:', updateResult)
       }
     } catch (error) {
       console.error('💥 Erro geral no auto-save:', error)
@@ -227,11 +231,9 @@ Vamos com tudo. 🔥`
   const handleFieldBlur = useCallback((fieldName: keyof MentoradoFormData, value: any) => {
     if (!isOpen) return
 
-    // Só salva se o campo tem conteúdo
-    if (!value || value.trim() === '') return
-
+    // Salva qualquer valor, mesmo se vazio
     console.log(`🔄 Auto-save acionado para ${fieldName}:`, value)
-    const fieldData = { [fieldName]: value }
+    const fieldData = { [fieldName]: value || '' }
     autoSaveToDatabase(fieldData)
   }, [isOpen, autoSaveToDatabase])
 
