@@ -307,11 +307,16 @@ export default function FormPage() {
   // Função de auto-save campo por campo
   const autoSaveField = async (fieldName: string, fieldValue: any) => {
     try {
+      console.log(`🔧 autoSaveField: ${fieldName} = ${fieldValue}`)
+
       // Verificar se é um campo mapeado para lead
       const field = template?.fields.find(f => f.name === fieldName)
       if (!field || !field.mapToLead || field.mapToLead === 'none') {
+        console.log(`❌ Campo ${fieldName} não mapeado para lead`)
         return
       }
+
+      console.log(`✅ Campo ${fieldName} mapeado para: ${field.mapToLead}`)
 
       // Preparar apenas o campo atual para atualizar
       const updateData = {
@@ -319,6 +324,7 @@ export default function FormPage() {
       }
 
       if (currentLeadId) {
+        console.log(`🔄 Atualizando lead existente: ${currentLeadId}`)
         // ATUALIZAR lead existente - só o campo atual
         const { error } = await supabase
           .from('leads')
@@ -326,9 +332,12 @@ export default function FormPage() {
           .eq('id', currentLeadId)
 
         if (!error) {
-          console.log('Update')
+          console.log('✅ Update')
+        } else {
+          console.log('❌ Erro no update:', error)
         }
       } else {
+        console.log(`🆕 Criando novo lead`)
         // CRIAR novo lead no BD
         const initialLeadData = {
           ...updateData,
@@ -344,11 +353,13 @@ export default function FormPage() {
 
         if (!error && data?.id) {
           setCurrentLeadId(data.id) // Salvar ID no estado
-          console.log('Criou lead:', data.id)
+          console.log('✅ Criou lead:', data.id)
+        } else {
+          console.log('❌ Erro ao criar lead:', error)
         }
       }
     } catch (error) {
-      // silêncio
+      console.log('💥 Erro no autoSaveField:', error)
     }
   }
 
@@ -467,13 +478,23 @@ export default function FormPage() {
 
   const handleNext = async () => {
     if (validateCurrentField()) {
+      // FORÇAR criação/atualização do lead no primeiro "Próximo" se não existir
+      if (!currentLeadId && template?.form_type === 'lead') {
+        const currentField = template.fields[currentStep]
+        const currentValue = formData[currentField.name]
+
+        if (currentValue && currentField.mapToLead && currentField.mapToLead !== 'none') {
+          console.log('🔥 Forçando criação do lead no próximo')
+          await autoSaveField(currentField.name, currentValue)
+        }
+      }
+
       // Se for último campo, finalizar
       if (template && currentStep === template.fields.length - 1) {
         await saveFormData() // SÓ chama saveFormData no ÚLTIMO campo
         setSubmitted(true)
       } else {
-        // Se não for último, apenas vai para próxima página
-        // O auto-save individual já cuida de atualizar o lead
+        // Se não for último, vai para próxima página
         goToNextStep()
       }
     }
