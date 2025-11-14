@@ -9,7 +9,9 @@ export function AppContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Don't show sidebar on login page or when filling forms (not the forms listing page)
-  if (pathname === '/login' || (pathname.startsWith('/formulario/') && pathname !== '/formularios')) {
+  if (pathname === '/login' ||
+      (pathname.startsWith('/formulario/') && pathname !== '/formularios') ||
+      pathname.startsWith('/forms/')) {
     return <>{children}</>
   }
 
