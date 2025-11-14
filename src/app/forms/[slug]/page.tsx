@@ -52,6 +52,7 @@ export default function FormPage() {
   const [sourceUrl, setSourceUrl] = useState('')
   const [currentStep, setCurrentStep] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [currentLeadId, setCurrentLeadId] = useState<string | null>(null)
 
   const slug = params.slug as string
 
@@ -312,38 +313,38 @@ export default function FormPage() {
         return
       }
 
-      // Criar ou atualizar lead temporário
-      const leadData = {
-        [field.mapToLead]: fieldValue,
-        origem: sourceUrl || 'formulario_temp',
-        status: 'preenchendo'
+      // Preparar apenas o campo atual para atualizar
+      const updateData = {
+        [field.mapToLead]: fieldValue
       }
 
-      // Verificar se já existe um lead temporário para este formulário
-      let tempLeadId = sessionStorage.getItem(`tempLead_${slug}`)
-
-      if (tempLeadId) {
-        // Atualizar lead existente
+      if (currentLeadId) {
+        // ATUALIZAR lead existente - só o campo atual
         const { error } = await supabase
           .from('leads')
-          .update(leadData)
-          .eq('id', tempLeadId)
+          .update(updateData)
+          .eq('id', currentLeadId)
 
         if (!error) {
           console.log('Update')
         }
       } else {
-        // Criar novo lead temporário
+        // CRIAR novo lead no BD
+        const initialLeadData = {
+          ...updateData,
+          origem: sourceUrl || 'formulario_temp',
+          status: 'preenchendo'
+        }
+
         const { data, error } = await supabase
           .from('leads')
-          .insert([{ ...leadData, nome_completo: `Lead em preenchimento ${Date.now()}` }])
+          .insert([initialLeadData])
           .select('id')
           .single()
 
         if (!error && data?.id) {
-          const leadId = data.id as string
-          tempLeadId = leadId
-          sessionStorage.setItem(`tempLead_${slug}`, leadId)
+          setCurrentLeadId(data.id) // Salvar ID no estado
+          console.log('Criou lead:', data.id)
         }
       }
     } catch (error) {
@@ -409,10 +410,9 @@ export default function FormPage() {
 
     try {
       // Verificar se já existe um lead temporário
-      let tempLeadId = sessionStorage.getItem(`tempLead_${slug}`)
       let lead = null
 
-      if (tempLeadId) {
+      if (currentLeadId) {
         // Usar lead existente - só atualizar com dados completos
         if (template?.form_type === 'lead') {
           // Mapear todos os campos preenchidos para o lead
@@ -431,7 +431,7 @@ export default function FormPage() {
           const { data } = await supabase
             .from('leads')
             .update(leadData)
-            .eq('id', tempLeadId)
+            .eq('id', currentLeadId)
             .select()
 
           if (data && data[0]) {
@@ -449,7 +449,7 @@ export default function FormPage() {
       const submissionData = {
         template_id: template?.id,
         template_slug: slug,
-        lead_id: lead?.id || tempLeadId,
+        lead_id: lead?.id || currentLeadId,
         source_url: sourceUrl,
         submission_data: formData,
         ip_address: null,
