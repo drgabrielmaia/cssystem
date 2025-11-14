@@ -394,15 +394,42 @@ export default function FormPage() {
     return true
   }
 
-  const handleNext = () => {
+  const saveFormData = async () => {
+    console.log('Submit')
+
+    try {
+      // Processar formulário (criar lead só se for tipo 'lead')
+      const lead = await processFormSubmission(formData)
+
+      // Salvar submissão do formulário
+      const submissionData = {
+        template_id: template?.id,
+        template_slug: slug,
+        lead_id: lead?.id || null,
+        source_url: sourceUrl,
+        submission_data: formData,
+        ip_address: null,
+        user_agent: navigator.userAgent
+      }
+
+      await supabase
+        .from('form_submissions')
+        .insert([submissionData])
+
+    } catch (error) {
+      console.error('Erro ao salvar:', error)
+    }
+  }
+
+  const handleNext = async () => {
     if (validateCurrentField()) {
-      console.log('Submit')
+      // SEMPRE salvar dados a cada próximo
+      await saveFormData()
 
-      // SEMPRE fazer submit a cada próximo
-      handleSubmit({ preventDefault: () => {} } as any)
-
-      // Se não for último campo, vai para próximo
-      if (template && currentStep < template.fields.length - 1) {
+      // Se for último campo, marcar como submitted
+      if (template && currentStep === template.fields.length - 1) {
+        setSubmitted(true)
+      } else {
         goToNextStep()
       }
     }
