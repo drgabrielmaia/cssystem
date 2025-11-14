@@ -401,10 +401,12 @@ export default function FormPage() {
   const handleNext = () => {
     if (validateCurrentField()) {
       console.log('Submit')
-      if (template && currentStep === template.fields.length - 1) {
-        // Último campo, submeter formulário
-        handleSubmit({ preventDefault: () => {} } as any)
-      } else {
+
+      // SEMPRE fazer submit a cada próximo
+      handleSubmit({ preventDefault: () => {} } as any)
+
+      // Se não for último campo, vai para próximo
+      if (template && currentStep < template.fields.length - 1) {
         goToNextStep()
       }
     }
