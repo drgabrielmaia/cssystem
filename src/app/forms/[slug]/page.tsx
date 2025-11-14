@@ -295,9 +295,7 @@ export default function FormPage() {
       setErrors(prev => ({ ...prev, [name]: '' }))
     }
 
-    // SALVAR IMEDIATAMENTE quando digitar (sem debounce)
-    console.log('💾 SALVANDO IMEDIATAMENTE:', name, value)
-    autoSaveField(name, value)
+    // Não salva automaticamente - só quando apertar "Próximo"
   }
 
   // Função de auto-save imediata (sem debounce)
@@ -416,23 +414,7 @@ export default function FormPage() {
         }
       }
 
-      // ATUALIZAR form_submission A CADA DIGITAÇÃO (para leads existentes)
-      if (currentLeadId) {
-        console.log('📝 Atualizando form_submission a cada digitação')
-        const { error: updateError } = await supabase
-          .from('form_submissions')
-          .update({
-            submission_data: { ...formData, [fieldName]: fieldValue }
-          })
-          .eq('lead_id', currentLeadId)
-          .eq('template_slug', slug)
-
-        if (!updateError) {
-          console.log('✅ Form_submission atualizado na digitação')
-        } else {
-          console.log('❌ Erro ao atualizar form_submission:', updateError)
-        }
-      }
+      // Form_submission só é atualizado quando apertar "Próximo"
     } catch (error) {
       console.log('💥 Erro no autoSaveField:', error)
     }
