@@ -439,8 +439,10 @@ export default function FormPage() {
           }
         }
       } else {
-        // Se não existe lead temporário, criar novo (só deveria acontecer em casos raros)
-        lead = await processFormSubmission(formData)
+        // Se não existe lead temporário, não fazer nada
+        // O lead deve ser criado pelo auto-save individual
+        console.log('❌ Lead temporário não encontrado - auto-save deve ter criado')
+        return
       }
 
       // Salvar submissão do formulário
@@ -465,14 +467,13 @@ export default function FormPage() {
 
   const handleNext = async () => {
     if (validateCurrentField()) {
-      // SEMPRE salvar quando clica próximo
-      await saveFormData()
-
       // Se for último campo, finalizar
       if (template && currentStep === template.fields.length - 1) {
+        await saveFormData() // SÓ chama saveFormData no ÚLTIMO campo
         setSubmitted(true)
       } else {
-        // Se não for último, vai para próxima página
+        // Se não for último, apenas vai para próxima página
+        // O auto-save individual já cuida de atualizar o lead
         goToNextStep()
       }
     }
