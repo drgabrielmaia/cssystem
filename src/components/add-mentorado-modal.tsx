@@ -1,9 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
+import { debounce } from 'lodash'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -19,7 +22,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { supabase } from '@/lib/supabase'
+
+const mentoradoSchema = z.object({
+  nome_completo: z.string().min(1, 'Nome completo é obrigatório'),
+  email: z.string().email('Email inválido'),
+  telefone: z.string().optional(),
+  turma: z.string().min(1, 'Turma é obrigatória'),
+  estado_entrada: z.string().default('novo'),
+  estado_atual: z.string().default('novo')
+})
+
+type MentoradoFormData = z.infer<typeof mentoradoSchema>
 
 interface AddMentoradoModalProps {
   isOpen: boolean
@@ -29,29 +51,117 @@ interface AddMentoradoModalProps {
 
 export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoModalProps) {
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    nome_completo: '',
-    email: '',
-    telefone: '',
-    turma: '',
-    estado_entrada: 'novo',
-    estado_atual: 'novo'
+  const [tempMentoradoId, setTempMentoradoId] = useState<string | null>(null)
+  const [isAutoSaving, setIsAutoSaving] = useState(false)
+
+  const form = useForm<MentoradoFormData>({
+    resolver: zodResolver(mentoradoSchema),
+    defaultValues: {
+      nome_completo: '',
+      email: '',
+      telefone: '',
+      turma: '',
+      estado_entrada: 'novo',
+      estado_atual: 'novo'
+    }
   })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+  // Função para criar um mentorado temporário no banco
+  const createTempMentorado = useCallback(async () => {
+    if (tempMentoradoId) return tempMentoradoId
 
     try {
       const { data, error } = await supabase
         .from('mentorados')
-        .insert([formData])
-        .select()
+        .insert([{
+          nome_completo: 'Novo mentorado...',
+          email: 'temp@example.com',
+          estado_entrada: 'novo',
+          estado_atual: 'novo'
+        }])
+        .select('id')
+        .single()
 
       if (error) throw error
 
+      const newId = data.id
+      setTempMentoradoId(newId)
+      return newId
+    } catch (error) {
+      console.error('Erro ao criar mentorado temporário:', error)
+      return null
+    }
+  }, [tempMentoradoId])
+
+  // Função para auto-salvar dados no banco
+  const autoSaveToDatabase = useCallback(debounce(async (data: Partial<MentoradoFormData>) => {
+    if (!isOpen) return
+
+    setIsAutoSaving(true)
+    try {
+      let mentoradoId = tempMentoradoId
+
+      // Criar mentorado temporário se não existir
+      if (!mentoradoId) {
+        mentoradoId = await createTempMentorado()
+        if (!mentoradoId) return
+      }
+
+      // Filtrar campos vazios
+      const dataToUpdate = Object.fromEntries(
+        Object.entries(data).filter(([_, value]) =>
+          value !== '' && value !== null && value !== undefined
+        )
+      )
+
+      if (Object.keys(dataToUpdate).length === 0) return
+
+      const { error } = await supabase
+        .from('mentorados')
+        .update(dataToUpdate)
+        .eq('id', mentoradoId)
+
+      if (error) {
+        console.error('Erro no auto-save:', error)
+      } else {
+        console.log('✅ Auto-save realizado:', dataToUpdate)
+      }
+    } catch (error) {
+      console.error('Erro no auto-save:', error)
+    } finally {
+      setIsAutoSaving(false)
+    }
+  }, 1000), [tempMentoradoId, isOpen, createTempMentorado])
+
+  const onSubmit = async (data: MentoradoFormData) => {
+    setLoading(true)
+
+    try {
+      let result
+
+      if (tempMentoradoId) {
+        // Atualizar mentorado existente
+        const updateResult = await supabase
+          .from('mentorados')
+          .update(data)
+          .eq('id', tempMentoradoId)
+          .select()
+
+        if (updateResult.error) throw updateResult.error
+        result = updateResult.data
+      } else {
+        // Criar novo mentorado
+        const insertResult = await supabase
+          .from('mentorados')
+          .insert([data])
+          .select()
+
+        if (insertResult.error) throw insertResult.error
+        result = insertResult.data
+      }
+
       // Send welcome message via WhatsApp if phone number is provided
-      if (formData.telefone && data && data[0]) {
+      if (data.telefone && result && result[0]) {
         try {
           const welcomeMessage = `👋 Seja muito bem-vindo(a) à mentoria!
 
@@ -66,7 +176,7 @@ Por isso, quero que a gente agende seu onboarding 1:1 — é nessa conversa que 
 Vamos com tudo. 🔥`
 
           const { whatsappService } = await import('@/lib/whatsapp-core-service')
-          const success = await whatsappService.sendMessage(formData.telefone, welcomeMessage)
+          const success = await whatsappService.sendMessage(data.telefone, welcomeMessage)
 
           if (success) {
             console.log('✅ Mensagem de boas-vindas enviada com sucesso!')
@@ -79,14 +189,8 @@ Vamos com tudo. 🔥`
       }
 
       // Reset form
-      setFormData({
-        nome_completo: '',
-        email: '',
-        telefone: '',
-        turma: '',
-        estado_entrada: 'novo',
-        estado_atual: 'novo'
-      })
+      form.reset()
+      setTempMentoradoId(null)
 
       onSuccess()
       onClose()
@@ -98,101 +202,169 @@ Vamos com tudo. 🔥`
     }
   }
 
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  // Watch para auto-save no banco
+  const watchedValues = form.watch()
+
+  // Auto-save conforme usuario digita
+  useEffect(() => {
+    if (isOpen && Object.keys(watchedValues).some(key => watchedValues[key as keyof MentoradoFormData] !== '')) {
+      autoSaveToDatabase(watchedValues)
+    }
+  }, [watchedValues, isOpen, autoSaveToDatabase])
+
+  // Reset ao abrir modal
+  useEffect(() => {
+    if (isOpen) {
+      form.reset()
+      setTempMentoradoId(null)
+    }
+  }, [isOpen, form])
+
+  // Limpar dados temporários
+  const handleClose = () => {
+    if (tempMentoradoId) {
+      // Opcional: deletar mentorado temporário se não foi finalizado
+      supabase
+        .from('mentorados')
+        .delete()
+        .eq('id', tempMentoradoId)
+        .then(() => console.log('Mentorado temporário deletado'))
+    }
+    form.reset()
+    setTempMentoradoId(null)
+    onClose()
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Adicionar Novo Mentorado</DialogTitle>
-          <DialogDescription>
-            Preencha os dados do novo mentorado.
+          <DialogDescription className="flex items-center gap-2">
+            Preencha os dados do novo mentorado. Os dados são salvos automaticamente no banco.
+            {isAutoSaving && (
+              <span className="text-blue-600 text-xs flex items-center gap-1">
+                <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                Salvando...
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="nome_completo" className="text-right">
-                Nome
-              </Label>
-              <Input
-                id="nome_completo"
-                value={formData.nome_completo}
-                onChange={(e) => handleChange('nome_completo', e.target.value)}
-                className="col-span-3"
-                required
-              />
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <FormLabel className="text-right">Nome</FormLabel>
+                <FormField
+                  control={form.control}
+                  name="nome_completo"
+                  render={({ field }) => (
+                    <FormItem className="col-span-3">
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <FormLabel className="text-right">Email</FormLabel>
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem className="col-span-3">
+                      <FormControl>
+                        <Input type="email" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <FormLabel className="text-right">Telefone</FormLabel>
+                <FormField
+                  control={form.control}
+                  name="telefone"
+                  render={({ field }) => (
+                    <FormItem className="col-span-3">
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <FormLabel className="text-right">Turma</FormLabel>
+                <FormField
+                  control={form.control}
+                  name="turma"
+                  render={({ field }) => (
+                    <FormItem className="col-span-3">
+                      <FormControl>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecionar turma" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Turma A">Turma A</SelectItem>
+                            <SelectItem value="Turma B">Turma B</SelectItem>
+                            <SelectItem value="Turma C">Turma C</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <FormLabel className="text-right">Estado</FormLabel>
+                <FormField
+                  control={form.control}
+                  name="estado_atual"
+                  render={({ field }) => (
+                    <FormItem className="col-span-3">
+                      <FormControl>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="novo">Novo</SelectItem>
+                            <SelectItem value="interessado">Interessado</SelectItem>
+                            <SelectItem value="ativo">Ativo</SelectItem>
+                            <SelectItem value="engajado">Engajado</SelectItem>
+                            <SelectItem value="pausado">Pausado</SelectItem>
+                            <SelectItem value="inativo">Inativo</SelectItem>
+                            <SelectItem value="cancelado">Cancelado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="telefone" className="text-right">
-                Telefone
-              </Label>
-              <Input
-                id="telefone"
-                value={formData.telefone}
-                onChange={(e) => handleChange('telefone', e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="turma" className="text-right">
-                Turma
-              </Label>
-              <Select onValueChange={(value) => handleChange('turma', value)} required>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Selecionar turma" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Turma A">Turma A</SelectItem>
-                  <SelectItem value="Turma B">Turma B</SelectItem>
-                  <SelectItem value="Turma C">Turma C</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="estado" className="text-right">
-                Estado
-              </Label>
-              <Select onValueChange={(value) => handleChange('estado_atual', value)} defaultValue="novo">
-                <SelectTrigger className="col-span-3">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="novo">Novo</SelectItem>
-                  <SelectItem value="interessado">Interessado</SelectItem>
-                  <SelectItem value="ativo">Ativo</SelectItem>
-                  <SelectItem value="engajado">Engajado</SelectItem>
-                  <SelectItem value="pausado">Pausado</SelectItem>
-                  <SelectItem value="inativo">Inativo</SelectItem>
-                  <SelectItem value="cancelado">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Salvando...' : 'Salvar'}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

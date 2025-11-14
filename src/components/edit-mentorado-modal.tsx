@@ -1,12 +1,40 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { supabase, type Mentorado } from '@/lib/supabase'
+
+const editMentoradoSchema = z.object({
+  nome_completo: z.string().min(1, 'Nome completo é obrigatório'),
+  email: z.string().email('Email inválido'),
+  telefone: z.string().optional(),
+  turma: z.string().min(1, 'Turma é obrigatória'),
+  estado_entrada: z.string().optional(),
+  estado_atual: z.string().optional(),
+  data_nascimento: z.string().optional(),
+  cpf: z.string().optional(),
+  rg: z.string().optional(),
+  endereco: z.string().optional(),
+  crm: z.string().optional(),
+  origem_conhecimento: z.string().optional(),
+  data_inicio_mentoria: z.string().optional()
+})
+
+type EditMentoradoFormData = z.infer<typeof editMentoradoSchema>
 
 interface EditMentoradoModalProps {
   isOpen: boolean
@@ -17,20 +45,24 @@ interface EditMentoradoModalProps {
 
 export function EditMentoradoModal({ isOpen, onClose, onSuccess, mentorado }: EditMentoradoModalProps) {
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    nome_completo: '',
-    email: '',
-    telefone: '',
-    turma: '',
-    estado_entrada: '',
-    estado_atual: '',
-    data_nascimento: '',
-    cpf: '',
-    rg: '',
-    endereco: '',
-    crm: '',
-    origem_conhecimento: '',
-    data_inicio_mentoria: ''
+
+  const form = useForm<EditMentoradoFormData>({
+    resolver: zodResolver(editMentoradoSchema),
+    defaultValues: {
+      nome_completo: '',
+      email: '',
+      telefone: '',
+      turma: '',
+      estado_entrada: '',
+      estado_atual: '',
+      data_nascimento: '',
+      cpf: '',
+      rg: '',
+      endereco: '',
+      crm: '',
+      origem_conhecimento: '',
+      data_inicio_mentoria: ''
+    }
   })
 
   // Função para converter data para formato YYYY-MM-DD sem problemas de timezone
@@ -59,61 +91,71 @@ export function EditMentoradoModal({ isOpen, onClose, onSuccess, mentorado }: Ed
     }
   };
 
+  // Carregar dados do localStorage ou mentorado
   useEffect(() => {
-    if (mentorado) {
-      setFormData({
-        nome_completo: mentorado.nome_completo || '',
-        email: mentorado.email || '',
-        telefone: mentorado.telefone || '',
-        turma: mentorado.turma || '',
-        estado_entrada: mentorado.estado_entrada || '',
-        estado_atual: mentorado.estado_atual || '',
-        data_nascimento: formatDateForInput(mentorado.data_nascimento),
-        cpf: mentorado.cpf || '',
-        rg: mentorado.rg || '',
-        endereco: mentorado.endereco || '',
-        crm: mentorado.crm || '',
-        origem_conhecimento: mentorado.origem_conhecimento || '',
-        data_inicio_mentoria: formatDateForInput(mentorado.data_inicio_mentoria)
-      })
-    }
-  }, [mentorado])
+    if (isOpen) {
+      const storageKey = mentorado ? `edit-mentorado-form-${mentorado.id}` : 'edit-mentorado-form'
+      const savedData = localStorage.getItem(storageKey)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData)
+          form.reset(parsed)
+          return
+        } catch (e) {
+          console.warn('Erro ao carregar dados salvos:', e)
+        }
+      }
+
+      if (mentorado) {
+        form.reset({
+          nome_completo: mentorado.nome_completo || '',
+          email: mentorado.email || '',
+          telefone: mentorado.telefone || '',
+          turma: mentorado.turma || '',
+          estado_entrada: mentorado.estado_entrada || '',
+          estado_atual: mentorado.estado_atual || '',
+          data_nascimento: formatDateForInput(mentorado.data_nascimento),
+          cpf: mentorado.cpf || '',
+          rg: mentorado.rg || '',
+          endereco: mentorado.endereco || '',
+          crm: mentorado.crm || '',
+          origem_conhecimento: mentorado.origem_conhecimento || '',
+          data_inicio_mentoria: formatDateForInput(mentorado.data_inicio_mentoria)
+        })
+      }
+    }
+  }, [mentorado, isOpen, form])
+
+  // Salvar dados no localStorage sempre que houver mudanças
+  const watchedValues = form.watch()
+  useEffect(() => {
+    if (isOpen && mentorado) {
+      const storageKey = `edit-mentorado-form-${mentorado.id}`
+      localStorage.setItem(storageKey, JSON.stringify(watchedValues))
+    }
+  }, [watchedValues, isOpen, mentorado])
+
+  const onSubmit = async (data: EditMentoradoFormData) => {
     if (!mentorado) return
 
     setLoading(true)
     try {
       console.log('🔍 Iniciando atualização do mentorado:', mentorado.id)
-      console.log('📋 Dados a serem atualizados:', formData)
+      console.log('📋 Dados a serem atualizados:', data)
 
       // Verificar sessão de autenticação
       const { data: { session } } = await supabase.auth.getSession()
       console.log('🔐 Sessão de autenticação:', session ? 'Ativa' : 'Inativa')
 
-      // Validar campos obrigatórios
-      if (!formData.nome_completo.trim()) {
-        alert('Nome completo é obrigatório')
-        return
-      }
-      if (!formData.email.trim()) {
-        alert('Email é obrigatório')
-        return
-      }
-      if (!formData.turma.trim()) {
-        alert('Turma é obrigatória')
-        return
-      }
-
       // Filtrar dados vazios e nulos para evitar problemas
       const dataToUpdate = Object.fromEntries(
-        Object.entries(formData).filter(([_, value]) => value !== '' && value !== null && value !== undefined)
+        Object.entries(data).filter(([_, value]) => value !== '' && value !== null && value !== undefined)
       )
 
       console.log('📋 Dados filtrados para atualização:', dataToUpdate)
 
-      const { data, error } = await supabase
+      const { data: result, error } = await supabase
         .from('mentorados')
         .update(dataToUpdate)
         .eq('id', mentorado.id)
@@ -130,8 +172,13 @@ export function EditMentoradoModal({ isOpen, onClose, onSuccess, mentorado }: Ed
         throw error
       }
 
-      console.log('✅ Mentorado atualizado com sucesso:', data)
+      console.log('✅ Mentorado atualizado com sucesso:', result)
       alert('Mentorado atualizado com sucesso!')
+
+      // Limpar localStorage após sucesso
+      const storageKey = `edit-mentorado-form-${mentorado.id}`
+      localStorage.removeItem(storageKey)
+
       onSuccess()
       onClose()
     } catch (error) {
@@ -143,172 +190,250 @@ export function EditMentoradoModal({ isOpen, onClose, onSuccess, mentorado }: Ed
     }
   }
 
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  const handleClose = () => {
+    if (mentorado) {
+      const storageKey = `edit-mentorado-form-${mentorado.id}`
+      localStorage.removeItem(storageKey)
+    }
+    form.reset()
+    onClose()
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Mentorado</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Os dados são salvos automaticamente conforme você digita.
+          </p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="nome_completo">Nome Completo *</Label>
-              <Input
-                id="nome_completo"
-                value={formData.nome_completo}
-                onChange={(e) => handleChange('nome_completo', e.target.value)}
-                required
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="nome_completo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome Completo *</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email *</FormLabel>
+                    <FormControl>
+                      <Input type="email" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="telefone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Telefone</FormLabel>
+                    <FormControl>
+                      <Input placeholder="(11) 99999-9999" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="turma"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Turma *</FormLabel>
+                    <FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a turma" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Turma A">Turma A</SelectItem>
+                          <SelectItem value="Turma B">Turma B</SelectItem>
+                          <SelectItem value="Turma C">Turma C</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="estado_entrada"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estado de Entrada</FormLabel>
+                    <FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o estado de entrada" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="novo">Novo</SelectItem>
+                          <SelectItem value="interessado">Interessado</SelectItem>
+                          <SelectItem value="engajado">Engajado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="estado_atual"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estado Atual</FormLabel>
+                    <FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o estado atual" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ativo">Ativo</SelectItem>
+                          <SelectItem value="engajado">Engajado</SelectItem>
+                          <SelectItem value="pausado">Pausado</SelectItem>
+                          <SelectItem value="inativo">Inativo</SelectItem>
+                          <SelectItem value="cancelado">Cancelado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="data_nascimento"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data de Nascimento</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="data_inicio_mentoria"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data Início Mentoria</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="cpf"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CPF</FormLabel>
+                    <FormControl>
+                      <Input placeholder="000.000.000-00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="rg"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>RG</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="crm"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CRM</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="origem_conhecimento"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Origem do Conhecimento</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Como conheceu o programa" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="telefone">Telefone</Label>
-              <Input
-                id="telefone"
-                value={formData.telefone}
-                onChange={(e) => handleChange('telefone', e.target.value)}
-                placeholder="(11) 99999-9999"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="turma">Turma *</Label>
-              <Select value={formData.turma} onValueChange={(value) => handleChange('turma', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a turma" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Turma A">Turma A</SelectItem>
-                  <SelectItem value="Turma B">Turma B</SelectItem>
-                  <SelectItem value="Turma C">Turma C</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="estado_entrada">Estado de Entrada</Label>
-              <Select value={formData.estado_entrada} onValueChange={(value) => handleChange('estado_entrada', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o estado de entrada" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="novo">Novo</SelectItem>
-                  <SelectItem value="interessado">Interessado</SelectItem>
-                  <SelectItem value="engajado">Engajado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="estado_atual">Estado Atual</Label>
-              <Select value={formData.estado_atual} onValueChange={(value) => handleChange('estado_atual', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o estado atual" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ativo">Ativo</SelectItem>
-                  <SelectItem value="engajado">Engajado</SelectItem>
-                  <SelectItem value="pausado">Pausado</SelectItem>
-                  <SelectItem value="inativo">Inativo</SelectItem>
-                  <SelectItem value="cancelado">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="data_nascimento">Data de Nascimento</Label>
-              <Input
-                id="data_nascimento"
-                type="date"
-                value={formData.data_nascimento}
-                onChange={(e) => handleChange('data_nascimento', e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="data_inicio_mentoria">Data Início Mentoria</Label>
-              <Input
-                id="data_inicio_mentoria"
-                type="date"
-                value={formData.data_inicio_mentoria}
-                onChange={(e) => handleChange('data_inicio_mentoria', e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="cpf">CPF</Label>
-              <Input
-                id="cpf"
-                value={formData.cpf}
-                onChange={(e) => handleChange('cpf', e.target.value)}
-                placeholder="000.000.000-00"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="rg">RG</Label>
-              <Input
-                id="rg"
-                value={formData.rg}
-                onChange={(e) => handleChange('rg', e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="crm">CRM</Label>
-              <Input
-                id="crm"
-                value={formData.crm}
-                onChange={(e) => handleChange('crm', e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="origem_conhecimento">Origem do Conhecimento</Label>
-              <Input
-                id="origem_conhecimento"
-                value={formData.origem_conhecimento}
-                onChange={(e) => handleChange('origem_conhecimento', e.target.value)}
-                placeholder="Como conheceu o programa"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="endereco">Endereço</Label>
-            <Input
-              id="endereco"
-              value={formData.endereco}
-              onChange={(e) => handleChange('endereco', e.target.value)}
-              placeholder="Endereço completo"
+            <FormField
+              control={form.control}
+              name="endereco"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Endereço</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Endereço completo" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Salvando...' : 'Salvar Alterações'}
-            </Button>
-          </div>
-        </form>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button type="button" variant="outline" onClick={handleClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )
