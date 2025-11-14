@@ -478,6 +478,13 @@ export default function FormPage() {
     }
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !submitting) {
+      e.preventDefault()
+      handleNext()
+    }
+  }
+
   const getFieldIcon = (type: string) => {
     switch (type) {
       case 'text': return User
@@ -503,6 +510,7 @@ export default function FormPage() {
               type={field.type}
               value={formData[field.name] || ''}
               onChange={(e) => updateFormData(field.name, e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder={field.placeholder || `Digite ${field.label.toLowerCase()}`}
               className={`h-14 text-lg border-2 rounded-xl transition-all duration-200 ${
                 hasError
@@ -527,6 +535,7 @@ export default function FormPage() {
               id={field.id}
               value={formData[field.name] || ''}
               onChange={(e) => updateFormData(field.name, e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder={field.placeholder || `Conte-nos mais sobre ${field.label.toLowerCase()}...`}
               className={`min-h-[120px] text-lg border-2 rounded-xl transition-all duration-200 resize-none ${
                 hasError
@@ -666,6 +675,7 @@ export default function FormPage() {
               type="date"
               value={formData[field.name] || ''}
               onChange={(e) => updateFormData(field.name, e.target.value)}
+              onKeyDown={handleKeyDown}
               className={`h-14 text-lg border-2 rounded-xl transition-all duration-200 ${
                 hasError
                   ? 'border-red-500 bg-red-50'
