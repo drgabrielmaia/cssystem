@@ -532,20 +532,18 @@ export default function FormPage() {
   }
 
   const handleNext = async () => {
-    if (validateCurrentField()) {
-      // FORÇAR criação/atualização do lead no primeiro "Próximo" se não existir
-      if (!currentLeadId && template?.form_type === 'lead') {
-        const currentField = template.fields[currentStep]
-        const currentValue = formData[currentField.name]
+    if (validateCurrentField() && template) {
+      const currentField = template.fields[currentStep]
+      const currentValue = formData[currentField.name]
 
-        if (currentValue && currentField.mapToLead && currentField.mapToLead !== 'none') {
-          console.log('🔥 Forçando criação do lead no próximo')
-          await autoSaveField(currentField.name, currentValue)
-        }
+      // SEMPRE salvar o campo atual quando apertar "Próximo"
+      if (currentValue && template.form_type === 'lead') {
+        console.log('🚀 Salvando campo atual no Próximo:', currentField.name, currentValue)
+        await autoSaveField(currentField.name, currentValue)
       }
 
       // Se for último campo, finalizar
-      if (template && currentStep === template.fields.length - 1) {
+      if (currentStep === template.fields.length - 1) {
         await saveFormData() // SÓ chama saveFormData no ÚLTIMO campo
         setSubmitted(true)
       } else {
