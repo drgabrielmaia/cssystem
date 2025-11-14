@@ -229,24 +229,40 @@ Vamos com tudo. 🔥`
 
   // Função para salvar quando mudar de campo (onChange + onBlur)
   const handleFieldChange = useCallback((fieldName: keyof MentoradoFormData, value: any) => {
-    if (!isOpen) return
+    if (!isOpen) {
+      console.log('⚠️ Modal não está aberto, auto-save cancelado')
+      return
+    }
 
     // Salva qualquer valor, mesmo se vazio
-    console.log(`🔄 Auto-save acionado para ${fieldName}:`, value)
+    console.log(`🔄 AUTO-SAVE ACIONADO [${fieldName.toUpperCase()}]:`, value)
+    console.log(`📝 Tipo de evento: onBlur (saiu do campo)`)
     const fieldData = { [fieldName]: value || '' }
     autoSaveToDatabase(fieldData)
   }, [isOpen, autoSaveToDatabase])
 
   // Função de debounce mais rápida para onChange
   const handleFieldChangeInstant = useCallback(debounce((fieldName: keyof MentoradoFormData, value: any) => {
-    handleFieldChange(fieldName, value)
-  }, 500), [handleFieldChange])
+    if (!isOpen) {
+      console.log('⚠️ Modal não está aberto, auto-save cancelado')
+      return
+    }
+
+    console.log(`⚡ AUTO-SAVE ONCHANGE [${fieldName.toUpperCase()}]:`, value)
+    console.log(`⏱️ Tipo de evento: onChange (digitou e parou por 500ms)`)
+    const fieldData = { [fieldName]: value || '' }
+    autoSaveToDatabase(fieldData)
+  }, 500), [isOpen, autoSaveToDatabase])
 
   // Reset ao abrir modal
   useEffect(() => {
     if (isOpen) {
+      console.log('🚀 MODAL ABERTO - Resetando formulário')
       form.reset()
       setTempMentoradoId(null)
+      console.log('✅ Formulário resetado, pronto para auto-save')
+    } else {
+      console.log('❌ MODAL FECHADO')
     }
   }, [isOpen, form])
 
@@ -307,10 +323,14 @@ Vamos com tudo. 🔥`
                         <Input
                           {...field}
                           onChange={(e) => {
+                            console.log(`⌨️ DIGITANDO [NOME]:`, e.target.value)
                             field.onChange(e)
                             handleFieldChangeInstant('nome_completo', e.target.value)
                           }}
-                          onBlur={() => handleFieldChange('nome_completo', field.value)}
+                          onBlur={() => {
+                            console.log(`👋 SAIU DO CAMPO [NOME]:`, field.value)
+                            handleFieldChange('nome_completo', field.value)
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
@@ -331,10 +351,14 @@ Vamos com tudo. 🔥`
                           type="email"
                           {...field}
                           onChange={(e) => {
+                            console.log(`⌨️ DIGITANDO [EMAIL]:`, e.target.value)
                             field.onChange(e)
                             handleFieldChangeInstant('email', e.target.value)
                           }}
-                          onBlur={() => handleFieldChange('email', field.value)}
+                          onBlur={() => {
+                            console.log(`👋 SAIU DO CAMPO [EMAIL]:`, field.value)
+                            handleFieldChange('email', field.value)
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
@@ -354,10 +378,14 @@ Vamos com tudo. 🔥`
                         <Input
                           {...field}
                           onChange={(e) => {
+                            console.log(`⌨️ DIGITANDO [TELEFONE]:`, e.target.value)
                             field.onChange(e)
                             handleFieldChangeInstant('telefone', e.target.value)
                           }}
-                          onBlur={() => handleFieldChange('telefone', field.value)}
+                          onBlur={() => {
+                            console.log(`👋 SAIU DO CAMPO [TELEFONE]:`, field.value)
+                            handleFieldChange('telefone', field.value)
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
@@ -376,6 +404,7 @@ Vamos com tudo. 🔥`
                       <FormControl>
                         <Select
                           onValueChange={(value) => {
+                            console.log(`📋 SELECIONOU [TURMA]:`, value)
                             field.onChange(value)
                             handleFieldChange('turma', value)
                           }}
@@ -407,6 +436,7 @@ Vamos com tudo. 🔥`
                       <FormControl>
                         <Select
                           onValueChange={(value) => {
+                            console.log(`🎯 SELECIONOU [ESTADO]:`, value)
                             field.onChange(value)
                             handleFieldChange('estado_atual', value)
                           }}
