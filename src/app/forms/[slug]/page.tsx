@@ -370,7 +370,7 @@ export default function FormPage() {
         // PRIMEIRA pergunta SEMPRE cria o lead no BD
         const initialLeadData: Record<string, any> = {
           origem: sourceUrl || 'formulario_temp',
-          status: 'preenchendo'
+          status: 'novo'
         }
 
         // Se o campo tem mapeamento específico, usar
