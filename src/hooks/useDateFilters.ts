@@ -9,7 +9,7 @@ export interface DateFilter {
 }
 
 export const useDateFilters = () => {
-  const [filtroTempo, setFiltroTempo] = useState<DateFilter['filtroTempo']>('todos')
+  const [filtroTempo, setFiltroTempo] = useState<DateFilter['filtroTempo']>('mes')
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
 

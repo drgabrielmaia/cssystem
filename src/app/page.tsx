@@ -56,6 +56,12 @@ export default function Dashboard() {
     totalCalls: 0,
     callsFeitas: 0
   })
+  const [metasStats, setMetasStats] = useState({
+    metaFaturamento: 100000, // Meta mensal de R$ 100k
+    metaLeads: 50, // Meta mensal de 50 leads vendidos
+    percentualFaturamento: 0,
+    percentualLeads: 0
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -292,6 +298,17 @@ export default function Dashboard() {
         totalCalls,
         callsFeitas
       })
+
+      // Calcular percentuais das metas
+      const percentualFaturamento = Math.round((valorVendido / metasStats.metaFaturamento) * 100)
+      const percentualLeads = Math.round((leadsVendidos / metasStats.metaLeads) * 100)
+
+      setMetasStats(prev => ({
+        ...prev,
+        percentualFaturamento,
+        percentualLeads
+      }))
+
     } catch (error) {
       console.error('Erro ao carregar stats:', error)
     } finally {
@@ -382,6 +399,86 @@ export default function Dashboard() {
 
         {/* Dashboard Principal */}
         <div className="space-y-8">
+          {/* Metas do Mês - Seção de Destaque */}
+          <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-6 text-white shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-3xl font-bold">🎯 Metas do Mês</h2>
+                <p className="text-green-100 mt-1">Acompanhe nosso progresso em tempo real</p>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-green-100">Período</div>
+                <div className="text-lg font-semibold">
+                  {new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Meta Faturamento */}
+              <div className="bg-white/10 backdrop-blur rounded-xl p-6 border border-white/20">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-white/20 p-2 rounded-lg">
+                      <DollarSign className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Faturamento</h3>
+                      <p className="text-sm text-green-100">Meta mensal</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold">{metasStats.percentualFaturamento}%</div>
+                    <div className="text-sm text-green-100">da meta</div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Realizado: {formatCurrency(leadsStats.valorVendido)}</span>
+                    <span>Meta: {formatCurrency(metasStats.metaFaturamento)}</span>
+                  </div>
+                  <div className="w-full bg-white/20 rounded-full h-3">
+                    <div
+                      className="bg-yellow-400 h-3 rounded-full transition-all duration-500"
+                      style={{width: `${Math.min(metasStats.percentualFaturamento, 100)}%`}}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Meta Leads */}
+              <div className="bg-white/10 backdrop-blur rounded-xl p-6 border border-white/20">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-white/20 p-2 rounded-lg">
+                      <Target className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Leads Vendidos</h3>
+                      <p className="text-sm text-green-100">Meta mensal</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold">{metasStats.percentualLeads}%</div>
+                    <div className="text-sm text-green-100">da meta</div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Vendidos: {leadsStats.leadsVendidos}</span>
+                    <span>Meta: {metasStats.metaLeads}</span>
+                  </div>
+                  <div className="w-full bg-white/20 rounded-full h-3">
+                    <div
+                      className="bg-yellow-400 h-3 rounded-full transition-all duration-500"
+                      style={{width: `${Math.min(metasStats.percentualLeads, 100)}%`}}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Métricas Principais */}
           <div className="space-y-6">
             <div className="border-b border-gray-200 pb-4">
