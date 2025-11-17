@@ -215,13 +215,57 @@ export default function LeadsPage() {
 
       // Aplicar filtro de datas personalizadas usando o novo sistema
       const dateFilter = dateFilters.getDateFilter()
+      let allLeads = []
+
       if (dateFilter?.start || dateFilter?.end) {
-        if (dateFilter.start) {
-          query = query.gte('data_primeiro_contato', dateFilter.start)
+        // Para filtros de data, precisamos buscar todos os leads e filtrar no JavaScript
+        // para usar a lógica correta (convertido_em vs data_primeiro_contato)
+        const { data: allData, error: allError } = await query
+        if (allError) throw allError
+
+        // Filtrar no JavaScript usando a mesma lógica das estatísticas
+        allLeads = allData?.filter(lead => {
+          let dataParaFiltro
+
+          if (lead.status === 'vendido') {
+            // Para vendidos, usar convertido_em se disponível, senão data_primeiro_contato
+            dataParaFiltro = lead.convertido_em || lead.data_primeiro_contato
+          } else {
+            // Para outros status, usar data_primeiro_contato
+            dataParaFiltro = lead.data_primeiro_contato
+          }
+
+          if (dataParaFiltro) {
+            const dataObj = new Date(dataParaFiltro)
+            let incluirLead = true
+
+            if (dateFilter.start && dateFilter.end) {
+              incluirLead = dataObj >= new Date(dateFilter.start) && dataObj <= new Date(dateFilter.end)
+            } else if (dateFilter.start) {
+              incluirLead = dataObj >= new Date(dateFilter.start)
+            } else if (dateFilter.end) {
+              incluirLead = dataObj <= new Date(dateFilter.end)
+            }
+
+            return incluirLead
+          }
+          return false
+        }) || []
+
+        // Aplicar paginação manualmente
+        const totalFiltered = allLeads.length
+        const paginatedData = allLeads.slice(from, from + leadsPerPage)
+
+        if (append) {
+          setLeads(prev => [...prev, ...paginatedData])
+        } else {
+          setLeads(paginatedData)
         }
-        if (dateFilter.end) {
-          query = query.lte('data_primeiro_contato', dateFilter.end)
-        }
+
+        setTotalCount(totalFiltered)
+        setHasNextPage(from + leadsPerPage < totalFiltered)
+        setCurrentPage(page)
+        return
       }
 
       const { data, error, count } = await query
