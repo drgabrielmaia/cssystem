@@ -26,8 +26,8 @@ const defaultSettings: UserSettings = {
   user_id: 'default_user',
   meta_leads_mes: 100,
   meta_vendas_mes: 10,
-  meta_faturamento_mes: 100000, // R$ 100k
-  meta_arrecadacao_mes: 50000, // R$ 50k (50%)
+  meta_faturamento_mes: 500000, // R$ 500k
+  meta_arrecadacao_mes: 250000, // R$ 250k (50%)
   meta_calls_mes: 50,
   meta_follow_ups_mes: 200,
   taxa_conversao_ideal: 10, // 10%

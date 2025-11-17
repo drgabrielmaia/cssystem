@@ -334,23 +334,30 @@ export default function Dashboard() {
   const loadOverdueCalls = async () => {
     try {
       const today = new Date()
-      today.setHours(0, 0, 0, 0)
+      today.setHours(23, 59, 59, 999) // Final do dia para comparação
 
-      // Buscar leads com status 'call_agendada' que já passaram do prazo
-      // Vamos usar leads que estão há mais de 2 dias em call_agendada
-      const twoDaysAgo = new Date(today)
-      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+      // Aplicar o mesmo filtro de período que está sendo usado no dashboard
+      const dateFilter = dateFilters.getDateFilter()
 
-      const { data: leadsOverdue, error } = await supabase
+      // Buscar leads com status 'call_agendada' no período filtrado
+      let leadsQuery = supabase
         .from('leads')
         .select('*')
         .eq('status', 'call_agendada')
-        .lt('updated_at', twoDaysAgo.toISOString())
         .order('updated_at', { ascending: true })
 
+      // Aplicar filtro de período se existir
+      if (dateFilter?.start) {
+        leadsQuery = leadsQuery.gte('created_at', dateFilter.start)
+      }
+      if (dateFilter?.end) {
+        leadsQuery = leadsQuery.lte('created_at', dateFilter.end)
+      }
+
+      const { data: leadsCallAgendada, error } = await leadsQuery
       if (error) throw error
 
-      // Também buscar follow-ups de call que já passaram do prazo
+      // Buscar follow-ups de call que já passaram do prazo (independente do filtro de período)
       const { data: overdueFollowups, error: followupError } = await supabase
         .from('lead_followups')
         .select(`
@@ -364,12 +371,22 @@ export default function Dashboard() {
 
       if (followupError) throw followupError
 
+      // Filtrar leads call_agendada que estão há mais de 2 dias OU que têm follow-ups atrasados
+      const twoDaysAgo = new Date()
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+      twoDaysAgo.setHours(23, 59, 59, 999)
+
+      const overdueLeads = (leadsCallAgendada || []).filter(lead => {
+        const updatedDate = new Date(lead.updated_at)
+        return updatedDate < twoDaysAgo
+      })
+
       // Combinar leads atrasados e follow-ups atrasados
       const combined = [
-        ...(leadsOverdue || []).map(lead => ({
+        ...overdueLeads.map(lead => ({
           ...lead,
           type: 'lead',
-          overdueReason: `Call agendada há mais de 2 dias`,
+          overdueReason: `Call agendada em ${new Date(lead.updated_at).toLocaleDateString('pt-BR')} (há mais de 2 dias)`,
           daysOverdue: Math.floor((today.getTime() - new Date(lead.updated_at).getTime()) / (1000 * 60 * 60 * 24))
         })),
         ...(overdueFollowups || []).map(followup => ({
@@ -381,21 +398,34 @@ export default function Dashboard() {
         }))
       ]
 
-      // Remover duplicatas por ID do lead
-      const unique = combined.filter((item, index, self) =>
-        index === self.findIndex(t => t.id === item.id)
-      )
+      // Remover duplicatas por ID do lead e filtrar apenas calls realmente atrasadas
+      const unique = combined
+        .filter((item, index, self) => index === self.findIndex(t => t.id === item.id))
+        .filter(item => item.daysOverdue > 0) // Garantir que está realmente atrasado
+
+      // Debug: Log para verificar os dados
+      console.log('📞 CALLS ATRASADAS DEBUG:')
+      console.log(`- Leads com call_agendada no período: ${leadsCallAgendada?.length || 0}`)
+      console.log(`- Leads call_agendada há mais de 2 dias: ${overdueLeads.length}`)
+      console.log(`- Follow-ups atrasados: ${overdueFollowups?.length || 0}`)
+      console.log(`- Total calls atrasadas (únicos): ${unique.length}`)
+      console.log(`- Filtro de período ativo: ${dateFilter ? JSON.stringify({start: dateFilter.start?.substring(0,10), end: dateFilter.end?.substring(0,10)}) : 'Nenhum'}`)
 
       setOverdueCalls(unique)
 
-      // Carregar calls da semana (hoje até domingo)
-      const startOfWeek = new Date()
+      // Carregar calls da semana (segunda a domingo)
+      const now = new Date()
+
+      // Início da semana (segunda-feira)
+      const startOfWeek = new Date(now)
+      const dayOfWeek = startOfWeek.getDay() // 0 = domingo, 1 = segunda, etc
+      const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // Se domingo (0), volta 6 dias; senão, volta (dia - 1)
+      startOfWeek.setDate(now.getDate() - daysToSubtract)
       startOfWeek.setHours(0, 0, 0, 0)
 
-      const endOfWeek = new Date()
-      const dayOfWeek = endOfWeek.getDay() // 0 = domingo, 1 = segunda, etc
-      const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek
-      endOfWeek.setDate(endOfWeek.getDate() + daysUntilSunday)
+      // Fim da semana (domingo)
+      const endOfWeek = new Date(startOfWeek)
+      endOfWeek.setDate(startOfWeek.getDate() + 6)
       endOfWeek.setHours(23, 59, 59, 999)
 
       // Buscar follow-ups de call desta semana
@@ -412,12 +442,21 @@ export default function Dashboard() {
 
       if (weekError) throw weekError
 
-      // Buscar leads com call_agendada (incluir também como calls da semana)
-      const { data: leadsCallAgendada, error: leadsError } = await supabase
+      // Buscar leads com call_agendada do período filtrado
+      let weekLeadsQuery = supabase
         .from('leads')
         .select('*')
         .eq('status', 'call_agendada')
 
+      // Aplicar filtro de período se existir
+      if (dateFilter?.start) {
+        weekLeadsQuery = weekLeadsQuery.gte('created_at', dateFilter.start)
+      }
+      if (dateFilter?.end) {
+        weekLeadsQuery = weekLeadsQuery.lte('created_at', dateFilter.end)
+      }
+
+      const { data: weekLeadsCallAgendada, error: leadsError } = await weekLeadsQuery
       if (leadsError) throw leadsError
 
       const weekCombined = [
@@ -428,7 +467,7 @@ export default function Dashboard() {
           scheduledDate: followup.data_agendada,
           isScheduled: true
         })),
-        ...(leadsCallAgendada || []).map(lead => ({
+        ...(weekLeadsCallAgendada || []).map(lead => ({
           ...lead,
           type: 'lead',
           isScheduled: true,
@@ -440,6 +479,13 @@ export default function Dashboard() {
       const uniqueWeek = weekCombined.filter((item, index, self) =>
         index === self.findIndex(t => t.id === item.id)
       )
+
+      // Debug: Log para verificar as calls da semana
+      console.log('📅 CALLS DA SEMANA DEBUG:')
+      console.log(`- Período da semana: ${startOfWeek.toLocaleDateString('pt-BR')} até ${endOfWeek.toLocaleDateString('pt-BR')}`)
+      console.log(`- Follow-ups de call da semana: ${weekFollowups?.length || 0}`)
+      console.log(`- Leads call_agendada: ${weekLeadsCallAgendada?.length || 0}`)
+      console.log(`- Total calls da semana (únicos): ${uniqueWeek.length}`)
 
       setWeekCalls(uniqueWeek)
 
