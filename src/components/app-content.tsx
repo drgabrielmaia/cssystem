@@ -2,16 +2,52 @@
 
 import { Sidebar } from '@/components/sidebar'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 
 export function AppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isMentorado, setIsMentorado] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Don't show sidebar on login page or when filling forms (not the forms listing page)
+  // Check if user is a mentorado
+  useEffect(() => {
+    const checkUserRole = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          const userRole = session.user.user_metadata?.role
+          setIsMentorado(userRole === 'mentorado')
+        }
+      } catch (error) {
+        console.error('Error checking user role:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkUserRole()
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        const userRole = session.user.user_metadata?.role
+        setIsMentorado(userRole === 'mentorado')
+      } else {
+        setIsMentorado(false)
+      }
+      setIsLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Don't show sidebar on login page, forms, or for mentorados
   if (pathname === '/login' ||
       (pathname.startsWith('/formulario/') && pathname !== '/formularios') ||
-      pathname.startsWith('/forms/')) {
+      pathname.startsWith('/forms/') ||
+      isMentorado) {
     return <>{children}</>
   }
 
