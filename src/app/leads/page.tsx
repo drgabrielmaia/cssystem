@@ -14,7 +14,7 @@ import { supabase } from '@/lib/supabase'
 import { useDateFilters } from '@/hooks/useDateFilters'
 import { DateFilters } from '@/components/date-filters'
 import { useSettings } from '@/contexts/settings'
-import { generateLeadsPDF, generateDetailedLeadsPDF } from '@/lib/pdfGenerator'
+import { generateLeadsPDF, generateDetailedLeadsPDF, generateDashboardPDF } from '@/lib/pdfGenerator'
 import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import {
   DndContext,
@@ -608,6 +608,16 @@ export default function LeadsPage() {
     }
   }
 
+  const handleExportDashboardPDF = () => {
+    try {
+      const title = `Dashboard de Leads - ${dateFilters.filtroTempo === 'todos' ? 'Todos' : dateFilters.filtroTempo}`
+      generateDashboardPDF(filteredLeads, stats, title)
+    } catch (error) {
+      console.error('Erro ao gerar PDF dashboard:', error)
+      alert('Erro ao gerar PDF dashboard. Tente novamente.')
+    }
+  }
+
   // Função para atualizar status do lead
   const updateLeadStatus = async (leadId: string, newStatus: string) => {
     try {
@@ -1108,6 +1118,15 @@ export default function LeadsPage() {
             </Button>
 
             {/* Botões de Exportar PDF */}
+            <Button
+              onClick={handleExportDashboardPDF}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
+            >
+              <BarChart3 className="w-4 h-4" />
+              PDF Dashboard
+            </Button>
             <Button
               onClick={handleExportPDF}
               variant="outline"
