@@ -56,12 +56,15 @@ export function Navbar() {
         </Button>
 
         {/* Settings */}
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <Button
+          variant="ghost"
+          size="sm"
           className="text-[#6B7280] hover:text-[#111827] hover:bg-[#F9FAFB]"
+          asChild
         >
-          <Settings className="h-5 w-5" />
+          <Link href="/configuracoes">
+            <Settings className="h-5 w-5" />
+          </Link>
         </Button>
 
         {/* User Profile */}
