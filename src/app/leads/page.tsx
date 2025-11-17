@@ -99,6 +99,7 @@ interface LeadStats {
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
+  const [allLeads, setAllLeads] = useState<Lead[]>([]) // Para kanban - sem filtro de data
   const [stats, setStats] = useState<LeadStats[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -155,6 +156,7 @@ export default function LeadsPage() {
 
   useEffect(() => {
     loadLeads()
+    loadAllLeads() // Para kanban
     loadStatsWithCache()
   }, [])
 
@@ -287,6 +289,20 @@ export default function LeadsPage() {
       console.error('Erro ao carregar leads:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Carregar todos os leads para o kanban (sem filtro de data)
+  const loadAllLeads = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('id, nome_completo, email, telefone, empresa, cargo, status, origem, temperatura, observacoes, valor_vendido, valor_arrecadado, data_primeiro_contato, convertido_em, origem_detalhada, lead_score, probabilidade_compra, valor_estimado, created_at, updated_at')
+
+      if (error) throw error
+      setAllLeads(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar todos os leads:', error)
     }
   }
 
@@ -440,6 +456,7 @@ export default function LeadsPage() {
       }
 
       await loadLeads()
+      await loadAllLeads()
       await loadStatsWithCache()
       resetForm()
       setIsModalOpen(false)
@@ -505,6 +522,7 @@ export default function LeadsPage() {
       if (error) throw error
 
       await loadLeads()
+      await loadAllLeads()
       await loadStatsWithCache()
     } catch (error) {
       console.error('Erro ao excluir lead:', error)
@@ -630,6 +648,7 @@ export default function LeadsPage() {
 
       // Recarregar leads e stats
       await loadLeads()
+      await loadAllLeads()
       await loadStatsWithCache()
     } catch (error) {
       console.error('Erro ao atualizar status:', error)
@@ -652,7 +671,7 @@ export default function LeadsPage() {
 
     return statusColumns.map(column => ({
       ...column,
-      leads: leads.filter(lead => lead.status === column.key)
+      leads: allLeads.filter(lead => lead.status === column.key)
     }))
   }
 
