@@ -207,7 +207,7 @@ export default function Dashboard() {
         leadsParaCall.forEach(lead => {
           if (lead.status === 'no-show') {
             noShow++
-            totalCalls++
+            // No-show NÃO conta como call realizada
           } else if (lead.status === 'rejeitado' || lead.status === 'rejeitada') {
             rejeitadas++
             totalCalls++
@@ -221,6 +221,7 @@ export default function Dashboard() {
             callsFeitas++
           } else if (lead.status === 'perdido') {
             // Perdido também conta como call já feita
+            totalCalls++
             callsFeitas++
           }
         })
@@ -299,8 +300,12 @@ export default function Dashboard() {
       })
 
       // Calcular percentuais das metas usando configurações
-      const percentualFaturamento = Math.round((valorVendido / settings.meta_faturamento_mes) * 100)
-      const percentualLeads = Math.round((leadsVendidos / settings.meta_vendas_mes) * 100)
+      const percentualFaturamento = settings.meta_faturamento_mes > 0
+        ? Math.round((valorVendido / settings.meta_faturamento_mes) * 100)
+        : 0
+      const percentualLeads = settings.meta_vendas_mes > 0
+        ? Math.round((leadsVendidos / settings.meta_vendas_mes) * 100)
+        : 0
 
       setMetasStats(prev => ({
         ...prev,

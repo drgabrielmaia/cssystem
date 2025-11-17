@@ -459,12 +459,16 @@ export default function LeadsPage() {
 
   const getPercentualFaturamento = () => {
     const valorVendido = getTotalVendido()
-    return Math.round((valorVendido / settings.meta_faturamento_mes) * 100)
+    return settings.meta_faturamento_mes > 0
+      ? Math.round((valorVendido / settings.meta_faturamento_mes) * 100)
+      : 0
   }
 
   const getPercentualLeads = () => {
     const leadsVendidos = stats.find(s => s.status === 'vendido')?.quantidade || 0
-    return Math.round((leadsVendidos / settings.meta_vendas_mes) * 100)
+    return settings.meta_vendas_mes > 0
+      ? Math.round((leadsVendidos / settings.meta_vendas_mes) * 100)
+      : 0
   }
 
   // Filtrar leads baseado na pesquisa e filtros
