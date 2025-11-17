@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { UserCheck, Mail, Eye, EyeOff, LogIn, Plus, TrendingUp, DollarSign, BarChart3, Activity, Trophy, Target, Zap, Gift } from 'lucide-react'
+import { UserCheck, Mail, Eye, EyeOff, LogIn, Plus, TrendingUp, DollarSign, BarChart3, Activity, Trophy, Target, Zap, Gift, Star, Award, Crown, Flame, Rocket, Diamond } from 'lucide-react'
 
 export default function MentoradoLoginPage() {
   const [email, setEmail] = useState('')
@@ -18,6 +18,7 @@ export default function MentoradoLoginPage() {
   const [mentorado, setMentorado] = useState<any>(null)
   const [indicacoes, setIndicacoes] = useState<any[]>([])
   const [showNewIndicacao, setShowNewIndicacao] = useState(false)
+  const [showBadges, setShowBadges] = useState(false)
   const [novaIndicacao, setNovaIndicacao] = useState({
     nome_completo: '',
     telefone: '',
@@ -272,6 +273,63 @@ export default function MentoradoLoginPage() {
     return statusMap[status as keyof typeof statusMap] || { label: status, desc: '' }
   }
 
+  const calcularNivelIndicacao = () => {
+    const totalIndicacoes = indicacoes.length
+
+    if (totalIndicacoes >= 100) return { nivel: 'LENDA DA INDICAÇÃO', cor: 'from-purple-600 to-pink-600', emoji: '👑', proximoNivel: null }
+    if (totalIndicacoes >= 50) return { nivel: 'MASTER INDICADOR', cor: 'from-yellow-500 to-red-500', emoji: '🏆', proximoNivel: 100 }
+    if (totalIndicacoes >= 25) return { nivel: 'EXPERT REFERRAL', cor: 'from-green-500 to-blue-500', emoji: '💎', proximoNivel: 50 }
+    if (totalIndicacoes >= 10) return { nivel: 'INDICADOR PRO', cor: 'from-blue-500 to-purple-500', emoji: '🚀', proximoNivel: 25 }
+    if (totalIndicacoes >= 5) return { nivel: 'NETWORKER', cor: 'from-green-400 to-teal-400', emoji: '⭐', proximoNivel: 10 }
+    if (totalIndicacoes >= 1) return { nivel: 'INICIANTE', cor: 'from-orange-400 to-yellow-400', emoji: '🔥', proximoNivel: 5 }
+    return { nivel: 'RECRUTA', cor: 'from-gray-400 to-gray-500', emoji: '🎯', proximoNivel: 1 }
+  }
+
+  const calcularProgressoIndicacao = () => {
+    const totalIndicacoes = indicacoes.length
+    const nivel = calcularNivelIndicacao()
+
+    if (!nivel.proximoNivel) return 100
+
+    const baseAnterior = totalIndicacoes >= 50 ? 50 : totalIndicacoes >= 25 ? 25 : totalIndicacoes >= 10 ? 10 : totalIndicacoes >= 5 ? 5 : totalIndicacoes >= 1 ? 1 : 0
+    const progressoAtual = totalIndicacoes - baseAnterior
+    const progressoNecessario = nivel.proximoNivel - baseAnterior
+
+    return Math.min((progressoAtual / progressoNecessario) * 100, 100)
+  }
+
+  const getBadges = () => {
+    const badges = []
+    const totalIndicacoes = indicacoes.length
+    const vendidos = indicacoes.filter(lead => lead.status === 'vendido').length
+
+    // Badges de Indicação
+    if (totalIndicacoes >= 1) badges.push({ nome: 'Primeira Indicação', emoji: '🎯', cor: 'bg-blue-100 text-blue-800', conquistado: true })
+    if (totalIndicacoes >= 5) badges.push({ nome: 'Networker', emoji: '⭐', cor: 'bg-green-100 text-green-800', conquistado: true })
+    if (totalIndicacoes >= 10) badges.push({ nome: 'Indicador Pro', emoji: '🚀', cor: 'bg-purple-100 text-purple-800', conquistado: true })
+    if (totalIndicacoes >= 25) badges.push({ nome: 'Expert Referral', emoji: '💎', cor: 'bg-indigo-100 text-indigo-800', conquistado: true })
+    if (totalIndicacoes >= 50) badges.push({ nome: 'Master Indicador', emoji: '🏆', cor: 'bg-yellow-100 text-yellow-800', conquistado: true })
+
+    // Badges de Vendas
+    if (vendidos >= 1) badges.push({ nome: 'Primeira Venda', emoji: '💰', cor: 'bg-emerald-100 text-emerald-800', conquistado: true })
+    if (vendidos >= 3) badges.push({ nome: 'Hat-trick', emoji: '⚽', cor: 'bg-orange-100 text-orange-800', conquistado: true })
+    if (vendidos >= 5) badges.push({ nome: 'Top Seller', emoji: '🎖️', cor: 'bg-red-100 text-red-800', conquistado: true })
+    if (vendidos >= 10) badges.push({ nome: 'Vendedor Expert', emoji: '👨‍💼', cor: 'bg-pink-100 text-pink-800', conquistado: true })
+
+    // Badges Especiais
+    const callsAgendadas = indicacoes.filter(lead => lead.status === 'call_agendada').length
+    if (callsAgendadas >= 5) badges.push({ nome: 'Agendador Master', emoji: '📅', cor: 'bg-cyan-100 text-cyan-800', conquistado: true })
+
+    const qualificados = indicacoes.filter(lead => lead.status === 'qualificado').length
+    if (qualificados >= 10) badges.push({ nome: 'Qualificador', emoji: '✅', cor: 'bg-lime-100 text-lime-800', conquistado: true })
+
+    // Taxa de conversão
+    const taxaConversao = totalIndicacoes > 0 ? (vendidos / totalIndicacoes) * 100 : 0
+    if (taxaConversao >= 20) badges.push({ nome: 'Conversor de Elite', emoji: '🔥', cor: 'bg-gradient-to-r from-red-100 to-yellow-100 text-red-800', conquistado: true })
+
+    return badges
+  }
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
@@ -344,6 +402,9 @@ export default function MentoradoLoginPage() {
   const { vendidos, totalVendas, comissaoTotal, percentualAtual, proximoEscalao } = calcularComissao()
   const nivelInfo = calcularNivel()
   const progresso = calcularProgresso()
+  const nivelIndicacao = calcularNivelIndicacao()
+  const progressoIndicacao = calcularProgressoIndicacao()
+  const badges = getBadges()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4">
@@ -372,7 +433,15 @@ export default function MentoradoLoginPage() {
             </div>
             <div className="flex space-x-4">
               <Button
-                onClick={() => setShowNewIndicacao(!showNewIndicacao)}
+                onClick={() => setShowBadges(true)}
+                variant="outline"
+                className="border-purple-300 text-purple-600 hover:bg-purple-50"
+              >
+                <Trophy className="h-4 w-4 mr-2" />
+                Badges ({badges.length})
+              </Button>
+              <Button
+                onClick={() => setShowNewIndicacao(true)}
                 className="bg-green-600 hover:bg-green-700"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -548,8 +617,194 @@ export default function MentoradoLoginPage() {
           </CardContent>
         </Card>
 
-        {/* Formulário nova indicação */}
-        {showNewIndicacao && (
+        {/* Card de Gamificação de Indicações */}
+        <Card className="mb-6 overflow-hidden">
+          <div className={`bg-gradient-to-r ${nivelIndicacao.cor} p-6 text-white`}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center">
+                  {nivelIndicacao.emoji} {nivelIndicacao.nivel}
+                </h2>
+                <p className="opacity-90">
+                  {indicacoes.length === 0 ? 'Faça sua primeira indicação para começar!' :
+                   nivelIndicacao.proximoNivel ? `Faltam ${nivelIndicacao.proximoNivel - indicacoes.length} indicações para o próximo nível` :
+                   'Você é uma LENDA das indicações! 🌟'}
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-3xl font-bold">{indicacoes.length}</div>
+                <div className="text-sm opacity-90">indicações</div>
+              </div>
+            </div>
+
+            {nivelIndicacao.proximoNivel && (
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span>Progresso para {nivelIndicacao.proximoNivel === 1 ? 'INICIANTE' :
+                                       nivelIndicacao.proximoNivel === 5 ? 'NETWORKER' :
+                                       nivelIndicacao.proximoNivel === 10 ? 'INDICADOR PRO' :
+                                       nivelIndicacao.proximoNivel === 25 ? 'EXPERT REFERRAL' :
+                                       nivelIndicacao.proximoNivel === 50 ? 'MASTER INDICADOR' : 'LENDA'}</span>
+                  <span>{Math.round(progressoIndicacao)}%</span>
+                </div>
+                <div className="w-full bg-black bg-opacity-20 rounded-full h-2">
+                  <div
+                    className="bg-white rounded-full h-2 transition-all duration-500"
+                    style={{ width: `${progressoIndicacao}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <CardContent className="p-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="text-center p-3 bg-blue-50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">{indicacoes.length}</div>
+                <div className="text-sm text-blue-700">Total Indicações</div>
+              </div>
+              <div className="text-center p-3 bg-green-50 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">{vendidos}</div>
+                <div className="text-sm text-green-700">Convertidas</div>
+              </div>
+              <div className="text-center p-3 bg-purple-50 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">
+                  {indicacoes.length > 0 ? Math.round((vendidos / indicacoes.length) * 100) : 0}%
+                </div>
+                <div className="text-sm text-purple-700">Taxa Conversão</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Modal nova indicação */}
+        <Dialog open={showNewIndicacao} onOpenChange={setShowNewIndicacao}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center">
+                <Target className="h-5 w-5 mr-2 text-green-600" />
+                Nova Indicação
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleNovaIndicacao} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="nome_completo">Nome Completo *</Label>
+                <Input
+                  id="nome_completo"
+                  value={novaIndicacao.nome_completo}
+                  onChange={(e) => setNovaIndicacao(prev => ({...prev, nome_completo: e.target.value}))}
+                  required
+                  placeholder="Nome da pessoa que você está indicando"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="telefone">Telefone *</Label>
+                <Input
+                  id="telefone"
+                  value={novaIndicacao.telefone}
+                  onChange={(e) => setNovaIndicacao(prev => ({...prev, telefone: e.target.value}))}
+                  required
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="observacoes">Observações (opcional)</Label>
+                <Input
+                  id="observacoes"
+                  value={novaIndicacao.observacoes}
+                  onChange={(e) => setNovaIndicacao(prev => ({...prev, observacoes: e.target.value}))}
+                  placeholder="Alguma informação adicional sobre a pessoa..."
+                />
+              </div>
+
+              <div className="flex justify-end space-x-4 pt-4">
+                <Button type="button" variant="outline" onClick={() => setShowNewIndicacao(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={loading} className="bg-green-600 hover:bg-green-700">
+                  {loading ? 'Enviando...' : 'Enviar Indicação'}
+                  <Rocket className="h-4 w-4 ml-2" />
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal Badges */}
+        <Dialog open={showBadges} onOpenChange={setShowBadges}>
+          <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center">
+                <Crown className="h-5 w-5 mr-2 text-yellow-600" />
+                Suas Conquistas ({badges.length})
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              {/* Profile Stats */}
+              <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold">{mentorado?.nome_completo}</h3>
+                    <p className="opacity-90">Perfil Geral</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold">{badges.length}</div>
+                    <div className="text-sm opacity-90">badges</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Níveis */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className={`bg-gradient-to-r ${nivelInfo.cor} text-white p-4 rounded-lg`}>
+                  <div className="flex items-center">
+                    <span className="text-2xl mr-3">{nivelInfo.emoji}</span>
+                    <div>
+                      <div className="font-bold">Nível Vendas</div>
+                      <div className="text-sm opacity-90">{nivelInfo.nivel}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`bg-gradient-to-r ${nivelIndicacao.cor} text-white p-4 rounded-lg`}>
+                  <div className="flex items-center">
+                    <span className="text-2xl mr-3">{nivelIndicacao.emoji}</span>
+                    <div>
+                      <div className="font-bold">Nível Indicação</div>
+                      <div className="text-sm opacity-90">{nivelIndicacao.nivel}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Badges Grid */}
+              <div>
+                <h4 className="font-semibold mb-3">Badges Conquistados</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {badges.map((badge, index) => (
+                    <div key={index} className={`p-3 rounded-lg text-center ${badge.cor}`}>
+                      <div className="text-2xl mb-1">{badge.emoji}</div>
+                      <div className="text-xs font-medium">{badge.nome}</div>
+                    </div>
+                  ))}
+                </div>
+                {badges.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <Award className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Você ainda não conquistou nenhum badge.</p>
+                    <p>Faça sua primeira indicação para começar!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Formulário nova indicação - REMOVIDO - Agora é modal */}
+        {false && (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle>Nova Indicação</CardTitle>
