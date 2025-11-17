@@ -26,7 +26,14 @@ import {
   CreditCard,
   BarChart3,
   ExternalLink,
-  Sparkles
+  Sparkles,
+  AlertTriangle,
+  Phone,
+  Clock,
+  CheckSquare,
+  X,
+  UserX,
+  Handshake
 } from 'lucide-react'
 
 export default function Dashboard() {
@@ -61,10 +68,14 @@ export default function Dashboard() {
     percentualFaturamento: 0,
     percentualLeads: 0
   })
+  const [overdueCalls, setOverdueCalls] = useState<any[]>([])
+  const [weekCalls, setWeekCalls] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [updatingCallStatus, setUpdatingCallStatus] = useState<string | null>(null)
 
   useEffect(() => {
     loadDashboardStats()
+    loadOverdueCalls()
   }, [dateFilters.filtroTempo, dateFilters.dataInicio, dateFilters.dataFim])
 
   const loadDashboardStats = async () => {
@@ -318,6 +329,177 @@ export default function Dashboard() {
       setLoading(false)
     }
   }
+
+  // Carregar calls atrasadas
+  const loadOverdueCalls = async () => {
+    try {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      // Buscar leads com status 'call_agendada' que já passaram do prazo
+      // Vamos usar leads que estão há mais de 2 dias em call_agendada
+      const twoDaysAgo = new Date(today)
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+
+      const { data: leadsOverdue, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('status', 'call_agendada')
+        .lt('updated_at', twoDaysAgo.toISOString())
+        .order('updated_at', { ascending: true })
+
+      if (error) throw error
+
+      // Também buscar follow-ups de call que já passaram do prazo
+      const { data: overdueFollowups, error: followupError } = await supabase
+        .from('lead_followups')
+        .select(`
+          *,
+          lead:leads (*)
+        `)
+        .eq('tipo', 'call')
+        .eq('status', 'pendente')
+        .lt('data_agendada', today.toISOString())
+        .order('data_agendada', { ascending: true })
+
+      if (followupError) throw followupError
+
+      // Combinar leads atrasados e follow-ups atrasados
+      const combined = [
+        ...(leadsOverdue || []).map(lead => ({
+          ...lead,
+          type: 'lead',
+          overdueReason: `Call agendada há mais de 2 dias`,
+          daysOverdue: Math.floor((today.getTime() - new Date(lead.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+        })),
+        ...(overdueFollowups || []).map(followup => ({
+          ...followup.lead,
+          type: 'followup',
+          followupId: followup.id,
+          overdueReason: `Call agendada para ${new Date(followup.data_agendada).toLocaleDateString('pt-BR')}`,
+          daysOverdue: Math.floor((today.getTime() - new Date(followup.data_agendada).getTime()) / (1000 * 60 * 60 * 24))
+        }))
+      ]
+
+      // Remover duplicatas por ID do lead
+      const unique = combined.filter((item, index, self) =>
+        index === self.findIndex(t => t.id === item.id)
+      )
+
+      setOverdueCalls(unique)
+
+      // Carregar calls da semana (hoje até domingo)
+      const startOfWeek = new Date()
+      startOfWeek.setHours(0, 0, 0, 0)
+
+      const endOfWeek = new Date()
+      const dayOfWeek = endOfWeek.getDay() // 0 = domingo, 1 = segunda, etc
+      const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek
+      endOfWeek.setDate(endOfWeek.getDate() + daysUntilSunday)
+      endOfWeek.setHours(23, 59, 59, 999)
+
+      // Buscar follow-ups de call desta semana
+      const { data: weekFollowups, error: weekError } = await supabase
+        .from('lead_followups')
+        .select(`
+          *,
+          lead:leads (*)
+        `)
+        .eq('tipo', 'call')
+        .gte('data_agendada', startOfWeek.toISOString())
+        .lte('data_agendada', endOfWeek.toISOString())
+        .order('data_agendada', { ascending: true })
+
+      if (weekError) throw weekError
+
+      // Buscar leads com call_agendada (incluir também como calls da semana)
+      const { data: leadsCallAgendada, error: leadsError } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('status', 'call_agendada')
+
+      if (leadsError) throw leadsError
+
+      const weekCombined = [
+        ...(weekFollowups || []).map(followup => ({
+          ...followup.lead,
+          type: 'followup',
+          followupId: followup.id,
+          scheduledDate: followup.data_agendada,
+          isScheduled: true
+        })),
+        ...(leadsCallAgendada || []).map(lead => ({
+          ...lead,
+          type: 'lead',
+          isScheduled: true,
+          scheduledDate: lead.updated_at
+        }))
+      ]
+
+      // Remover duplicatas por ID do lead
+      const uniqueWeek = weekCombined.filter((item, index, self) =>
+        index === self.findIndex(t => t.id === item.id)
+      )
+
+      setWeekCalls(uniqueWeek)
+
+    } catch (error) {
+      console.error('Erro ao carregar calls atrasadas:', error)
+    }
+  }
+
+  // Atualizar status de call
+  const updateCallStatus = async (leadId: string, newStatus: string, followupId: string | null = null) => {
+    try {
+      setUpdatingCallStatus(leadId)
+
+      // Atualizar status do lead
+      const { error: leadError } = await supabase
+        .from('leads')
+        .update({
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', leadId)
+
+      if (leadError) throw leadError
+
+      // Se houver follow-up associado, marcar como concluído
+      if (followupId) {
+        const { error: followupError } = await supabase
+          .from('lead_followups')
+          .update({
+            status: 'concluido',
+            resultado: `Status atualizado para: ${getStatusLabel(newStatus)}`
+          })
+          .eq('id', followupId)
+
+        if (followupError) throw followupError
+      }
+
+      // Recarregar dados
+      await loadOverdueCalls()
+      await loadDashboardStats()
+
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error)
+      alert('Erro ao atualizar status da call')
+    } finally {
+      setUpdatingCallStatus(null)
+    }
+  }
+
+  // Helper para obter label do status
+  const getStatusLabel = (status: string) => {
+    const labels: { [key: string]: string } = {
+      'proposta_enviada': 'Proposta Enviada',
+      'vendido': 'Vendido',
+      'perdido': 'Perdido',
+      'no_show': 'No Show'
+    }
+    return labels[status] || status
+  }
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -698,6 +880,247 @@ export default function Dashboard() {
                 loading={loading}
               />
             </div>
+          </div>
+        </div>
+
+        {/* Calls Atrasadas */}
+        {overdueCalls.length > 0 && (
+          <div className="space-y-6">
+            <div className="border-b border-gray-200 pb-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+                <h2 className="text-2xl font-semibold text-red-700">
+                  ⚠️ Calls Atrasadas ({overdueCalls.length})
+                </h2>
+              </div>
+              <p className="text-gray-600 mt-1">
+                Leads que passaram da data da call e precisam de atualização urgente
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {overdueCalls.map((call) => (
+                <Card key={call.id} className="border-l-4 border-l-red-500 bg-red-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-red-600" />
+                            <h3 className="font-semibold text-gray-900">{call.nome_completo}</h3>
+                          </div>
+                          <Badge variant="destructive" className="text-xs">
+                            {call.daysOverdue} dias atrás
+                          </Badge>
+                        </div>
+
+                        <div className="text-sm text-gray-600 mb-2">
+                          {call.empresa && (
+                            <span className="mr-4">🏢 {call.empresa}</span>
+                          )}
+                          {call.telefone && (
+                            <span className="mr-4">📞 {call.telefone}</span>
+                          )}
+                        </div>
+
+                        <div className="text-xs text-red-700 mb-3">
+                          <Clock className="h-3 w-3 inline mr-1" />
+                          {call.overdueReason}
+                        </div>
+
+                        <div className="text-xs text-gray-500">
+                          Como foi a call? Atualize o status:
+                        </div>
+                      </div>
+
+                      {/* Botões de Ação */}
+                      <div className="flex gap-2 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                          onClick={() => updateCallStatus(call.id, 'proposta_enviada', call.followupId)}
+                          disabled={updatingCallStatus === call.id}
+                        >
+                          <Handshake className="h-3 w-3 mr-1" />
+                          Proposta Enviada
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                          onClick={() => updateCallStatus(call.id, 'vendido', call.followupId)}
+                          disabled={updatingCallStatus === call.id}
+                        >
+                          <CheckSquare className="h-3 w-3 mr-1" />
+                          Vendido
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
+                          onClick={() => updateCallStatus(call.id, 'perdido', call.followupId)}
+                          disabled={updatingCallStatus === call.id}
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Perdido
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                          onClick={() => updateCallStatus(call.id, 'no_show', call.followupId)}
+                          disabled={updatingCallStatus === call.id}
+                        >
+                          <UserX className="h-3 w-3 mr-1" />
+                          No Show
+                        </Button>
+
+                        {updatingCallStatus === call.id && (
+                          <div className="flex items-center">
+                            <RefreshCw className="h-3 w-3 animate-spin text-blue-600" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Botão para ver todos os leads */}
+            <div className="text-center pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => navigateTo('/leads')}
+                className="hover:bg-gray-50"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Ver todos os leads
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Calls desta Semana */}
+        <div className="space-y-6">
+          <div className="border-b border-gray-200 pb-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-blue-600" />
+              <h2 className="text-2xl font-semibold text-blue-700">
+                📅 Calls desta Semana ({weekCalls.length})
+              </h2>
+            </div>
+            <p className="text-gray-600 mt-1">
+              Todos os leads agendados para call até domingo
+            </p>
+          </div>
+
+          {weekCalls.length > 0 ? (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {weekCalls.map((call) => (
+                <Card key={call.id} className="border-l-4 border-l-blue-500 bg-blue-50/30">
+                  <CardContent className="p-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-blue-600" />
+                        <h3 className="font-semibold text-gray-900 text-sm">{call.nome_completo}</h3>
+                      </div>
+
+                      <div className="text-xs text-gray-600">
+                        {call.empresa && (
+                          <span className="block">🏢 {call.empresa}</span>
+                        )}
+                        {call.telefone && (
+                          <span className="block">📞 {call.telefone}</span>
+                        )}
+                      </div>
+
+                      {call.scheduledDate && (
+                        <div className="text-xs text-blue-700">
+                          <Clock className="h-3 w-3 inline mr-1" />
+                          {call.type === 'followup'
+                            ? new Date(call.scheduledDate).toLocaleDateString('pt-BR', {
+                                weekday: 'short', day: '2-digit', month: 'short',
+                                hour: '2-digit', minute: '2-digit'
+                              })
+                            : 'Call agendada'
+                          }
+                        </div>
+                      )}
+
+                      <Badge variant="outline" className="text-xs">
+                        Status: {call.status}
+                      </Badge>
+
+                      {/* Botões de ação rápida para calls desta semana também */}
+                      <div className="flex gap-1 pt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-6 px-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                          onClick={() => updateCallStatus(call.id, 'vendido', call.followupId)}
+                          disabled={updatingCallStatus === call.id}
+                        >
+                          ✓ Vendido
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-6 px-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                          onClick={() => updateCallStatus(call.id, 'proposta_enviada', call.followupId)}
+                          disabled={updatingCallStatus === call.id}
+                        >
+                          📄 Proposta
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="text-center p-8">
+              <CardContent>
+                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Nenhuma call agendada esta semana
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  Que tal agendar algumas calls para converter mais leads?
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => navigateTo('/leads')}
+                  className="hover:bg-gray-50"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Ver leads disponíveis
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Estatísticas rápidas */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
+            <Card className="text-center p-4">
+              <div className="text-2xl font-bold text-blue-600">{weekCalls.length}</div>
+              <div className="text-sm text-gray-600">Calls esta semana</div>
+            </Card>
+            <Card className="text-center p-4">
+              <div className="text-2xl font-bold text-red-600">{overdueCalls.length}</div>
+              <div className="text-sm text-gray-600">Calls atrasadas</div>
+            </Card>
+            <Card className="text-center p-4">
+              <div className="text-2xl font-bold text-green-600">
+                {callsStats.vendidas || 0}
+              </div>
+              <div className="text-sm text-gray-600">Calls vendidas (período)</div>
+            </Card>
           </div>
         </div>
 
