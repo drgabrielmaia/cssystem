@@ -76,7 +76,7 @@ export const useDateFilters = () => {
           end: lastDayOfYear.toISOString()
         }
 
-      default:
+      case 'todos':
         if (dataInicio || dataFim) {
           const start = dataInicio ? new Date(dataInicio + 'T00:00:00') : null
           const end = dataFim ? new Date(dataFim + 'T23:59:59') : null
@@ -86,6 +86,9 @@ export const useDateFilters = () => {
             end: end?.toISOString() || null
           }
         }
+        return null
+
+      default:
         return null
     }
   }
