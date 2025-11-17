@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { UserCheck, Mail, Eye, EyeOff, LogIn, Plus, TrendingUp, DollarSign, BarChart3, Activity, Trophy, Target, Zap, Gift, Star, Award, Crown, Flame, Rocket, Diamond } from 'lucide-react'
 
 export default function MentoradoLoginPage() {

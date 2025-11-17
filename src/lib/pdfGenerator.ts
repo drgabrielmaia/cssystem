@@ -338,7 +338,7 @@ function drawStatsCards(doc: jsPDF, stats: LeadStats[], leads: Lead[]) {
     const y = 45
 
     // Fundo do card
-    doc.setFillColor(...card.color)
+    doc.setFillColor(card.color[0], card.color[1], card.color[2])
     doc.rect(x, y, 40, 25, 'F')
 
     // Texto
@@ -390,7 +390,8 @@ function drawPieChart(doc: jsPDF, stats: LeadStats[], x: number, y: number, titl
   stats.forEach((stat, index) => {
     if (stat.quantidade > 0) {
       // Quadradinho colorido
-      doc.setFillColor(...colors[index % colors.length])
+      const color = colors[index % colors.length]
+      doc.setFillColor(color[0], color[1], color[2])
       doc.rect(x, legendY, 3, 3, 'F')
 
       // Texto
@@ -462,7 +463,7 @@ function drawSummaryTable(doc: jsPDF, stats: LeadStats[], x: number, y: number) 
 
 // Função auxiliar para desenhar fatia de pizza
 function drawPieSlice(doc: jsPDF, centerX: number, centerY: number, radius: number, startAngle: number, endAngle: number, color: number[]) {
-  doc.setFillColor(...color)
+  doc.setFillColor(color[0], color[1], color[2])
 
   const steps = Math.max(5, Math.floor((endAngle - startAngle) * 50))
   const angleStep = (endAngle - startAngle) / steps

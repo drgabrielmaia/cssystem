@@ -661,7 +661,24 @@ export default function LeadsPage() {
   const filteredLeads = leads
 
   // Obter listas únicas para filtros - usar todos os leads para não perder opções
-  const allStatusOptions = ['todos', 'novo', 'contactado', 'qualificado', 'call_agendada', 'proposta_enviada', 'vendido', 'perdido', 'no_show']
+  const allStatusOptions = [
+    'todos',
+    'novo',
+    'contactado',
+    'qualificado',
+    'nao_qualificado',
+    'aguardando_resposta',
+    'call_agendada',
+    'reagendamento',
+    'proposta_enviada',
+    'documentacao_pendente',
+    'interesse_baixo',
+    'orcamento_insuficiente',
+    'vendido',
+    'perdido',
+    'no_show',
+    'reativar'
+  ]
   const statusOptions = allStatusOptions
   const origemOptions = ['todas', ...Array.from(new Set(leads.map(l => l.origem).filter(Boolean)))]
   const temperaturaOptions = ['todas', 'frio', 'morno', 'quente']
