@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import { Header } from '@/components/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -16,6 +14,7 @@ import { supabase } from '@/lib/supabase'
 import { useDateFilters } from '@/hooks/useDateFilters'
 import { DateFilters } from '@/components/date-filters'
 import { useSettings } from '@/contexts/settings'
+import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import {
   Plus,
   User,
@@ -85,6 +84,8 @@ export default function LeadsPage() {
   const [origemFilter, setOrigemFilter] = useState('todas')
   const [temperaturaFilter, setTemperaturaFilter] = useState('todas')
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table')
+  const [dashboardModalOpen, setDashboardModalOpen] = useState(false)
+  const [reportPeriod, setReportPeriod] = useState('mes')
   const dateFilters = useDateFilters()
   const { settings } = useSettings()
 
@@ -535,90 +536,52 @@ export default function LeadsPage() {
     return <Badge className={config.className}>{config.label}</Badge>
   }
 
-  const exportLeadsToPDF = () => {
-    const doc = new jsPDF()
+  const getChartData = () => {
+    // Pie chart data for status distribution
+    const statusData = stats.map(stat => ({
+      name: stat.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      value: stat.quantidade,
+      fill: getStatusColor(stat.status)
+    }))
 
-    // Título do documento com estilo Rolex (verde e dourado)
-    doc.setFontSize(24)
-    doc.setTextColor(22, 101, 52) // Verde escuro
-    doc.text('Relatorio de Leads', 14, 25)
+    // Bar chart data for revenue by status
+    const revenueData = stats.map(stat => ({
+      name: stat.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      vendido: stat.valor_total_vendido || 0,
+      arrecadado: stat.valor_total_arrecadado || 0
+    }))
 
-    // Linha decorativa dourada
-    doc.setDrawColor(212, 175, 55) // Dourado
-    doc.setLineWidth(1)
-    doc.line(14, 30, 196, 30)
+    // Origin distribution
+    const origemData = leads.reduce((acc, lead) => {
+      const origem = lead.origem || 'Não informado'
+      if (!acc[origem]) {
+        acc[origem] = 0
+      }
+      acc[origem]++
+      return acc
+    }, {} as Record<string, number>)
 
-    // Informações gerais
-    doc.setFontSize(11)
-    doc.setTextColor(60, 60, 60)
-    doc.text(`Data de geracao: ${new Date().toLocaleDateString('pt-BR')}`, 14, 42)
-    doc.text(`Total de leads: ${leads.length}`, 14, 50)
+    const origemChartData = Object.entries(origemData).map(([key, value]) => ({
+      name: key,
+      value,
+      fill: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`
+    }))
 
-    // Preparar dados da tabela - APENAS as 4 colunas essenciais
-    const tableData = leads.map(lead => [
-      lead.nome_completo,
-      lead.origem || 'Não informado',
-      lead.status,
-      lead.observacoes || 'Sem observações'
-    ])
+    return { statusData, revenueData, origemChartData }
+  }
 
-    // Gerar tabela com visual verde e dourado
-    autoTable(doc, {
-      head: [['Lead', 'Origem', 'Status', 'Observacoes']],
-      body: tableData,
-      startY: 60,
-      styles: {
-        fontSize: 10,
-        cellPadding: 4,
-        textColor: [40, 40, 40],
-        lineColor: [22, 101, 52],
-        lineWidth: 0.2
-      },
-      headStyles: {
-        fillColor: [22, 101, 52], // Verde escuro
-        textColor: [255, 255, 255], // Branco
-        fontSize: 11,
-        fontStyle: 'bold',
-        halign: 'center'
-      },
-      alternateRowStyles: {
-        fillColor: [245, 247, 245] // Verde muito claro
-      },
-      columnStyles: {
-        0: {
-          cellWidth: 50, // Lead (nome)
-          fontStyle: 'bold',
-          textColor: [22, 101, 52]
-        },
-        1: {
-          cellWidth: 35, // Origem
-          halign: 'center'
-        },
-        2: {
-          cellWidth: 30, // Status
-          halign: 'center',
-          fontStyle: 'bold'
-        },
-        3: {
-          cellWidth: 70, // Observações
-          cellPadding: 3
-        }
-      },
-      margin: { left: 14, right: 14 },
-      theme: 'grid'
-    })
-
-    // Rodapé elegante
-    const finalY = (doc as any).lastAutoTable.finalY + 15
-    doc.setDrawColor(212, 175, 55) // Dourado
-    doc.line(14, finalY, 196, finalY)
-
-    doc.setFontSize(9)
-    doc.setTextColor(120, 120, 120)
-    doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')} | Sistema de Gestao de Leads`, 14, finalY + 8)
-
-    // Salvar PDF
-    doc.save(`leads_relatorio_${new Date().toISOString().split('T')[0]}.pdf`)
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      'novo': '#3b82f6',
+      'contactado': '#8b5cf6',
+      'qualificado': '#06b6d4',
+      'call_agendada': '#f59e0b',
+      'proposta_enviada': '#eab308',
+      'vendido': '#10b981',
+      'no-show': '#f97316',
+      'cancelado': '#ef4444'
+    }
+    return colors[status] || '#6b7280'
   }
 
   if (loading) {
@@ -864,9 +827,12 @@ export default function LeadsPage() {
               </Button>
             </div>
 
-            <Button variant="outline">
-              <PieChart className="w-4 h-4 mr-2" />
-              Relatórios
+            <Button
+              variant="outline"
+              onClick={() => setDashboardModalOpen(true)}
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Dashboard
             </Button>
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
@@ -1473,6 +1439,177 @@ export default function LeadsPage() {
           </div>
         )}
       </main>
+
+      {/* Dashboard Modal */}
+      <Dialog open={dashboardModalOpen} onOpenChange={setDashboardModalOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="h-6 w-6 text-blue-600" />
+              Dashboard de Leads - Relatórios Visuais
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Period Selector */}
+            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+              <span className="font-medium text-gray-700">Período:</span>
+              <Select value={reportPeriod} onValueChange={setReportPeriod}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="semana_atual">Esta Semana</SelectItem>
+                  <SelectItem value="ultima_semana">Semana Passada</SelectItem>
+                  <SelectItem value="mes">Este Mês</SelectItem>
+                  <SelectItem value="ano">Este Ano</SelectItem>
+                  <SelectItem value="todos">Todos os Dados</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="ml-auto text-sm text-gray-600">
+                Total de leads: {leads.length} • Data: {new Date().toLocaleDateString('pt-BR')}
+              </div>
+            </div>
+
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Status Distribution Pie Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PieChart className="h-5 w-5 text-purple-600" />
+                    Distribuição por Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsPieChart>
+                      <Pie
+                        data={getChartData().statusData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {getChartData().statusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Origin Distribution Pie Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PieChart className="h-5 w-5 text-green-600" />
+                    Distribuição por Origem
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsPieChart>
+                      <Pie
+                        data={getChartData().origemChartData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {getChartData().origemChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Revenue Bar Chart */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-blue-600" />
+                    Faturamento por Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={getChartData().revenueData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                      <YAxis />
+                      <Tooltip
+                        formatter={(value, name) => [
+                          new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL'
+                          }).format(Number(value)),
+                          name === 'vendido' ? 'Valor Vendido' : 'Valor Arrecadado'
+                        ]}
+                      />
+                      <Bar dataKey="vendido" fill="#10b981" name="vendido" />
+                      <Bar dataKey="arrecadado" fill="#3b82f6" name="arrecadado" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Summary Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-blue-600">{leads.length}</div>
+                  <div className="text-sm text-gray-600">Total Leads</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {stats.find(s => s.status === 'vendido')?.quantidade || 0}
+                  </div>
+                  <div className="text-sm text-gray-600">Vendidos</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-emerald-600">
+                    {new Intl.NumberFormat('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL',
+                      minimumFractionDigits: 0
+                    }).format(getTotalVendido())}
+                  </div>
+                  <div className="text-sm text-gray-600">Faturamento</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {new Intl.NumberFormat('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL',
+                      minimumFractionDigits: 0
+                    }).format(getTotalArrecadado())}
+                  </div>
+                  <div className="text-sm text-gray-600">Arrecadado</div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
