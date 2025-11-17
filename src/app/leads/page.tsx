@@ -443,6 +443,17 @@ export default function LeadsPage() {
     return callsRealizadas > 0 ? Math.round((vendidos / callsRealizadas) * 100) : 0
   }
 
+  const getQualificados = () => {
+    return stats.find(s => s.status === 'qualificado')?.quantidade || 0
+  }
+
+  const getCallsJaFeitas = () => {
+    const statusCallsFeitas = ['proposta_enviada', 'vendido', 'perdido']
+    return stats
+      .filter(stat => statusCallsFeitas.includes(stat.status))
+      .reduce((total, stat) => total + stat.quantidade, 0)
+  }
+
   // Filtrar leads baseado na pesquisa e filtros
   // Como os filtros agora são aplicados no servidor, usamos leads diretamente
   const filteredLeads = leads
@@ -584,7 +595,7 @@ export default function LeadsPage() {
 
       <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Cards de Estatísticas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -603,12 +614,12 @@ export default function LeadsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Valor Vendido</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {formatCurrency(getTotalVendido())}
+                  <p className="text-sm font-medium text-gray-600">Qualificados</p>
+                  <p className="text-2xl font-bold text-indigo-600">
+                    {getQualificados()}
                   </p>
                 </div>
-                <DollarSign className="h-8 w-8 text-green-500" />
+                <Target className="h-8 w-8 text-indigo-500" />
               </div>
             </CardContent>
           </Card>
@@ -617,12 +628,12 @@ export default function LeadsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Valor Arrecadado</p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(getTotalArrecadado())}
+                  <p className="text-sm font-medium text-gray-600">Calls Já Feitas</p>
+                  <p className="text-2xl font-bold text-amber-600">
+                    {getCallsJaFeitas()}
                   </p>
                 </div>
-                <DollarSign className="h-8 w-8 text-blue-500" />
+                <PhoneCall className="h-8 w-8 text-amber-500" />
               </div>
             </CardContent>
           </Card>
@@ -654,6 +665,34 @@ export default function LeadsPage() {
                   </p>
                 </div>
                 <Target className="h-8 w-8 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Valor Vendido</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency(getTotalVendido())}
+                  </p>
+                </div>
+                <DollarSign className="h-8 w-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Valor Arrecadado</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {formatCurrency(getTotalArrecadado())}
+                  </p>
+                </div>
+                <DollarSign className="h-8 w-8 text-blue-500" />
               </div>
             </CardContent>
           </Card>
