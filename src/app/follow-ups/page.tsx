@@ -388,23 +388,6 @@ export default function FollowUpsPage() {
     }
   }
 
-  // Droppable Column Component
-  const DroppableColumn = ({ column, children }: { column: any, children: React.ReactNode }) => {
-    const { isOver, setNodeRef } = useDroppable({
-      id: column.key,
-    })
-
-    return (
-      <div
-        ref={setNodeRef}
-        className={`transition-all duration-200 ${
-          isOver ? 'bg-blue-50 scale-102' : ''
-        }`}
-      >
-        {children}
-      </div>
-    )
-  }
 
   // Draggable Follow-up Card Component
   const DraggableFollowUpCard = ({ followUp, column }: { followUp: FollowUp, column: any }) => {
@@ -432,9 +415,9 @@ export default function FollowUpsPage() {
         style={style}
         {...attributes}
         {...listeners}
-        className={`bg-white border rounded-lg p-3 cursor-grab hover:shadow-md transition-shadow ${
+        className={`bg-white border rounded-lg p-3 cursor-grab hover:shadow-md transition-all duration-200 relative ${
           isLate ? 'border-red-200 bg-red-50' : ''
-        } ${isDragging ? 'shadow-lg rotate-3 scale-105' : ''}`}
+        } ${isDragging ? 'shadow-lg rotate-3 scale-105' : ''} hover:border-blue-300`}
         onClick={() => {
           // Only open edit if not dragging
           if (!isDragging) {
@@ -442,6 +425,12 @@ export default function FollowUpsPage() {
           }
         }}
       >
+        {/* Drag indicator */}
+        <div className="absolute top-2 right-2 text-gray-400 opacity-60 hover:opacity-100 transition-opacity">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 6H10V8H8V6ZM14 6H16V8H14V6ZM8 10H10V12H8V10ZM14 10H16V12H14V10ZM8 14H10V16H8V14ZM14 14H16V16H14V14Z" fill="currentColor"/>
+          </svg>
+        </div>
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <TipoIcon className={`h-4 w-4 ${getTipoColor(followUp.tipo)}`} />
@@ -674,12 +663,51 @@ export default function FollowUpsPage() {
           onDragEnd={handleDragEnd}
         >
           <div className="space-y-4">
+            {/* Instructions */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+              💡 <strong>Dica:</strong> Arraste os cards entre as colunas para alterar o status dos follow-ups. Use o ícone ⋮⋮ no canto superior direito de cada card.
+            </div>
+
             {/* Responsive horizontal scroll container */}
             <div className="overflow-x-auto pb-4">
               <div className="flex gap-4 min-w-max">
-                {getFollowUpsByStatus().map(column => (
-                  <DroppableColumn key={column.key} column={column}>
-                    <div className="w-80 flex-shrink-0">
+                {getFollowUpsByStatus().map(column => {
+                  const DroppableCardContent = () => {
+                    const { isOver, setNodeRef } = useDroppable({
+                      id: column.key,
+                    })
+
+                    return (
+                      <CardContent
+                        ref={setNodeRef}
+                        className={`p-2 space-y-2 min-h-[400px] transition-all duration-200 ${
+                          isOver ? 'bg-blue-50/50' : ''
+                        }`}
+                      >
+                        <SortableContext
+                          items={column.followUps.map(followUp => followUp.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {column.followUps.map(followUp => (
+                            <DraggableFollowUpCard
+                              key={followUp.id}
+                              followUp={followUp}
+                              column={column}
+                            />
+                          ))}
+                        </SortableContext>
+
+                        {column.followUps.length === 0 && (
+                          <div className="text-center text-gray-400 text-sm py-8 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                            Solte aqui
+                          </div>
+                        )}
+                      </CardContent>
+                    )
+                  }
+
+                  return (
+                    <div key={column.key} className="w-80 flex-shrink-0">
                       <Card className="h-fit">
                         <CardHeader className={`${column.color} text-white rounded-t-lg py-3`}>
                           <CardTitle className="text-sm font-semibold flex items-center justify-between">
@@ -689,30 +717,11 @@ export default function FollowUpsPage() {
                             </Badge>
                           </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-2 space-y-2 min-h-[400px]">
-                          <SortableContext
-                            items={column.followUps.map(followUp => followUp.id)}
-                            strategy={verticalListSortingStrategy}
-                          >
-                            {column.followUps.map(followUp => (
-                              <DraggableFollowUpCard
-                                key={followUp.id}
-                                followUp={followUp}
-                                column={column}
-                              />
-                            ))}
-                          </SortableContext>
-
-                          {column.followUps.length === 0 && (
-                            <div className="text-center text-gray-400 text-sm py-8 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
-                              Solte aqui
-                            </div>
-                          )}
-                        </CardContent>
+                        <DroppableCardContent />
                       </Card>
                     </div>
-                  </DroppableColumn>
-                ))}
+                  )
+                })}
               </div>
             </div>
           </div>
