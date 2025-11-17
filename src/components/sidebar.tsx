@@ -44,6 +44,7 @@ const navigation = [
   { name: 'Respostas Forms', href: '/form-responses', icon: Eye, description: 'Ver respostas' },
   { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle, description: 'Mensagens' },
   { name: 'Pendências', href: '/pendencias', icon: DollarSign, description: 'Financeiro' },
+  { name: 'Configurações', href: '/configuracoes', icon: Settings, description: 'Metas e preferências' },
 ]
 
 function UserSection() {
