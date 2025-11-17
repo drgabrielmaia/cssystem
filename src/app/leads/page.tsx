@@ -1403,6 +1403,7 @@ export default function LeadsPage() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         {/* Mensagem quando não há leads filtrados */}
         {filteredLeads.length === 0 && leads.length > 0 && (
