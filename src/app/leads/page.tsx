@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
+import { useDateFilters } from '@/hooks/useDateFilters'
+import { DateFilters } from '@/components/date-filters'
 import {
   Plus,
   User,
@@ -76,9 +78,7 @@ export default function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState('todos')
   const [origemFilter, setOrigemFilter] = useState('todas')
   const [temperaturaFilter, setTemperaturaFilter] = useState('todas')
-  const [periodoFilter, setPeriodoFilter] = useState('todos')
-  const [dataInicio, setDataInicio] = useState('')
-  const [dataFim, setDataFim] = useState('')
+  const dateFilters = useDateFilters()
 
   // Estados para paginação e otimização
   const [currentPage, setCurrentPage] = useState(1)
@@ -117,7 +117,7 @@ export default function LeadsPage() {
   // Atualizar estatísticas quando filtros mudarem
   useEffect(() => {
     loadStatsWithCache()
-  }, [statusFilter, origemFilter, temperaturaFilter, periodoFilter, dataInicio, dataFim])
+  }, [statusFilter, origemFilter, temperaturaFilter, dateFilters.dataInicio, dateFilters.dataFim, dateFilters.filtroTempo])
 
   // Debounce para busca
   useEffect(() => {
@@ -126,7 +126,7 @@ export default function LeadsPage() {
     }
 
     const timer = setTimeout(() => {
-      if (searchTerm || statusFilter !== 'todos' || origemFilter !== 'todas' || temperaturaFilter !== 'todas' || periodoFilter !== 'todos' || dataInicio || dataFim) {
+      if (searchTerm || statusFilter !== 'todos' || origemFilter !== 'todas' || temperaturaFilter !== 'todas' || dateFilters.hasActiveFilter) {
         loadLeads(1, false) // Recarregar da primeira página quando filtrar
       }
     }, 300)
@@ -136,7 +136,7 @@ export default function LeadsPage() {
     return () => {
       if (timer) clearTimeout(timer)
     }
-  }, [searchTerm, statusFilter, origemFilter, temperaturaFilter, periodoFilter, dataInicio, dataFim])
+  }, [searchTerm, statusFilter, origemFilter, temperaturaFilter, dateFilters.dataInicio, dateFilters.dataFim, dateFilters.filtroTempo])
 
   const loadLeads = async (page = 1, append = false) => {
     try {
@@ -168,74 +168,16 @@ export default function LeadsPage() {
         query = query.eq('temperatura', temperaturaFilter)
       }
 
-      // Aplicar filtro de período
-      if (periodoFilter !== 'todos') {
-        const now = new Date()
-        let startDate = new Date()
-        let endDate = new Date()
 
-        switch (periodoFilter) {
-          case 'semana_atual':
-            // Segunda-feira da semana atual até domingo
-            const mondayThisWeek = new Date(now)
-            const dayOfWeekCurrent = mondayThisWeek.getDay()
-            const daysToSubtractCurrent = dayOfWeekCurrent === 0 ? 6 : dayOfWeekCurrent - 1
-            mondayThisWeek.setDate(now.getDate() - daysToSubtractCurrent)
-            mondayThisWeek.setHours(0, 0, 0, 0)
-
-            const sundayThisWeek = new Date(mondayThisWeek)
-            sundayThisWeek.setDate(mondayThisWeek.getDate() + 6)
-            sundayThisWeek.setHours(23, 59, 59, 999)
-
-            startDate = mondayThisWeek
-            endDate = sundayThisWeek
-            break
-          case 'ultima_semana':
-            // Segunda-feira da semana passada até domingo
-            const mondayLastWeek = new Date(now)
-            const dayOfWeekLast = mondayLastWeek.getDay()
-            const daysToSubtractLast = dayOfWeekLast === 0 ? 6 : dayOfWeekLast - 1
-            mondayLastWeek.setDate(now.getDate() - daysToSubtractLast - 7) // -7 para semana passada
-            mondayLastWeek.setHours(0, 0, 0, 0)
-
-            const sundayLastWeek = new Date(mondayLastWeek)
-            sundayLastWeek.setDate(mondayLastWeek.getDate() + 6)
-            sundayLastWeek.setHours(23, 59, 59, 999)
-
-            startDate = mondayLastWeek
-            endDate = sundayLastWeek
-            break
-          case 'mes':
-            // Primeiro dia do mês atual
-            startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-            startDate.setHours(0, 0, 0, 0)
-            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-            endDate.setHours(23, 59, 59, 999)
-            break
-          case 'ano':
-            startDate = new Date(now.getFullYear(), 0, 1)
-            startDate.setHours(0, 0, 0, 0)
-            endDate = new Date(now.getFullYear(), 11, 31)
-            endDate.setHours(23, 59, 59, 999)
-            break
+      // Aplicar filtro de datas personalizadas usando o novo sistema
+      const dateFilter = dateFilters.getDateFilter()
+      if (dateFilter?.start || dateFilter?.end) {
+        if (dateFilter.start) {
+          query = query.gte('data_primeiro_contato', dateFilter.start)
         }
-
-        query = query.gte('data_primeiro_contato', startDate.toISOString())
-        if (endDate) {
-          query = query.lte('data_primeiro_contato', endDate.toISOString())
+        if (dateFilter.end) {
+          query = query.lte('data_primeiro_contato', dateFilter.end)
         }
-      }
-
-      // Aplicar filtro de datas personalizadas
-      if (dataInicio) {
-        const startDate = new Date(dataInicio)
-        startDate.setHours(0, 0, 0, 0)
-        query = query.gte('data_primeiro_contato', startDate.toISOString())
-      }
-      if (dataFim) {
-        const endDate = new Date(dataFim)
-        endDate.setHours(23, 59, 59, 999)
-        query = query.lte('data_primeiro_contato', endDate.toISOString())
       }
 
       const { data, error, count } = await query
@@ -262,7 +204,7 @@ export default function LeadsPage() {
 
   const loadStatsWithCache = async () => {
     // Criar chave de cache baseada nos filtros atuais
-    const cacheKey = `stats_${statusFilter}_${origemFilter}_${temperaturaFilter}_${periodoFilter}_${dataInicio}_${dataFim}`
+    const cacheKey = `stats_${statusFilter}_${origemFilter}_${temperaturaFilter}_${dateFilters.dataInicio}_${dateFilters.dataFim}_${dateFilters.filtroTempo}`
 
     // Verificar cache (válido por 2 minutos)
     if (statsCache[cacheKey]) {
@@ -345,16 +287,15 @@ export default function LeadsPage() {
         }
       }
 
-      // Aplicar filtro de datas personalizadas
-      if (dataInicio) {
-        const startDate = new Date(dataInicio)
-        startDate.setHours(0, 0, 0, 0)
-        query = query.gte('data_primeiro_contato', startDate.toISOString())
-      }
-      if (dataFim) {
-        const endDate = new Date(dataFim)
-        endDate.setHours(23, 59, 59, 999)
-        query = query.lte('data_primeiro_contato', endDate.toISOString())
+      // Aplicar filtro de datas personalizadas usando o novo sistema
+      const dateFilter = dateFilters.getDateFilter()
+      if (dateFilter?.start || dateFilter?.end) {
+        if (dateFilter.start) {
+          query = query.gte('data_primeiro_contato', dateFilter.start)
+        }
+        if (dateFilter.end) {
+          query = query.lte('data_primeiro_contato', dateFilter.end)
+        }
       }
 
       const { data, error } = await query
@@ -1003,6 +944,17 @@ export default function LeadsPage() {
             />
           </div>
 
+          {/* Filtros Avançados de Data */}
+          <DateFilters
+            filtroTempo={dateFilters.filtroTempo}
+            dataInicio={dateFilters.dataInicio}
+            dataFim={dateFilters.dataFim}
+            setFiltroTempo={dateFilters.setFiltroTempo}
+            setDataInicio={dateFilters.setDataInicio}
+            setDataFim={dateFilters.setDataFim}
+            resetFilters={dateFilters.resetFilters}
+          />
+
           {/* Filtros */}
           <div className="flex flex-wrap gap-4">
             {/* Filtro por Status */}
@@ -1062,119 +1014,6 @@ export default function LeadsPage() {
               </div>
             </div>
 
-            {/* Filtro por Período */}
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4"></div>
-              <span className="text-sm text-gray-600">Período:</span>
-              <div className="flex flex-wrap gap-1">
-                <Button
-                  variant={periodoFilter === 'todos' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setPeriodoFilter('todos')
-                    setDataInicio('')
-                    setDataFim('')
-                  }}
-                  className="text-xs"
-                >
-                  📅 Todos
-                </Button>
-                <Button
-                  variant={periodoFilter === 'semana_atual' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setPeriodoFilter('semana_atual')
-                    setDataInicio('')
-                    setDataFim('')
-                  }}
-                  className="text-xs"
-                >
-                  📆 Semana Atual (Seg-Dom)
-                </Button>
-                <Button
-                  variant={periodoFilter === 'ultima_semana' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setPeriodoFilter('ultima_semana')
-                    setDataInicio('')
-                    setDataFim('')
-                  }}
-                  className="text-xs"
-                >
-                  📆 Última Semana (Seg-Dom)
-                </Button>
-                <Button
-                  variant={periodoFilter === 'mes' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setPeriodoFilter('mes')
-                    setDataInicio('')
-                    setDataFim('')
-                  }}
-                  className="text-xs"
-                >
-                  📅 Mês Atual
-                </Button>
-                <Button
-                  variant={periodoFilter === 'ano' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setPeriodoFilter('ano')
-                    setDataInicio('')
-                    setDataFim('')
-                  }}
-                  className="text-xs"
-                >
-                  📄 Ano Atual
-                </Button>
-              </div>
-            </div>
-
-            {/* Filtro por Datas Personalizadas */}
-            <div className="flex items-center gap-2 border-t pt-4">
-              <div className="w-4 h-4"></div>
-              <span className="text-sm text-gray-600">Período Personalizado:</span>
-              <div className="flex flex-wrap gap-2 items-center">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs text-gray-600">De:</Label>
-                  <Input
-                    type="date"
-                    value={dataInicio}
-                    onChange={(e) => {
-                      setDataInicio(e.target.value)
-                      setPeriodoFilter('todos')
-                    }}
-                    className="text-xs w-36"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs text-gray-600">Até:</Label>
-                  <Input
-                    type="date"
-                    value={dataFim}
-                    onChange={(e) => {
-                      setDataFim(e.target.value)
-                      setPeriodoFilter('todos')
-                    }}
-                    className="text-xs w-36"
-                  />
-                </div>
-                {(dataInicio || dataFim) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setDataInicio('')
-                      setDataFim('')
-                      setPeriodoFilter('todos')
-                    }}
-                    className="text-xs"
-                  >
-                    ✖️ Limpar
-                  </Button>
-                )}
-              </div>
-            </div>
           </div>
         </div>
 
@@ -1349,9 +1188,7 @@ export default function LeadsPage() {
                 setStatusFilter('todos')
                 setOrigemFilter('todas')
                 setTemperaturaFilter('todas')
-                setPeriodoFilter('todos')
-                setDataInicio('')
-                setDataFim('')
+                dateFilters.resetFilters()
               }}
             >
               Limpar Filtros

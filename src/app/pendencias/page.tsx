@@ -90,6 +90,9 @@ export default function PendenciasPage() {
   // Estado do filtro de turma
   const [turmaSelecionada, setTurmaSelecionada] = useState('todas')
 
+  // Estado para controlar filtro de atraso
+  const [mostrandoApenaAtrasados, setMostrandoApenaAtrasados] = useState(false)
+
   useEffect(() => {
     loadDividasData()
     loadMentoradosDisponiveis()
@@ -177,13 +180,41 @@ export default function PendenciasPage() {
     }
   }
 
-  const filteredMentorados = mentorados.filter(mentorado =>
-    mentorado.totalPendente > 0 &&
-    (searchTerm === '' ||
-     mentorado.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     mentorado.email.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    (turmaSelecionada === 'todas' || mentorado.turma === turmaSelecionada)
-  )
+  const filteredMentorados = mentorados.filter(mentorado => {
+    // Deve ter pendências
+    if (mentorado.totalPendente <= 0) return false
+
+    // Filtro de busca por nome/email
+    if (searchTerm !== '' &&
+        !mentorado.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !mentorado.email.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false
+    }
+
+    // Filtro por turma
+    if (turmaSelecionada !== 'todas' && mentorado.turma !== turmaSelecionada) {
+      return false
+    }
+
+    // Filtro de atraso
+    if (mostrandoApenaAtrasados) {
+      const hoje = new Date()
+      hoje.setHours(0, 0, 0, 0)
+
+      const temAtraso = mentorado.dividas.some(divida => {
+        if (divida.status === 'pendente') {
+          const dataVencimento = new Date(divida.data_vencimento + 'T12:00:00')
+          dataVencimento.setHours(0, 0, 0, 0)
+          return dataVencimento < hoje
+        }
+        return false
+      })
+
+      return temAtraso
+    }
+
+    return true
+  })
 
   // Obter lista única de turmas
   const getTurmasDisponiveis = () => {
@@ -532,9 +563,11 @@ export default function PendenciasPage() {
           </div>
         }
         subtitle={
-          filteredMentorados.length === mentorados.filter(m => m.totalPendente > 0).length
-            ? `${mentorados.filter(m => m.totalPendente > 0).length} com pendências • ${formatCurrency(getTotalGeral())} total pendente`
-            : `${filteredMentorados.length} de ${mentorados.filter(m => m.totalPendente > 0).length} com pendências (filtrados) • ${formatCurrency(filteredMentorados.reduce((sum, m) => sum + m.totalPendente, 0))} filtrado`
+          mostrandoApenaAtrasados
+            ? `🚨 ${filteredMentorados.length} pessoa(s) em atraso • ${formatCurrency(filteredMentorados.reduce((sum, m) => sum + m.totalPendente, 0))} em atraso`
+            : filteredMentorados.length === mentorados.filter(m => m.totalPendente > 0).length
+              ? `${mentorados.filter(m => m.totalPendente > 0).length} com pendências • ${formatCurrency(getTotalGeral())} total pendente`
+              : `${filteredMentorados.length} de ${mentorados.filter(m => m.totalPendente > 0).length} com pendências (filtrados) • ${formatCurrency(filteredMentorados.reduce((sum, m) => sum + m.totalPendente, 0))} filtrado`
         }
       />
 
@@ -696,8 +729,102 @@ export default function PendenciasPage() {
           </CardContent>
         </Card>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Stats Cards com Pendências em Atraso */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">{/* Card de Pendências em Atraso - destacado */}
+          <Card className="bg-gradient-to-r from-red-50 to-red-100 border-red-200 shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-red-700">Em Atraso</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {(() => {
+                      const hoje = new Date()
+                      hoje.setHours(0, 0, 0, 0)
+                      let valorAtraso = 0
+
+                      mentorados.forEach(mentorado => {
+                        mentorado.dividas.forEach(divida => {
+                          if (divida.status === 'pendente') {
+                            const dataVencimento = new Date(divida.data_vencimento + 'T12:00:00')
+                            dataVencimento.setHours(0, 0, 0, 0)
+
+                            if (dataVencimento < hoje) {
+                              valorAtraso += divida.valor
+                            }
+                          }
+                        })
+                      })
+
+                      return formatCurrency(valorAtraso)
+                    })()}
+                  </p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {(() => {
+                      const hoje = new Date()
+                      hoje.setHours(0, 0, 0, 0)
+                      let contadorAtraso = 0
+
+                      mentorados.forEach(mentorado => {
+                        let temAtraso = false
+                        mentorado.dividas.forEach(divida => {
+                          if (divida.status === 'pendente') {
+                            const dataVencimento = new Date(divida.data_vencimento + 'T12:00:00')
+                            dataVencimento.setHours(0, 0, 0, 0)
+
+                            if (dataVencimento < hoje && !temAtraso) {
+                              contadorAtraso++
+                              temAtraso = true
+                            }
+                          }
+                        })
+                      })
+
+                      return `${contadorAtraso} pessoa(s) em atraso`
+                    })()}
+                  </p>
+                </div>
+                <div className="relative">
+                  <AlertTriangle className="h-8 w-8 text-red-500" />
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-600 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className={`mt-3 w-full ${mostrandoApenaAtrasados
+                  ? 'bg-red-100 text-red-800 border-red-400'
+                  : 'text-red-700 border-red-300 hover:bg-red-50'
+                }`}
+                onClick={() => {
+                  setMostrandoApenaAtrasados(!mostrandoApenaAtrasados)
+
+                  // Limpar filtros de busca para ver todos os atrasados
+                  if (!mostrandoApenaAtrasados) {
+                    setSearchTerm('')
+                    setTurmaSelecionada('todas')
+                  }
+
+                  // Scroll para a seção de lista de pendências
+                  setTimeout(() => {
+                    document.querySelector('[data-section="pendencias-lista"]')?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start'
+                    })
+                  }, 100)
+                }}
+              >
+                {mostrandoApenaAtrasados ? (
+                  <>
+                    ✅ Mostrando Atrasados
+                  </>
+                ) : (
+                  <>
+                    🔍 Ver Pessoas em Atraso
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -1005,7 +1132,26 @@ export default function PendenciasPage() {
         </div>
 
         {/* Lista de Pendências */}
-        <div className="space-y-4">
+        <div className="space-y-4" data-section="pendencias-lista">{mostrandoApenaAtrasados && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                  <span className="font-medium text-red-800">
+                    Mostrando apenas pessoas em atraso
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setMostrandoApenaAtrasados(false)}
+                  className="text-red-600 hover:bg-red-100"
+                >
+                  ✖️ Limpar filtro
+                </Button>
+              </div>
+            </div>
+          )}
           {filteredMentorados.map((mentorado) => {
             const dividasPendentes = mentorado.dividas.filter(d => d.status === 'pendente')
             const gruposPorMes = agruparDividasPorMes(dividasPendentes)

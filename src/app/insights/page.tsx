@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useDateFilters } from '@/hooks/useDateFilters'
+import { DateFilters } from '@/components/date-filters'
 import { Header } from '@/components/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -47,23 +49,21 @@ export default function InsightsPage() {
   const [metricas, setMetricas] = useState<MetricaFormulario[]>([])
   const [respostasDetalhadas, setRespostasDetalhadas] = useState<RespostaDetalhada[]>([])
   const [filtroTipo, setFiltroTipo] = useState('todos')
-  const [filtroPeriodo, setFiltroPeriodo] = useState('30dias')
+  const dateFilters = useDateFilters()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadInsights()
-  }, [filtroTipo, filtroPeriodo])
+  }, [filtroTipo, dateFilters.filtroTempo, dateFilters.dataInicio, dateFilters.dataFim])
 
   const loadInsights = async () => {
     try {
       const metricas: MetricaFormulario[] = []
       const respostasDetalhadas: RespostaDetalhada[] = []
 
-      // Calcular período baseado no filtro
-      const hoje = new Date()
-      const diasAtras = filtroPeriodo === '7dias' ? 7 : filtroPeriodo === '30dias' ? 30 : 90
-      const dataInicio = new Date(hoje)
-      dataInicio.setDate(hoje.getDate() - diasAtras)
+      // Usar filtros de data do nosso sistema avançado
+      const dateFilter = dateFilters.getDateFilter()
+      const dataInicio = dateFilter?.start ? new Date(dateFilter.start) : null
 
       // 1. Carregar métricas NPS
       try {
@@ -77,7 +77,7 @@ export default function InsightsPage() {
             data_resposta,
             mentorados!inner(nome_completo)
           `)
-          .gte('data_resposta', dataInicio.toISOString())
+          .gte('data_resposta', dataInicio ? dataInicio.toISOString() : new Date('1900-01-01').toISOString())
 
         if (npsData && npsData.length > 0) {
           const npsScore = npsData.reduce((sum, item) => sum + item.nota_nps, 0) / npsData.length
@@ -124,7 +124,7 @@ export default function InsightsPage() {
               ${modulo.campo_data},
               mentorados!inner(nome_completo)
             `)
-            .gte(modulo.campo_data, dataInicio.toISOString())
+            .gte(modulo.campo_data, dataInicio ? dataInicio.toISOString() : new Date('1900-01-01').toISOString())
 
           if (moduloData && moduloData.length > 0) {
             const npsScore = moduloData.reduce((sum, item) => sum + ((item as any)[modulo.campo_nps] || 0), 0) / moduloData.length
@@ -168,7 +168,7 @@ export default function InsightsPage() {
               data_envio,
               mentorados!inner(nome_completo)
             `)
-            .gte('data_envio', dataInicio.toISOString())
+            .gte('data_envio', dataInicio ? dataInicio.toISOString() : new Date('1900-01-01').toISOString())
 
           if (genericData && genericData.length > 0) {
             // Agrupar por tipo de formulário
@@ -357,17 +357,15 @@ export default function InsightsPage() {
             </SelectContent>
           </Select>
 
-          <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7dias">Últimos 7 dias</SelectItem>
-              <SelectItem value="30dias">Últimos 30 dias</SelectItem>
-              <SelectItem value="90dias">Últimos 90 dias</SelectItem>
-              <SelectItem value="ano">Este ano</SelectItem>
-            </SelectContent>
-          </Select>
+          <DateFilters
+            filtroTempo={dateFilters.filtroTempo}
+            dataInicio={dateFilters.dataInicio}
+            dataFim={dateFilters.dataFim}
+            setFiltroTempo={dateFilters.setFiltroTempo}
+            setDataInicio={dateFilters.setDataInicio}
+            setDataFim={dateFilters.setDataFim}
+            resetFilters={dateFilters.resetFilters}
+          />
 
           <Button variant="outline" className="ml-auto">
             <Download className="h-4 w-4 mr-2" />

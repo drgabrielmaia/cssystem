@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
 import { useSettings } from '@/contexts/settings'
+import { useDateFilters } from '@/hooks/useDateFilters'
+import { DateFilters } from '@/components/date-filters'
 import {
   TrendingUp,
   Users,
@@ -43,35 +45,12 @@ interface LeadsMetrics {
 
 export default function SocialSellerPage() {
   const { settings } = useSettings()
+  const dateFilters = useDateFilters()
   const [metrics, setMetrics] = useState<LeadsMetrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
-  const [filtroTempo, setFiltroTempo] = useState('todos') // semana, mes, ano, todos
 
-  const getDateFilter = () => {
-    const now = new Date()
-    switch (filtroTempo) {
-      case 'semana':
-        // Segunda-feira da semana atual
-        const monday = new Date(now)
-        const dayOfWeek = monday.getDay()
-        const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-        monday.setDate(now.getDate() - daysToSubtract)
-        monday.setHours(0, 0, 0, 0)
-        return monday.toISOString()
-      case 'mes':
-        // Primeiro dia do mês atual
-        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-        firstDayOfMonth.setHours(0, 0, 0, 0)
-        return firstDayOfMonth.toISOString()
-      case 'ano':
-        const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
-        return oneYearAgo.toISOString()
-      default:
-        return null
-    }
-  }
 
   useEffect(() => {
     loadSocialSellerData()
@@ -84,7 +63,7 @@ export default function SocialSellerPage() {
 
     // Limpar interval ao desmontar componente
     return () => clearInterval(interval)
-  }, [filtroTempo])
+  }, [dateFilters.filtroTempo, dateFilters.dataInicio, dateFilters.dataFim])
 
   const loadSocialSellerData = async (isManualRefresh = false) => {
     try {
@@ -109,23 +88,33 @@ export default function SocialSellerPage() {
       console.log('📊 Leads carregados:', allLeads)
 
       // Aplicar filtro de data se necessário
-      const dateFilter = getDateFilter()
+      const dateFilter = dateFilters.getDateFilter()
       let leadsParaContar = allLeads || []
 
       if (dateFilter && allLeads) {
         leadsParaContar = allLeads.filter(lead => {
-          const dataFiltro = new Date(dateFilter)
-
           // Para leads vendidos, usar convertido_em se disponível
-          if (lead.status === 'vendido') {
-            const dataConversao = lead.convertido_em || lead.status_updated_at || lead.data_primeiro_contato
-            return dataConversao && new Date(dataConversao) >= dataFiltro
+          const dataReferencia = lead.status === 'vendido'
+            ? (lead.convertido_em || lead.status_updated_at || lead.data_primeiro_contato)
+            : (lead.status_updated_at || lead.data_primeiro_contato)
+
+          if (!dataReferencia) return true
+
+          const dataLead = new Date(dataReferencia)
+
+          if (dateFilter.start && dateFilter.end) {
+            const startDate = new Date(dateFilter.start)
+            const endDate = new Date(dateFilter.end)
+            return dataLead >= startDate && dataLead <= endDate
+          } else if (dateFilter.start) {
+            const startDate = new Date(dateFilter.start)
+            return dataLead >= startDate
+          } else if (dateFilter.end) {
+            const endDate = new Date(dateFilter.end)
+            return dataLead <= endDate
           }
-          // Para todos os outros status, usar status_updated_at (quando mudou para esse status)
-          else {
-            const dataStatus = lead.status_updated_at || lead.data_primeiro_contato
-            return dataStatus && new Date(dataStatus) >= dataFiltro
-          }
+
+          return true
         })
       }
 
@@ -276,31 +265,16 @@ export default function SocialSellerPage() {
       </div>
 
       <main className="flex-1 p-6 space-y-6">
-        {/* Filtro de Período */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center space-x-4">
-                <Filter className="h-5 w-5 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">Período:</span>
-                <Select value={filtroTempo} onValueChange={setFiltroTempo}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">📅 Todos os dados</SelectItem>
-                    <SelectItem value="semana">📆 Última semana</SelectItem>
-                    <SelectItem value="mes">📅 Último mês</SelectItem>
-                    <SelectItem value="ano">📄 Último ano</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="text-sm text-gray-500">
-                {filtroTempo !== 'todos' && `Dados filtrados: ${filtroTempo === 'semana' ? 'últimos 7 dias' : filtroTempo === 'mes' ? 'últimos 30 dias' : 'últimos 365 dias'}`}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Filtros de Período */}
+        <DateFilters
+          filtroTempo={dateFilters.filtroTempo}
+          dataInicio={dateFilters.dataInicio}
+          dataFim={dateFilters.dataFim}
+          setFiltroTempo={dateFilters.setFiltroTempo}
+          setDataInicio={dateFilters.setDataInicio}
+          setDataFim={dateFilters.setDataFim}
+          resetFilters={dateFilters.resetFilters}
+        />
 
         {/* Cards de Métricas Principais */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

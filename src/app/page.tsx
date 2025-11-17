@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useDateFilters } from '@/hooks/useDateFilters'
+import { DateFilters } from '@/components/date-filters'
 import {
   Users,
   Calendar,
@@ -29,6 +31,7 @@ import {
 
 export default function Dashboard() {
   const router = useRouter()
+  const dateFilters = useDateFilters()
   const [stats, setStats] = useState({
     totalMentorados: 0,
     totalCheckins: 0,
@@ -52,40 +55,15 @@ export default function Dashboard() {
     vendidas: 0,
     totalCalls: 0
   })
-  const [filtroTempo, setFiltroTempo] = useState('todos') // semana, mes, ano, todos
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadDashboardStats()
-  }, [filtroTempo])
-
-  const getDateFilter = () => {
-    const now = new Date()
-    switch (filtroTempo) {
-      case 'semana':
-        // Início da semana (segunda-feira)
-        const dayOfWeek = now.getDay() // 0 = domingo, 1 = segunda, etc.
-        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // Se for domingo, volta 6 dias
-        const startOfWeek = new Date(now)
-        startOfWeek.setDate(now.getDate() - daysToMonday)
-        startOfWeek.setHours(0, 0, 0, 0)
-        return startOfWeek.toISOString()
-      case 'mes':
-        // Primeiro dia do mês atual
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-        startOfMonth.setHours(0, 0, 0, 0)
-        return startOfMonth.toISOString()
-      case 'ano':
-        const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
-        return oneYearAgo.toISOString()
-      default:
-        return null
-    }
-  }
+  }, [dateFilters.filtroTempo, dateFilters.dataInicio, dateFilters.dataFim])
 
   const loadDashboardStats = async () => {
     try {
-      const dateFilter = getDateFilter()
+      const dateFilter = dateFilters.getDateFilter()
 
       // Buscar mentorados
       const { data: mentorados } = await supabase
@@ -151,19 +129,39 @@ export default function Dashboard() {
       if (allLeads) {
         // Filtrar leads por data_primeiro_contato para total de leads
         let leadsParaContar = allLeads
-        if (dateFilter) {
-          leadsParaContar = allLeads.filter(lead =>
-            lead.data_primeiro_contato && new Date(lead.data_primeiro_contato) >= new Date(dateFilter)
-          )
+        if (dateFilter?.start || dateFilter?.end) {
+          leadsParaContar = allLeads.filter(lead => {
+            if (!lead.data_primeiro_contato) return false
+            const leadDate = new Date(lead.data_primeiro_contato)
+
+            if (dateFilter.start && dateFilter.end) {
+              return leadDate >= new Date(dateFilter.start) && leadDate <= new Date(dateFilter.end)
+            } else if (dateFilter.start) {
+              return leadDate >= new Date(dateFilter.start)
+            } else if (dateFilter.end) {
+              return leadDate <= new Date(dateFilter.end)
+            }
+            return true
+          })
         }
         totalLeads = leadsParaContar.length
 
         // Para leads vendidos, usar convertido_em se disponível, senão data_primeiro_contato
         let leadsVendidosParaContar = allLeads.filter(lead => lead.status === 'vendido')
-        if (dateFilter) {
+        if (dateFilter?.start || dateFilter?.end) {
           leadsVendidosParaContar = leadsVendidosParaContar.filter(lead => {
             const dataConversao = lead.convertido_em || lead.data_primeiro_contato
-            return dataConversao && new Date(dataConversao) >= new Date(dateFilter)
+            if (!dataConversao) return false
+            const conversionDate = new Date(dataConversao)
+
+            if (dateFilter.start && dateFilter.end) {
+              return conversionDate >= new Date(dateFilter.start) && conversionDate <= new Date(dateFilter.end)
+            } else if (dateFilter.start) {
+              return conversionDate >= new Date(dateFilter.start)
+            } else if (dateFilter.end) {
+              return conversionDate <= new Date(dateFilter.end)
+            }
+            return true
           })
         }
 
@@ -181,10 +179,20 @@ export default function Dashboard() {
       if (allLeads) {
         // Filtrar leads por data primeiro
         let leadsParaCall = allLeads
-        if (dateFilter) {
-          leadsParaCall = allLeads.filter(lead =>
-            lead.data_primeiro_contato && new Date(lead.data_primeiro_contato) >= new Date(dateFilter)
-          )
+        if (dateFilter?.start || dateFilter?.end) {
+          leadsParaCall = allLeads.filter(lead => {
+            if (!lead.data_primeiro_contato) return false
+            const leadDate = new Date(lead.data_primeiro_contato)
+
+            if (dateFilter.start && dateFilter.end) {
+              return leadDate >= new Date(dateFilter.start) && leadDate <= new Date(dateFilter.end)
+            } else if (dateFilter.start) {
+              return leadDate >= new Date(dateFilter.start)
+            } else if (dateFilter.end) {
+              return leadDate <= new Date(dateFilter.end)
+            }
+            return true
+          })
         }
 
         // Contar calls por status
@@ -349,45 +357,20 @@ export default function Dashboard() {
     <div className="flex-1 overflow-y-auto bg-gray-50 min-h-screen">
       <Header
         title="Dashboard"
-        subtitle={`Visão geral do Customer Success ${filtroTempo !== 'todos' ? `- ${filtroTempo === 'semana' ? 'Esta semana' : filtroTempo === 'mes' ? 'Este mês' : 'Último ano'}` : ''}`}
+        subtitle="Visão geral do Customer Success"
       />
 
       <main className="flex-1 p-4 sm:p-6 space-y-6 sm:space-y-8">
-        {/* Filtro de Período Minimalista */}
-        <Card className="bg-white border border-gray-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-3">
-                  <Filter className="h-5 w-5 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-900">
-                    Período de Análise
-                  </span>
-                </div>
-                <Select value={filtroTempo} onValueChange={setFiltroTempo}>
-                  <SelectTrigger className="w-48 h-10 border border-gray-300 focus:border-gray-400 bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border-gray-200">
-                    <SelectItem value="todos">Todos os dados</SelectItem>
-                    <SelectItem value="semana">Esta semana (seg-dom)</SelectItem>
-                    <SelectItem value="mes">Este mês (dia 1 até hoje)</SelectItem>
-                    <SelectItem value="ano">Último ano</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                variant="outline"
-                className="h-10 px-4 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
-                onClick={loadDashboardStats}
-                disabled={loading}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                {loading ? 'Atualizando...' : 'Atualizar'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Filtros Avançados */}
+        <DateFilters
+          filtroTempo={dateFilters.filtroTempo}
+          dataInicio={dateFilters.dataInicio}
+          dataFim={dateFilters.dataFim}
+          setFiltroTempo={dateFilters.setFiltroTempo}
+          setDataInicio={dateFilters.setDataInicio}
+          setDataFim={dateFilters.setDataFim}
+          resetFilters={dateFilters.resetFilters}
+        />
 
         {/* Dashboard Principal */}
         <div className="space-y-8">
@@ -487,9 +470,9 @@ export default function Dashboard() {
             <div className="border-b border-gray-200 pb-4">
               <h2 className="text-2xl font-semibold text-gray-900">
                 Performance de Vendas
-                {filtroTempo !== 'todos' && (
+                {dateFilters.hasActiveFilter && (
                   <span className="text-lg text-gray-500 ml-2 font-normal">
-                    ({filtroTempo === 'semana' ? 'Esta semana' : filtroTempo === 'mes' ? 'Este mês' : 'Último ano'})
+                    - Filtro aplicado
                   </span>
                 )}
               </h2>
@@ -550,9 +533,9 @@ export default function Dashboard() {
             <div className="border-b border-gray-200 pb-4">
               <h2 className="text-2xl font-semibold text-gray-900">
                 Performance de Calls
-                {filtroTempo !== 'todos' && (
+                {dateFilters.hasActiveFilter && (
                   <span className="text-lg text-gray-500 ml-2 font-normal">
-                    ({filtroTempo === 'semana' ? 'Esta semana' : filtroTempo === 'mes' ? 'Este mês' : 'Último ano'})
+                    - Filtro aplicado
                   </span>
                 )}
               </h2>
