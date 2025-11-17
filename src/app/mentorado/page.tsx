@@ -27,13 +27,39 @@ export default function MentoradoLoginPage() {
 
   // Verificar se já está logado
   useEffect(() => {
-    const savedMentorado = localStorage.getItem('mentorado')
-    if (savedMentorado) {
-      const mentoradoData = JSON.parse(savedMentorado)
-      setMentorado(mentoradoData)
-      setIsLoggedIn(true)
-      loadIndicacoes(mentoradoData.id)
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (session?.user) {
+        // Buscar dados do mentorado
+        const { data: mentoradoData, error } = await supabase
+          .from('mentorados')
+          .select('*')
+          .eq('email', session.user.email)
+          .eq('status_login', 'ativo')
+          .single()
+
+        if (mentoradoData && !error) {
+          setMentorado(mentoradoData)
+          setIsLoggedIn(true)
+          localStorage.setItem('mentorado', JSON.stringify(mentoradoData))
+          loadIndicacoes(mentoradoData.id)
+        } else {
+          await supabase.auth.signOut()
+        }
+      } else {
+        // Verificar localStorage como fallback
+        const savedMentorado = localStorage.getItem('mentorado')
+        if (savedMentorado) {
+          const mentoradoData = JSON.parse(savedMentorado)
+          setMentorado(mentoradoData)
+          setIsLoggedIn(true)
+          loadIndicacoes(mentoradoData.id)
+        }
+      }
     }
+
+    checkAuth()
   }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -41,31 +67,36 @@ export default function MentoradoLoginPage() {
     setLoading(true)
 
     try {
-      // Buscar mentorado pelo email e verificar senha
-      const { data, error } = await supabase
+      // Fazer login com Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+      })
+
+      if (authError) {
+        alert('Email ou senha incorretos')
+        return
+      }
+
+      // Buscar dados do mentorado
+      const { data: mentoradoData, error: mentoradoError } = await supabase
         .from('mentorados')
         .select('*')
         .eq('email', email)
         .eq('status_login', 'ativo')
         .single()
 
-      if (error || !data) {
-        alert('Email não encontrado ou conta inativa')
-        return
-      }
-
-      // Verificar senha (decodificar base64)
-      const storedPassword = atob(data.password_hash)
-      if (password !== storedPassword) {
-        alert('Senha incorreta')
+      if (mentoradoError || !mentoradoData) {
+        alert('Conta não encontrada ou inativa')
+        await supabase.auth.signOut()
         return
       }
 
       // Login bem-sucedido
-      setMentorado(data)
+      setMentorado(mentoradoData)
       setIsLoggedIn(true)
-      localStorage.setItem('mentorado', JSON.stringify(data))
-      await loadIndicacoes(data.id)
+      localStorage.setItem('mentorado', JSON.stringify(mentoradoData))
+      await loadIndicacoes(mentoradoData.id)
 
     } catch (error) {
       console.error('Erro no login:', error)
@@ -124,7 +155,8 @@ export default function MentoradoLoginPage() {
     }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
     localStorage.removeItem('mentorado')
     setIsLoggedIn(false)
     setMentorado(null)
@@ -238,7 +270,15 @@ export default function MentoradoLoginPage() {
               <h1 className="text-2xl font-bold text-gray-900">
                 Olá, {mentorado?.nome_completo}!
               </h1>
-              <p className="text-gray-600">Suas indicações e ganhos</p>
+              <p className="text-gray-600">Portal do Mentorado - Suas indicações e ganhos</p>
+              <div className="flex items-center mt-2">
+                <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                  Mentorado - {mentorado?.turma}
+                </span>
+                <span className="ml-3 text-sm text-gray-500">
+                  Comissão: {mentorado?.porcentagem_comissao}%
+                </span>
+              </div>
             </div>
             <div className="flex space-x-4">
               <Button

@@ -39,9 +39,9 @@ export default function CadastroPage() {
     endereco: '',
     turma: '',
     observacoes: '',
-    password: '',
-    confirmPassword: '',
-    porcentagem_comissao: 10 // 10% padrão
+    password: 'mentoradoindica', // Senha padrão
+    confirmPassword: 'mentoradoindica', // Senha padrão
+    porcentagem_comissao: 5 // 5% padrão
   })
 
   // Carregar mentorados existentes
@@ -118,9 +118,9 @@ export default function CadastroPage() {
         endereco: '',
         turma: '',
         observacoes: '',
-        password: '',
-        confirmPassword: '',
-        porcentagem_comissao: 10
+        password: 'mentoradoindica',
+        confirmPassword: 'mentoradoindica',
+        porcentagem_comissao: 5
       })
       setShowForm(false)
       setEditingId(null)
@@ -199,7 +199,7 @@ export default function CadastroPage() {
               observacoes: '',
               password: '',
               confirmPassword: '',
-              porcentagem_comissao: 10
+              porcentagem_comissao: 5
             })
           }}
           className="bg-green-600 hover:bg-green-700"

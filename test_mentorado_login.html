@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Login Mentorado</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #log {
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste de Login do Mentorado</h1>
+
+    <form id="loginForm">
+        <label for="email">Email:</label>
+        <input type="email" id="email" value="guilhermecezarsoares@gmail.com" required>
+
+        <label for="password">Senha:</label>
+        <input type="password" id="password" value="mentoradoindica" required>
+
+        <button type="submit" id="loginBtn">🔑 Fazer Login</button>
+    </form>
+
+    <div id="status"></div>
+    <div id="log"></div>
+
+    <script>
+        const supabaseUrl = 'https://udzmlnnztzzwrphhizol.supabase.co'
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkem1sbm56dHp6d3JwaGhpem9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjkwNzYsImV4cCI6MjA3MzAwNTA3Nn0.KjihWHrNYxDO5ZZKpa8UYPAhw9HIU11yvAvvsNaiPZU'
+
+        const { createClient } = supabase
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
+
+        const logElement = document.getElementById('log')
+        const statusElement = document.getElementById('status')
+
+        function log(message) {
+            console.log(message)
+            logElement.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n'
+            logElement.scrollTop = logElement.scrollHeight
+        }
+
+        function setStatus(message, type = 'info') {
+            statusElement.innerHTML = `<div class="status ${type}">${message}</div>`
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault()
+
+            const email = document.getElementById('email').value
+            const password = document.getElementById('password').value
+            const loginBtn = document.getElementById('loginBtn')
+
+            loginBtn.disabled = true
+            loginBtn.textContent = '⏳ Fazendo login...'
+            logElement.textContent = ''
+
+            try {
+                log('🔍 Iniciando login com: ' + email)
+                log('🔑 Senha: ' + password)
+                log('')
+
+                // Exatamente como o frontend faz
+                log('📋 Passo 1: Buscar mentorado no banco...')
+                const { data, error } = await supabaseClient
+                    .from('mentorados')
+                    .select('*')
+                    .eq('email', email)
+                    .eq('status_login', 'ativo')
+                    .single()
+
+                log('📊 Resultado da query:')
+                log('  Data: ' + JSON.stringify(data, null, 2))
+                log('  Error: ' + JSON.stringify(error, null, 2))
+                log('')
+
+                if (error || !data) {
+                    log('❌ Erro na query ou mentorado não encontrado')
+                    setStatus('❌ Email não encontrado ou conta inativa', 'error')
+                    return
+                }
+
+                log('✅ Mentorado encontrado: ' + data.nome_completo)
+                log('🔐 Hash no banco: "' + data.password_hash + '"')
+                log('')
+
+                // Verificar senha exatamente como o frontend
+                log('🔓 Passo 2: Decodificar senha...')
+
+                let storedPassword
+                try {
+                    storedPassword = atob(data.password_hash)
+                    log('🔓 Senha decodificada: "' + storedPassword + '"')
+                    log('🔑 Senha digitada: "' + password + '"')
+                    log('🔍 Tipos: decodificada=' + typeof storedPassword + ', digitada=' + typeof password)
+                    log('📏 Tamanhos: decodificada=' + storedPassword.length + ', digitada=' + password.length)
+                    log('✅ Senhas iguais? ' + (password === storedPassword))
+                    log('')
+                } catch (decodeError) {
+                    log('❌ Erro ao decodificar hash: ' + decodeError.message)
+                    setStatus('❌ Erro interno na senha', 'error')
+                    return
+                }
+
+                if (password !== storedPassword) {
+                    log('❌ SENHA INCORRETA!')
+                    log('  Esperado: "' + password + '"')
+                    log('  Recebido: "' + storedPassword + '"')
+                    setStatus('❌ Senha incorreta', 'error')
+                    return
+                }
+
+                log('🎉 SENHA CORRETA!')
+                log('')
+
+                // Simular localStorage
+                log('💾 Salvando no localStorage...')
+                localStorage.setItem('mentorado', JSON.stringify(data))
+                log('✅ Dados salvos no localStorage')
+                log('')
+
+                // Buscar indicações
+                log('📋 Carregando indicações...')
+                const { data: indicacoes, error: errorIndicacoes } = await supabaseClient
+                    .from('leads')
+                    .select('*')
+                    .eq('indicado_por', data.id)
+                    .order('created_at', { ascending: false })
+
+                if (errorIndicacoes) {
+                    log('❌ Erro ao carregar indicações: ' + errorIndicacoes.message)
+                } else {
+                    log('✅ Indicações carregadas: ' + (indicacoes?.length || 0) + ' encontradas')
+                }
+                log('')
+
+                setStatus('🎉 LOGIN BEM-SUCEDIDO! Mentorado: ' + data.nome_completo, 'success')
+                log('🎯 LOGIN COMPLETO COM SUCESSO!')
+
+            } catch (error) {
+                log('❌ Erro geral: ' + error.message)
+                setStatus('❌ Erro ao fazer login: ' + error.message, 'error')
+            } finally {
+                loginBtn.disabled = false
+                loginBtn.textContent = '🔑 Fazer Login'
+            }
+        })
+
+        // Verificar se já está logado
+        window.addEventListener('load', () => {
+            const savedMentorado = localStorage.getItem('mentorado')
+            if (savedMentorado) {
+                const mentoradoData = JSON.parse(savedMentorado)
+                setStatus('ℹ️ Já existe um mentorado logado: ' + mentoradoData.nome_completo)
+                log('ℹ️ Mentorado encontrado no localStorage: ' + mentoradoData.nome_completo)
+            }
+        })
+    </script>
+</body>
+</html>
