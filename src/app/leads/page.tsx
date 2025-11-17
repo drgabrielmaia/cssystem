@@ -305,58 +305,34 @@ export default function LeadsPage() {
     }
 
     try {
-      // Usar a mesma lógica de filtros que está sendo aplicada aos leads
-      let query = supabase
-        .from('leads')
-        .select('status, valor_vendido, valor_arrecadado, data_primeiro_contato, convertido_em')
-
-      // Aplicar os mesmos filtros
-      if (statusFilter !== 'todos') {
-        query = query.eq('status', statusFilter)
-      }
-      if (origemFilter !== 'todas') {
-        query = query.eq('origem', origemFilter)
-      }
-      if (temperaturaFilter !== 'todas') {
-        query = query.eq('temperatura', temperaturaFilter)
-      }
-
-
-      // Aplicar filtro de datas personalizadas usando o novo sistema
       const dateFilter = dateFilters.getDateFilter()
-      if (dateFilter?.start || dateFilter?.end) {
-        // Para não vendidos, aplicar filtro no SQL normalmente
-        if (statusFilter !== 'vendido' && statusFilter !== 'todos') {
-          if (dateFilter.start) {
-            query = query.gte('data_primeiro_contato', dateFilter.start)
-          }
-          if (dateFilter.end) {
-            query = query.lte('data_primeiro_contato', dateFilter.end)
-          }
-        }
-        // Para vendidos ou todos, vamos filtrar no JavaScript para usar a lógica correta
-      }
-
-      const { data, error } = await query
-
-      if (error) throw error
-
-      // Processar dados para criar estatísticas
       const statsMap: { [key: string]: LeadStats } = {}
 
-      data?.forEach(lead => {
-        // Aplicar filtro de data no JavaScript para todos os leads quando há filtro de data
+      // 1. Buscar leads não vendidos da tabela leads
+      let leadsQuery = supabase
+        .from('leads')
+        .select('status, valor_vendido, valor_arrecadado, data_primeiro_contato, convertido_em, origem, temperatura')
+        .neq('status', 'vendido') // Excluir vendidos
+
+      // Aplicar filtros para leads não vendidos
+      if (statusFilter !== 'todos' && statusFilter !== 'vendido') {
+        leadsQuery = leadsQuery.eq('status', statusFilter)
+      }
+      if (origemFilter !== 'todas') {
+        leadsQuery = leadsQuery.eq('origem', origemFilter)
+      }
+      if (temperaturaFilter !== 'todas') {
+        leadsQuery = leadsQuery.eq('temperatura', temperaturaFilter)
+      }
+
+      const { data: leadsData, error: leadsError } = await leadsQuery
+      if (leadsError) throw leadsError
+
+      // Processar leads não vendidos
+      leadsData?.forEach(lead => {
+        // Aplicar filtro de data
         if (dateFilter?.start || dateFilter?.end) {
-          let dataParaFiltro
-
-          if (lead.status === 'vendido') {
-            // Para vendidos, usar convertido_em se disponível, senão data_primeiro_contato
-            dataParaFiltro = lead.convertido_em || lead.data_primeiro_contato
-          } else {
-            // Para outros status, usar data_primeiro_contato
-            dataParaFiltro = lead.data_primeiro_contato
-          }
-
+          const dataParaFiltro = lead.data_primeiro_contato
           if (dataParaFiltro) {
             const dataObj = new Date(dataParaFiltro)
             let incluirLead = true
@@ -369,7 +345,7 @@ export default function LeadsPage() {
               incluirLead = dataObj <= new Date(dateFilter.end)
             }
 
-            if (!incluirLead) return // Pular este lead se não atender ao filtro de data
+            if (!incluirLead) return
           }
         }
 
@@ -388,6 +364,68 @@ export default function LeadsPage() {
         statsMap[lead.status].valor_total_vendido += lead.valor_vendido || 0
         statsMap[lead.status].valor_total_arrecadado += lead.valor_arrecadado || 0
       })
+
+      // 2. Buscar vendidos da tabela lead_vendas com JOIN
+      if (statusFilter === 'todos' || statusFilter === 'vendido') {
+        let vendasQuery = supabase
+          .from('lead_vendas')
+          .select(`
+            *,
+            leads (
+              origem,
+              temperatura,
+              data_primeiro_contato,
+              convertido_em
+            )
+          `)
+
+        const { data: vendasData, error: vendasError } = await vendasQuery
+        if (vendasError) throw vendasError
+
+        // Processar vendas
+        vendasData?.forEach((venda: any) => {
+          const lead = venda.leads
+          if (!lead) return
+
+          // Aplicar filtros de origem e temperatura
+          if (origemFilter !== 'todas' && lead.origem !== origemFilter) return
+          if (temperaturaFilter !== 'todas' && lead.temperatura !== temperaturaFilter) return
+
+          // Aplicar filtro de data (usar data_venda da lead_vendas)
+          if (dateFilter?.start || dateFilter?.end) {
+            const dataParaFiltro = venda.data_venda
+            if (dataParaFiltro) {
+              const dataObj = new Date(dataParaFiltro)
+              let incluirLead = true
+
+              if (dateFilter.start && dateFilter.end) {
+                incluirLead = dataObj >= new Date(dateFilter.start) && dataObj <= new Date(dateFilter.end)
+              } else if (dateFilter.start) {
+                incluirLead = dataObj >= new Date(dateFilter.start)
+              } else if (dateFilter.end) {
+                incluirLead = dataObj <= new Date(dateFilter.end)
+              }
+
+              if (!incluirLead) return
+            }
+          }
+
+          if (!statsMap['vendido']) {
+            statsMap['vendido'] = {
+              status: 'vendido',
+              quantidade: 0,
+              valor_total_vendido: 0,
+              valor_total_arrecadado: 0,
+              valor_medio_vendido: 0,
+              valor_medio_arrecadado: 0
+            }
+          }
+
+          statsMap['vendido'].quantidade += 1
+          statsMap['vendido'].valor_total_vendido += venda.valor_vendido || 0
+          statsMap['vendido'].valor_total_arrecadado += venda.valor_arrecadado || 0
+        })
+      }
 
       // Calcular médias
       Object.values(statsMap).forEach(stat => {
@@ -622,12 +660,64 @@ export default function LeadsPage() {
   // Função para atualizar status do lead
   const updateLeadStatus = async (leadId: string, newStatus: string) => {
     try {
+      // Se está marcando como vendido, pegar dados do lead primeiro
+      let leadData = null
+      if (newStatus === 'vendido') {
+        const { data, error: fetchError } = await supabase
+          .from('leads')
+          .select('valor_vendido, valor_arrecadado')
+          .eq('id', leadId)
+          .single()
+
+        if (fetchError) throw fetchError
+        leadData = data
+      }
+
+      // Atualizar status do lead
+      const updateData: any = { status: newStatus }
+      if (newStatus === 'vendido') {
+        updateData.convertido_em = new Date().toISOString()
+      }
+
       const { error } = await supabase
         .from('leads')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', leadId)
 
       if (error) throw error
+
+      // Se está marcando como vendido, salvar na tabela lead_vendas
+      if (newStatus === 'vendido' && leadData) {
+        // Verificar se já existe registro na lead_vendas
+        const { data: existingVenda, error: checkError } = await supabase
+          .from('lead_vendas')
+          .select('id')
+          .eq('lead_id', leadId)
+          .single()
+
+        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = not found
+          throw checkError
+        }
+
+        if (!existingVenda) {
+          // Criar registro na lead_vendas
+          const { error: vendaError } = await supabase
+            .from('lead_vendas')
+            .insert([{
+              lead_id: leadId,
+              valor_vendido: leadData.valor_vendido || 0,
+              valor_arrecadado: leadData.valor_arrecadado || 0,
+              data_venda: new Date().toISOString().split('T')[0],
+              data_arrecadacao: leadData.valor_arrecadado > 0 ? new Date().toISOString().split('T')[0] : null,
+              parcelas: 1,
+              tipo_venda: 'direta',
+              status_pagamento: leadData.valor_arrecadado >= leadData.valor_vendido ? 'completo' : 'parcial',
+              observacoes: 'Venda registrada automaticamente'
+            }])
+
+          if (vendaError) throw vendaError
+        }
+      }
 
       // Recarregar leads e stats
       await loadLeads()
