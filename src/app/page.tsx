@@ -25,7 +25,6 @@ import {
   FileText,
   CreditCard,
   BarChart3,
-  Eye,
   ExternalLink,
   Sparkles
 } from 'lucide-react'
@@ -721,8 +720,7 @@ export default function Dashboard() {
               { icon: Target, label: 'Leads', path: '/leads' },
               { icon: FileText, label: 'Formulários', path: '/formularios' },
               { icon: BarChart3, label: 'Calendário', path: '/calendario' },
-              { icon: DollarSign, label: 'Despesas', path: '/despesas' },
-              { icon: Eye, label: 'Insights', path: '/insights' }
+              { icon: DollarSign, label: 'Despesas', path: '/despesas' }
             ].map((item, index) => (
               <Button
                 key={index}

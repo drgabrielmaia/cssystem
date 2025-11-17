@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
-import { Plus, Calendar, Clock, User, Phone, Mail, MessageCircle, Handshake, FileText, AlertCircle, CheckCircle, XCircle, Timer, Filter, Search } from 'lucide-react'
+import { Plus, Calendar, Clock, User, Phone, Mail, MessageCircle, Handshake, FileText, AlertCircle, CheckCircle, XCircle, Timer, Filter, Search, Grid, List, Building } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -54,6 +54,7 @@ export default function FollowUpsPage() {
     followUpId: ''
   })
   const [quickResult, setQuickResult] = useState('')
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
 
   const [formData, setFormData] = useState({
     lead_id: '',
@@ -312,6 +313,35 @@ export default function FollowUpsPage() {
     return new Date(dataAgendada) < new Date() && status === 'pendente'
   }
 
+  const updateFollowUpStatus = async (followUpId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('lead_followups')
+        .update({ status: newStatus })
+        .eq('id', followUpId)
+
+      if (error) throw error
+      await fetchFollowUps()
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error)
+      alert('Erro ao atualizar status do follow-up')
+    }
+  }
+
+  const getFollowUpsByStatus = () => {
+    const statusColumns = [
+      { key: 'pendente', label: 'Pendente', color: 'bg-yellow-500' },
+      { key: 'concluido', label: 'Concluído', color: 'bg-green-500' },
+      { key: 'adiado', label: 'Adiado', color: 'bg-gray-500' },
+      { key: 'cancelado', label: 'Cancelado', color: 'bg-red-500' }
+    ]
+
+    return statusColumns.map(column => ({
+      ...column,
+      followUps: filteredFollowUps.filter(followUp => followUp.status === column.key)
+    }))
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-96">
@@ -327,10 +357,33 @@ export default function FollowUpsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Follow-ups</h1>
           <p className="mt-2 text-gray-600">Gerencie seus acompanhamentos de leads</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Follow-up
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* View Mode Toggle */}
+          <div className="flex items-center border rounded-lg p-1 bg-gray-50">
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className="h-8 px-3"
+            >
+              <List className="h-4 w-4 mr-1" />
+              Lista
+            </Button>
+            <Button
+              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('kanban')}
+              className="h-8 px-3"
+            >
+              <Grid className="h-4 w-4 mr-1" />
+              Kanban
+            </Button>
+          </div>
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Follow-up
+          </Button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -380,7 +433,163 @@ export default function FollowUpsPage() {
         </CardContent>
       </Card>
 
+      {/* Kanban Board */}
+      {viewMode === 'kanban' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {getFollowUpsByStatus().map(column => (
+              <Card key={column.key} className="h-fit">
+                <CardHeader className={`${column.color} text-white rounded-t-lg py-3`}>
+                  <CardTitle className="text-sm font-semibold flex items-center justify-between">
+                    {column.label}
+                    <Badge variant="secondary" className="bg-white/20 text-white">
+                      {column.followUps.length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 space-y-2 min-h-[400px]">
+                  {column.followUps.map(followUp => {
+                    const TipoIcon = getTipoIcon(followUp.tipo)
+                    const isLate = isOverdue(followUp.data_agendada, followUp.status)
+
+                    return (
+                      <div
+                        key={followUp.id}
+                        className={`bg-white border rounded-lg p-3 cursor-pointer hover:shadow-md transition-shadow ${isLate ? 'border-red-200 bg-red-50' : ''}`}
+                        onClick={() => handleEdit(followUp)}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <TipoIcon className={`h-4 w-4 ${getTipoColor(followUp.tipo)}`} />
+                            <h4 className="font-medium text-sm text-gray-900 truncate">
+                              {followUp.titulo}
+                            </h4>
+                          </div>
+
+                          <div className="flex items-center text-xs text-gray-600">
+                            <User className="w-3 h-3 mr-1" />
+                            <span className="truncate">{followUp.lead.nome_completo}</span>
+                          </div>
+
+                          {followUp.lead.empresa && (
+                            <div className="flex items-center text-xs text-gray-600">
+                              <Building className="w-3 h-3 mr-1" />
+                              <span className="truncate">{followUp.lead.empresa}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center text-xs text-gray-600">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            <span className="truncate">
+                              {format(new Date(followUp.data_agendada), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <Badge className={getPrioridadeColor(followUp.prioridade)}>
+                              {prioridades.find(p => p.value === followUp.prioridade)?.label}
+                            </Badge>
+                            {isLate && (
+                              <Badge variant="destructive" className="text-xs">
+                                Atrasado
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Quick Status Change */}
+                          <div className="flex gap-1 mt-2">
+                            {column.key === 'pendente' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-6 px-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    updateFollowUpStatus(followUp.id, 'concluido')
+                                  }}
+                                >
+                                  Concluir
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-6 px-2"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    updateFollowUpStatus(followUp.id, 'adiado')
+                                  }}
+                                >
+                                  Adiar
+                                </Button>
+                              </>
+                            )}
+                            {column.key === 'adiado' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-6 px-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    updateFollowUpStatus(followUp.id, 'pendente')
+                                  }}
+                                >
+                                  Reativar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-6 px-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    updateFollowUpStatus(followUp.id, 'concluido')
+                                  }}
+                                >
+                                  Concluir
+                                </Button>
+                              </>
+                            )}
+                            {column.key === 'concluido' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-6 px-2"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  updateFollowUpStatus(followUp.id, 'pendente')
+                                }}
+                              >
+                                Reabrir
+                              </Button>
+                            )}
+                          </div>
+
+                          {followUp.resultado && (
+                            <div className="text-xs bg-gray-50 rounded p-2 mt-2">
+                              <span className="font-medium text-gray-700">Resultado:</span>
+                              <p className="text-gray-600 truncate">{followUp.resultado}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {column.followUps.length === 0 && (
+                    <div className="text-center text-gray-400 text-sm py-8">
+                      Nenhum follow-up
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Lista de Follow-ups */}
+      {viewMode === 'list' && (
       <div className="grid gap-4">
         {filteredFollowUps.map((followUp) => {
           const TipoIcon = getTipoIcon(followUp.tipo)
@@ -531,6 +740,7 @@ export default function FollowUpsPage() {
           </Card>
         )}
       </div>
+      )}
 
       {/* Modal de Criação/Edição */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>

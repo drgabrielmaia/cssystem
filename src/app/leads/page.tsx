@@ -35,7 +35,11 @@ import {
   Download,
   Search,
   Filter,
-  PhoneCall
+  PhoneCall,
+  LayoutGrid,
+  Table,
+  BarChart3,
+  PieChart
 } from 'lucide-react'
 
 interface Lead {
@@ -80,9 +84,9 @@ export default function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState('todos')
   const [origemFilter, setOrigemFilter] = useState('todas')
   const [temperaturaFilter, setTemperaturaFilter] = useState('todas')
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table')
   const dateFilters = useDateFilters()
   const { settings } = useSettings()
-
 
   // Estados para paginação e otimização
   const [currentPage, setCurrentPage] = useState(1)
@@ -471,6 +475,44 @@ export default function LeadsPage() {
       : 0
   }
 
+  // Função para atualizar status do lead
+  const updateLeadStatus = async (leadId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ status: newStatus })
+        .eq('id', leadId)
+
+      if (error) throw error
+
+      // Recarregar leads e stats
+      await loadLeads()
+      await loadStatsWithCache()
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error)
+      alert('Erro ao atualizar status do lead')
+    }
+  }
+
+  // Agrupar leads por status para kanban
+  const getLeadsByStatus = () => {
+    const statusColumns = [
+      { key: 'novo', label: 'Novo', color: 'bg-blue-500' },
+      { key: 'contactado', label: 'Contactado', color: 'bg-purple-500' },
+      { key: 'qualificado', label: 'Qualificado', color: 'bg-indigo-500' },
+      { key: 'call_agendada', label: 'Call Agendada', color: 'bg-orange-500' },
+      { key: 'proposta_enviada', label: 'Proposta Enviada', color: 'bg-amber-500' },
+      { key: 'vendido', label: 'Vendido', color: 'bg-green-600' },
+      { key: 'perdido', label: 'Perdido', color: 'bg-red-500' },
+      { key: 'no_show', label: 'No-show', color: 'bg-yellow-500' }
+    ]
+
+    return statusColumns.map(column => ({
+      ...column,
+      leads: leads.filter(lead => lead.status === column.key)
+    }))
+  }
+
   // Filtrar leads baseado na pesquisa e filtros
   // Como os filtros agora são aplicados no servidor, usamos leads diretamente
   const filteredLeads = leads
@@ -796,13 +838,35 @@ export default function LeadsPage() {
           </Card>
         </div>
 
-        {/* Botão para Novo Lead */}
+        {/* Controles de Visualização */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h2 className="text-xl font-semibold">Todos os Leads ({filteredLeads.length})</h2>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button variant="outline" onClick={exportLeadsToPDF}>
-              <Download className="w-4 h-4 mr-2" />
-              Exportar PDF
+            {/* Toggle Kanban/Tabela */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('table')}
+                className="flex items-center gap-2"
+              >
+                <Table className="w-4 h-4" />
+                Tabela
+              </Button>
+              <Button
+                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('kanban')}
+                className="flex items-center gap-2"
+              >
+                <LayoutGrid className="w-4 h-4" />
+                Kanban
+              </Button>
+            </div>
+
+            <Button variant="outline">
+              <PieChart className="w-4 h-4 mr-2" />
+              Relatórios
             </Button>
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
@@ -1118,7 +1182,108 @@ export default function LeadsPage() {
           </div>
         </div>
 
+        {/* Kanban Board */}
+        {viewMode === 'kanban' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
+              {getLeadsByStatus().map(column => (
+                <Card key={column.key} className="h-fit">
+                  <CardHeader className={`${column.color} text-white rounded-t-lg py-3`}>
+                    <CardTitle className="text-sm font-semibold flex items-center justify-between">
+                      {column.label}
+                      <Badge variant="secondary" className="bg-white/20 text-white">
+                        {column.leads.length}
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-2 space-y-2 min-h-[400px]">
+                    {column.leads.map(lead => (
+                      <div
+                        key={lead.id}
+                        className="bg-white border rounded-lg p-3 cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => handleEdit(lead)}
+                      >
+                        <div className="space-y-2">
+                          <h4 className="font-medium text-sm text-gray-900 truncate">
+                            {lead.nome_completo}
+                          </h4>
+
+                          {lead.empresa && (
+                            <div className="flex items-center text-xs text-gray-600">
+                              <Building className="w-3 h-3 mr-1" />
+                              <span className="truncate">{lead.empresa}</span>
+                            </div>
+                          )}
+
+                          {lead.email && (
+                            <div className="flex items-center text-xs text-gray-600">
+                              <Mail className="w-3 h-3 mr-1" />
+                              <span className="truncate">{lead.email}</span>
+                            </div>
+                          )}
+
+                          {lead.telefone && (
+                            <div className="flex items-center text-xs text-gray-600">
+                              <Phone className="w-3 h-3 mr-1" />
+                              <span className="truncate">{lead.telefone}</span>
+                            </div>
+                          )}
+
+                          {(lead.valor_vendido || lead.valor_arrecadado) && (
+                            <div className="text-xs space-y-1">
+                              {lead.valor_vendido && (
+                                <div className="text-green-600 font-semibold">
+                                  Vendido: {formatCurrency(lead.valor_vendido)}
+                                </div>
+                              )}
+                              {lead.valor_arrecadado && (
+                                <div className="text-blue-600">
+                                  Arrecadado: {formatCurrency(lead.valor_arrecadado)}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Quick Status Change */}
+                          <div className="flex gap-1 mt-2">
+                            {column.key !== 'vendido' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-6 px-2"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const nextStatus = column.key === 'novo' ? 'contactado'
+                                    : column.key === 'contactado' ? 'qualificado'
+                                    : column.key === 'qualificado' ? 'call_agendada'
+                                    : column.key === 'call_agendada' ? 'proposta_enviada'
+                                    : column.key === 'proposta_enviada' ? 'vendido'
+                                    : 'vendido'
+                                  updateLeadStatus(lead.id, nextStatus)
+                                }}
+                              >
+                                Avançar
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {column.leads.length === 0 && (
+                      <div className="text-center text-gray-400 text-sm py-8">
+                        Nenhum lead
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Lista de Leads */}
+        {viewMode === 'table' && (
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
