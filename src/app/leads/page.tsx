@@ -16,6 +16,28 @@ import { DateFilters } from '@/components/date-filters'
 import { useSettings } from '@/contexts/settings'
 import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable'
+import {
+  useDroppable
+} from '@dnd-kit/core'
+import {
+  useSortable
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
   Plus,
   User,
   Phone,
@@ -83,11 +105,22 @@ export default function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState('todos')
   const [origemFilter, setOrigemFilter] = useState('todas')
   const [temperaturaFilter, setTemperaturaFilter] = useState('todas')
-  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table')
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('kanban')
   const [dashboardModalOpen, setDashboardModalOpen] = useState(false)
   const [reportPeriod, setReportPeriod] = useState('mes')
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [draggedLead, setDraggedLead] = useState<Lead | null>(null)
   const dateFilters = useDateFilters()
   const { settings } = useSettings()
+
+  // Sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  )
 
   // Estados para paginação e otimização
   const [currentPage, setCurrentPage] = useState(1)
@@ -582,6 +615,157 @@ export default function LeadsPage() {
       'cancelado': '#ef4444'
     }
     return colors[status] || '#6b7280'
+  }
+
+  // Drag and drop functions
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event
+    const lead = leads.find(l => l.id === active.id)
+    setActiveId(active.id as string)
+    setDraggedLead(lead || null)
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+
+    setActiveId(null)
+    setDraggedLead(null)
+
+    if (!over) return
+
+    const leadId = active.id as string
+    const newStatus = over.id as string
+
+    // Se o status não mudou, não faz nada
+    const currentLead = leads.find(l => l.id === leadId)
+    if (!currentLead || currentLead.status === newStatus) return
+
+    try {
+      // Atualizar o lead no banco de dados
+      await updateLeadStatus(leadId, newStatus)
+    } catch (error) {
+      console.error('Erro ao atualizar status do lead:', error)
+      alert('Erro ao atualizar status do lead')
+    }
+  }
+
+  // Droppable Column Component
+  const DroppableColumn = ({ column, children }: { column: any, children: React.ReactNode }) => {
+    const { isOver, setNodeRef } = useDroppable({
+      id: column.key,
+    })
+
+    return (
+      <div
+        ref={setNodeRef}
+        className={`transition-all duration-200 ${
+          isOver ? 'bg-blue-50 scale-102' : ''
+        }`}
+      >
+        {children}
+      </div>
+    )
+  }
+
+  // Draggable Lead Card Component
+  const DraggableLeadCard = ({ lead, column }: { lead: Lead, column: any }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: lead.id })
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    }
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        className={`bg-white border rounded-lg p-3 cursor-grab hover:shadow-md transition-shadow ${
+          isDragging ? 'shadow-lg rotate-3 scale-105' : ''
+        }`}
+        onClick={(e) => {
+          // Only open edit if not dragging
+          if (!isDragging) {
+            handleEdit(lead)
+          }
+        }}
+      >
+        <div className="space-y-2">
+          <h4 className="font-medium text-sm text-gray-900 truncate">
+            {lead.nome_completo}
+          </h4>
+
+          {lead.empresa && (
+            <div className="flex items-center text-xs text-gray-600">
+              <Building className="w-3 h-3 mr-1" />
+              <span className="truncate">{lead.empresa}</span>
+            </div>
+          )}
+
+          {lead.email && (
+            <div className="flex items-center text-xs text-gray-600">
+              <Mail className="w-3 h-3 mr-1" />
+              <span className="truncate">{lead.email}</span>
+            </div>
+          )}
+
+          {lead.telefone && (
+            <div className="flex items-center text-xs text-gray-600">
+              <Phone className="w-3 h-3 mr-1" />
+              <span className="truncate">{lead.telefone}</span>
+            </div>
+          )}
+
+          {(lead.valor_vendido || lead.valor_arrecadado) && (
+            <div className="text-xs space-y-1">
+              {lead.valor_vendido && (
+                <div className="text-green-600 font-semibold">
+                  Vendido: {formatCurrency(lead.valor_vendido)}
+                </div>
+              )}
+              {lead.valor_arrecadado && (
+                <div className="text-blue-600">
+                  Arrecadado: {formatCurrency(lead.valor_arrecadado)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Quick Status Change */}
+          <div className="flex gap-1 mt-2">
+            {column.key !== 'vendido' && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-6 px-2"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const nextStatus = column.key === 'novo' ? 'contactado'
+                    : column.key === 'contactado' ? 'qualificado'
+                    : column.key === 'qualificado' ? 'call_agendada'
+                    : column.key === 'call_agendada' ? 'proposta_enviada'
+                    : column.key === 'proposta_enviada' ? 'vendido'
+                    : 'vendido'
+                  updateLeadStatus(lead.id, nextStatus)
+                }}
+              >
+                Avançar
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
@@ -1150,102 +1334,75 @@ export default function LeadsPage() {
 
         {/* Kanban Board */}
         {viewMode === 'kanban' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
-              {getLeadsByStatus().map(column => (
-                <Card key={column.key} className="h-fit">
-                  <CardHeader className={`${column.color} text-white rounded-t-lg py-3`}>
-                    <CardTitle className="text-sm font-semibold flex items-center justify-between">
-                      {column.label}
-                      <Badge variant="secondary" className="bg-white/20 text-white">
-                        {column.leads.length}
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-2 space-y-2 min-h-[400px]">
-                    {column.leads.map(lead => (
-                      <div
-                        key={lead.id}
-                        className="bg-white border rounded-lg p-3 cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => handleEdit(lead)}
-                      >
-                        <div className="space-y-2">
-                          <h4 className="font-medium text-sm text-gray-900 truncate">
-                            {lead.nome_completo}
-                          </h4>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="space-y-4">
+              {/* Responsive horizontal scroll container */}
+              <div className="overflow-x-auto pb-4">
+                <div className="flex gap-4 min-w-max">
+                  {getLeadsByStatus().map(column => (
+                    <DroppableColumn key={column.key} column={column}>
+                      <div className="w-80 flex-shrink-0">
+                        <Card className="h-fit">
+                          <CardHeader className={`${column.color} text-white rounded-t-lg py-3`}>
+                            <CardTitle className="text-sm font-semibold flex items-center justify-between">
+                              {column.label}
+                              <Badge variant="secondary" className="bg-white/20 text-white">
+                                {column.leads.length}
+                              </Badge>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-2 space-y-2 min-h-[400px]">
+                            <SortableContext
+                              items={column.leads.map(lead => lead.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              {column.leads.map(lead => (
+                                <DraggableLeadCard
+                                  key={lead.id}
+                                  lead={lead}
+                                  column={column}
+                                />
+                              ))}
+                            </SortableContext>
 
-                          {lead.empresa && (
-                            <div className="flex items-center text-xs text-gray-600">
-                              <Building className="w-3 h-3 mr-1" />
-                              <span className="truncate">{lead.empresa}</span>
-                            </div>
-                          )}
-
-                          {lead.email && (
-                            <div className="flex items-center text-xs text-gray-600">
-                              <Mail className="w-3 h-3 mr-1" />
-                              <span className="truncate">{lead.email}</span>
-                            </div>
-                          )}
-
-                          {lead.telefone && (
-                            <div className="flex items-center text-xs text-gray-600">
-                              <Phone className="w-3 h-3 mr-1" />
-                              <span className="truncate">{lead.telefone}</span>
-                            </div>
-                          )}
-
-                          {(lead.valor_vendido || lead.valor_arrecadado) && (
-                            <div className="text-xs space-y-1">
-                              {lead.valor_vendido && (
-                                <div className="text-green-600 font-semibold">
-                                  Vendido: {formatCurrency(lead.valor_vendido)}
-                                </div>
-                              )}
-                              {lead.valor_arrecadado && (
-                                <div className="text-blue-600">
-                                  Arrecadado: {formatCurrency(lead.valor_arrecadado)}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Quick Status Change */}
-                          <div className="flex gap-1 mt-2">
-                            {column.key !== 'vendido' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-xs h-6 px-2"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  const nextStatus = column.key === 'novo' ? 'contactado'
-                                    : column.key === 'contactado' ? 'qualificado'
-                                    : column.key === 'qualificado' ? 'call_agendada'
-                                    : column.key === 'call_agendada' ? 'proposta_enviada'
-                                    : column.key === 'proposta_enviada' ? 'vendido'
-                                    : 'vendido'
-                                  updateLeadStatus(lead.id, nextStatus)
-                                }}
-                              >
-                                Avançar
-                              </Button>
+                            {column.leads.length === 0 && (
+                              <div className="text-center text-gray-400 text-sm py-8 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                                Solte aqui
+                              </div>
                             )}
-                          </div>
-                        </div>
+                          </CardContent>
+                        </Card>
                       </div>
-                    ))}
+                    </DroppableColumn>
+                  ))}
+                </div>
+              </div>
+            </div>
 
-                    {column.leads.length === 0 && (
-                      <div className="text-center text-gray-400 text-sm py-8">
-                        Nenhum lead
+            {/* Drag Overlay */}
+            <DragOverlay>
+              {activeId && draggedLead ? (
+                <div className="bg-white border-2 border-blue-500 rounded-lg p-3 shadow-xl opacity-95 transform rotate-3 scale-105">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm text-gray-900 truncate">
+                      {draggedLead.nome_completo}
+                    </h4>
+                    {draggedLead.empresa && (
+                      <div className="flex items-center text-xs text-gray-600">
+                        <Building className="w-3 h-3 mr-1" />
+                        <span className="truncate">{draggedLead.empresa}</span>
                       </div>
                     )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
+                  </div>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
 
         {/* Lista de Leads */}
