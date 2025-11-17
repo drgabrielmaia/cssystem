@@ -195,11 +195,43 @@ export default function MentoradoLoginPage() {
     }).format(value)
   }
 
+  const calcularComissaoEscalonada = (vendas: number) => {
+    if (vendas >= 11) return 20
+    if (vendas >= 6) return 15
+    if (vendas >= 4) return 10
+    if (vendas >= 1) return 5
+    return 5 // padrão para quem ainda não vendeu
+  }
+
   const calcularComissao = () => {
     const vendidos = indicacoes.filter(lead => lead.status === 'vendido')
+    const numeroVendas = vendidos.length
     const totalVendas = vendidos.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
-    const comissaoTotal = totalVendas * (mentorado?.porcentagem_comissao || 0) / 100
-    return { vendidos: vendidos.length, totalVendas, comissaoTotal }
+
+    // Calcular comissão escalonada
+    let comissaoTotal = 0
+    vendidos.forEach((lead, index) => {
+      const vendasAteAqui = index + 1
+      const percentualComissao = calcularComissaoEscalonada(vendasAteAqui)
+      comissaoTotal += (lead.valor_vendido || 0) * percentualComissao / 100
+    })
+
+    const percentualAtual = calcularComissaoEscalonada(numeroVendas)
+
+    return {
+      vendidos: numeroVendas,
+      totalVendas,
+      comissaoTotal,
+      percentualAtual,
+      proximoEscalao: getProximoEscalao(numeroVendas)
+    }
+  }
+
+  const getProximoEscalao = (vendas: number) => {
+    if (vendas < 4) return { vendas: 4, percentual: 10 }
+    if (vendas < 6) return { vendas: 6, percentual: 15 }
+    if (vendas < 11) return { vendas: 11, percentual: 20 }
+    return null // já está no máximo
   }
 
   const calcularNivel = () => {
@@ -309,7 +341,7 @@ export default function MentoradoLoginPage() {
   }
 
   // Dashboard do mentorado logado
-  const { vendidos, totalVendas, comissaoTotal } = calcularComissao()
+  const { vendidos, totalVendas, comissaoTotal, percentualAtual, proximoEscalao } = calcularComissao()
   const nivelInfo = calcularNivel()
   const progresso = calcularProgresso()
 
@@ -328,9 +360,14 @@ export default function MentoradoLoginPage() {
                 <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
                   Mentorado - {mentorado?.turma}
                 </span>
-                <span className="ml-3 text-sm text-gray-500">
-                  Comissão: {mentorado?.porcentagem_comissao}%
+                <span className="ml-3 text-sm text-green-600 font-semibold">
+                  Comissão Atual: {percentualAtual}%
                 </span>
+                {proximoEscalao && (
+                  <span className="ml-3 text-xs text-gray-500">
+                    Próximo escalão: {proximoEscalao.percentual}% ({proximoEscalao.vendas - vendidos} vendas restantes)
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex space-x-4">
@@ -463,6 +500,40 @@ export default function MentoradoLoginPage() {
               </div>
             </div>
 
+            {/* Tabela de Comissões Escalonadas */}
+            <div className="mt-6">
+              <h4 className="font-semibold mb-3 flex items-center">
+                <TrendingUp className="h-5 w-5 mr-2 text-green-500" />
+                Escalas de Comissão
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div className={`p-3 rounded-lg text-center border-2 ${vendidos >= 1 && vendidos <= 3 ? 'bg-green-100 border-green-400' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className="font-bold text-lg">5%</div>
+                  <div className="text-xs">1-3 vendas</div>
+                </div>
+                <div className={`p-3 rounded-lg text-center border-2 ${vendidos >= 4 && vendidos <= 5 ? 'bg-blue-100 border-blue-400' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className="font-bold text-lg">10%</div>
+                  <div className="text-xs">4-5 vendas</div>
+                </div>
+                <div className={`p-3 rounded-lg text-center border-2 ${vendidos >= 6 && vendidos <= 10 ? 'bg-purple-100 border-purple-400' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className="font-bold text-lg">15%</div>
+                  <div className="text-xs">6-10 vendas</div>
+                </div>
+                <div className={`p-3 rounded-lg text-center border-2 ${vendidos >= 11 ? 'bg-yellow-100 border-yellow-400' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className="font-bold text-lg">20%</div>
+                  <div className="text-xs">11+ vendas</div>
+                </div>
+              </div>
+
+              {proximoEscalao && (
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                  <p className="text-sm text-blue-800">
+                    <strong>Próxima Meta:</strong> Faça mais {proximoEscalao.vendas - vendidos} venda{proximoEscalao.vendas - vendidos > 1 ? 's' : ''} para subir para {proximoEscalao.percentual}% de comissão! 🎯
+                  </p>
+                </div>
+              )}
+            </div>
+
             {vendidos >= 1 && comissaoTotal >= 1000 && (
               <div className="mt-4 p-4 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-lg border-l-4 border-yellow-500">
                 <div className="flex items-center">
@@ -564,9 +635,13 @@ export default function MentoradoLoginPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {indicacoes.map((indicacao) => {
+                    {indicacoes.map((indicacao, index) => {
                       const valorVendido = indicacao.valor_vendido || 0
-                      const comissao = valorVendido * (mentorado?.porcentagem_comissao || 0) / 100
+                      // Calcular qual era o número da venda quando esta foi fechada
+                      const vendasAnteriores = indicacoes.slice(0, index).filter(lead => lead.status === 'vendido' && lead.convertido_em && new Date(lead.convertido_em) < new Date(indicacao.convertido_em || indicacao.data_primeiro_contato)).length
+                      const numeroVenda = vendasAnteriores + 1
+                      const percentualComissao = calcularComissaoEscalonada(numeroVenda)
+                      const comissao = valorVendido * percentualComissao / 100
                       const statusDisplay = getStatusDisplay(indicacao.status)
 
                       return (
@@ -590,9 +665,14 @@ export default function MentoradoLoginPage() {
                           </td>
                           <td className="p-3 font-medium">
                             {indicacao.status === 'vendido' ? (
-                              <span className="text-green-700 font-bold">
-                                {formatCurrency(comissao)}
-                              </span>
+                              <div className="flex flex-col">
+                                <span className="text-green-700 font-bold">
+                                  {formatCurrency(comissao)}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  ({percentualComissao}% - {numeroVenda}ª venda)
+                                </span>
+                              </div>
                             ) : '-'}
                           </td>
                           <td className="p-3">
