@@ -33,7 +33,8 @@ import {
   FileText,
   Download,
   Search,
-  Filter
+  Filter,
+  PhoneCall
 } from 'lucide-react'
 
 interface Lead {
@@ -232,60 +233,6 @@ export default function LeadsPage() {
         query = query.eq('temperatura', temperaturaFilter)
       }
 
-      // Aplicar filtro de período
-      if (periodoFilter !== 'todos') {
-        const now = new Date()
-        let startDate = new Date()
-        let endDate = new Date()
-
-        switch (periodoFilter) {
-          case 'semana_atual':
-            const mondayThisWeek = new Date(now)
-            const dayOfWeekCurrent = mondayThisWeek.getDay()
-            const daysToSubtractCurrent = dayOfWeekCurrent === 0 ? 6 : dayOfWeekCurrent - 1
-            mondayThisWeek.setDate(now.getDate() - daysToSubtractCurrent)
-            mondayThisWeek.setHours(0, 0, 0, 0)
-
-            const sundayThisWeek = new Date(mondayThisWeek)
-            sundayThisWeek.setDate(mondayThisWeek.getDate() + 6)
-            sundayThisWeek.setHours(23, 59, 59, 999)
-
-            startDate = mondayThisWeek
-            endDate = sundayThisWeek
-            break
-          case 'ultima_semana':
-            const mondayLastWeek = new Date(now)
-            const dayOfWeekLast = mondayLastWeek.getDay()
-            const daysToSubtractLast = dayOfWeekLast === 0 ? 6 : dayOfWeekLast - 1
-            mondayLastWeek.setDate(now.getDate() - daysToSubtractLast - 7)
-            mondayLastWeek.setHours(0, 0, 0, 0)
-
-            const sundayLastWeek = new Date(mondayLastWeek)
-            sundayLastWeek.setDate(mondayLastWeek.getDate() + 6)
-            sundayLastWeek.setHours(23, 59, 59, 999)
-
-            startDate = mondayLastWeek
-            endDate = sundayLastWeek
-            break
-          case 'mes':
-            startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-            startDate.setHours(0, 0, 0, 0)
-            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-            endDate.setHours(23, 59, 59, 999)
-            break
-          case 'ano':
-            startDate = new Date(now.getFullYear(), 0, 1)
-            startDate.setHours(0, 0, 0, 0)
-            endDate = new Date(now.getFullYear(), 11, 31)
-            endDate.setHours(23, 59, 59, 999)
-            break
-        }
-
-        query = query.gte('data_primeiro_contato', startDate.toISOString())
-        if (endDate) {
-          query = query.lte('data_primeiro_contato', endDate.toISOString())
-        }
-      }
 
       // Aplicar filtro de datas personalizadas usando o novo sistema
       const dateFilter = dateFilters.getDateFilter()
@@ -482,6 +429,20 @@ export default function LeadsPage() {
     return stats.reduce((total, stat) => total + stat.quantidade, 0)
   }
 
+  const getCallsRealizadas = () => {
+    // Calls realizadas: proposta_enviada, vendido, perdido, no_show
+    const statusCallsRealizadas = ['proposta_enviada', 'vendido', 'perdido', 'no_show']
+    return stats
+      .filter(stat => statusCallsRealizadas.includes(stat.status))
+      .reduce((total, stat) => total + stat.quantidade, 0)
+  }
+
+  const getTaxaConversaoCall = () => {
+    const callsRealizadas = getCallsRealizadas()
+    const vendidos = stats.find(s => s.status === 'vendido')?.quantidade || 0
+    return callsRealizadas > 0 ? Math.round((vendidos / callsRealizadas) * 100) : 0
+  }
+
   // Filtrar leads baseado na pesquisa e filtros
   // Como os filtros agora são aplicados no servidor, usamos leads diretamente
   const filteredLeads = leads
@@ -670,12 +631,15 @@ export default function LeadsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Calls Agendadas</p>
+                  <p className="text-sm font-medium text-gray-600">Calls Realizadas</p>
                   <p className="text-2xl font-bold text-orange-600">
-                    {stats.find(s => s.status === 'call_agendada')?.quantidade || 0}
+                    {getCallsRealizadas()}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {getTaxaConversaoCall()}% conversão • Vendas/Calls
                   </p>
                 </div>
-                <Calendar className="h-8 w-8 text-orange-500" />
+                <PhoneCall className="h-8 w-8 text-orange-500" />
               </div>
             </CardContent>
           </Card>
