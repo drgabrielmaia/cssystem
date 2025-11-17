@@ -17,6 +17,7 @@ interface UserSettings {
   meta_leads_mes: number
   meta_vendas_mes: number
   meta_faturamento_mes: number
+  meta_arrecadacao_mes: number
   meta_calls_mes: number
   meta_follow_ups_mes: number
   taxa_conversao_ideal: number
@@ -30,25 +31,7 @@ interface UserSettings {
 
 export default function ConfiguracoesPage() {
   const { settings, updateSettings, loading } = useSettings()
-  const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
-
-  const saveSettings = async () => {
-    setSaving(true)
-    setMessage('')
-
-    try {
-      // As configurações já são salvas automaticamente pelo context
-      setMessage('✅ Configurações salvas com sucesso!')
-      setTimeout(() => setMessage(''), 3000)
-    } catch (error) {
-      console.error('Erro ao salvar:', error)
-      setMessage('❌ Erro ao salvar configurações')
-      setTimeout(() => setMessage(''), 3000)
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const updateSetting = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
     updateSettings({ [key]: value } as Partial<UserSettings>)
@@ -73,14 +56,10 @@ export default function ConfiguracoesPage() {
           </div>
         </div>
 
-        <Button
-          onClick={saveSettings}
-          disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? 'Salvando...' : 'Salvar'}
-        </Button>
+        <div className="flex items-center gap-2 text-sm text-green-600">
+          <Save className="h-4 w-4" />
+          <span>Salvo automaticamente</span>
+        </div>
       </div>
 
       {message && (
@@ -134,6 +113,21 @@ export default function ConfiguracoesPage() {
               className="text-lg"
               step="1000"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="meta-arrecadacao">Meta de Arrecadação (R$)</Label>
+            <Input
+              id="meta-arrecadacao"
+              type="number"
+              value={settings.meta_arrecadacao_mes}
+              onChange={(e) => updateSetting('meta_arrecadacao_mes', parseFloat(e.target.value) || 0)}
+              className="text-lg"
+              step="1000"
+            />
+            <p className="text-xs text-gray-500">
+              💡 Geralmente 50% do faturamento
+            </p>
           </div>
 
           <div className="space-y-2">

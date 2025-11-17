@@ -375,85 +375,98 @@ export default function SocialSellerPage() {
 
         {/* Cards de Valores */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600">Valor Vendido</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {formatCurrency(metrics?.valor_vendido || 0)}
-                  </p>
-                  <div className="mt-2 flex items-center">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-green-500 h-2 rounded-full"
-                        style={{
-                          width: `${Math.min((metrics?.valor_vendido || 0) / settings.meta_faturamento_mes * 100, 100)}%`
-                        }}
-                      ></div>
-                    </div>
-                    <span className="ml-2 text-xs text-gray-500">
-                      Meta: {formatCurrency(settings.meta_faturamento_mes)}
-                    </span>
+          <div className="glass-card p-6 rounded-2xl hover:scale-[1.02] transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-2">💰 Valor Vendido</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-500 bg-clip-text text-transparent">
+                  {formatCurrency(metrics?.valor_vendido || 0)}
+                </p>
+                <div className="mt-4 flex items-center">
+                  <div className="flex-1 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full h-3 overflow-hidden">
+                    <div
+                      className="progress-bar h-3 rounded-full bg-gradient-to-r from-green-500 to-emerald-400"
+                      style={{
+                        width: `${Math.min((metrics?.valor_vendido || 0) / settings.meta_faturamento_mes * 100, 100)}%`
+                      }}
+                    ></div>
                   </div>
+                  <span className="ml-3 text-xs font-medium text-gray-500 bg-white/50 px-2 py-1 rounded-full">
+                    Meta: {formatCurrency(settings.meta_faturamento_mes)}
+                  </span>
                 </div>
-                <DollarSign className="h-8 w-8 text-green-500" />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600">Valor Arrecadado</p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(metrics?.valor_arrecadado || 0)}
-                  </p>
-                  <p className="text-xs text-blue-500 font-medium">
-                    {metrics?.valor_vendido && metrics.valor_vendido > 0
-                      ? `${((metrics.valor_arrecadado / metrics.valor_vendido) * 100).toFixed(1)}% recebido`
-                      : '0% recebido'
-                    }
-                  </p>
-                </div>
-                <Target className="h-8 w-8 text-blue-500" />
+              <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-3 rounded-2xl shadow-lg float-animation">
+                <DollarSign className="h-8 w-8 text-white" />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600">Taxa de Conversão</p>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {metrics?.taxa_conversao || 0}%
-                  </p>
-                  <div className="mt-2 flex items-center">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full ${
-                          (metrics?.taxa_conversao || 0) >= settings.taxa_conversao_ideal
-                            ? 'bg-green-500'
-                            : (metrics?.taxa_conversao || 0) >= (settings.taxa_conversao_ideal * 0.7)
-                              ? 'bg-yellow-500'
-                              : 'bg-red-500'
-                        }`}
-                        style={{
-                          width: `${Math.min((metrics?.taxa_conversao || 0), 100)}%`
-                        }}
-                      ></div>
-                    </div>
-                    <span className="ml-2 text-xs text-gray-500">
-                      Meta: {settings.taxa_conversao_ideal}%
-                    </span>
+          <div className="glass-card p-6 rounded-2xl hover:scale-[1.02] transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-2">💎 Valor Arrecadado</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                  {formatCurrency(metrics?.valor_arrecadado || 0)}
+                </p>
+                <p className="text-xs font-medium bg-gradient-to-r from-blue-500 to-cyan-400 bg-clip-text text-transparent mt-1">
+                  {metrics?.valor_vendido && metrics.valor_vendido > 0
+                    ? `${((metrics.valor_arrecadado / metrics.valor_vendido) * 100).toFixed(1)}% recebido`
+                    : '0% recebido'
+                  }
+                </p>
+                <div className="mt-4 flex items-center">
+                  <div className="flex-1 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full h-3 overflow-hidden">
+                    <div
+                      className="progress-bar h-3 rounded-full bg-gradient-to-r from-blue-500 to-cyan-400"
+                      style={{
+                        width: `${Math.min((metrics?.valor_arrecadado || 0) / settings.meta_arrecadacao_mes * 100, 100)}%`
+                      }}
+                    ></div>
                   </div>
+                  <span className="ml-3 text-xs font-medium text-gray-500 bg-white/50 px-2 py-1 rounded-full">
+                    Meta: {formatCurrency(settings.meta_arrecadacao_mes)}
+                  </span>
                 </div>
-                <TrendingUp className="h-8 w-8 text-purple-500" />
               </div>
-            </CardContent>
-          </Card>
+              <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-3 rounded-2xl shadow-lg float-animation" style={{animationDelay: '2s'}}>
+                <Target className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card p-6 rounded-2xl hover:scale-[1.02] transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 mb-2">📈 Taxa de Conversão</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">
+                  {metrics?.taxa_conversao || 0}%
+                </p>
+                <div className="mt-4 flex items-center">
+                  <div className="flex-1 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full h-3 overflow-hidden">
+                    <div
+                      className={`progress-bar h-3 rounded-full ${
+                        (metrics?.taxa_conversao || 0) >= settings.taxa_conversao_ideal
+                          ? 'bg-gradient-to-r from-green-500 to-emerald-400'
+                          : (metrics?.taxa_conversao || 0) >= (settings.taxa_conversao_ideal * 0.7)
+                            ? 'bg-gradient-to-r from-yellow-500 to-orange-400'
+                            : 'bg-gradient-to-r from-red-500 to-pink-400'
+                      }`}
+                      style={{
+                        width: `${Math.min((metrics?.taxa_conversao || 0) / settings.taxa_conversao_ideal * 100, 100)}%`
+                      }}
+                    ></div>
+                  </div>
+                  <span className="ml-3 text-xs font-medium text-gray-500 bg-white/50 px-2 py-1 rounded-full">
+                    Meta: {settings.taxa_conversao_ideal}%
+                  </span>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-3 rounded-2xl shadow-lg float-animation" style={{animationDelay: '4s'}}>
+                <TrendingUp className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Gráficos */}

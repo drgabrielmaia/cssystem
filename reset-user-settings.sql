@@ -1,5 +1,11 @@
--- Criar tabela de configurações do usuário
-CREATE TABLE IF NOT EXISTS user_settings (
+-- ATENÇÃO: Este script vai APAGAR todos os dados da tabela user_settings!
+-- Use apenas se quiser recomeçar do zero
+
+-- 1. Dropar a tabela existente (cuidado: apaga todos os dados!)
+DROP TABLE IF EXISTS user_settings CASCADE;
+
+-- 2. Recriar a tabela com todos os campos atualizados
+CREATE TABLE user_settings (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id TEXT NOT NULL UNIQUE,
 
@@ -33,7 +39,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Criar trigger para atualizar updated_at
+-- 3. Recriar trigger para atualizar updated_at
 CREATE OR REPLACE FUNCTION update_user_settings_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -47,10 +53,10 @@ CREATE TRIGGER user_settings_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_user_settings_updated_at();
 
--- Inserir configurações padrão para o usuário atual
+-- 4. Inserir configurações padrão para o usuário atual
 INSERT INTO user_settings (user_id)
 VALUES ('default_user')
 ON CONFLICT (user_id) DO NOTHING;
 
--- Visualizar configurações criadas
+-- 5. Visualizar configurações criadas
 SELECT * FROM user_settings WHERE user_id = 'default_user';

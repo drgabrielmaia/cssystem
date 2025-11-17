@@ -77,6 +77,8 @@ export default function LeadsPage() {
   const [origemFilter, setOrigemFilter] = useState('todas')
   const [temperaturaFilter, setTemperaturaFilter] = useState('todas')
   const [periodoFilter, setPeriodoFilter] = useState('todos')
+  const [dataInicio, setDataInicio] = useState('')
+  const [dataFim, setDataFim] = useState('')
 
   // Estados para paginação e otimização
   const [currentPage, setCurrentPage] = useState(1)
@@ -112,6 +114,11 @@ export default function LeadsPage() {
     loadStatsWithCache()
   }, [])
 
+  // Atualizar estatísticas quando filtros mudarem
+  useEffect(() => {
+    loadStatsWithCache()
+  }, [statusFilter, origemFilter, temperaturaFilter, periodoFilter, dataInicio, dataFim])
+
   // Debounce para busca
   useEffect(() => {
     if (searchDebounceTimer) {
@@ -119,7 +126,7 @@ export default function LeadsPage() {
     }
 
     const timer = setTimeout(() => {
-      if (searchTerm || statusFilter !== 'todos' || origemFilter !== 'todas' || temperaturaFilter !== 'todas' || periodoFilter !== 'todos') {
+      if (searchTerm || statusFilter !== 'todos' || origemFilter !== 'todas' || temperaturaFilter !== 'todas' || periodoFilter !== 'todos' || dataInicio || dataFim) {
         loadLeads(1, false) // Recarregar da primeira página quando filtrar
       }
     }, 300)
@@ -129,7 +136,7 @@ export default function LeadsPage() {
     return () => {
       if (timer) clearTimeout(timer)
     }
-  }, [searchTerm, statusFilter, origemFilter, temperaturaFilter, periodoFilter])
+  }, [searchTerm, statusFilter, origemFilter, temperaturaFilter, periodoFilter, dataInicio, dataFim])
 
   const loadLeads = async (page = 1, append = false) => {
     try {
@@ -165,30 +172,70 @@ export default function LeadsPage() {
       if (periodoFilter !== 'todos') {
         const now = new Date()
         let startDate = new Date()
+        let endDate = new Date()
 
         switch (periodoFilter) {
-          case 'semana':
-            // Segunda-feira da semana atual
-            const monday = new Date(now)
-            const dayOfWeek = monday.getDay()
-            const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-            monday.setDate(now.getDate() - daysToSubtract)
-            monday.setHours(0, 0, 0, 0)
-            startDate = monday
+          case 'semana_atual':
+            // Segunda-feira da semana atual até domingo
+            const mondayThisWeek = new Date(now)
+            const dayOfWeekCurrent = mondayThisWeek.getDay()
+            const daysToSubtractCurrent = dayOfWeekCurrent === 0 ? 6 : dayOfWeekCurrent - 1
+            mondayThisWeek.setDate(now.getDate() - daysToSubtractCurrent)
+            mondayThisWeek.setHours(0, 0, 0, 0)
+
+            const sundayThisWeek = new Date(mondayThisWeek)
+            sundayThisWeek.setDate(mondayThisWeek.getDate() + 6)
+            sundayThisWeek.setHours(23, 59, 59, 999)
+
+            startDate = mondayThisWeek
+            endDate = sundayThisWeek
+            break
+          case 'ultima_semana':
+            // Segunda-feira da semana passada até domingo
+            const mondayLastWeek = new Date(now)
+            const dayOfWeekLast = mondayLastWeek.getDay()
+            const daysToSubtractLast = dayOfWeekLast === 0 ? 6 : dayOfWeekLast - 1
+            mondayLastWeek.setDate(now.getDate() - daysToSubtractLast - 7) // -7 para semana passada
+            mondayLastWeek.setHours(0, 0, 0, 0)
+
+            const sundayLastWeek = new Date(mondayLastWeek)
+            sundayLastWeek.setDate(mondayLastWeek.getDate() + 6)
+            sundayLastWeek.setHours(23, 59, 59, 999)
+
+            startDate = mondayLastWeek
+            endDate = sundayLastWeek
             break
           case 'mes':
             // Primeiro dia do mês atual
             startDate = new Date(now.getFullYear(), now.getMonth(), 1)
             startDate.setHours(0, 0, 0, 0)
+            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+            endDate.setHours(23, 59, 59, 999)
             break
           case 'ano':
-            startDate.setFullYear(now.getFullYear() - 1)
+            startDate = new Date(now.getFullYear(), 0, 1)
+            startDate.setHours(0, 0, 0, 0)
+            endDate = new Date(now.getFullYear(), 11, 31)
+            endDate.setHours(23, 59, 59, 999)
             break
         }
 
-        if (periodoFilter !== 'todos') {
-          query = query.gte('data_primeiro_contato', startDate.toISOString())
+        query = query.gte('data_primeiro_contato', startDate.toISOString())
+        if (endDate) {
+          query = query.lte('data_primeiro_contato', endDate.toISOString())
         }
+      }
+
+      // Aplicar filtro de datas personalizadas
+      if (dataInicio) {
+        const startDate = new Date(dataInicio)
+        startDate.setHours(0, 0, 0, 0)
+        query = query.gte('data_primeiro_contato', startDate.toISOString())
+      }
+      if (dataFim) {
+        const endDate = new Date(dataFim)
+        endDate.setHours(23, 59, 59, 999)
+        query = query.lte('data_primeiro_contato', endDate.toISOString())
       }
 
       const { data, error, count } = await query
@@ -214,37 +261,144 @@ export default function LeadsPage() {
   }
 
   const loadStatsWithCache = async () => {
-    const cacheKey = 'stats_general'
+    // Criar chave de cache baseada nos filtros atuais
+    const cacheKey = `stats_${statusFilter}_${origemFilter}_${temperaturaFilter}_${periodoFilter}_${dataInicio}_${dataFim}`
 
-    // Verificar cache (válido por 5 minutos)
+    // Verificar cache (válido por 2 minutos)
     if (statsCache[cacheKey]) {
-      const cacheTime = parseInt(localStorage.getItem('stats_cache_time') || '0')
-      if (Date.now() - cacheTime < 5 * 60 * 1000) {
+      const cacheTime = parseInt(localStorage.getItem(`stats_cache_time_${cacheKey}`) || '0')
+      if (Date.now() - cacheTime < 2 * 60 * 1000) {
         setStats(statsCache[cacheKey])
-        setLoading(false)
         return
       }
     }
 
     try {
-      const { data, error } = await supabase
-        .from('leads_stats')
-        .select('*')
+      // Usar a mesma lógica de filtros que está sendo aplicada aos leads
+      let query = supabase
+        .from('leads')
+        .select('status, valor_vendido, valor_arrecadado')
+
+      // Aplicar os mesmos filtros
+      if (statusFilter !== 'todos') {
+        query = query.eq('status', statusFilter)
+      }
+      if (origemFilter !== 'todas') {
+        query = query.eq('origem', origemFilter)
+      }
+      if (temperaturaFilter !== 'todas') {
+        query = query.eq('temperatura', temperaturaFilter)
+      }
+
+      // Aplicar filtro de período
+      if (periodoFilter !== 'todos') {
+        const now = new Date()
+        let startDate = new Date()
+        let endDate = new Date()
+
+        switch (periodoFilter) {
+          case 'semana_atual':
+            const mondayThisWeek = new Date(now)
+            const dayOfWeekCurrent = mondayThisWeek.getDay()
+            const daysToSubtractCurrent = dayOfWeekCurrent === 0 ? 6 : dayOfWeekCurrent - 1
+            mondayThisWeek.setDate(now.getDate() - daysToSubtractCurrent)
+            mondayThisWeek.setHours(0, 0, 0, 0)
+
+            const sundayThisWeek = new Date(mondayThisWeek)
+            sundayThisWeek.setDate(mondayThisWeek.getDate() + 6)
+            sundayThisWeek.setHours(23, 59, 59, 999)
+
+            startDate = mondayThisWeek
+            endDate = sundayThisWeek
+            break
+          case 'ultima_semana':
+            const mondayLastWeek = new Date(now)
+            const dayOfWeekLast = mondayLastWeek.getDay()
+            const daysToSubtractLast = dayOfWeekLast === 0 ? 6 : dayOfWeekLast - 1
+            mondayLastWeek.setDate(now.getDate() - daysToSubtractLast - 7)
+            mondayLastWeek.setHours(0, 0, 0, 0)
+
+            const sundayLastWeek = new Date(mondayLastWeek)
+            sundayLastWeek.setDate(mondayLastWeek.getDate() + 6)
+            sundayLastWeek.setHours(23, 59, 59, 999)
+
+            startDate = mondayLastWeek
+            endDate = sundayLastWeek
+            break
+          case 'mes':
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+            startDate.setHours(0, 0, 0, 0)
+            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+            endDate.setHours(23, 59, 59, 999)
+            break
+          case 'ano':
+            startDate = new Date(now.getFullYear(), 0, 1)
+            startDate.setHours(0, 0, 0, 0)
+            endDate = new Date(now.getFullYear(), 11, 31)
+            endDate.setHours(23, 59, 59, 999)
+            break
+        }
+
+        query = query.gte('data_primeiro_contato', startDate.toISOString())
+        if (endDate) {
+          query = query.lte('data_primeiro_contato', endDate.toISOString())
+        }
+      }
+
+      // Aplicar filtro de datas personalizadas
+      if (dataInicio) {
+        const startDate = new Date(dataInicio)
+        startDate.setHours(0, 0, 0, 0)
+        query = query.gte('data_primeiro_contato', startDate.toISOString())
+      }
+      if (dataFim) {
+        const endDate = new Date(dataFim)
+        endDate.setHours(23, 59, 59, 999)
+        query = query.lte('data_primeiro_contato', endDate.toISOString())
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
 
+      // Processar dados para criar estatísticas
+      const statsMap: { [key: string]: LeadStats } = {}
+
+      data?.forEach(lead => {
+        if (!statsMap[lead.status]) {
+          statsMap[lead.status] = {
+            status: lead.status,
+            quantidade: 0,
+            valor_total_vendido: 0,
+            valor_total_arrecadado: 0,
+            valor_medio_vendido: 0,
+            valor_medio_arrecadado: 0
+          }
+        }
+
+        statsMap[lead.status].quantidade += 1
+        statsMap[lead.status].valor_total_vendido += lead.valor_vendido || 0
+        statsMap[lead.status].valor_total_arrecadado += lead.valor_arrecadado || 0
+      })
+
+      // Calcular médias
+      Object.values(statsMap).forEach(stat => {
+        stat.valor_medio_vendido = stat.quantidade > 0 ? (stat.valor_total_vendido || 0) / stat.quantidade : 0
+        stat.valor_medio_arrecadado = stat.quantidade > 0 ? (stat.valor_total_arrecadado || 0) / stat.quantidade : 0
+      })
+
+      const statsArray = Object.values(statsMap)
+
       // Salvar no cache
-      setStatsCache(prev => ({ ...prev, [cacheKey]: data || [] }))
-      localStorage.setItem('stats_cache_time', Date.now().toString())
-      setStats(data || [])
+      setStatsCache(prev => ({ ...prev, [cacheKey]: statsArray }))
+      localStorage.setItem(`stats_cache_time_${cacheKey}`, Date.now().toString())
+      setStats(statsArray)
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error)
       // Tentar usar cache antigo se disponível
       if (statsCache[cacheKey]) {
         setStats(statsCache[cacheKey])
       }
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -916,35 +1070,109 @@ export default function LeadsPage() {
                 <Button
                   variant={periodoFilter === 'todos' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setPeriodoFilter('todos')}
+                  onClick={() => {
+                    setPeriodoFilter('todos')
+                    setDataInicio('')
+                    setDataFim('')
+                  }}
                   className="text-xs"
                 >
                   📅 Todos
                 </Button>
                 <Button
-                  variant={periodoFilter === 'semana' ? 'default' : 'outline'}
+                  variant={periodoFilter === 'semana_atual' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setPeriodoFilter('semana')}
+                  onClick={() => {
+                    setPeriodoFilter('semana_atual')
+                    setDataInicio('')
+                    setDataFim('')
+                  }}
                   className="text-xs"
                 >
-                  📆 Última semana
+                  📆 Semana Atual (Seg-Dom)
+                </Button>
+                <Button
+                  variant={periodoFilter === 'ultima_semana' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setPeriodoFilter('ultima_semana')
+                    setDataInicio('')
+                    setDataFim('')
+                  }}
+                  className="text-xs"
+                >
+                  📆 Última Semana (Seg-Dom)
                 </Button>
                 <Button
                   variant={periodoFilter === 'mes' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setPeriodoFilter('mes')}
+                  onClick={() => {
+                    setPeriodoFilter('mes')
+                    setDataInicio('')
+                    setDataFim('')
+                  }}
                   className="text-xs"
                 >
-                  📅 Último mês
+                  📅 Mês Atual
                 </Button>
                 <Button
                   variant={periodoFilter === 'ano' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setPeriodoFilter('ano')}
+                  onClick={() => {
+                    setPeriodoFilter('ano')
+                    setDataInicio('')
+                    setDataFim('')
+                  }}
                   className="text-xs"
                 >
-                  📄 Último ano
+                  📄 Ano Atual
                 </Button>
+              </div>
+            </div>
+
+            {/* Filtro por Datas Personalizadas */}
+            <div className="flex items-center gap-2 border-t pt-4">
+              <div className="w-4 h-4"></div>
+              <span className="text-sm text-gray-600">Período Personalizado:</span>
+              <div className="flex flex-wrap gap-2 items-center">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-gray-600">De:</Label>
+                  <Input
+                    type="date"
+                    value={dataInicio}
+                    onChange={(e) => {
+                      setDataInicio(e.target.value)
+                      setPeriodoFilter('todos')
+                    }}
+                    className="text-xs w-36"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-gray-600">Até:</Label>
+                  <Input
+                    type="date"
+                    value={dataFim}
+                    onChange={(e) => {
+                      setDataFim(e.target.value)
+                      setPeriodoFilter('todos')
+                    }}
+                    className="text-xs w-36"
+                  />
+                </div>
+                {(dataInicio || dataFim) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setDataInicio('')
+                      setDataFim('')
+                      setPeriodoFilter('todos')
+                    }}
+                    className="text-xs"
+                  >
+                    ✖️ Limpar
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -1122,6 +1350,8 @@ export default function LeadsPage() {
                 setOrigemFilter('todas')
                 setTemperaturaFilter('todas')
                 setPeriodoFilter('todos')
+                setDataInicio('')
+                setDataFim('')
               }}
             >
               Limpar Filtros

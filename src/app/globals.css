@@ -75,21 +75,51 @@
   }
 }
 
-/* Personalização dinâmica */
+/* Personalização dinâmica - Design Apple/Futurista */
 :root {
   --primary-color: #3b82f6;
+  --primary-rgb: 59, 130, 246;
   --theme: light;
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --blur: blur(20px);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
-/* Aplicar cor primária em componentes */
+.dark {
+  --glass-bg: rgba(0, 0, 0, 0.3);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Glassmorphism Cards */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 48px rgba(var(--primary-rgb), 0.15);
+  border-color: rgba(var(--primary-rgb), 0.3);
+}
+
+/* Componentes com cor primária */
 .btn-primary {
-  background-color: var(--primary-color) !important;
-  border-color: var(--primary-color) !important;
+  background: linear-gradient(135deg, var(--primary-color), color-mix(in srgb, var(--primary-color) 80%, #000));
+  border: none;
+  box-shadow: 0 4px 16px rgba(var(--primary-rgb), 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-primary:hover {
-  background-color: color-mix(in srgb, var(--primary-color) 90%, black) !important;
-  border-color: color-mix(in srgb, var(--primary-color) 90%, black) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(var(--primary-rgb), 0.4);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 90%, white), var(--primary-color));
 }
 
 .text-primary {
@@ -101,26 +131,95 @@
 }
 
 .bg-primary {
-  background-color: var(--primary-color) !important;
+  background: linear-gradient(135deg, var(--primary-color), color-mix(in srgb, var(--primary-color) 85%, #000)) !important;
 }
 
-/* Sidebar com cor personalizada */
+/* Sidebar futurista com cor dinâmica */
 .sidebar-primary {
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--primary-color) 80%, #000) 0%,
-    color-mix(in srgb, var(--primary-color) 60%, #000) 50%,
-    color-mix(in srgb, var(--primary-color) 70%, #000) 100%) !important;
+  background: linear-gradient(180deg,
+    rgba(var(--primary-rgb), 0.95) 0%,
+    rgba(var(--primary-rgb), 0.85) 50%,
+    rgba(var(--primary-rgb), 0.9) 100%);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 4px 0 24px rgba(var(--primary-rgb), 0.2);
+}
+
+.sidebar-primary .sidebar-item {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 12px;
+  margin: 4px 8px;
+}
+
+.sidebar-primary .sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateX(4px);
 }
 
 .sidebar-primary .sidebar-item.active {
   background: linear-gradient(90deg,
-    color-mix(in srgb, var(--primary-color) 40%, transparent) 0%,
-    color-mix(in srgb, var(--primary-color) 30%, transparent) 100%) !important;
-  border-color: color-mix(in srgb, var(--primary-color) 60%, transparent) !important;
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.1) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .sidebar-primary .sidebar-item.active .sidebar-icon {
-  background: linear-gradient(135deg,
-    var(--primary-color) 0%,
-    color-mix(in srgb, var(--primary-color) 80%, #000) 100%) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
+  color: var(--primary-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Progress bars futuristas */
+.progress-bar {
+  background: linear-gradient(90deg,
+    var(--primary-color),
+    color-mix(in srgb, var(--primary-color) 70%, white));
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Input glassmorphism */
+.glass-input {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-input:focus {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+}
+
+/* Animações suaves */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.float-animation {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.3); }
+  50% { box-shadow: 0 0 30px rgba(var(--primary-rgb), 0.5); }
+}
+
+.pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+/* Badge moderno */
+.modern-badge {
+  background: linear-gradient(135deg, var(--primary-color), color-mix(in srgb, var(--primary-color) 80%, white));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 16px rgba(var(--primary-rgb), 0.2);
 }
