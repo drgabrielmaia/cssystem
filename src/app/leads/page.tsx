@@ -263,7 +263,7 @@ export default function LeadsPage() {
       // Usar a mesma lógica de filtros que está sendo aplicada aos leads
       let query = supabase
         .from('leads')
-        .select('status, valor_vendido, valor_arrecadado')
+        .select('status, valor_vendido, valor_arrecadado, data_primeiro_contato, convertido_em')
 
       // Aplicar os mesmos filtros
       if (statusFilter !== 'todos') {
@@ -280,12 +280,16 @@ export default function LeadsPage() {
       // Aplicar filtro de datas personalizadas usando o novo sistema
       const dateFilter = dateFilters.getDateFilter()
       if (dateFilter?.start || dateFilter?.end) {
-        if (dateFilter.start) {
-          query = query.gte('data_primeiro_contato', dateFilter.start)
+        // Para não vendidos, aplicar filtro no SQL normalmente
+        if (statusFilter !== 'vendido' && statusFilter !== 'todos') {
+          if (dateFilter.start) {
+            query = query.gte('data_primeiro_contato', dateFilter.start)
+          }
+          if (dateFilter.end) {
+            query = query.lte('data_primeiro_contato', dateFilter.end)
+          }
         }
-        if (dateFilter.end) {
-          query = query.lte('data_primeiro_contato', dateFilter.end)
-        }
+        // Para vendidos ou todos, vamos filtrar no JavaScript para usar a lógica correta
       }
 
       const { data, error } = await query
@@ -296,6 +300,34 @@ export default function LeadsPage() {
       const statsMap: { [key: string]: LeadStats } = {}
 
       data?.forEach(lead => {
+        // Aplicar filtro de data no JavaScript para todos os leads quando há filtro de data
+        if (dateFilter?.start || dateFilter?.end) {
+          let dataParaFiltro
+
+          if (lead.status === 'vendido') {
+            // Para vendidos, usar convertido_em se disponível, senão data_primeiro_contato
+            dataParaFiltro = lead.convertido_em || lead.data_primeiro_contato
+          } else {
+            // Para outros status, usar data_primeiro_contato
+            dataParaFiltro = lead.data_primeiro_contato
+          }
+
+          if (dataParaFiltro) {
+            const dataObj = new Date(dataParaFiltro)
+            let incluirLead = true
+
+            if (dateFilter.start && dateFilter.end) {
+              incluirLead = dataObj >= new Date(dateFilter.start) && dataObj <= new Date(dateFilter.end)
+            } else if (dateFilter.start) {
+              incluirLead = dataObj >= new Date(dateFilter.start)
+            } else if (dateFilter.end) {
+              incluirLead = dataObj <= new Date(dateFilter.end)
+            }
+
+            if (!incluirLead) return // Pular este lead se não atender ao filtro de data
+          }
+        }
+
         if (!statsMap[lead.status]) {
           statsMap[lead.status] = {
             status: lead.status,

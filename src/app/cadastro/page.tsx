@@ -146,7 +146,7 @@ export default function CadastroPage() {
       observacoes: mentorado.observacoes || '',
       password: '',
       confirmPassword: '',
-      porcentagem_comissao: mentorado.porcentagem_comissao || 10
+      porcentagem_comissao: mentorado.porcentagem_comissao || 5
     })
     setEditingId(mentorado.id)
     setShowForm(true)
