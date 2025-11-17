@@ -99,6 +99,7 @@ interface LeadStats {
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
+  const [leadsVendidosMes, setLeadsVendidosMes] = useState<Lead[]>([])
   const [stats, setStats] = useState<LeadStats[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -156,11 +157,13 @@ export default function LeadsPage() {
   useEffect(() => {
     loadLeads()
     loadStatsWithCache()
+    loadLeadsVendidosMes()
   }, [])
 
   // Atualizar estatísticas quando filtros mudarem
   useEffect(() => {
     loadStatsWithCache()
+    loadLeadsVendidosMes()
   }, [statusFilter, origemFilter, temperaturaFilter, dateFilters.dataInicio, dateFilters.dataFim, dateFilters.filtroTempo])
 
   // Debounce para busca
@@ -448,6 +451,89 @@ export default function LeadsPage() {
     }
   }
 
+  // Carregar leads vendidos no mês atual da tabela lead_vendas
+  const loadLeadsVendidosMes = async () => {
+    try {
+      // Usar os mesmos filtros de data que o dashboard usa
+      const dateFilter = dateFilters.getDateFilter()
+      let startDate: string, endDate: string
+
+      if (dateFilter) {
+        startDate = dateFilter.start || ''
+        endDate = dateFilter.end || ''
+      } else {
+        // Se não há filtro, usar mês atual
+        const hoje = new Date()
+        const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+        const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
+        startDate = primeiroDia.toISOString().split('T')[0]
+        endDate = ultimoDia.toISOString().split('T')[0]
+      }
+
+      // Buscar vendas do período com join nos leads
+      const { data: vendasData, error } = await supabase
+        .from('lead_vendas')
+        .select(`
+          lead_id,
+          valor_vendido,
+          valor_arrecadado,
+          data_venda,
+          leads (
+            id,
+            nome_completo,
+            email,
+            telefone,
+            empresa,
+            cargo,
+            status,
+            origem,
+            temperatura,
+            observacoes,
+            origem_detalhada,
+            lead_score,
+            probabilidade_compra,
+            valor_estimado,
+            created_at,
+            updated_at
+          )
+        `)
+        .gte('data_venda', startDate)
+        .lte('data_venda', endDate)
+
+      if (error) throw error
+
+      // Transformar os dados para o formato Lead[]
+      const leadsVendidos: Lead[] = vendasData?.map((venda: any) => ({
+        id: venda.leads?.id,
+        nome_completo: venda.leads?.nome_completo,
+        email: venda.leads?.email,
+        telefone: venda.leads?.telefone,
+        empresa: venda.leads?.empresa,
+        cargo: venda.leads?.cargo,
+        status: venda.leads?.status,
+        origem: venda.leads?.origem,
+        temperatura: venda.leads?.temperatura,
+        observacoes: venda.leads?.observacoes,
+        origem_detalhada: venda.leads?.origem_detalhada,
+        lead_score: venda.leads?.lead_score,
+        probabilidade_compra: venda.leads?.probabilidade_compra,
+        valor_estimado: venda.leads?.valor_estimado,
+        created_at: venda.leads?.created_at,
+        updated_at: venda.leads?.updated_at,
+        valor_vendido: venda.valor_vendido,
+        valor_arrecadado: venda.valor_arrecadado,
+        data_primeiro_contato: venda.leads?.created_at,
+        convertido_em: venda.data_venda
+      })) || []
+
+      setLeadsVendidosMes(leadsVendidos)
+
+    } catch (error) {
+      console.error('Erro ao carregar leads vendidos do mês:', error)
+      setLeadsVendidosMes([])
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -711,7 +797,7 @@ export default function LeadsPage() {
               data_arrecadacao: leadData.valor_arrecadado > 0 ? new Date().toISOString().split('T')[0] : null,
               parcelas: 1,
               tipo_venda: 'direta',
-              status_pagamento: leadData.valor_arrecadado >= leadData.valor_vendido ? 'completo' : 'parcial',
+              status_pagamento: leadData.valor_arrecadado >= leadData.valor_vendido ? 'pago' : 'parcial',
               observacoes: 'Venda registrada automaticamente'
             }])
 
@@ -722,6 +808,7 @@ export default function LeadsPage() {
       // Recarregar leads e stats
       await loadLeads()
       await loadStatsWithCache()
+      await loadLeadsVendidosMes()
     } catch (error) {
       console.error('Erro ao atualizar status:', error)
       alert('Erro ao atualizar status do lead')
@@ -741,10 +828,20 @@ export default function LeadsPage() {
       { key: 'no_show', label: 'No-show', color: 'bg-yellow-500' }
     ]
 
-    return statusColumns.map(column => ({
-      ...column,
-      leads: leads.filter(lead => lead.status === column.key)
-    }))
+    return statusColumns.map(column => {
+      if (column.key === 'vendido') {
+        // Para vendidos, usar os leads carregados da tabela lead_vendas
+        return {
+          ...column,
+          leads: leadsVendidosMes
+        }
+      } else {
+        return {
+          ...column,
+          leads: leads.filter(lead => lead.status === column.key && lead.status !== 'vendido')
+        }
+      }
+    })
   }
 
   // Filtrar leads baseado na pesquisa e filtros
