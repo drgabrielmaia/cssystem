@@ -53,7 +53,8 @@ export default function Dashboard() {
     noShow: 0,
     rejeitadas: 0,
     vendidas: 0,
-    totalCalls: 0
+    totalCalls: 0,
+    callsFeitas: 0
   })
   const [loading, setLoading] = useState(true)
 
@@ -175,6 +176,7 @@ export default function Dashboard() {
       let rejeitadas = 0
       let vendidas = 0
       let totalCalls = 0
+      let callsFeitas = 0
 
       if (allLeads) {
         // Filtrar leads por data primeiro
@@ -206,10 +208,15 @@ export default function Dashboard() {
           } else if (lead.status === 'vendido') {
             vendidas++
             totalCalls++
+            callsFeitas++
           } else if (lead.status === 'proposta_enviada') {
             // Proposta enviada também conta como call realizada (vendida)
             vendidas++
             totalCalls++
+            callsFeitas++
+          } else if (lead.status === 'perdido') {
+            // Perdido também conta como call já feita
+            callsFeitas++
           }
         })
       }
@@ -282,7 +289,8 @@ export default function Dashboard() {
         noShow,
         rejeitadas,
         vendidas,
-        totalCalls
+        totalCalls,
+        callsFeitas
       })
     } catch (error) {
       console.error('Erro ao carregar stats:', error)
@@ -544,7 +552,16 @@ export default function Dashboard() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
+              <MinimalStatsCard
+                title="Calls Feitas"
+                value={callsStats.callsFeitas}
+                subtitle="Propostas + vendidas + perdidas"
+                icon={TrendingUp}
+                onClick={() => navigateTo('/leads')}
+                loading={loading}
+              />
+
               <MinimalStatsCard
                 title="No-show"
                 value={callsStats.noShow}
@@ -576,7 +593,7 @@ export default function Dashboard() {
                 title="Taxa de Conversão"
                 value={callsStats.totalCalls > 0 ? `${Math.round((callsStats.vendidas / callsStats.totalCalls) * 100)}%` : '0%'}
                 subtitle={`${callsStats.totalCalls} calls total`}
-                icon={TrendingUp}
+                icon={BarChart3}
                 onClick={() => navigateTo('/leads')}
                 loading={loading}
               />
