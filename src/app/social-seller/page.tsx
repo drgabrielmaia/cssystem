@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
+import { useSettings } from '@/contexts/settings'
 import {
   TrendingUp,
   Users,
@@ -41,6 +42,7 @@ interface LeadsMetrics {
 
 
 export default function SocialSellerPage() {
+  const { settings } = useSettings()
   const [metrics, setMetrics] = useState<LeadsMetrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -386,11 +388,13 @@ export default function SocialSellerPage() {
                       <div
                         className="bg-green-500 h-2 rounded-full"
                         style={{
-                          width: `${Math.min((metrics?.valor_vendido || 0) / 100000 * 100, 100)}%`
+                          width: `${Math.min((metrics?.valor_vendido || 0) / settings.meta_faturamento_mes * 100, 100)}%`
                         }}
                       ></div>
                     </div>
-                    <span className="ml-2 text-xs text-gray-500">Meta: R$ 100k</span>
+                    <span className="ml-2 text-xs text-gray-500">
+                      Meta: {formatCurrency(settings.meta_faturamento_mes)}
+                    </span>
                   </div>
                 </div>
                 <DollarSign className="h-8 w-8 text-green-500" />
@@ -430,9 +434,9 @@ export default function SocialSellerPage() {
                     <div className="flex-1 bg-gray-200 rounded-full h-2">
                       <div
                         className={`h-2 rounded-full ${
-                          (metrics?.taxa_conversao || 0) >= 30
+                          (metrics?.taxa_conversao || 0) >= settings.taxa_conversao_ideal
                             ? 'bg-green-500'
-                            : (metrics?.taxa_conversao || 0) >= 20
+                            : (metrics?.taxa_conversao || 0) >= (settings.taxa_conversao_ideal * 0.7)
                               ? 'bg-yellow-500'
                               : 'bg-red-500'
                         }`}
@@ -441,7 +445,9 @@ export default function SocialSellerPage() {
                         }}
                       ></div>
                     </div>
-                    <span className="ml-2 text-xs text-gray-500">Meta: 30%</span>
+                    <span className="ml-2 text-xs text-gray-500">
+                      Meta: {settings.taxa_conversao_ideal}%
+                    </span>
                   </div>
                 </div>
                 <TrendingUp className="h-8 w-8 text-purple-500" />

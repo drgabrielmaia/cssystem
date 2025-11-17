@@ -74,3 +74,53 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Personalização dinâmica */
+:root {
+  --primary-color: #3b82f6;
+  --theme: light;
+}
+
+/* Aplicar cor primária em componentes */
+.btn-primary {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+}
+
+.btn-primary:hover {
+  background-color: color-mix(in srgb, var(--primary-color) 90%, black) !important;
+  border-color: color-mix(in srgb, var(--primary-color) 90%, black) !important;
+}
+
+.text-primary {
+  color: var(--primary-color) !important;
+}
+
+.border-primary {
+  border-color: var(--primary-color) !important;
+}
+
+.bg-primary {
+  background-color: var(--primary-color) !important;
+}
+
+/* Sidebar com cor personalizada */
+.sidebar-primary {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--primary-color) 80%, #000) 0%,
+    color-mix(in srgb, var(--primary-color) 60%, #000) 50%,
+    color-mix(in srgb, var(--primary-color) 70%, #000) 100%) !important;
+}
+
+.sidebar-primary .sidebar-item.active {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--primary-color) 40%, transparent) 0%,
+    color-mix(in srgb, var(--primary-color) 30%, transparent) 100%) !important;
+  border-color: color-mix(in srgb, var(--primary-color) 60%, transparent) !important;
+}
+
+.sidebar-primary .sidebar-item.active .sidebar-icon {
+  background: linear-gradient(135deg,
+    var(--primary-color) 0%,
+    color-mix(in srgb, var(--primary-color) 80%, #000) 100%) !important;
+}

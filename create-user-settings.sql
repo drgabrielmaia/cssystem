@@ -6,9 +6,10 @@ CREATE TABLE IF NOT EXISTS user_settings (
   -- Metas mensais
   meta_leads_mes INTEGER DEFAULT 100,
   meta_vendas_mes INTEGER DEFAULT 10,
-  meta_faturamento_mes DECIMAL(10,2) DEFAULT 50000.00,
+  meta_faturamento_mes DECIMAL(10,2) DEFAULT 100000.00, -- R$ 100k
   meta_calls_mes INTEGER DEFAULT 50,
   meta_follow_ups_mes INTEGER DEFAULT 200,
+  taxa_conversao_ideal DECIMAL(5,2) DEFAULT 10.00, -- 10% conversão ideal
 
   -- Configurações de notificação
   notificacao_email BOOLEAN DEFAULT true,

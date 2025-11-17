@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { supabase } from '@/lib/supabase'
+import { useSettings } from '@/contexts/settings'
 import { Settings, Target, Bell, Palette, Workflow, Save } from 'lucide-react'
 
 interface UserSettings {
@@ -19,6 +19,7 @@ interface UserSettings {
   meta_faturamento_mes: number
   meta_calls_mes: number
   meta_follow_ups_mes: number
+  taxa_conversao_ideal: number
   notificacao_email: boolean
   notificacao_whatsapp: boolean
   notificacao_follow_ups: boolean
@@ -28,71 +29,16 @@ interface UserSettings {
 }
 
 export default function ConfiguracoesPage() {
-  const [settings, setSettings] = useState<UserSettings>({
-    id: '',
-    user_id: 'default_user',
-    meta_leads_mes: 100,
-    meta_vendas_mes: 10,
-    meta_faturamento_mes: 50000,
-    meta_calls_mes: 50,
-    meta_follow_ups_mes: 200,
-    notificacao_email: true,
-    notificacao_whatsapp: true,
-    notificacao_follow_ups: true,
-    auto_create_follow_ups: true,
-    tema: 'light',
-    cor_primaria: '#3b82f6'
-  })
-  const [loading, setLoading] = useState(true)
+  const { settings, updateSettings, loading } = useSettings()
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
-
-  useEffect(() => {
-    loadSettings()
-  }, [])
-
-  const loadSettings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', 'default_user')
-        .single()
-
-      if (error && error.code !== 'PGRST116') { // Not found error
-        console.error('Erro ao carregar configurações:', error)
-        return
-      }
-
-      if (data) {
-        setSettings(data)
-      }
-    } catch (error) {
-      console.error('Erro:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const saveSettings = async () => {
     setSaving(true)
     setMessage('')
 
     try {
-      const { user_id, ...settingsData } = settings
-
-      const { error } = await supabase
-        .from('user_settings')
-        .upsert([{
-          user_id: 'default_user',
-          ...settingsData,
-          updated_at: new Date().toISOString()
-        }], { onConflict: 'user_id' })
-
-      if (error) {
-        throw error
-      }
-
+      // As configurações já são salvas automaticamente pelo context
       setMessage('✅ Configurações salvas com sucesso!')
       setTimeout(() => setMessage(''), 3000)
     } catch (error) {
@@ -105,7 +51,7 @@ export default function ConfiguracoesPage() {
   }
 
   const updateSetting = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
-    setSettings(prev => ({ ...prev, [key]: value }))
+    updateSettings({ [key]: value } as Partial<UserSettings>)
   }
 
   if (loading) {
@@ -209,6 +155,19 @@ export default function ConfiguracoesPage() {
               value={settings.meta_follow_ups_mes}
               onChange={(e) => updateSetting('meta_follow_ups_mes', parseInt(e.target.value) || 0)}
               className="text-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="taxa-conversao">Taxa de Conversão Ideal (%)</Label>
+            <Input
+              id="taxa-conversao"
+              type="number"
+              value={settings.taxa_conversao_ideal}
+              onChange={(e) => updateSetting('taxa_conversao_ideal', parseFloat(e.target.value) || 0)}
+              className="text-lg"
+              step="0.1"
+              placeholder="Ex: 10.5"
             />
           </div>
         </CardContent>
