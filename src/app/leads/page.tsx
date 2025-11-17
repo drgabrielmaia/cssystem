@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/lib/supabase'
 import { useDateFilters } from '@/hooks/useDateFilters'
 import { DateFilters } from '@/components/date-filters'
+import { useSettings } from '@/contexts/settings'
 import {
   Plus,
   User,
@@ -80,12 +81,8 @@ export default function LeadsPage() {
   const [origemFilter, setOrigemFilter] = useState('todas')
   const [temperaturaFilter, setTemperaturaFilter] = useState('todas')
   const dateFilters = useDateFilters()
+  const { settings } = useSettings()
 
-  // Estados para metas
-  const [metas, setMetas] = useState({
-    metaFaturamento: 100000, // Meta mensal de R$ 100k
-    metaLeads: 50, // Meta mensal de 50 leads vendidos
-  })
 
   // Estados para paginação e otimização
   const [currentPage, setCurrentPage] = useState(1)
@@ -462,12 +459,12 @@ export default function LeadsPage() {
 
   const getPercentualFaturamento = () => {
     const valorVendido = getTotalVendido()
-    return Math.round((valorVendido / metas.metaFaturamento) * 100)
+    return Math.round((valorVendido / settings.meta_faturamento_mes) * 100)
   }
 
   const getPercentualLeads = () => {
     const leadsVendidos = stats.find(s => s.status === 'vendido')?.quantidade || 0
-    return Math.round((leadsVendidos / metas.metaLeads) * 100)
+    return Math.round((leadsVendidos / settings.meta_vendas_mes) * 100)
   }
 
   // Filtrar leads baseado na pesquisa e filtros
@@ -647,7 +644,7 @@ export default function LeadsPage() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Realizado: {formatCurrency(getTotalVendido())}</span>
-                  <span>Meta: {formatCurrency(metas.metaFaturamento)}</span>
+                  <span>Meta: {formatCurrency(settings.meta_faturamento_mes)}</span>
                 </div>
                 <div className="w-full bg-white/20 rounded-full h-3">
                   <div
@@ -678,7 +675,7 @@ export default function LeadsPage() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Vendidos: {stats.find(s => s.status === 'vendido')?.quantidade || 0}</span>
-                  <span>Meta: {metas.metaLeads}</span>
+                  <span>Meta: {settings.meta_vendas_mes}</span>
                 </div>
                 <div className="w-full bg-white/20 rounded-full h-3">
                   <div

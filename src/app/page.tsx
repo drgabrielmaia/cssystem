@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useDateFilters } from '@/hooks/useDateFilters'
 import { DateFilters } from '@/components/date-filters'
+import { useSettings } from '@/contexts/settings'
 import {
   Users,
   Calendar,
@@ -32,6 +33,7 @@ import {
 export default function Dashboard() {
   const router = useRouter()
   const dateFilters = useDateFilters()
+  const { settings } = useSettings()
   const [stats, setStats] = useState({
     totalMentorados: 0,
     totalCheckins: 0,
@@ -57,8 +59,6 @@ export default function Dashboard() {
     callsFeitas: 0
   })
   const [metasStats, setMetasStats] = useState({
-    metaFaturamento: 100000, // Meta mensal de R$ 100k
-    metaLeads: 50, // Meta mensal de 50 leads vendidos
     percentualFaturamento: 0,
     percentualLeads: 0
   })
@@ -299,9 +299,9 @@ export default function Dashboard() {
         callsFeitas
       })
 
-      // Calcular percentuais das metas
-      const percentualFaturamento = Math.round((valorVendido / metasStats.metaFaturamento) * 100)
-      const percentualLeads = Math.round((leadsVendidos / metasStats.metaLeads) * 100)
+      // Calcular percentuais das metas usando configurações
+      const percentualFaturamento = Math.round((valorVendido / settings.meta_faturamento_mes) * 100)
+      const percentualLeads = Math.round((leadsVendidos / settings.meta_vendas_mes) * 100)
 
       setMetasStats(prev => ({
         ...prev,
@@ -435,7 +435,7 @@ export default function Dashboard() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Realizado: {formatCurrency(leadsStats.valorVendido)}</span>
-                    <span>Meta: {formatCurrency(metasStats.metaFaturamento)}</span>
+                    <span>Meta: {formatCurrency(settings.meta_faturamento_mes)}</span>
                   </div>
                   <div className="w-full bg-white/20 rounded-full h-3">
                     <div
@@ -466,7 +466,7 @@ export default function Dashboard() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Vendidos: {leadsStats.leadsVendidos}</span>
-                    <span>Meta: {metasStats.metaLeads}</span>
+                    <span>Meta: {settings.meta_vendas_mes}</span>
                   </div>
                   <div className="w-full bg-white/20 rounded-full h-3">
                     <div
