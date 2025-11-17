@@ -216,8 +216,7 @@ export default function Dashboard() {
             totalCalls++
             callsFeitas++
           } else if (lead.status === 'proposta_enviada') {
-            // Proposta enviada também conta como call realizada (vendida)
-            vendidas++
+            // Proposta enviada conta como call feita, mas NÃO como vendida
             totalCalls++
             callsFeitas++
           } else if (lead.status === 'perdido') {
