@@ -415,9 +415,9 @@ export default function FollowUpsPage() {
         style={style}
         {...attributes}
         {...listeners}
-        className={`bg-white border rounded-lg p-3 cursor-grab hover:shadow-md transition-all duration-200 relative ${
-          isLate ? 'border-red-200 bg-red-50' : ''
-        } ${isDragging ? 'shadow-lg rotate-3 scale-105' : ''} hover:border-blue-300`}
+        className={`call-card ${
+          isLate ? 'call-card--late' : ''
+        } ${isDragging ? 'shadow-lg rotate-3 scale-105' : ''} hover:border-blue-300 cursor-grab`}
         onClick={() => {
           // Only open edit if not dragging
           if (!isDragging) {
@@ -463,78 +463,68 @@ export default function FollowUpsPage() {
               {prioridades.find(p => p.value === followUp.prioridade)?.label}
             </Badge>
             {isLate && (
-              <Badge variant="destructive" className="text-xs">
+              <span className="call-delay-badge">
                 Atrasado
-              </Badge>
+              </span>
             )}
           </div>
 
           {/* Quick Status Change */}
-          <div className="flex gap-1 mt-2">
+          <div className="status-actions mt-2">
             {column.key === 'pendente' && (
               <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs h-6 px-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                <button
+                  className="status-chip status-chip--vendido"
                   onClick={(e) => {
                     e.stopPropagation()
                     updateFollowUpStatus(followUp.id, 'concluido')
                   }}
                 >
                   Concluir
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs h-6 px-2"
+                </button>
+                <button
+                  className="status-chip status-chip--perdido"
                   onClick={(e) => {
                     e.stopPropagation()
                     updateFollowUpStatus(followUp.id, 'adiado')
                   }}
                 >
                   Adiar
-                </Button>
+                </button>
               </>
             )}
             {column.key === 'adiado' && (
               <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs h-6 px-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                <button
+                  className="status-chip status-chip--proposta"
                   onClick={(e) => {
                     e.stopPropagation()
                     updateFollowUpStatus(followUp.id, 'pendente')
                   }}
                 >
                   Reativar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs h-6 px-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                </button>
+                <button
+                  className="status-chip status-chip--vendido"
                   onClick={(e) => {
                     e.stopPropagation()
                     updateFollowUpStatus(followUp.id, 'concluido')
                   }}
                 >
                   Concluir
-                </Button>
+                </button>
               </>
             )}
             {column.key === 'concluido' && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs h-6 px-2"
+              <button
+                className="status-chip status-chip--proposta"
                 onClick={(e) => {
                   e.stopPropagation()
                   updateFollowUpStatus(followUp.id, 'pendente')
                 }}
               >
                 Reabrir
-              </Button>
+              </button>
             )}
           </div>
 
@@ -753,7 +743,7 @@ export default function FollowUpsPage() {
           const isLate = isOverdue(followUp.data_agendada, followUp.status)
 
           return (
-            <Card key={followUp.id} className={`border-l-4 ${isLate ? 'border-l-red-500 bg-red-50' : 'border-l-blue-500'}`}>
+            <Card key={followUp.id} className={`call-card ${isLate ? 'call-card--late' : ''}`}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -782,9 +772,9 @@ export default function FollowUpsPage() {
                           {format(new Date(followUp.data_agendada), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                         </span>
                         {isLate && (
-                          <Badge variant="destructive" className="ml-2">
+                          <span className="call-delay-badge ml-2">
                             Atrasado
-                          </Badge>
+                          </span>
                         )}
                       </div>
                     </div>

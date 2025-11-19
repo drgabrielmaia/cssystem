@@ -148,6 +148,93 @@
   color: #6B7280;
 }
 
+/* ====== FOLLOW-UPS / CALLS ATRASADAS ====== */
+
+.call-card {
+  background: #FFFFFF;
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #F3F4F6;
+  transition: all 0.2s ease;
+}
+
+.call-card--late {
+  border-left: 4px solid #F97373; /* vermelho leve */
+}
+
+.call-delay-badge {
+  background: #FEE2E2;    /* vermelho bem claro */
+  color: #B91C1C;         /* texto vermelho escuro */
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.status-chip {
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  background: #F9FAFB;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.status-chip--proposta {
+  border-color: #BFDBFE;
+  background: #EFF6FF;
+  color: #1D4ED8;
+}
+
+.status-chip--vendido {
+  border-color: #BBF7D0;
+  background: #ECFDF3;
+  color: #15803D;
+}
+
+.status-chip--perdido {
+  border-color: #E5E7EB;
+  background: #F9FAFB;
+  color: #6B7280;
+}
+
+.status-chip--noshow {
+  border-color: #FECACA;
+  background: #FEF2F2;
+  color: #B91C1C;
+}
+
+.call-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.call-info strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.call-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
 /* ====== OUTROS COMPONENTES ====== */
 
 /* Cards brancos ultra clean */
