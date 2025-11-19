@@ -493,7 +493,7 @@ export default function LeadsPage() {
       console.log(`✅ Encontradas ${vendasData?.length || 0} vendas na tabela lead_vendas`)
 
       // Transformar os dados para o formato Lead[] com dados da venda
-      const leadsVendidos: Lead[] = vendasData?.filter(venda => venda.leads?.id).map((venda: any) => ({
+      const leadsVendidos: Lead[] = (vendasData?.filter((venda: any) => venda.leads?.id) || []).map((venda: any) => ({
         id: venda.leads.id,
         nome_completo: venda.leads.nome_completo,
         email: venda.leads.email,
@@ -515,7 +515,7 @@ export default function LeadsPage() {
         data_primeiro_contato: venda.leads.created_at,
         convertido_em: venda.data_venda,
         lead_venda_id: venda.id // Adicionar ID da venda para poder editar
-      })) || []
+      }))
 
       console.log(`✅ ${leadsVendidos.length} leads vendidos processados para exibição`)
       setLeadsVendidosMes(leadsVendidos)
@@ -555,8 +555,8 @@ export default function LeadsPage() {
           console.log(`🔄 Lead vendido sendo editado, atualizando lead_vendas ID: ${editingLead.lead_venda_id}`)
 
           await updateLeadVendaValues(editingLead.lead_venda_id, {
-            valor_vendido: leadData.valor_vendido,
-            valor_arrecadado: leadData.valor_arrecadado
+            valor_vendido: leadData.valor_vendido || undefined,
+            valor_arrecadado: leadData.valor_arrecadado || undefined
           })
         }
       } else {
