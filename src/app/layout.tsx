@@ -19,7 +19,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className="h-full">
-      <body className={`${inter.className} h-full bg-gray-50`}>
+      <body className={`${inter.className} h-full bg-slate-950`}>
         <AuthProvider>
           <SettingsProvider>
             <AppContent>{children}</AppContent>

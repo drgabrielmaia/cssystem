@@ -55,24 +55,24 @@ function UserSection() {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center space-x-3 flex-1">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-green-500 shadow-lg">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-purple-500 shadow-lg pulse-neon">
           <span className="text-sm font-bold text-white">
             {user?.email?.charAt(0).toUpperCase()}
           </span>
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-white truncate">
-            {user?.email?.split('@')[0] || 'Usuário'}
+            {user?.email?.split('@')[0] || 'Neural User'}
           </p>
-          <p className="text-xs text-emerald-200">Administrador</p>
+          <p className="text-xs text-cyan-300 uppercase tracking-wider">System Admin</p>
         </div>
       </div>
       <Button
         variant="ghost"
         size="sm"
         onClick={signOut}
-        className="h-8 w-8 p-0 hover:bg-red-500/20 text-slate-300 hover:text-red-300 transition-all duration-200"
-        title="Fazer logout"
+        className="h-8 w-8 p-0 hover:bg-red-500/20 text-slate-300 hover:text-red-300 transition-all duration-200 cyber-button-outline"
+        title="Desconectar do sistema"
       >
         <LogOut className="h-4 w-4" />
       </Button>
@@ -112,18 +112,19 @@ export function Sidebar({ isOpen = false, setIsOpen }: SidebarProps) {
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-gradient-to-br from-emerald-900 via-green-900 to-teal-900 border-r border-emerald-800 shadow-2xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
+        "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-gradient-to-br from-slate-950 via-purple-900 to-slate-900 border-r border-cyan-500/30 shadow-2xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        {/* Logo */}
-        <div className="flex h-16 items-center px-6 border-b border-emerald-700/50">
-          <div className="flex items-center space-x-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 shadow-lg">
-              <GraduationCap className="h-6 w-6 text-white" />
+        {/* Logo Neural */}
+        <div className="flex h-16 items-center px-6 border-b border-cyan-500/30 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/5 to-transparent animate-pulse"></div>
+          <div className="flex items-center space-x-3 relative z-10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-purple-500 shadow-lg pulse-neon">
+              <Zap className="h-6 w-6 text-white" />
             </div>
             <div className="hidden sm:block">
-              <span className="text-xl font-bold text-white">Customer Success</span>
-              <p className="text-xs text-emerald-200">Management Hub</p>
+              <span className="text-xl font-bold holographic-text">NEURAL SYSTEM</span>
+              <p className="text-xs text-cyan-300 uppercase tracking-wider">Command Center</p>
             </div>
           </div>
         </div>
@@ -138,17 +139,17 @@ export function Sidebar({ isOpen = false, setIsOpen }: SidebarProps) {
                 href={item.href}
                 onClick={() => setIsOpen?.(false)} // Close mobile menu on link click
                 className={cn(
-                  'group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-300 hover:scale-[1.02]',
+                  'group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-300 hover:scale-[1.02] relative overflow-hidden',
                   isActive
-                    ? 'bg-gradient-to-r from-emerald-500/20 to-green-500/20 text-white shadow-lg backdrop-blur-sm border border-emerald-400/30'
-                    : 'text-slate-300 hover:text-white hover:bg-emerald-800/30'
+                    ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-white shadow-lg backdrop-blur-sm border border-cyan-400/30'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
                 )}
               >
                 <div className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-lg mr-3 transition-colors flex-shrink-0',
                   isActive
-                    ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-md'
-                    : 'bg-slate-800/50 text-slate-400 group-hover:bg-emerald-700/50 group-hover:text-slate-300'
+                    ? 'bg-gradient-to-br from-cyan-400 to-purple-500 text-white shadow-md pulse-neon'
+                    : 'bg-slate-800/50 text-slate-400 group-hover:bg-cyan-700/50 group-hover:text-cyan-300'
                 )}>
                   <item.icon className="h-4 w-4" />
                 </div>
@@ -162,8 +163,8 @@ export function Sidebar({ isOpen = false, setIsOpen }: SidebarProps) {
         </nav>
 
         {/* User section */}
-        <div className="flex-shrink-0 border-t border-emerald-700/50 p-4">
-          <div className="bg-gradient-to-r from-emerald-800/50 to-green-800/50 rounded-xl p-4 backdrop-blur-sm">
+        <div className="flex-shrink-0 border-t border-cyan-500/30 p-4">
+          <div className="bg-gradient-to-r from-slate-800/50 to-purple-800/50 rounded-xl p-4 backdrop-blur-sm border border-cyan-500/20">
             <UserSection />
           </div>
         </div>

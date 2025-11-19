@@ -53,7 +53,7 @@ export function AppContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gradient-to-br from-slate-950 via-purple-900 to-slate-900">
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       <div className="flex flex-1 flex-col overflow-hidden lg:ml-0">
         <main className="flex-1 relative overflow-y-auto focus:outline-none">

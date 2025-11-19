@@ -155,15 +155,16 @@ export default function LeadsPage() {
   const [searchDebounceTimer, setSearchDebounceTimer] = useState<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    loadLeads()
-    loadStatsWithCache()
-    loadLeadsVendidosMes()
+    loadData()
   }, [])
 
   // Atualizar estatísticas quando filtros mudarem
   useEffect(() => {
-    loadStatsWithCache()
-    loadLeadsVendidosMes()
+    // Para filtros apenas recarregar stats e vendidos, os leads são carregados pelo debounce effect
+    Promise.all([
+      loadStatsWithCache(),
+      loadLeadsVendidosMes()
+    ])
   }, [statusFilter, origemFilter, temperaturaFilter, dateFilters.dataInicio, dateFilters.dataFim, dateFilters.filtroTempo])
 
   // Debounce para busca
@@ -564,8 +565,7 @@ export default function LeadsPage() {
         if (error) throw error
       }
 
-      await loadLeads()
-      await loadStatsWithCache()
+      await loadData()
       resetForm()
       setIsModalOpen(false)
 
@@ -629,8 +629,7 @@ export default function LeadsPage() {
 
       if (error) throw error
 
-      await loadLeads()
-      await loadStatsWithCache()
+      await loadData()
     } catch (error) {
       console.error('Erro ao excluir lead:', error)
       alert('Erro ao excluir lead')
@@ -743,37 +742,85 @@ export default function LeadsPage() {
     }
   }
 
+  // Função centralizada para recarregar todos os dados
+  const loadData = async () => {
+    await Promise.all([
+      loadLeads(),
+      loadStatsWithCache(),
+      loadLeadsVendidosMes()
+    ])
+  }
+
   // Função para atualizar status do lead
   const updateLeadStatus = async (leadId: string, newStatus: string) => {
+    // Store original lead for rollback
+    const originalLead = leads.find(l => l.id === leadId)
+    if (!originalLead) {
+      console.error('Lead não encontrado para atualização')
+      alert('Erro: Lead não encontrado')
+      return false
+    }
+
+    // Validate status transition
+    const validStatuses = ['novo', 'contactado', 'qualificado', 'nao_qualificado', 'aguardando_resposta',
+                          'call_agendada', 'reagendamento', 'proposta_enviada', 'documentacao_pendente',
+                          'interesse_baixo', 'orcamento_insuficiente', 'vendido', 'perdido', 'no_show', 'reativar']
+
+    if (!validStatuses.includes(newStatus)) {
+      console.error('Status inválido:', newStatus)
+      alert('Erro: Status inválido')
+      return false
+    }
+
     try {
+      console.log(`Atualizando lead ${leadId} de ${originalLead.status} para ${newStatus}`)
+
       // Se está marcando como vendido, pegar dados do lead primeiro
       let leadData = null
       if (newStatus === 'vendido') {
         const { data, error: fetchError } = await supabase
           .from('leads')
-          .select('valor_vendido, valor_arrecadado')
+          .select('valor_vendido, valor_arrecadado, nome_completo')
           .eq('id', leadId)
           .single()
 
-        if (fetchError) throw fetchError
+        if (fetchError) {
+          console.error('Erro ao buscar dados do lead:', fetchError)
+          throw new Error('Não foi possível buscar os dados do lead para venda')
+        }
         leadData = data
+
+        // Verificar se tem valor de venda definido
+        if (!leadData.valor_vendido || leadData.valor_vendido <= 0) {
+          alert('Para marcar como vendido, é necessário definir o valor de venda. Por favor, edite o lead e adicione o valor vendido.')
+          return false
+        }
       }
 
       // Atualizar status do lead
-      const updateData: any = { status: newStatus }
+      const updateData: any = {
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      }
+
       if (newStatus === 'vendido') {
         updateData.convertido_em = new Date().toISOString()
       }
 
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('leads')
         .update(updateData)
         .eq('id', leadId)
 
-      if (error) throw error
+      if (updateError) {
+        console.error('Erro ao atualizar lead:', updateError)
+        throw new Error(`Erro ao atualizar status: ${updateError.message}`)
+      }
 
       // Se está marcando como vendido, salvar na tabela lead_vendas
       if (newStatus === 'vendido' && leadData) {
+        console.log('Processando venda para lead_vendas...')
+
         // Verificar se já existe registro na lead_vendas
         const { data: existingVenda, error: checkError } = await supabase
           .from('lead_vendas')
@@ -782,36 +829,67 @@ export default function LeadsPage() {
           .single()
 
         if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = not found
-          throw checkError
+          console.error('Erro ao verificar venda existente:', checkError)
+          throw new Error('Erro ao verificar venda existente')
         }
 
         if (!existingVenda) {
           // Criar registro na lead_vendas
+          const vendaData = {
+            lead_id: leadId,
+            valor_vendido: leadData.valor_vendido || 0,
+            valor_arrecadado: leadData.valor_arrecadado || 0,
+            data_venda: new Date().toISOString().split('T')[0],
+            data_arrecadacao: (leadData.valor_arrecadado && leadData.valor_arrecadado > 0)
+              ? new Date().toISOString().split('T')[0]
+              : null,
+            parcelas: 1,
+            tipo_venda: 'direta',
+            status_pagamento: (leadData.valor_arrecadado && leadData.valor_arrecadado >= leadData.valor_vendido)
+              ? 'pago'
+              : leadData.valor_arrecadado > 0
+                ? 'parcial'
+                : 'pendente',
+            observacoes: `Venda registrada automaticamente via drag and drop - ${leadData.nome_completo}`
+          }
+
           const { error: vendaError } = await supabase
             .from('lead_vendas')
-            .insert([{
-              lead_id: leadId,
-              valor_vendido: leadData.valor_vendido || 0,
-              valor_arrecadado: leadData.valor_arrecadado || 0,
-              data_venda: new Date().toISOString().split('T')[0],
-              data_arrecadacao: leadData.valor_arrecadado > 0 ? new Date().toISOString().split('T')[0] : null,
-              parcelas: 1,
-              tipo_venda: 'direta',
-              status_pagamento: leadData.valor_arrecadado >= leadData.valor_vendido ? 'pago' : 'parcial',
-              observacoes: 'Venda registrada automaticamente'
-            }])
+            .insert([vendaData])
 
-          if (vendaError) throw vendaError
+          if (vendaError) {
+            console.error('Erro ao criar registro de venda:', vendaError)
+            throw new Error(`Erro ao registrar venda: ${vendaError.message}`)
+          }
+
+          console.log('Venda registrada com sucesso na lead_vendas')
+        } else {
+          console.log('Registro de venda já existe, pulando inserção')
         }
       }
 
       // Recarregar leads e stats
-      await loadLeads()
-      await loadStatsWithCache()
-      await loadLeadsVendidosMes()
+      console.log('Recarregando dados após atualização...')
+      await loadData()
+
+      console.log(`Lead ${leadId} atualizado com sucesso para ${newStatus}`)
+      return true
+
     } catch (error) {
-      console.error('Erro ao atualizar status:', error)
-      alert('Erro ao atualizar status do lead')
+      console.error('Erro ao atualizar status do lead:', error)
+
+      // Show user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+      alert(`Erro ao atualizar status do lead: ${errorMessage}`)
+
+      // Reload data to ensure UI consistency
+      try {
+        await loadData()
+      } catch (reloadError) {
+        console.error('Erro ao recarregar dados após falha:', reloadError)
+      }
+
+      return false
     }
   }
 
@@ -945,21 +1023,54 @@ export default function LeadsPage() {
     setActiveId(null)
     setDraggedLead(null)
 
-    if (!over) return
+    if (!over) {
+      console.log('Drag cancelado: nenhum destino válido')
+      return
+    }
 
     const leadId = active.id as string
     const newStatus = over.id as string
 
     // Se o status não mudou, não faz nada
     const currentLead = leads.find(l => l.id === leadId)
-    if (!currentLead || currentLead.status === newStatus) return
+    if (!currentLead) {
+      console.error('Lead não encontrado no drag end:', leadId)
+      return
+    }
+
+    if (currentLead.status === newStatus) {
+      console.log('Status não mudou, ignorando drag')
+      return
+    }
+
+    console.log(`Drag and drop: ${leadId} de ${currentLead.status} para ${newStatus}`)
+
+    // Show loading state during update
+    const leadCard = document.querySelector(`[data-lead-id="${leadId}"]`)
+    if (leadCard) {
+      leadCard.classList.add('opacity-50')
+    }
 
     try {
       // Atualizar o lead no banco de dados
-      await updateLeadStatus(leadId, newStatus)
+      const success = await updateLeadStatus(leadId, newStatus)
+
+      if (!success) {
+        console.log('Atualização de status falhou, mantendo posição original')
+      }
     } catch (error) {
-      console.error('Erro ao atualizar status do lead:', error)
-      alert('Erro ao atualizar status do lead')
+      console.error('Erro crítico no drag and drop:', error)
+      alert('Erro crítico ao mover lead. Recarregando página...')
+
+      // Force reload on critical error
+      setTimeout(() => {
+        window.location.reload()
+      }, 2000)
+    } finally {
+      // Remove loading state
+      if (leadCard) {
+        leadCard.classList.remove('opacity-50')
+      }
     }
   }
 
@@ -987,6 +1098,7 @@ export default function LeadsPage() {
         style={style}
         {...attributes}
         {...listeners}
+        data-lead-id={lead.id}
         className={`bg-white border rounded-lg p-3 cursor-grab hover:shadow-md transition-all duration-200 relative ${
           isDragging ? 'shadow-lg rotate-3 scale-105' : ''
         } hover:border-blue-300`}
@@ -1051,7 +1163,7 @@ export default function LeadsPage() {
                 size="sm"
                 variant="outline"
                 className="text-xs h-6 px-2"
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.stopPropagation()
                   const nextStatus = column.key === 'novo' ? 'contactado'
                     : column.key === 'contactado' ? 'qualificado'
@@ -1059,7 +1171,19 @@ export default function LeadsPage() {
                     : column.key === 'call_agendada' ? 'proposta_enviada'
                     : column.key === 'proposta_enviada' ? 'vendido'
                     : 'vendido'
-                  updateLeadStatus(lead.id, nextStatus)
+
+                  // Disable button during update
+                  const button = e.currentTarget
+                  const originalText = button.textContent
+                  button.disabled = true
+                  button.textContent = 'Atualizando...'
+
+                  try {
+                    await updateLeadStatus(lead.id, nextStatus)
+                  } finally {
+                    button.disabled = false
+                    button.textContent = originalText
+                  }
                 }}
               >
                 Avançar
