@@ -55,24 +55,24 @@ function UserSection() {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center space-x-3 flex-1">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-purple-500 shadow-lg pulse-neon">
-          <span className="text-sm font-bold text-white">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-mint-green to-pastel-green shadow-sm">
+          <span className="text-sm font-medium text-gray-700">
             {user?.email?.charAt(0).toUpperCase()}
           </span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-white truncate">
-            {user?.email?.split('@')[0] || 'Neural User'}
+          <p className="text-sm font-medium text-gray-700 truncate">
+            {user?.email?.split('@')[0] || 'Usuário'}
           </p>
-          <p className="text-xs text-cyan-300 uppercase tracking-wider">System Admin</p>
+          <p className="text-xs text-gray-500">Administrador</p>
         </div>
       </div>
       <Button
         variant="ghost"
         size="sm"
         onClick={signOut}
-        className="h-8 w-8 p-0 hover:bg-red-500/20 text-slate-300 hover:text-red-300 transition-all duration-200 cyber-button-outline"
-        title="Desconectar do sistema"
+        className="h-8 w-8 p-0 hover:bg-red-50 text-gray-500 hover:text-red-600 transition-all duration-200"
+        title="Sair"
       >
         <LogOut className="h-4 w-4" />
       </Button>
@@ -112,19 +112,18 @@ export function Sidebar({ isOpen = false, setIsOpen }: SidebarProps) {
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-gradient-to-br from-slate-950 via-purple-900 to-slate-900 border-r border-cyan-500/30 shadow-2xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
+        "fixed inset-y-0 left-0 z-50 flex w-72 flex-col sidebar-ultra-clean transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        {/* Logo Neural */}
-        <div className="flex h-16 items-center px-6 border-b border-cyan-500/30 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/5 to-transparent animate-pulse"></div>
-          <div className="flex items-center space-x-3 relative z-10">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-purple-500 shadow-lg pulse-neon">
-              <Zap className="h-6 w-6 text-white" />
+        {/* Logo Clean */}
+        <div className="flex h-16 items-center px-6 border-b border-gray-100">
+          <div className="flex items-center space-x-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-mint-green to-lime-green shadow-sm">
+              <LayoutDashboard className="h-5 w-5 text-gray-700" />
             </div>
             <div className="hidden sm:block">
-              <span className="text-xl font-bold holographic-text">NEURAL SYSTEM</span>
-              <p className="text-xs text-cyan-300 uppercase tracking-wider">Command Center</p>
+              <span className="text-lg font-medium text-gray-800">Customer Success</span>
+              <p className="text-xs text-gray-500">Dashboard</p>
             </div>
           </div>
         </div>
@@ -137,36 +136,27 @@ export function Sidebar({ isOpen = false, setIsOpen }: SidebarProps) {
               <Link
                 key={item.name}
                 href={item.href}
-                onClick={() => setIsOpen?.(false)} // Close mobile menu on link click
+                onClick={() => setIsOpen?.(false)}
                 className={cn(
-                  'group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-300 hover:scale-[1.02] relative overflow-hidden',
-                  isActive
-                    ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-white shadow-lg backdrop-blur-sm border border-cyan-400/30'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                  'sidebar-item-ultra-clean',
+                  isActive && 'active'
                 )}
               >
-                <div className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-lg mr-3 transition-colors flex-shrink-0',
-                  isActive
-                    ? 'bg-gradient-to-br from-cyan-400 to-purple-500 text-white shadow-md pulse-neon'
-                    : 'bg-slate-800/50 text-slate-400 group-hover:bg-cyan-700/50 group-hover:text-cyan-300'
-                )}>
+                <div className="sidebar-icon-clean">
                   <item.icon className="h-4 w-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{item.name}</div>
-                  <div className="text-xs opacity-70 truncate">{item.description}</div>
+                  <p className="text-sm font-medium truncate">{item.name}</p>
+                  <p className="text-xs text-gray-400 truncate">{item.description}</p>
                 </div>
               </Link>
             )
           })}
         </nav>
 
-        {/* User section */}
-        <div className="flex-shrink-0 border-t border-cyan-500/30 p-4">
-          <div className="bg-gradient-to-r from-slate-800/50 to-purple-800/50 rounded-xl p-4 backdrop-blur-sm border border-cyan-500/20">
-            <UserSection />
-          </div>
+        {/* User Section */}
+        <div className="border-t border-gray-100 px-6 py-4">
+          <UserSection />
         </div>
       </div>
     </>

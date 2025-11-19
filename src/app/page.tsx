@@ -559,7 +559,7 @@ export default function Dashboard() {
   }
 
   // Componente Card Minimalista
-  const CleanStatsCard = ({
+  const UltraCleanStatsCard = ({
     title,
     value,
     subtitle,
@@ -577,26 +577,26 @@ export default function Dashboard() {
     trend?: 'up' | 'down' | 'neutral'
   }) => (
     <div
-      className="stats-card-clean cursor-pointer group"
+      className="stats-clean-white cursor-pointer group"
       onClick={onClick}
     >
-      <div className="flex items-start justify-between mb-4">
+      <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
-          <p className="metric-label mb-2">{title}</p>
-          <p className="metric-value">
+          <p className="metric-label-clean mb-2">{title}</p>
+          <p className="metric-value-clean">
             {loading ? (
-              <div className="h-8 w-20 bg-gray-100 rounded animate-pulse"></div>
+              <div className="h-7 w-16 bg-gray-100 rounded animate-pulse"></div>
             ) : (
               typeof value === 'number' ? value.toLocaleString() : value
             )}
           </p>
           {subtitle && (
-            <p className="subtitle-clean mt-1">{subtitle}</p>
+            <p className="subtitle-ultra-clean mt-1">{subtitle}</p>
           )}
         </div>
         <div className="ml-4">
-          <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center group-hover:bg-gray-100 transition-colors">
-            <Icon className="h-5 w-5 text-gray-500" />
+          <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-mint-green/10 transition-all duration-200">
+            <Icon className="sidebar-icon-clean" />
           </div>
         </div>
       </div>
@@ -604,13 +604,13 @@ export default function Dashboard() {
   )
 
   return (
-    <div className="flex-1 overflow-y-auto min-h-screen bg-white">
+    <div className="flex-1 overflow-y-auto min-h-screen" style={{background: '#F8FAF7'}}>
       <Header
-        title={<span className="title-clean">Dashboard</span>}
-        subtitle={<span className="subtitle-clean">Visão geral do Customer Success</span>}
+        title={<span className="title-ultra-clean">Dashboard</span>}
+        subtitle={<span className="subtitle-ultra-clean">Visão geral do Customer Success</span>}
       />
 
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-8">
+      <main className="layout-ultra-clean">
         {/* Filtros Avançados */}
         <DateFilters
           filtroTempo={dateFilters.filtroTempo}
@@ -706,17 +706,17 @@ export default function Dashboard() {
 
           {/* Métricas Principais */}
           <div className="space-y-8">
-            <div className="border-b border-gray-100 pb-6 mb-6">
-              <h2 className="title-clean">
+            <div className="border-b border-gray-100 pb-6 mb-8">
+              <h2 className="title-ultra-clean">
                 Métricas Principais
               </h2>
-              <p className="subtitle-clean">
+              <p className="subtitle-ultra-clean">
                 Indicadores essenciais do sistema
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Total Mentorados"
                 value={stats.totalMentorados}
                 subtitle="Gerenciar mentorados"
@@ -725,7 +725,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Check-ins Agendados"
                 value={stats.totalCheckins}
                 subtitle="Visualizar check-ins"
@@ -734,7 +734,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Pessoas c/ Pendências"
                 value={dividasStats.pessoasComDividas}
                 subtitle="Ver pendências"
@@ -743,7 +743,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Total de Leads"
                 value={leadsStats.totalLeads}
                 subtitle="Gerenciar leads"
@@ -756,17 +756,17 @@ export default function Dashboard() {
 
           {/* Análise Financeira */}
           <div className="space-y-8">
-            <div className="border-b border-gray-100 pb-6 mb-6">
-              <h2 className="title-clean">
+            <div className="border-b border-gray-100 pb-6 mb-8">
+              <h2 className="title-ultra-clean">
                 Análise Financeira
               </h2>
-              <p className="subtitle-clean">
+              <p className="subtitle-ultra-clean">
                 Status financeiro e fluxo de pagamentos
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Total de Dívidas"
                 value={dividasStats.totalDividas}
                 subtitle="Ver detalhes"
@@ -775,7 +775,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Valor Pendente"
                 value={formatCurrency(dividasStats.valorTotalPendente)}
                 subtitle="Total em aberto"
@@ -784,7 +784,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Taxa de Pendências"
                 value={stats.totalMentorados > 0 ? `${Math.round((dividasStats.pessoasComDividas / stats.totalMentorados) * 100)}%` : '0%'}
                 subtitle="% com dívidas"
@@ -798,21 +798,21 @@ export default function Dashboard() {
           {/* Performance de Vendas */}
           <div className="space-y-6">
             <div className="border-b border-gray-100 pb-6 mb-6">
-              <h2 className="title-clean">
+              <h2 className="title-ultra-clean">
                 Performance de Vendas
                 {dateFilters.hasActiveFilter && (
-                  <span className="text-lg text-gray-500 ml-3 font-normal">
+                  <span className="text-base text-gray-400 ml-3 font-normal">
                     • Filtro aplicado
                   </span>
                 )}
               </h2>
-              <p className="subtitle-clean">
+              <p className="subtitle-ultra-clean">
                 Conversões e análise de leads
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Total de Leads"
                 value={leadsStats.totalLeads}
                 subtitle="Todos os prospects"
@@ -821,7 +821,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Leads Convertidos"
                 value={leadsStats.leadsVendidos}
                 subtitle={
@@ -834,7 +834,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Valor Vendido"
                 value={formatCurrency(leadsStats.valorVendido)}
                 subtitle="Receita total"
@@ -843,7 +843,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Valor Recebido"
                 value={formatCurrency(leadsStats.valorArrecadado)}
                 subtitle={
@@ -875,7 +875,7 @@ export default function Dashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Calls Feitas"
                 value={callsStats.callsFeitas}
                 subtitle="Propostas + vendidas + perdidas"
@@ -884,7 +884,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="No-show"
                 value={callsStats.noShow}
                 subtitle="Não compareceram"
@@ -893,7 +893,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Rejeitadas"
                 value={callsStats.rejeitadas}
                 subtitle="Não interessados"
@@ -902,7 +902,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Vendidas"
                 value={callsStats.vendidas}
                 subtitle="Convertidas em venda"
@@ -911,7 +911,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <CleanStatsCard
+              <UltraCleanStatsCard
                 title="Taxa de Conversão"
                 value={callsStats.totalCalls > 0 ? `${Math.round((callsStats.vendidas / callsStats.totalCalls) * 100)}%` : '0%'}
                 subtitle={`${callsStats.totalCalls} calls total`}
