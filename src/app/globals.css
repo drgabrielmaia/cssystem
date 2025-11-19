@@ -3,70 +3,77 @@
 @tailwind utilities;
 
 @layer base {
-  /* Tema escuro futurista por padrão */
+  /* Paleta Ciberpunk Premium */
   :root {
-    /* Background escuro com gradiente futurista */
-    --background: 220 15% 6%;
+    /* Deep Space Backgrounds */
+    --background: 240 20% 6%;
     --foreground: 210 40% 98%;
 
-    /* Cards com transparência futurista */
-    --card: 220 15% 8%;
+    /* Card Glassmorphism */
+    --card: 240 15% 8%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 220 15% 8%;
+    --popover: 240 15% 8%;
     --popover-foreground: 210 40% 98%;
 
-    /* Cores primárias ciberpunk */
-    --primary: 261 91% 70%;
-    --primary-foreground: 220 15% 6%;
+    /* Neon Blue Primary */
+    --primary: 192 100% 50%;
+    --primary-foreground: 240 20% 6%;
 
-    /* Secundária neon */
-    --secondary: 192 91% 70%;
-    --secondary-foreground: 220 15% 6%;
+    /* Electric Purple Secondary */
+    --secondary: 280 100% 67%;
+    --secondary-foreground: 240 20% 6%;
 
-    /* Muted com transparência */
-    --muted: 220 15% 12%;
-    --muted-foreground: 215 20.2% 65.1%;
+    /* Smoke Gray Muted */
+    --muted: 240 15% 15%;
+    --muted-foreground: 210 20% 70%;
 
-    /* Accent neon verde */
-    --accent: 142 71% 45%;
-    --accent-foreground: 220 15% 6%;
+    /* Cyber Green Accent */
+    --accent: 160 100% 50%;
+    --accent-foreground: 240 20% 6%;
 
-    /* Destrutivo neon vermelho */
-    --destructive: 0 91% 70%;
+    /* Magenta Neon Destructive */
+    --destructive: 328 100% 50%;
     --destructive-foreground: 210 40% 98%;
 
-    /* Bordas sutis */
-    --border: 220 15% 20%;
-    --input: 220 15% 15%;
-    --ring: 261 91% 70%;
+    /* Chrome Silver Borders */
+    --border: 210 10% 25%;
+    --input: 240 15% 12%;
+    --ring: 192 100% 50%;
 
-    --radius: 1rem;
+    --radius: 0.8rem;
 
-    /* Cores customizadas futuristas */
-    --cyber-blue: #00f5ff;
-    --cyber-purple: #b347d9;
-    --cyber-green: #39ff14;
-    --cyber-pink: #ff006e;
+    /* Cores Cyberpunk Premium */
+    --neon-blue: #00D9FF;
+    --electric-purple: #AC00FF;
+    --magenta-neon: #FF0096;
+    --cyber-green: #00FF9C;
+    --deep-space: #0A0A0F;
+    --smoke-gray: #1A1A22;
+    --chrome-silver: #B7BDC6;
     --cyber-orange: #ff8500;
     --cyber-yellow: #ffff00;
 
-    /* Background principal futurista */
-    --bg-primary: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
-    --bg-secondary: linear-gradient(135deg, #16213e 0%, #0f3460 50%, #533483 100%);
+    /* Deep Space Backgrounds Premium */
+    --bg-primary: linear-gradient(135deg, var(--deep-space) 0%, var(--smoke-gray) 30%, #0D0D15 70%, var(--deep-space) 100%);
+    --bg-secondary: linear-gradient(135deg, var(--smoke-gray) 0%, #1A1A2E 50%, #2D1B69 100%);
+    --bg-glass: rgba(26, 26, 34, 0.4);
 
-    /* Glass morphism */
-    --glass-bg: rgba(255, 255, 255, 0.05);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+    /* Premium Glass morphism */
+    --glass-bg: rgba(26, 26, 34, 0.15);
+    --glass-border: rgba(0, 217, 255, 0.2);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    --glass-highlight: rgba(183, 189, 198, 0.1);
 
-    /* Neon effects */
-    --neon-glow-blue: 0 0 20px #00f5ff, 0 0 30px #00f5ff, 0 0 40px #00f5ff;
-    --neon-glow-purple: 0 0 20px #b347d9, 0 0 30px #b347d9, 0 0 40px #b347d9;
-    --neon-glow-green: 0 0 20px #39ff14, 0 0 30px #39ff14, 0 0 40px #39ff14;
+    /* Premium Neon Effects */
+    --neon-glow-blue: 0 0 15px var(--neon-blue), 0 0 25px var(--neon-blue), 0 0 35px var(--neon-blue);
+    --neon-glow-purple: 0 0 15px var(--electric-purple), 0 0 25px var(--electric-purple), 0 0 35px var(--electric-purple);
+    --neon-glow-green: 0 0 15px var(--cyber-green), 0 0 25px var(--cyber-green), 0 0 35px var(--cyber-green);
+    --neon-glow-magenta: 0 0 15px var(--magenta-neon), 0 0 25px var(--magenta-neon), 0 0 35px var(--magenta-neon);
 
-    /* Grid futurista */
-    --grid-color: rgba(0, 245, 255, 0.1);
+    /* Premium Grid futurista */
+    --grid-color: rgba(0, 217, 255, 0.08);
+    --grid-secondary: rgba(172, 0, 255, 0.05);
   }
 }
 
@@ -83,7 +90,7 @@
     overflow-x: hidden;
   }
 
-  /* Grid futurista de fundo */
+  /* Premium Grid futurista de fundo */
   body::before {
     content: '';
     position: fixed;
@@ -92,11 +99,13 @@
     width: 100%;
     height: 100%;
     background-image:
-      linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
-    background-size: 50px 50px;
+      linear-gradient(var(--grid-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-color) 1px, transparent 1px),
+      radial-gradient(circle at 25% 25%, var(--grid-secondary) 1px, transparent 1px);
+    background-size: 60px 60px, 60px 60px, 120px 120px;
     pointer-events: none;
     z-index: -1;
+    opacity: 0.6;
   }
 }
 
@@ -131,27 +140,27 @@
 }
 
 .glass-card:hover {
-  transform: translateY(-8px) scale(1.02);
+  transform: translateY(-6px) scale(1.01);
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.5),
-    0 0 40px rgba(179, 71, 217, 0.3);
-  border-color: rgba(179, 71, 217, 0.5);
+    var(--glass-shadow),
+    0 0 30px rgba(0, 217, 255, 0.4);
+  border-color: var(--neon-blue);
 }
 
 /* Neon Buttons */
 .btn-neon {
   background: transparent;
-  border: 2px solid var(--cyber-blue);
-  color: var(--cyber-blue);
+  border: 2px solid var(--neon-blue);
+  color: var(--neon-blue);
   padding: 0.75rem 2rem;
   border-radius: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+  box-shadow: 0 0 15px rgba(0, 217, 255, 0.4);
 }
 
 .btn-neon::before {
@@ -170,52 +179,60 @@
 }
 
 .btn-neon:hover {
-  background: rgba(0, 245, 255, 0.1);
+  background: rgba(0, 217, 255, 0.15);
   box-shadow: var(--neon-glow-blue);
   transform: translateY(-2px);
 }
 
 .btn-neon-purple {
-  border-color: var(--cyber-purple);
-  color: var(--cyber-purple);
-  box-shadow: 0 0 20px rgba(179, 71, 217, 0.3);
+  border-color: var(--electric-purple);
+  color: var(--electric-purple);
+  box-shadow: 0 0 15px rgba(172, 0, 255, 0.4);
 }
 
 .btn-neon-purple:hover {
-  background: rgba(179, 71, 217, 0.1);
+  background: rgba(172, 0, 255, 0.15);
   box-shadow: var(--neon-glow-purple);
 }
 
 .btn-neon-green {
   border-color: var(--cyber-green);
   color: var(--cyber-green);
-  box-shadow: 0 0 20px rgba(57, 255, 20, 0.3);
+  box-shadow: 0 0 15px rgba(0, 255, 156, 0.4);
 }
 
 .btn-neon-green:hover {
-  background: rgba(57, 255, 20, 0.1);
+  background: rgba(0, 255, 156, 0.15);
   box-shadow: var(--neon-glow-green);
 }
 
-/* Holographic Text */
+/* Holographic Text Premium */
 .holographic-text {
-  background: linear-gradient(45deg, var(--cyber-blue), var(--cyber-purple), var(--cyber-pink));
+  background: linear-gradient(45deg, var(--neon-blue), var(--electric-purple), var(--magenta-neon));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   font-weight: 700;
-  text-shadow: 0 0 30px rgba(179, 71, 217, 0.5);
+  text-shadow: 0 0 20px rgba(0, 217, 255, 0.6);
+  animation: holographic 3s ease-in-out infinite alternate;
 }
 
-/* Neon Inputs */
+@keyframes holographic {
+  0% { text-shadow: 0 0 20px rgba(0, 217, 255, 0.6); }
+  50% { text-shadow: 0 0 25px rgba(172, 0, 255, 0.8); }
+  100% { text-shadow: 0 0 20px rgba(255, 0, 150, 0.6); }
+}
+
+/* Premium Neon Inputs */
 .neon-input {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(0, 245, 255, 0.3);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-radius: 0.75rem;
   padding: 0.875rem 1.25rem;
   color: #ffffff;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(15px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   -webkit-backdrop-filter: blur(10px);
 }
 
@@ -225,11 +242,11 @@
 
 .neon-input:focus {
   outline: none;
-  border-color: var(--cyber-blue);
+  border-color: var(--neon-blue);
   box-shadow:
-    0 0 20px rgba(0, 245, 255, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  background: rgba(0, 245, 255, 0.05);
+    0 0 20px rgba(0, 217, 255, 0.6),
+    inset 0 1px 0 var(--glass-highlight);
+  background: rgba(0, 217, 255, 0.08);
 }
 
 /* Cyber Grid */
@@ -254,24 +271,24 @@
 }
 
 .status-novo {
-  background: rgba(0, 245, 255, 0.1);
-  border-color: var(--cyber-blue);
-  color: var(--cyber-blue);
-  box-shadow: 0 0 15px rgba(0, 245, 255, 0.3);
+  background: rgba(0, 217, 255, 0.15);
+  border-color: var(--neon-blue);
+  color: var(--neon-blue);
+  box-shadow: 0 0 15px rgba(0, 217, 255, 0.4);
 }
 
 .status-vendido {
-  background: rgba(57, 255, 20, 0.1);
+  background: rgba(0, 255, 156, 0.15);
   border-color: var(--cyber-green);
   color: var(--cyber-green);
-  box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
+  box-shadow: 0 0 15px rgba(0, 255, 156, 0.4);
 }
 
 .status-perdido {
-  background: rgba(255, 0, 110, 0.1);
-  border-color: var(--cyber-pink);
-  color: var(--cyber-pink);
-  box-shadow: 0 0 15px rgba(255, 0, 110, 0.3);
+  background: rgba(255, 0, 150, 0.15);
+  border-color: var(--magenta-neon);
+  color: var(--magenta-neon);
+  box-shadow: 0 0 15px rgba(255, 0, 150, 0.4);
 }
 
 /* Loading Animation Futurista */
@@ -530,6 +547,114 @@
   background: rgba(0, 245, 255, 0.05);
 }
 
+/* ====== NOVOS COMPONENTES PREMIUM ====== */
+
+/* Cyber Button Primary Premium */
+.cyber-button-primary {
+  background: linear-gradient(135deg, var(--neon-blue), var(--electric-purple));
+  border: 1px solid var(--neon-blue);
+  color: var(--deep-space);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 0.75rem;
+  padding: 0.75rem 2rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 217, 255, 0.4);
+}
+
+.cyber-button-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--neon-glow-blue);
+  background: linear-gradient(135deg, var(--electric-purple), var(--magenta-neon));
+}
+
+/* Cyber Button Outline Premium */
+.cyber-button-outline {
+  background: transparent;
+  border: 2px solid var(--neon-blue);
+  color: var(--neon-blue);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 0.75rem;
+  padding: 0.75rem 2rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.cyber-button-outline:hover {
+  background: rgba(0, 217, 255, 0.15);
+  box-shadow: 0 0 25px rgba(0, 217, 255, 0.6);
+  border-color: var(--electric-purple);
+  color: var(--electric-purple);
+}
+
+/* Premium Card Variants */
+.premium-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 1.2rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--neon-blue), var(--electric-purple), var(--magenta-neon));
+  opacity: 0.8;
+}
+
+.premium-card:hover {
+  transform: translateY(-8px) scale(1.01);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(0, 217, 255, 0.3);
+  border-color: var(--neon-blue);
+}
+
+/* Chrome Silver Text */
+.chrome-text {
+  color: var(--chrome-silver);
+  text-shadow: 0 1px 2px rgba(183, 189, 198, 0.3);
+}
+
+/* Deep Space Background Variants */
+.deep-space-bg {
+  background: var(--deep-space);
+}
+
+.smoke-gray-bg {
+  background: var(--smoke-gray);
+}
+
+/* Premium Grid Overlay */
+.premium-grid-overlay::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .glass-card {
@@ -538,6 +663,11 @@
   }
 
   .cyber-sidebar {
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+  }
+
+  .premium-card {
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
   }

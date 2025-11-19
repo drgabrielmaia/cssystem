@@ -576,47 +576,49 @@ export default function Dashboard() {
     loading: boolean
     trend?: 'up' | 'down' | 'neutral'
   }) => (
-    <Card
-      className="group relative bg-white border border-gray-200 hover:border-gray-300 cursor-pointer transition-all duration-200 hover:shadow-lg"
+    <div
+      className="premium-card p-6 cursor-pointer group"
       onClick={onClick}
     >
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-gray-600">{title}</p>
-            <p className="text-2xl font-semibold text-gray-900">
+      <div className="relative z-10">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex-1 space-y-2">
+            <p className="text-sm font-medium chrome-text uppercase tracking-wider">{title}</p>
+            <p className="text-3xl font-bold holographic-text">
               {loading ? (
-                <div className="h-8 w-20 bg-gray-200 animate-pulse rounded"></div>
+                <div className="h-8 w-20 bg-gradient-to-r from-gray-700 to-gray-600 rounded animate-pulse"></div>
               ) : (
-                value
+                typeof value === 'number' ? value.toLocaleString() : value
               )}
             </p>
             {subtitle && (
-              <p className="text-xs text-gray-500">{subtitle}</p>
+              <p className="text-sm chrome-text opacity-80">{subtitle}</p>
             )}
           </div>
-          <div className="flex flex-col items-center space-y-2">
-            <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-gray-100 transition-colors duration-200">
-              <Icon className="h-5 w-5 text-gray-600" />
+          <div className="ml-6">
+            <div className="w-14 h-14 bg-gradient-to-br from-neon-blue/20 to-electric-purple/20 rounded-xl flex items-center justify-center border border-neon-blue/30 group-hover:scale-110 transition-all duration-300 pulse-neon">
+              <Icon className="h-7 w-7 text-neon-blue" />
             </div>
-            <ArrowRight className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
           </div>
         </div>
 
-        {/* Subtle bottom line on hover */}
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-200"></div>
-      </CardContent>
-    </Card>
+        {/* Linha de progresso premium */}
+        <div className="w-full h-0.5 bg-gradient-to-r from-neon-blue via-electric-purple to-magenta-neon opacity-60 rounded-full"></div>
+      </div>
+    </div>
   )
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 min-h-screen">
+    <div className="flex-1 overflow-y-auto min-h-screen relative">
+      {/* Premium Grid Overlay */}
+      <div className="absolute inset-0 premium-grid-overlay pointer-events-none z-0"></div>
+
       <Header
-        title="Dashboard"
-        subtitle="Visão geral do Customer Success"
+        title={<span className="holographic-text">NEURAL COMMAND CENTER</span>}
+        subtitle={<span className="chrome-text">Sistema de Análise Avançada</span>}
       />
 
-      <main className="flex-1 p-4 sm:p-6 space-y-6 sm:space-y-8">
+      <main className="relative z-10 flex-1 p-4 sm:p-6 space-y-6 sm:space-y-8">
         {/* Filtros Avançados */}
         <DateFilters
           filtroTempo={dateFilters.filtroTempo}
@@ -712,12 +714,12 @@ export default function Dashboard() {
 
           {/* Métricas Principais */}
           <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-2xl font-semibold text-gray-900">
-                Métricas Principais
+            <div className="border-b border-neon-blue/30 pb-6">
+              <h2 className="text-3xl font-bold holographic-text">
+                📊 MÉTRICAS NEURAIS
               </h2>
-              <p className="text-gray-600 mt-1">
-                Indicadores-chave do sistema
+              <p className="chrome-text mt-2 uppercase tracking-wider text-sm">
+                Indicadores-chave do sistema avançado
               </p>
             </div>
 
@@ -762,12 +764,12 @@ export default function Dashboard() {
 
           {/* Análise Financeira */}
           <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-2xl font-semibold text-gray-900">
-                Análise Financeira
+            <div className="border-b border-electric-purple/30 pb-6">
+              <h2 className="text-3xl font-bold holographic-text">
+                💰 ANÁLISE FINANCEIRA NEURAL
               </h2>
-              <p className="text-gray-600 mt-1">
-                Pendências e situação financeira
+              <p className="chrome-text mt-2 uppercase tracking-wider text-sm">
+                Status financeiro e fluxo de pagamentos
               </p>
             </div>
 
@@ -803,17 +805,17 @@ export default function Dashboard() {
 
           {/* Performance de Vendas */}
           <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-2xl font-semibold text-gray-900">
-                Performance de Vendas
+            <div className="border-b border-magenta-neon/30 pb-6">
+              <h2 className="text-3xl font-bold holographic-text">
+                🚀 PERFORMANCE DE VENDAS NEURAL
                 {dateFilters.hasActiveFilter && (
-                  <span className="text-lg text-gray-500 ml-2 font-normal">
-                    - Filtro aplicado
+                  <span className="text-lg chrome-text ml-3 font-normal opacity-80">
+                    › FILTRO ATIVO
                   </span>
                 )}
               </h2>
-              <p className="text-gray-600 mt-1">
-                Leads e conversões
+              <p className="chrome-text mt-2 uppercase tracking-wider text-sm">
+                Conversões e análise de leads avançada
               </p>
             </div>
 
