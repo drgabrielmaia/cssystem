@@ -1335,85 +1335,52 @@ export default function LeadsPage() {
       />
 
       <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
-        {/* Metas do Mês - Seção de Destaque */}
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl p-6 text-white shadow-2xl">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-3xl font-bold">🎯 Metas do Mês</h2>
-              <p className="text-blue-100 mt-1">Performance atual dos leads</p>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-blue-100">Período</div>
-              <div className="text-lg font-semibold">
-                {new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
-              </div>
-            </div>
-          </div>
+        {/* Metas do Mês - Seção EXATA conforme especificado */}
+        <section className="goals-section">
+          <div className="goals-bg"></div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Meta Faturamento */}
-            <div className="bg-white/10 backdrop-blur rounded-xl p-6 border border-white/20">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="bg-white/20 p-2 rounded-lg">
-                    <DollarSign className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">Faturamento</h3>
-                    <p className="text-sm text-blue-100">Meta mensal</p>
-                  </div>
+          <div className="goals-card">
+            {/* Faturamento */}
+            <div className="goal-item goal-item--faturamento">
+              <div className="goal-item-header">
+                <div>
+                  <div className="goal-title">Faturamento</div>
+                  <div className="goal-subtitle">Meta mensal</div>
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold">{getPercentualFaturamento()}%</div>
-                  <div className="text-sm text-blue-100">da meta</div>
-                </div>
+                <div className="goal-percent">{getPercentualFaturamento()}%</div>
               </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Realizado: {formatCurrency(getTotalVendido())}</span>
-                  <span>Meta: {formatCurrency(settings.meta_faturamento_mes)}</span>
-                </div>
-                <div className="w-full bg-white/20 rounded-full h-3">
-                  <div
-                    className="bg-yellow-400 h-3 rounded-full transition-all duration-500"
-                    style={{width: `${Math.min(getPercentualFaturamento(), 100)}%`}}
-                  ></div>
-                </div>
+
+              <div className="goal-values">
+                <span>Realizado: {formatCurrency(getTotalVendido())}</span>
+                <span>Meta: {formatCurrency(settings.meta_faturamento_mes)}</span>
+              </div>
+
+              <div className="goal-progress" style={{'--progress': `${Math.min(getPercentualFaturamento(), 100)}%`} as React.CSSProperties}>
+                <div></div>
               </div>
             </div>
 
-            {/* Meta Leads */}
-            <div className="bg-white/10 backdrop-blur rounded-xl p-6 border border-white/20">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="bg-white/20 p-2 rounded-lg">
-                    <Target className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">Leads Vendidos</h3>
-                    <p className="text-sm text-blue-100">Meta mensal</p>
-                  </div>
+            {/* Leads Vendidos */}
+            <div className="goal-item goal-item--leads">
+              <div className="goal-item-header">
+                <div>
+                  <div className="goal-title">Leads Vendidos</div>
+                  <div className="goal-subtitle">Meta mensal</div>
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold">{getPercentualLeads()}%</div>
-                  <div className="text-sm text-blue-100">da meta</div>
-                </div>
+                <div className="goal-percent">{getPercentualLeads()}%</div>
               </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Vendidos: {stats.find(s => s.status === 'vendido')?.quantidade || 0}</span>
-                  <span>Meta: {settings.meta_vendas_mes}</span>
-                </div>
-                <div className="w-full bg-white/20 rounded-full h-3">
-                  <div
-                    className="bg-yellow-400 h-3 rounded-full transition-all duration-500"
-                    style={{width: `${Math.min(getPercentualLeads(), 100)}%`}}
-                  ></div>
-                </div>
+
+              <div className="goal-values">
+                <span>Vendidos: {stats.find(s => s.status === 'vendido')?.quantidade || 0}</span>
+                <span>Meta: {settings.meta_vendas_mes}</span>
+              </div>
+
+              <div className="goal-progress" style={{'--progress': `${Math.min(getPercentualLeads(), 100)}%`} as React.CSSProperties}>
+                <div></div>
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Cards de Estatísticas */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">

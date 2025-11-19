@@ -34,7 +34,7 @@ export function Header({ title, subtitle }: HeaderProps) {
 
       {/* Left Section - Logo/Brand */}
       <div className="flex items-center gap-4">
-        <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-purple-500 rounded-xl flex items-center justify-center pulse-neon">
+        <div className="w-10 h-10 bg-gradient-to-br from-mint to-lime rounded-xl flex items-center justify-center" style={{background: 'linear-gradient(135deg, var(--mint), var(--lime))'}}>
           <Zap className="h-6 w-6 text-white" />
         </div>
 
