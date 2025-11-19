@@ -559,7 +559,7 @@ export default function Dashboard() {
   }
 
   // Componente Card Minimalista
-  const MinimalStatsCard = ({
+  const CleanStatsCard = ({
     title,
     value,
     subtitle,
@@ -577,48 +577,40 @@ export default function Dashboard() {
     trend?: 'up' | 'down' | 'neutral'
   }) => (
     <div
-      className="premium-card p-8 cursor-pointer group float-animation"
+      className="stats-card-clean cursor-pointer group"
       onClick={onClick}
     >
-      <div className="relative z-10">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex-1 space-y-3">
-            <p className="text-sm clean-text uppercase tracking-wide font-medium opacity-70">{title}</p>
-            <p className="text-4xl clean-title">
-              {loading ? (
-                <div className="h-10 w-24 bg-gradient-to-r from-gray-200 to-gray-100 rounded-lg animate-pulse"></div>
-              ) : (
-                typeof value === 'number' ? value.toLocaleString() : value
-              )}
-            </p>
-            {subtitle && (
-              <p className="text-sm organic-text-soft">{subtitle}</p>
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1">
+          <p className="metric-label mb-2">{title}</p>
+          <p className="metric-value">
+            {loading ? (
+              <div className="h-8 w-20 bg-gray-100 rounded animate-pulse"></div>
+            ) : (
+              typeof value === 'number' ? value.toLocaleString() : value
             )}
-          </div>
-          <div className="ml-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-pool-blue/30 to-mint-green/40 rounded-2xl flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-lg">
-              <Icon className="h-8 w-8 text-gray-600" />
-            </div>
+          </p>
+          {subtitle && (
+            <p className="subtitle-clean mt-1">{subtitle}</p>
+          )}
+        </div>
+        <div className="ml-4">
+          <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center group-hover:bg-gray-100 transition-colors">
+            <Icon className="h-5 w-5 text-gray-500" />
           </div>
         </div>
-
-        {/* Indicador de tendência sutil */}
-        <div className="w-full h-1 bg-gradient-to-r from-pool-blue via-mint-green to-lime-green opacity-40 rounded-full"></div>
       </div>
     </div>
   )
 
   return (
-    <div className="flex-1 overflow-y-auto min-h-screen relative">
-      {/* Organic Grid Overlay */}
-      <div className="absolute inset-0 organic-grid-overlay pointer-events-none z-0"></div>
-
+    <div className="flex-1 overflow-y-auto min-h-screen bg-white">
       <Header
-        title={<span className="organic-text-primary text-4xl">Dashboard Executivo</span>}
-        subtitle={<span className="clean-text">Visão completa do Customer Success</span>}
+        title={<span className="title-clean">Dashboard</span>}
+        subtitle={<span className="subtitle-clean">Visão geral do Customer Success</span>}
       />
 
-      <main className="relative z-10 flex-1 p-6 sm:p-8 space-y-8 sm:space-y-12">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-8">
         {/* Filtros Avançados */}
         <DateFilters
           filtroTempo={dateFilters.filtroTempo}
@@ -714,17 +706,17 @@ export default function Dashboard() {
 
           {/* Métricas Principais */}
           <div className="space-y-8">
-            <div className="border-b border-lime-green/20 pb-8">
-              <h2 className="text-4xl clean-title mb-3">
-                📊 Métricas Principais
+            <div className="border-b border-gray-100 pb-6 mb-6">
+              <h2 className="title-clean">
+                Métricas Principais
               </h2>
-              <p className="clean-text text-lg">
+              <p className="subtitle-clean">
                 Indicadores essenciais do sistema
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
-              <MinimalStatsCard
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+              <CleanStatsCard
                 title="Total Mentorados"
                 value={stats.totalMentorados}
                 subtitle="Gerenciar mentorados"
@@ -733,7 +725,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Check-ins Agendados"
                 value={stats.totalCheckins}
                 subtitle="Visualizar check-ins"
@@ -742,7 +734,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Pessoas c/ Pendências"
                 value={dividasStats.pessoasComDividas}
                 subtitle="Ver pendências"
@@ -751,7 +743,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Total de Leads"
                 value={leadsStats.totalLeads}
                 subtitle="Gerenciar leads"
@@ -764,17 +756,17 @@ export default function Dashboard() {
 
           {/* Análise Financeira */}
           <div className="space-y-8">
-            <div className="border-b border-mint-green/20 pb-8">
-              <h2 className="text-4xl clean-title mb-3">
-                💰 Análise Financeira
+            <div className="border-b border-gray-100 pb-6 mb-6">
+              <h2 className="title-clean">
+                Análise Financeira
               </h2>
-              <p className="clean-text text-lg">
+              <p className="subtitle-clean">
                 Status financeiro e fluxo de pagamentos
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Total de Dívidas"
                 value={dividasStats.totalDividas}
                 subtitle="Ver detalhes"
@@ -783,7 +775,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Valor Pendente"
                 value={formatCurrency(dividasStats.valorTotalPendente)}
                 subtitle="Total em aberto"
@@ -792,7 +784,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Taxa de Pendências"
                 value={stats.totalMentorados > 0 ? `${Math.round((dividasStats.pessoasComDividas / stats.totalMentorados) * 100)}%` : '0%'}
                 subtitle="% com dívidas"
@@ -805,22 +797,22 @@ export default function Dashboard() {
 
           {/* Performance de Vendas */}
           <div className="space-y-6">
-            <div className="border-b border-magenta-neon/30 pb-6">
-              <h2 className="text-4xl clean-title mb-3">
-                🚀 Performance de Vendas
+            <div className="border-b border-gray-100 pb-6 mb-6">
+              <h2 className="title-clean">
+                Performance de Vendas
                 {dateFilters.hasActiveFilter && (
-                  <span className="text-lg organic-text-soft ml-4 font-normal">
+                  <span className="text-lg text-gray-500 ml-3 font-normal">
                     • Filtro aplicado
                   </span>
                 )}
               </h2>
-              <p className="clean-text text-lg">
+              <p className="subtitle-clean">
                 Conversões e análise de leads
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Total de Leads"
                 value={leadsStats.totalLeads}
                 subtitle="Todos os prospects"
@@ -829,7 +821,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Leads Convertidos"
                 value={leadsStats.leadsVendidos}
                 subtitle={
@@ -842,7 +834,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Valor Vendido"
                 value={formatCurrency(leadsStats.valorVendido)}
                 subtitle="Receita total"
@@ -851,7 +843,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Valor Recebido"
                 value={formatCurrency(leadsStats.valorArrecadado)}
                 subtitle={
@@ -883,7 +875,7 @@ export default function Dashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Calls Feitas"
                 value={callsStats.callsFeitas}
                 subtitle="Propostas + vendidas + perdidas"
@@ -892,7 +884,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="No-show"
                 value={callsStats.noShow}
                 subtitle="Não compareceram"
@@ -901,7 +893,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Rejeitadas"
                 value={callsStats.rejeitadas}
                 subtitle="Não interessados"
@@ -910,7 +902,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Vendidas"
                 value={callsStats.vendidas}
                 subtitle="Convertidas em venda"
@@ -919,7 +911,7 @@ export default function Dashboard() {
                 loading={loading}
               />
 
-              <MinimalStatsCard
+              <CleanStatsCard
                 title="Taxa de Conversão"
                 value={callsStats.totalCalls > 0 ? `${Math.round((callsStats.vendidas / callsStats.totalCalls) * 100)}%` : '0%'}
                 subtitle={`${callsStats.totalCalls} calls total`}
