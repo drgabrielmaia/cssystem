@@ -518,6 +518,7 @@ export default function LeadsPage() {
       }))
 
       console.log(`✅ ${leadsVendidos.length} leads vendidos processados para exibição`)
+      console.log('📊 Sample lead vendido:', leadsVendidos[0])
       setLeadsVendidosMes(leadsVendidos)
 
     } catch (error) {
@@ -975,7 +976,7 @@ export default function LeadsPage() {
       }
 
       // Recarregar leads e stats
-      console.log('Recarregando dados após atualização...')
+      console.log('🔄 Recarregando dados após atualização de status para:', newStatus)
       await loadData()
 
       console.log(`Lead ${leadId} atualizado com sucesso para ${newStatus}`)
