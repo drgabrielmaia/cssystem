@@ -624,84 +624,87 @@ export default function Dashboard() {
 
         {/* Dashboard Principal */}
         <div className="space-y-8">
-          {/* Metas do Mês - Seção de Destaque */}
-          <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-6 text-white shadow-2xl">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-3xl font-bold">🎯 Metas do Mês</h2>
-                <p className="text-green-100 mt-1">Acompanhe nosso progresso em tempo real</p>
-              </div>
-              <div className="text-right">
-                <div className="text-sm text-green-100">Período</div>
-                <div className="text-lg font-semibold">
-                  {new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
-                </div>
-              </div>
+          {/* Metas do Mês - Card Branco Ultra Clean */}
+          <div className="metas-card-branco-grande">
+            <div className="mb-6">
+              <h2 className="meta-title mb-1">Metas do Mês</h2>
+              <p className="meta-subtitle">
+                {new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Meta Faturamento */}
-              <div className="bg-white/10 backdrop-blur rounded-xl p-6 border border-white/20">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-white/20 p-2 rounded-lg">
-                      <DollarSign className="h-6 w-6" />
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Meta Faturamento - Subcard Branco */}
+              <div className="meta-subcard">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3 flex-1">
+                    <DollarSign className="meta-icon-mint" />
                     <div>
-                      <h3 className="text-lg font-semibold">Faturamento</h3>
-                      <p className="text-sm text-green-100">Meta mensal</p>
+                      <h3 className="meta-title">Faturamento</h3>
+                      <p className="meta-subtitle">Meta mensal</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold">{metasStats.percentualFaturamento}%</div>
-                    <div className="text-sm text-green-100">da meta</div>
+                    <p className="meta-value">{metasStats.percentualFaturamento}%</p>
+                    <p className="meta-percentage">da meta</p>
                   </div>
                 </div>
+
                 <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-xs text-gray-500">
                     <span>Realizado: {formatCurrency(leadsStats.valorVendido)}</span>
                     <span>Meta: {formatCurrency(settings.meta_faturamento_mes)}</span>
                   </div>
-                  <div className="w-full bg-white/20 rounded-full h-3">
+                  <div className="meta-progress-ultra-fina">
                     <div
-                      className="bg-yellow-400 h-3 rounded-full transition-all duration-500"
+                      className="meta-progress-fill-mint"
                       style={{width: `${Math.min(metasStats.percentualFaturamento, 100)}%`}}
                     ></div>
                   </div>
                 </div>
+
+                <div className="flex justify-end mt-2">
+                  <div className="mini-grafico-suave"></div>
+                </div>
               </div>
 
-              {/* Meta Leads */}
-              <div className="bg-white/10 backdrop-blur rounded-xl p-6 border border-white/20">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-white/20 p-2 rounded-lg">
-                      <Target className="h-6 w-6" />
-                    </div>
+              {/* Meta Leads - Subcard Branco */}
+              <div className="meta-subcard">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3 flex-1">
+                    <Target className="meta-icon-mint" />
                     <div>
-                      <h3 className="text-lg font-semibold">Leads Vendidos</h3>
-                      <p className="text-sm text-green-100">Meta mensal</p>
+                      <h3 className="meta-title">Leads Vendidos</h3>
+                      <p className="meta-subtitle">Meta mensal</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold">{metasStats.percentualLeads}%</div>
-                    <div className="text-sm text-green-100">da meta</div>
+                    <p className="meta-value">{metasStats.percentualLeads}%</p>
+                    <p className="meta-percentage">da meta</p>
                   </div>
                 </div>
+
                 <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-xs text-gray-500">
                     <span>Vendidos: {leadsStats.leadsVendidos}</span>
                     <span>Meta: {settings.meta_vendas_mes}</span>
                   </div>
-                  <div className="w-full bg-white/20 rounded-full h-3">
+                  <div className="meta-progress-ultra-fina">
                     <div
-                      className="bg-yellow-400 h-3 rounded-full transition-all duration-500"
+                      className="meta-progress-fill-mint"
                       style={{width: `${Math.min(metasStats.percentualLeads, 100)}%`}}
                     ></div>
                   </div>
                 </div>
+
+                <div className="flex justify-end mt-2">
+                  <div className="mini-grafico-suave"></div>
+                </div>
               </div>
             </div>
+
+            {/* Ondulação decorativa atrás */}
+            <div className="organic-flow-funnel" style={{position: 'absolute', top: '-20px', left: '-10px', right: '-10px', height: '60px', zIndex: '-1', opacity: '0.1'}}></div>
           </div>
 
           {/* Métricas Principais */}

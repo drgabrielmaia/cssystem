@@ -153,38 +153,103 @@
   opacity: 0.3;
 }
 
-/* Meta cards ultra clean */
-.meta-clean-card {
+/* Card Branco Grande para Metas */
+.metas-card-branco-grande {
   background: white;
-  border: 1px solid rgba(237, 237, 237, 0.6);
-  border-radius: 1rem;
-  padding: 1.25rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  border: 1px solid rgba(237, 237, 237, 0.4);
+  border-radius: 1.5rem;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02);
+  position: relative;
 }
 
-.meta-indicator-clean {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #A7F5D0;
+/* Subcards Brancos */
+.meta-subcard {
+  background: white;
+  border: 1px solid rgba(237, 237, 237, 0.3);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease;
+}
+
+.meta-subcard:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Ícones Mint Pequenos */
+.meta-icon-mint {
+  width: 20px;
+  height: 20px;
+  color: #A7F5D0;
   flex-shrink: 0;
 }
 
-.meta-progress-clean {
-  background: #F8FAFB;
-  border-radius: 0.5rem;
-  height: 6px;
+/* Typography para Metas */
+.meta-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin: 0;
+}
+
+.meta-subtitle {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #9CA3AF;
+  margin: 0;
+}
+
+.meta-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1F2937;
+  margin: 0;
+}
+
+.meta-percentage {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #10B981;
+  margin: 0;
+}
+
+/* Barra Progress Ultra Fina */
+.meta-progress-ultra-fina {
+  background: #F3F4F6;
+  border-radius: 2px;
+  height: 3px;
+  overflow: hidden;
+  margin: 0.75rem 0;
+}
+
+.meta-progress-fill-mint {
+  background: linear-gradient(90deg, #A7F5D0, #10B981);
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease-in-out;
+}
+
+/* Mini Gráfico Suave */
+.mini-grafico-suave {
+  width: 40px;
+  height: 20px;
+  background: linear-gradient(135deg, rgba(167, 245, 208, 0.3) 0%, rgba(16, 185, 129, 0.2) 100%);
+  border-radius: 4px;
+  position: relative;
   overflow: hidden;
 }
 
-.meta-progress-fill-clean {
-  background: linear-gradient(90deg, #A7F5D0, #A6E885);
-  height: 100%;
-  border-radius: 0.5rem;
-  transition: width 0.4s ease;
+.mini-grafico-suave::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 60%;
+  background: rgba(16, 185, 129, 0.4);
+  border-radius: 2px 2px 0 0;
 }
 
 /* Typography ultra clean */
