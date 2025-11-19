@@ -86,6 +86,7 @@ interface Lead {
   valor_estimado: number | null
   created_at: string
   updated_at: string
+  lead_venda_id?: number // ID da venda na tabela lead_vendas (para leads vendidos)
 }
 
 interface LeadStats {
@@ -452,29 +453,16 @@ export default function LeadsPage() {
     }
   }
 
-  // Carregar leads vendidos no mês atual da tabela lead_vendas
+  // Carregar TODOS os leads vendidos da tabela lead_vendas (SEM filtro de data)
   const loadLeadsVendidosMes = async () => {
     try {
-      // Usar os mesmos filtros de data que o dashboard usa
-      const dateFilter = dateFilters.getDateFilter()
-      let startDate: string, endDate: string
+      console.log('🔄 Carregando TODOS os leads vendidos...')
 
-      if (dateFilter) {
-        startDate = dateFilter.start || ''
-        endDate = dateFilter.end || ''
-      } else {
-        // Se não há filtro, usar mês atual
-        const hoje = new Date()
-        const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-        const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
-        startDate = primeiroDia.toISOString().split('T')[0]
-        endDate = ultimoDia.toISOString().split('T')[0]
-      }
-
-      // Buscar vendas do período com join nos leads
+      // Buscar TODAS as vendas com join nos leads (sem filtro de data)
       const { data: vendasData, error } = await supabase
         .from('lead_vendas')
         .select(`
+          id,
           lead_id,
           valor_vendido,
           valor_arrecadado,
@@ -498,39 +486,42 @@ export default function LeadsPage() {
             updated_at
           )
         `)
-        .gte('data_venda', startDate)
-        .lte('data_venda', endDate)
+        .order('data_venda', { ascending: false })
 
       if (error) throw error
 
-      // Transformar os dados para o formato Lead[]
-      const leadsVendidos: Lead[] = vendasData?.map((venda: any) => ({
-        id: venda.leads?.id,
-        nome_completo: venda.leads?.nome_completo,
-        email: venda.leads?.email,
-        telefone: venda.leads?.telefone,
-        empresa: venda.leads?.empresa,
-        cargo: venda.leads?.cargo,
-        status: venda.leads?.status,
-        origem: venda.leads?.origem,
-        temperatura: venda.leads?.temperatura,
-        observacoes: venda.leads?.observacoes,
-        origem_detalhada: venda.leads?.origem_detalhada,
-        lead_score: venda.leads?.lead_score,
-        probabilidade_compra: venda.leads?.probabilidade_compra,
-        valor_estimado: venda.leads?.valor_estimado,
-        created_at: venda.leads?.created_at,
-        updated_at: venda.leads?.updated_at,
-        valor_vendido: venda.valor_vendido,
-        valor_arrecadado: venda.valor_arrecadado,
-        data_primeiro_contato: venda.leads?.created_at,
-        convertido_em: venda.data_venda
+      console.log(`✅ Encontradas ${vendasData?.length || 0} vendas na tabela lead_vendas`)
+
+      // Transformar os dados para o formato Lead[] com dados da venda
+      const leadsVendidos: Lead[] = vendasData?.filter(venda => venda.leads?.id).map((venda: any) => ({
+        id: venda.leads.id,
+        nome_completo: venda.leads.nome_completo,
+        email: venda.leads.email,
+        telefone: venda.leads.telefone,
+        empresa: venda.leads.empresa,
+        cargo: venda.leads.cargo,
+        status: 'vendido', // Forçar status vendido
+        origem: venda.leads.origem,
+        temperatura: venda.leads.temperatura,
+        observacoes: venda.leads.observacoes,
+        origem_detalhada: venda.leads.origem_detalhada,
+        lead_score: venda.leads.lead_score,
+        probabilidade_compra: venda.leads.probabilidade_compra,
+        valor_estimado: venda.leads.valor_estimado,
+        created_at: venda.leads.created_at,
+        updated_at: venda.leads.updated_at,
+        valor_vendido: venda.valor_vendido, // Usar valor da tabela lead_vendas
+        valor_arrecadado: venda.valor_arrecadado, // Usar valor da tabela lead_vendas
+        data_primeiro_contato: venda.leads.created_at,
+        convertido_em: venda.data_venda,
+        lead_venda_id: venda.id // Adicionar ID da venda para poder editar
       })) || []
 
+      console.log(`✅ ${leadsVendidos.length} leads vendidos processados para exibição`)
       setLeadsVendidosMes(leadsVendidos)
 
     } catch (error) {
-      console.error('Erro ao carregar leads vendidos do mês:', error)
+      console.error('❌ Erro ao carregar leads vendidos:', error)
       setLeadsVendidosMes([])
     }
   }
@@ -551,12 +542,23 @@ export default function LeadsPage() {
       }
 
       if (editingLead) {
+        // Atualizar lead
         const { error } = await supabase
           .from('leads')
           .update(leadData)
           .eq('id', editingLead.id)
 
         if (error) throw error
+
+        // Se o lead está sendo editado E é vendido E tem lead_venda_id, atualizar tabela lead_vendas também
+        if (editingLead.status === 'vendido' && editingLead.lead_venda_id) {
+          console.log(`🔄 Lead vendido sendo editado, atualizando lead_vendas ID: ${editingLead.lead_venda_id}`)
+
+          await updateLeadVendaValues(editingLead.lead_venda_id, {
+            valor_vendido: leadData.valor_vendido,
+            valor_arrecadado: leadData.valor_arrecadado
+          })
+        }
       } else {
         const { error } = await supabase
           .from('leads')
@@ -633,6 +635,106 @@ export default function LeadsPage() {
     } catch (error) {
       console.error('Erro ao excluir lead:', error)
       alert('Erro ao excluir lead')
+    }
+  }
+
+  // Função para sincronizar leads vendidos entre tabelas leads e lead_vendas
+  const syncLeadsVendidos = async () => {
+    try {
+      console.log('🔄 Sincronizando leads vendidos entre tabelas...')
+
+      // 1. Buscar todos os leads com status 'vendido' na tabela leads
+      const { data: leadsVendidos, error: leadsError } = await supabase
+        .from('leads')
+        .select('id, nome_completo, valor_vendido, valor_arrecadado, convertido_em, created_at')
+        .eq('status', 'vendido')
+
+      if (leadsError) throw leadsError
+
+      console.log(`📊 Encontrados ${leadsVendidos?.length || 0} leads vendidos na tabela leads`)
+
+      // 2. Para cada lead vendido, verificar se existe na lead_vendas
+      for (const lead of leadsVendidos || []) {
+        const { data: vendaExistente, error: checkError } = await supabase
+          .from('lead_vendas')
+          .select('id')
+          .eq('lead_id', lead.id)
+          .single()
+
+        if (checkError && checkError.code !== 'PGRST116') {
+          console.error('Erro ao verificar venda existente:', checkError)
+          continue
+        }
+
+        // Se não existe, criar registro na lead_vendas
+        if (!vendaExistente) {
+          console.log(`➕ Criando registro de venda para lead ${lead.id} (${lead.nome_completo})`)
+
+          const vendaData = {
+            lead_id: lead.id,
+            valor_vendido: lead.valor_vendido || 0,
+            valor_arrecadado: lead.valor_arrecadado || 0,
+            data_venda: lead.convertido_em?.split('T')[0] || new Date().toISOString().split('T')[0],
+            data_arrecadacao: (lead.valor_arrecadado && lead.valor_arrecadado > 0)
+              ? lead.convertido_em?.split('T')[0] || new Date().toISOString().split('T')[0]
+              : null,
+            parcelas: 1,
+            tipo_venda: 'direta',
+            status_pagamento: (lead.valor_arrecadado && lead.valor_vendido && lead.valor_arrecadado >= lead.valor_vendido)
+              ? 'pago'
+              : lead.valor_arrecadado > 0
+                ? 'parcial'
+                : 'pendente',
+            observacoes: `Sincronizado automaticamente - ${lead.nome_completo}`
+          }
+
+          const { error: insertError } = await supabase
+            .from('lead_vendas')
+            .insert([vendaData])
+
+          if (insertError) {
+            console.error('Erro ao inserir venda:', insertError)
+          } else {
+            console.log(`✅ Venda criada para ${lead.nome_completo}`)
+          }
+        }
+      }
+
+      console.log('✅ Sincronização concluída')
+
+    } catch (error) {
+      console.error('❌ Erro na sincronização:', error)
+    }
+  }
+
+  // Função para atualizar valores de venda na tabela lead_vendas
+  const updateLeadVendaValues = async (leadVendaId: number, valores: { valor_vendido?: number, valor_arrecadado?: number }) => {
+    try {
+      console.log(`🔄 Atualizando valores da venda ID ${leadVendaId}:`, valores)
+
+      const { error } = await supabase
+        .from('lead_vendas')
+        .update({
+          valor_vendido: valores.valor_vendido,
+          valor_arrecadado: valores.valor_arrecadado,
+          status_pagamento: valores.valor_arrecadado && valores.valor_vendido
+            ? valores.valor_arrecadado >= valores.valor_vendido ? 'pago'
+              : valores.valor_arrecadado > 0 ? 'parcial'
+              : 'pendente'
+            : 'pendente'
+        })
+        .eq('id', leadVendaId)
+
+      if (error) throw error
+
+      console.log('✅ Valores atualizados com sucesso na lead_vendas')
+
+      // Recarregar dados
+      await loadData()
+
+    } catch (error) {
+      console.error('❌ Erro ao atualizar valores da venda:', error)
+      throw error
     }
   }
 
@@ -744,6 +846,10 @@ export default function LeadsPage() {
 
   // Função centralizada para recarregar todos os dados
   const loadData = async () => {
+    // Primeiro sincronizar leads vendidos para garantir consistência
+    await syncLeadsVendidos()
+
+    // Depois carregar todos os dados
     await Promise.all([
       loadLeads(),
       loadStatsWithCache(),
