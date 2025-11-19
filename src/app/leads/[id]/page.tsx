@@ -39,10 +39,19 @@ import { ptBR } from 'date-fns/locale'
 interface Lead {
   id: string
   nome_completo: string
-  email: string
-  telefone: string
-  empresa: string
+  email: string | null
+  telefone: string | null
+  empresa: string | null
+  cargo: string | null
+  origem: string | null
   status: string
+  observacoes: string | null
+  valor_vendido: number | null
+  valor_arrecadado: number | null
+  data_primeiro_contato: string
+  convertido_em: string | null
+  data_venda: string | null // Data da venda
+  origem_detalhada: string | null
   temperatura: string
   proxima_acao: string
   data_prevista_fechamento: string
@@ -56,6 +65,7 @@ interface Lead {
   responsavel_vendas: string
   call_agendada: string
   created_at: string
+  updated_at: string
 }
 
 interface HistoricoItem {

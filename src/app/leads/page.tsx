@@ -79,15 +79,12 @@ interface Lead {
   valor_arrecadado: number | null
   data_primeiro_contato: string
   convertido_em: string | null
-  data_venda: string | null // Nova data de venda direta na tabela leads
+  data_venda: string | null // Data da venda - usado para filtros e estatísticas
   origem_detalhada: string | null
-  lead_score: number | null
   temperatura: string | null
-  probabilidade_compra: number | null
-  valor_estimado: number | null
   created_at: string
   updated_at: string
-  lead_venda_id?: number // ID da venda na tabela lead_vendas (para leads vendidos)
+  lead_venda_id?: number // ID da venda na tabela lead_vendas (opcional)
 }
 
 interface LeadStats {
@@ -145,10 +142,7 @@ export default function LeadsPage() {
     valor_vendido: '',
     valor_arrecadado: '',
     origem_detalhada: '',
-    lead_score: '',
-    temperatura: 'frio',
-    probabilidade_compra: '',
-    valor_estimado: ''
+    temperatura: 'frio'
   })
 
   // Cache das estatísticas para evitar recálculo
@@ -197,7 +191,7 @@ export default function LeadsPage() {
       // Construir query com filtros do servidor
       let query = supabase
         .from('leads')
-        .select('id, nome_completo, email, telefone, empresa, cargo, status, origem, temperatura, observacoes, valor_vendido, valor_arrecadado, data_primeiro_contato, convertido_em, data_venda, origem_detalhada, lead_score, probabilidade_compra, valor_estimado, created_at, updated_at', { count: 'exact' })
+        .select('*', { count: 'exact' })
 
       // Aplicar filtros de texto
       if (searchTerm) {
@@ -233,8 +227,8 @@ export default function LeadsPage() {
           let dataParaFiltro
 
           if (lead.status === 'vendido') {
-            // Para vendidos, usar convertido_em se disponível, senão data_primeiro_contato
-            dataParaFiltro = lead.convertido_em || lead.data_primeiro_contato
+            // Para vendidos, usar APENAS data_venda
+            dataParaFiltro = lead.data_venda
           } else {
             // Para outros status, usar data_primeiro_contato
             dataParaFiltro = lead.data_primeiro_contato
@@ -316,7 +310,7 @@ export default function LeadsPage() {
       // 1. Buscar TODOS os leads da tabela leads (incluindo vendidos)
       let leadsQuery = supabase
         .from('leads')
-        .select('status, valor_vendido, valor_arrecadado, data_primeiro_contato, convertido_em, data_venda, origem, temperatura')
+        .select('*')
 
       // Aplicar filtros
       if (statusFilter !== 'todos') {
@@ -336,9 +330,9 @@ export default function LeadsPage() {
       leadsData?.forEach(lead => {
         // Aplicar filtro de data
         if (dateFilter?.start || dateFilter?.end) {
-          // Para leads vendidos, usar data_venda se disponível, senão convertido_em, senão data_primeiro_contato
+          // Para leads vendidos, usar APENAS data_venda, para outros usar data_primeiro_contato
           const dataParaFiltro = lead.status === 'vendido'
-            ? (lead.data_venda || lead.convertido_em || lead.data_primeiro_contato)
+            ? lead.data_venda
             : lead.data_primeiro_contato
           if (dataParaFiltro) {
             const dataObj = new Date(dataParaFiltro)
@@ -403,10 +397,7 @@ export default function LeadsPage() {
         valor_vendido: formData.valor_vendido ? parseFloat(formData.valor_vendido) : null,
         valor_arrecadado: formData.valor_arrecadado ? parseFloat(formData.valor_arrecadado) : null,
         origem_detalhada: formData.origem_detalhada || null,
-        lead_score: formData.lead_score ? parseInt(formData.lead_score) : null,
         temperatura: formData.temperatura,
-        probabilidade_compra: formData.probabilidade_compra ? parseInt(formData.probabilidade_compra) : null,
-        valor_estimado: formData.valor_estimado ? parseFloat(formData.valor_estimado) : null,
         // Definir data_venda se status for vendido
         data_venda: formData.status === 'vendido' ? new Date().toISOString().split('T')[0] : null
       }
@@ -460,10 +451,7 @@ export default function LeadsPage() {
       valor_vendido: '',
       valor_arrecadado: '',
       origem_detalhada: '',
-      lead_score: '',
-      temperatura: 'frio',
-      probabilidade_compra: '',
-      valor_estimado: ''
+      temperatura: 'frio'
     })
     setEditingLead(null)
   }
@@ -482,10 +470,7 @@ export default function LeadsPage() {
       valor_vendido: lead.valor_vendido?.toString() || '',
       valor_arrecadado: lead.valor_arrecadado?.toString() || '',
       origem_detalhada: lead.origem_detalhada || '',
-      lead_score: lead.lead_score?.toString() || '',
-      temperatura: lead.temperatura || 'frio',
-      probabilidade_compra: lead.probabilidade_compra?.toString() || '',
-      valor_estimado: lead.valor_estimado?.toString() || ''
+      temperatura: lead.temperatura || 'frio'
     })
     setIsModalOpen(true)
   }
@@ -882,9 +867,38 @@ export default function LeadsPage() {
       { key: 'no_show', label: 'No-show', color: 'bg-yellow-500' }
     ]
 
+    const dateFilter = dateFilters.getDateFilter()
+
     return statusColumns.map(column => ({
       ...column,
-      leads: leads.filter(lead => lead.status === column.key)
+      leads: leads.filter(lead => {
+        // Primeiro filtrar por status
+        if (lead.status !== column.key) return false
+
+        // Se não há filtro de data, incluir todos
+        if (!dateFilter?.start && !dateFilter?.end) return true
+
+        // Aplicar filtro de data
+        let dataParaFiltro
+        if (lead.status === 'vendido') {
+          // Para leads vendidos, usar APENAS data_venda
+          dataParaFiltro = lead.data_venda
+        } else {
+          dataParaFiltro = lead.data_primeiro_contato
+        }
+
+        if (!dataParaFiltro) return false
+
+        const dataObj = new Date(dataParaFiltro)
+        if (dateFilter.start && dateFilter.end) {
+          return dataObj >= new Date(dateFilter.start) && dataObj <= new Date(dateFilter.end)
+        } else if (dateFilter.start) {
+          return dataObj >= new Date(dateFilter.start)
+        } else if (dateFilter.end) {
+          return dataObj <= new Date(dateFilter.end)
+        }
+        return true
+      })
     }))
   }
 
