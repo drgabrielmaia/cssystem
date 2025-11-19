@@ -624,88 +624,52 @@ export default function Dashboard() {
 
         {/* Dashboard Principal */}
         <div className="space-y-8">
-          {/* Metas do Mês - Card Branco Ultra Clean */}
-          <div className="metas-card-branco-grande">
-            <div className="mb-6">
-              <h2 className="meta-title mb-1">Metas do Mês</h2>
-              <p className="meta-subtitle">
-                {new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
-              </p>
-            </div>
+          {/* Metas do Mês - Estrutura Exata do Design de Referência */}
+          <section className="goals-section">
+            <div className="goals-bg"></div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Meta Faturamento - Subcard Branco */}
-              <div className="meta-subcard">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3 flex-1">
-                    <DollarSign className="meta-icon-mint" />
-                    <div>
-                      <h3 className="meta-title">Faturamento</h3>
-                      <p className="meta-subtitle">Meta mensal</p>
-                    </div>
+            <div className="goals-card">
+              {/* Meta Faturamento */}
+              <div className="goal-item">
+                <div className="goal-item-header">
+                  <div>
+                    <div className="goal-title">Faturamento</div>
+                    <div className="goal-subtitle">Meta mensal</div>
                   </div>
-                  <div className="text-right">
-                    <p className="meta-value">{metasStats.percentualFaturamento}%</p>
-                    <p className="meta-percentage">da meta</p>
-                  </div>
+                  <div className="goal-percent">{metasStats.percentualFaturamento}%</div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Realizado: {formatCurrency(leadsStats.valorVendido)}</span>
-                    <span>Meta: {formatCurrency(settings.meta_faturamento_mes)}</span>
-                  </div>
-                  <div className="meta-progress-ultra-fina">
-                    <div
-                      className="meta-progress-fill-mint"
-                      style={{width: `${Math.min(metasStats.percentualFaturamento, 100)}%`}}
-                    ></div>
-                  </div>
+                <div className="goal-values">
+                  <span>Realizado: {formatCurrency(leadsStats.valorVendido)}</span>
+                  <span>Meta: {formatCurrency(settings.meta_faturamento_mes)}</span>
                 </div>
 
-                <div className="flex justify-end mt-2">
-                  <div className="mini-grafico-suave"></div>
+                <div className="goal-progress" style={{'--progress': `${Math.min(metasStats.percentualFaturamento, 100)}%`} as React.CSSProperties}>
+                  <div></div>
                 </div>
               </div>
 
-              {/* Meta Leads - Subcard Branco */}
-              <div className="meta-subcard">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3 flex-1">
-                    <Target className="meta-icon-mint" />
-                    <div>
-                      <h3 className="meta-title">Leads Vendidos</h3>
-                      <p className="meta-subtitle">Meta mensal</p>
-                    </div>
+              {/* Meta Leads Vendidos */}
+              <div className="goal-item">
+                <div className="goal-item-header">
+                  <div>
+                    <div className="goal-title">Leads Vendidos</div>
+                    <div className="goal-subtitle">Meta mensal</div>
                   </div>
-                  <div className="text-right">
-                    <p className="meta-value">{metasStats.percentualLeads}%</p>
-                    <p className="meta-percentage">da meta</p>
-                  </div>
+                  <div className="goal-percent">{metasStats.percentualLeads}%</div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Vendidos: {leadsStats.leadsVendidos}</span>
-                    <span>Meta: {settings.meta_vendas_mes}</span>
-                  </div>
-                  <div className="meta-progress-ultra-fina">
-                    <div
-                      className="meta-progress-fill-mint"
-                      style={{width: `${Math.min(metasStats.percentualLeads, 100)}%`}}
-                    ></div>
-                  </div>
+                <div className="goal-values">
+                  <span>Vendidos: {leadsStats.leadsVendidos}</span>
+                  <span>Meta: {settings.meta_vendas_mes}</span>
                 </div>
 
-                <div className="flex justify-end mt-2">
-                  <div className="mini-grafico-suave"></div>
+                <div className="goal-progress" style={{'--progress': `${Math.min(metasStats.percentualLeads, 100)}%`} as React.CSSProperties}>
+                  <div></div>
                 </div>
               </div>
             </div>
-
-            {/* Ondulação decorativa atrás */}
-            <div className="organic-flow-funnel" style={{position: 'absolute', top: '-20px', left: '-10px', right: '-10px', height: '60px', zIndex: '-1', opacity: '0.1'}}></div>
-          </div>
+          </section>
 
           {/* Métricas Principais */}
           <div className="space-y-8">

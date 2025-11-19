@@ -3,61 +3,39 @@
 @tailwind utilities;
 
 @layer base {
-  /* Paleta Ultra Clean - Design de Referência */
+  /* Paleta EXATA - Sem outros roxos ou cores */
   :root {
-    /* Fundo branco gelo */
-    --background: 0 0% 100%;          /* Branco puro */
-    --foreground: 215 25% 27%;        /* Cinza escuro para texto */
+    --mint: #A7F5D0;
+    --lime: #C8FF5A;
+    --mint-soft: #A6E885;
+    --blue-soft: #B9F1FF;
+    --bg-page: #F8FAF7;
+    --card-bg: #FFFFFF;
+    --text-main: #111827;
+    --text-muted: #6B7280;
+    --border-soft: #E5E7EB;
 
-    /* Cards brancos */
-    --card: 0 0% 100%;                /* Branco puro */
-    --card-foreground: 215 25% 27%;
-
+    /* Tailwind vars usando a paleta correta */
+    --background: 0 0% 98%;
+    --foreground: 220 9% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 9% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 27%;
-
-    /* Verde lima suave */
-    --primary: 72 85% 65%;            /* #C8FF5A */
-    --primary-foreground: 215 25% 27%;
-
-    /* Verde pastel */
-    --secondary: 100 35% 75%;         /* #A6E885 */
-    --secondary-foreground: 215 25% 27%;
-
-    /* Cinza ultra claro */
-    --muted: 0 0% 93%;                /* #EDEDED */
-    --muted-foreground: 215 16% 47%;
-
-    /* Verde água mint */
-    --accent: 150 55% 85%;            /* #A7F5D0 */
-    --accent-foreground: 215 25% 27%;
-
-    /* Vermelho suave */
-    --destructive: 0 45% 70%;
-    --destructive-foreground: 0 0% 100%;
-
-    /* Bordas ultra suaves */
-    --border: 220 10% 90%;
-    --input: 0 0% 100%;
-    --ring: 72 85% 65%;
-
-    --radius: 1.25rem;                /* 20px */
-
-    /* Paleta Exata do Design */
-    --lime-green: #C8FF5A;            /* Verde lima */
-    --pastel-green: #A6E885;          /* Verde pastel */
-    --mint-green: #A7F5D0;            /* Mint */
-    --pool-blue: #B9F1FF;             /* Azul piscina */
-    --ice-white: #F8FAF7;             /* Branco gelo */
-    --soft-gray: #EDEDED;             /* Cinza claro */
-
-    /* Sombras ultra suaves */
-    --shadow-ultra-soft: 0 1px 3px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.01);
-    --shadow-card: 0 2px 4px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
-    --shadow-hover: 0 4px 8px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.03);
-
-    /* Gradiente orgânico para o funil */
-    --gradient-organic: linear-gradient(135deg, #B9F1FF 0%, #A7F5D0 30%, #A6E885 70%, #C8FF5A 100%);
+    --popover-foreground: 220 9% 9%;
+    --primary: 150 55% 85%;
+    --primary-foreground: 220 9% 9%;
+    --secondary: 220 9% 97%;
+    --secondary-foreground: 220 9% 9%;
+    --muted: 220 9% 97%;
+    --muted-foreground: 220 5% 42%;
+    --accent: 150 55% 85%;
+    --accent-foreground: 220 9% 9%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 9% 91%;
+    --input: 220 9% 91%;
+    --ring: 150 55% 85%;
+    --radius: 1rem;
   }
 }
 
@@ -66,24 +44,116 @@
     @apply border-border;
   }
 
+  html, body {
+    background: #F8FAF7;
+  }
+
   body {
-    @apply bg-background text-foreground;
-    background: #F8FAF7;              /* Branco gelo fixo */
-    min-height: 100vh;
-    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', system-ui, sans-serif;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
     font-weight: 400;
-    line-height: 1.7;
-    letter-spacing: -0.01em;
+    color: var(--text-main);
+    background: #F8FAF7;
+    min-height: 100vh;
+  }
+
+  .app-root,
+  .main-layout {
+    background: transparent;
   }
 }
 
-/* ====== COMPONENTES ULTRA CLEAN DO DESIGN DE REFERÊNCIA ====== */
+/* ====== SEÇÃO METAS EXATA ====== */
+
+.goals-section {
+  position: relative;
+  margin-top: 32px;
+  margin-bottom: 32px;
+}
+
+.goals-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #B9F1FF, #A7F5D0, #C8FF5A);
+  opacity: 0.4;
+  filter: blur(18px);
+  border-radius: 32px;
+  z-index: 0;
+}
+
+.goals-card {
+  position: relative;
+  z-index: 1;
+  background: #FFFFFF;
+  border-radius: 24px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+  padding: 24px 32px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.goal-item {
+  background: #FFFFFF;
+  border-radius: 18px;
+  padding: 16px 20px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.goal-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.goal-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+}
+
+.goal-subtitle {
+  font-size: 12px;
+  color: #6B7280;
+}
+
+.goal-percent {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.goal-progress {
+  margin-top: 8px;
+  height: 4px;
+  width: 100%;
+  border-radius: 999px;
+  background: #E5E7EB;
+  overflow: hidden;
+}
+
+.goal-progress > div {
+  height: 100%;
+  width: var(--progress, 50%);
+  background: linear-gradient(90deg, #A7F5D0, #C8FF5A);
+}
+
+.goal-values {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #6B7280;
+}
+
+/* ====== OUTROS COMPONENTES ====== */
 
 /* Cards brancos ultra clean */
 .ultra-clean-card {
   background: white;
-  border: 1px solid rgba(237, 237, 237, 0.6);
-  border-radius: 1.25rem;           /* 20px */
+  border: 1px solid var(--border-soft);
+  border-radius: 1.25rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
   transition: all 0.2s ease;
   padding: 1.5rem;
@@ -97,7 +167,7 @@
 /* Stats cards brancos minimalistas */
 .stats-clean-white {
   background: white;
-  border: 1px solid rgba(237, 237, 237, 0.5);
+  border: 1px solid var(--border-soft);
   border-radius: 1.25rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.01);
   transition: all 0.2s ease;
@@ -107,149 +177,6 @@
 .stats-clean-white:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
-}
-
-/* Funil orgânico fluido */
-.organic-flow-funnel {
-  background: var(--gradient-organic);
-  border-radius: 2rem;
-  position: relative;
-  overflow: hidden;
-  padding: 2.5rem 2rem;
-  margin: 2rem 0;
-  box-shadow: 0 4px 12px rgba(167, 245, 208, 0.15);
-}
-
-.organic-flow-funnel::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image:
-    radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.4) 2px, transparent 2px),
-    radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.3) 1px, transparent 1px);
-  background-size: 60px 60px, 40px 40px;
-  animation: float-dots 6s ease-in-out infinite;
-  opacity: 0.7;
-}
-
-@keyframes float-dots {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-5px); }
-}
-
-/* Ondas fluidas para o funil */
-.organic-flow-funnel::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 100' fill='rgba(255,255,255,0.1)'%3E%3Cpath d='M0,50 Q250,0 500,50 T1000,50 L1000,100 L0,100 Z'/%3E%3C/svg%3E") no-repeat center bottom;
-  background-size: cover;
-  opacity: 0.3;
-}
-
-/* Card Branco Grande para Metas */
-.metas-card-branco-grande {
-  background: white;
-  border: 1px solid rgba(237, 237, 237, 0.4);
-  border-radius: 1.5rem;
-  padding: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02);
-  position: relative;
-}
-
-/* Subcards Brancos */
-.meta-subcard {
-  background: white;
-  border: 1px solid rgba(237, 237, 237, 0.3);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-  transition: all 0.2s ease;
-}
-
-.meta-subcard:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.04);
-}
-
-/* Ícones Mint Pequenos */
-.meta-icon-mint {
-  width: 20px;
-  height: 20px;
-  color: #A7F5D0;
-  flex-shrink: 0;
-}
-
-/* Typography para Metas */
-.meta-title {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #374151;
-  margin: 0;
-}
-
-.meta-subtitle {
-  font-size: 0.75rem;
-  font-weight: 400;
-  color: #9CA3AF;
-  margin: 0;
-}
-
-.meta-value {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1F2937;
-  margin: 0;
-}
-
-.meta-percentage {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #10B981;
-  margin: 0;
-}
-
-/* Barra Progress Ultra Fina */
-.meta-progress-ultra-fina {
-  background: #F3F4F6;
-  border-radius: 2px;
-  height: 3px;
-  overflow: hidden;
-  margin: 0.75rem 0;
-}
-
-.meta-progress-fill-mint {
-  background: linear-gradient(90deg, #A7F5D0, #10B981);
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.5s ease-in-out;
-}
-
-/* Mini Gráfico Suave */
-.mini-grafico-suave {
-  width: 40px;
-  height: 20px;
-  background: linear-gradient(135deg, rgba(167, 245, 208, 0.3) 0%, rgba(16, 185, 129, 0.2) 100%);
-  border-radius: 4px;
-  position: relative;
-  overflow: hidden;
-}
-
-.mini-grafico-suave::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 60%;
-  background: rgba(16, 185, 129, 0.4);
-  border-radius: 2px 2px 0 0;
 }
 
 /* Typography ultra clean */
@@ -289,8 +216,8 @@
 
 /* Sidebar ultra clean */
 .sidebar-ultra-clean {
-  background: #FEFEFE;
-  border-right: 1px solid rgba(237, 237, 237, 0.8);
+  background: #F3F4F6;
+  border-right: 1px solid #E5E7EB;
 }
 
 .sidebar-item-ultra-clean {
