@@ -3,66 +3,70 @@
 @tailwind utilities;
 
 @layer base {
+  /* Tema escuro futurista por padrão */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-
-    --radius: 0.75rem;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
+    /* Background escuro com gradiente futurista */
+    --background: 220 15% 6%;
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    /* Cards com transparência futurista */
+    --card: 220 15% 8%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 220 15% 8%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 84% 4.9%;
+    /* Cores primárias ciberpunk */
+    --primary: 261 91% 70%;
+    --primary-foreground: 220 15% 6%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    /* Secundária neon */
+    --secondary: 192 91% 70%;
+    --secondary-foreground: 220 15% 6%;
 
-    --muted: 217.2 32.6% 17.5%;
+    /* Muted com transparência */
+    --muted: 220 15% 12%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    /* Accent neon verde */
+    --accent: 142 71% 45%;
+    --accent-foreground: 220 15% 6%;
 
-    --destructive: 0 62.8% 30.6%;
+    /* Destrutivo neon vermelho */
+    --destructive: 0 91% 70%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 94.1%;
+    /* Bordas sutis */
+    --border: 220 15% 20%;
+    --input: 220 15% 15%;
+    --ring: 261 91% 70%;
+
+    --radius: 1rem;
+
+    /* Cores customizadas futuristas */
+    --cyber-blue: #00f5ff;
+    --cyber-purple: #b347d9;
+    --cyber-green: #39ff14;
+    --cyber-pink: #ff006e;
+    --cyber-orange: #ff8500;
+    --cyber-yellow: #ffff00;
+
+    /* Background principal futurista */
+    --bg-primary: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
+    --bg-secondary: linear-gradient(135deg, #16213e 0%, #0f3460 50%, #533483 100%);
+
+    /* Glass morphism */
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+
+    /* Neon effects */
+    --neon-glow-blue: 0 0 20px #00f5ff, 0 0 30px #00f5ff, 0 0 40px #00f5ff;
+    --neon-glow-purple: 0 0 20px #b347d9, 0 0 30px #b347d9, 0 0 40px #b347d9;
+    --neon-glow-green: 0 0 20px #39ff14, 0 0 30px #39ff14, 0 0 40px #39ff14;
+
+    /* Grid futurista */
+    --grid-color: rgba(0, 245, 255, 0.1);
   }
 }
 
@@ -70,156 +74,471 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+    background: var(--bg-primary);
+    min-height: 100vh;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* Grid futurista de fundo */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+      linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+    pointer-events: none;
+    z-index: -1;
   }
 }
 
-/* Personalização dinâmica - Design Apple/Futurista */
-:root {
-  --primary-color: #3b82f6;
-  --primary-rgb: 59, 130, 246;
-  --theme: light;
-  --glass-bg: rgba(255, 255, 255, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.2);
-  --blur: blur(20px);
-  --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
+/* ====== COMPONENTES FUTURISTAS ====== */
 
-.dark {
-  --glass-bg: rgba(0, 0, 0, 0.3);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-/* Glassmorphism Cards */
+/* Glass Morphism Cards */
 .glass-card {
   background: var(--glass-bg);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--glass-shadow);
+  border-radius: 1rem;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.6s ease;
+}
+
+.glass-card:hover::before {
+  left: 100%;
 }
 
 .glass-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 48px rgba(var(--primary-rgb), 0.15);
-  border-color: rgba(var(--primary-rgb), 0.3);
+  transform: translateY(-8px) scale(1.02);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(179, 71, 217, 0.3);
+  border-color: rgba(179, 71, 217, 0.5);
 }
 
-/* Componentes com cor primária */
-.btn-primary {
-  background: linear-gradient(135deg, var(--primary-color), color-mix(in srgb, var(--primary-color) 80%, #000));
-  border: none;
-  box-shadow: 0 4px 16px rgba(var(--primary-rgb), 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* Neon Buttons */
+.btn-neon {
+  background: transparent;
+  border: 2px solid var(--cyber-blue);
+  color: var(--cyber-blue);
+  padding: 0.75rem 2rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
 }
 
-.btn-primary:hover {
+.btn-neon::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0, 245, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-neon:hover::before {
+  left: 100%;
+}
+
+.btn-neon:hover {
+  background: rgba(0, 245, 255, 0.1);
+  box-shadow: var(--neon-glow-blue);
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(var(--primary-rgb), 0.4);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 90%, white), var(--primary-color));
 }
 
-.text-primary {
-  color: var(--primary-color) !important;
+.btn-neon-purple {
+  border-color: var(--cyber-purple);
+  color: var(--cyber-purple);
+  box-shadow: 0 0 20px rgba(179, 71, 217, 0.3);
 }
 
-.border-primary {
-  border-color: var(--primary-color) !important;
+.btn-neon-purple:hover {
+  background: rgba(179, 71, 217, 0.1);
+  box-shadow: var(--neon-glow-purple);
 }
 
-.bg-primary {
-  background: linear-gradient(135deg, var(--primary-color), color-mix(in srgb, var(--primary-color) 85%, #000)) !important;
+.btn-neon-green {
+  border-color: var(--cyber-green);
+  color: var(--cyber-green);
+  box-shadow: 0 0 20px rgba(57, 255, 20, 0.3);
 }
 
-/* Sidebar futurista com cor dinâmica */
-.sidebar-primary {
+.btn-neon-green:hover {
+  background: rgba(57, 255, 20, 0.1);
+  box-shadow: var(--neon-glow-green);
+}
+
+/* Holographic Text */
+.holographic-text {
+  background: linear-gradient(45deg, var(--cyber-blue), var(--cyber-purple), var(--cyber-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+  text-shadow: 0 0 30px rgba(179, 71, 217, 0.5);
+}
+
+/* Neon Inputs */
+.neon-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 245, 255, 0.3);
+  border-radius: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  color: #ffffff;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.neon-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.neon-input:focus {
+  outline: none;
+  border-color: var(--cyber-blue);
+  box-shadow:
+    0 0 20px rgba(0, 245, 255, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: rgba(0, 245, 255, 0.05);
+}
+
+/* Cyber Grid */
+.cyber-grid {
+  background-image:
+    linear-gradient(rgba(0, 245, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 245, 255, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Status Badges Futuristas */
+.status-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.status-novo {
+  background: rgba(0, 245, 255, 0.1);
+  border-color: var(--cyber-blue);
+  color: var(--cyber-blue);
+  box-shadow: 0 0 15px rgba(0, 245, 255, 0.3);
+}
+
+.status-vendido {
+  background: rgba(57, 255, 20, 0.1);
+  border-color: var(--cyber-green);
+  color: var(--cyber-green);
+  box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
+}
+
+.status-perdido {
+  background: rgba(255, 0, 110, 0.1);
+  border-color: var(--cyber-pink);
+  color: var(--cyber-pink);
+  box-shadow: 0 0 15px rgba(255, 0, 110, 0.3);
+}
+
+/* Loading Animation Futurista */
+.cyber-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.cyber-loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(0, 245, 255, 0.4),
+    transparent
+  );
+  animation: cyber-sweep 1.5s infinite;
+}
+
+@keyframes cyber-sweep {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* Sidebar Futurista */
+.cyber-sidebar {
   background: linear-gradient(180deg,
-    rgba(var(--primary-rgb), 0.95) 0%,
-    rgba(var(--primary-rgb), 0.85) 50%,
-    rgba(var(--primary-rgb), 0.9) 100%);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 4px 0 24px rgba(var(--primary-rgb), 0.2);
+    rgba(10, 10, 15, 0.95) 0%,
+    rgba(26, 26, 46, 0.9) 50%,
+    rgba(22, 33, 62, 0.95) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(0, 245, 255, 0.2);
+  box-shadow: 4px 0 40px rgba(0, 0, 0, 0.5);
 }
 
-.sidebar-primary .sidebar-item {
+.sidebar-item {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 12px;
-  margin: 4px 8px;
+  border-radius: 0.75rem;
+  margin: 0.25rem;
+  position: relative;
+  overflow: hidden;
 }
 
-.sidebar-primary .sidebar-item:hover {
+.sidebar-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--cyber-blue);
+  transform: scaleY(0);
+  transition: transform 0.3s ease;
+}
+
+.sidebar-item:hover::before {
+  transform: scaleY(1);
+}
+
+.sidebar-item:hover {
+  background: rgba(0, 245, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 245, 255, 0.2);
+}
+
+.sidebar-item.active {
+  background: linear-gradient(90deg,
+    rgba(0, 245, 255, 0.2) 0%,
+    rgba(179, 71, 217, 0.1) 100%
+  );
+  border: 1px solid rgba(0, 245, 255, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 32px rgba(0, 245, 255, 0.3);
+}
+
+.sidebar-item.active::before {
+  transform: scaleY(1);
+}
+
+/* Header Futurista */
+.cyber-header {
+  background: linear-gradient(90deg,
+    rgba(10, 10, 15, 0.95) 0%,
+    rgba(26, 26, 46, 0.9) 50%,
+    rgba(22, 33, 62, 0.95) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(0, 245, 255, 0.2);
+  box-shadow: 0 4px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Cards de Estatística Futuristas */
+.stat-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--cyber-blue), var(--cyber-purple));
+}
+
+.stat-card:hover {
+  transform: translateY(-8px);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(179, 71, 217, 0.3);
+}
+
+/* Kanban Futurista */
+.kanban-column {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+  min-height: 500px;
+}
+
+.kanban-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  transition: all 0.3s ease;
+  cursor: grab;
+}
+
+.kanban-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(179, 71, 217, 0.2);
+  border-color: rgba(179, 71, 217, 0.5);
+}
+
+.kanban-card:active {
+  cursor: grabbing;
+}
+
+/* Progress Bar Futurista */
+.cyber-progress {
   background: rgba(255, 255, 255, 0.1);
-  transform: translateX(4px);
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.sidebar-primary .sidebar-item.active {
-  background: linear-gradient(90deg,
-    rgba(255, 255, 255, 0.2) 0%,
-    rgba(255, 255, 255, 0.1) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.sidebar-primary .sidebar-item.active .sidebar-icon {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
-  color: var(--primary-color);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Progress bars futuristas */
-.progress-bar {
-  background: linear-gradient(90deg,
-    var(--primary-color),
-    color-mix(in srgb, var(--primary-color) 70%, white));
-  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+.cyber-progress-bar {
+  background: linear-gradient(90deg, var(--cyber-blue), var(--cyber-purple));
+  border-radius: 1rem;
+  box-shadow: 0 0 20px rgba(0, 245, 255, 0.5);
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Input glassmorphism */
-.glass-input {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.glass-input:focus {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
-}
-
-/* Animações suaves */
+/* Animações */
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-neon {
+  0%, 100% { box-shadow: 0 0 20px rgba(0, 245, 255, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(0, 245, 255, 0.8); }
+}
+
+@keyframes rotate-border {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .float-animation {
   animation: float 6s ease-in-out infinite;
 }
 
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.3); }
-  50% { box-shadow: 0 0 30px rgba(var(--primary-rgb), 0.5); }
+.pulse-neon {
+  animation: pulse-neon 2s ease-in-out infinite;
 }
 
-.pulse-glow {
-  animation: pulse-glow 3s ease-in-out infinite;
+/* Scrollbar Futurista */
+::-webkit-scrollbar {
+  width: 8px;
 }
 
-/* Badge moderno */
-.modern-badge {
-  background: linear-gradient(135deg, var(--primary-color), color-mix(in srgb, var(--primary-color) 80%, white));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 4px 16px rgba(var(--primary-rgb), 0.2);
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--cyber-blue), var(--cyber-purple));
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(0, 245, 255, 0.5);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  box-shadow: 0 0 20px rgba(0, 245, 255, 0.8);
+}
+
+/* Modal Futurista */
+.cyber-modal {
+  background: var(--glass-bg);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid var(--glass-border);
+  border-radius: 1.5rem;
+  box-shadow:
+    0 25px 50px rgba(0, 0, 0, 0.7),
+    0 0 60px rgba(179, 71, 217, 0.3);
+}
+
+/* Tabela Futurista */
+.cyber-table {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.cyber-table th {
+  background: linear-gradient(90deg,
+    rgba(0, 245, 255, 0.2),
+    rgba(179, 71, 217, 0.2)
+  );
+  border-bottom: 1px solid rgba(0, 245, 255, 0.3);
+  color: var(--cyber-blue);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cyber-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cyber-table tr:hover {
+  background: rgba(0, 245, 255, 0.05);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .glass-card {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .cyber-sidebar {
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+  }
 }

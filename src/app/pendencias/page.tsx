@@ -77,6 +77,12 @@ export default function PendenciasPage() {
   const [valorDivida, setValorDivida] = useState('')
   const [dataVencimento, setDataVencimento] = useState('')
 
+  // Estados do modal de pagamento
+  const [isModalPagamentoOpen, setIsModalPagamentoOpen] = useState(false)
+  const [dividaSelecionada, setDividaSelecionada] = useState<Divida | null>(null)
+  const [valorPago, setValorPago] = useState('')
+  const [observacoesPagamento, setObservacoesPagamento] = useState('')
+
   // Estados do modal de edição
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingDivida, setEditingDivida] = useState<Divida | null>(null)
@@ -352,9 +358,165 @@ export default function PendenciasPage() {
     }
   }
 
+  const abrirModalPagamento = (divida: Divida) => {
+    setDividaSelecionada(divida)
+    setValorPago(divida.valor.toString())
+    setObservacoesPagamento('')
+    setIsModalPagamentoOpen(true)
+  }
+
+  const confirmarPagamento = async () => {
+    if (!dividaSelecionada) return
+
+    try {
+      const valorPagoNum = parseFloat(valorPago)
+      if (isNaN(valorPagoNum) || valorPagoNum <= 0) {
+        alert('Digite um valor válido para o pagamento')
+        return
+      }
+
+      // 1. Primeiro, buscar os dados da dívida
+      const { data: divida, error: dividaError } = await supabase
+        .from('dividas')
+        .select('*')
+        .eq('id', dividaSelecionada.id)
+        .single()
+
+      if (dividaError) throw dividaError
+
+      // 2. Buscar o lead relacionado pelo nome do mentorado
+      const { data: lead, error: leadError } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('nome_completo', divida.mentorado_nome)
+        .single()
+
+      if (leadError && leadError.code !== 'PGRST116') {
+        console.error('Erro ao buscar lead:', leadError)
+      }
+
+      // 3. Atualizar status da dívida
+      const { error: updateDividaError } = await supabase
+        .from('dividas')
+        .update({
+          status: 'pago',
+          data_pagamento: new Date().toISOString().split('T')[0]
+        })
+        .eq('id', dividaSelecionada.id)
+
+      if (updateDividaError) throw updateDividaError
+
+      // 3.5. Registrar no histórico de pagamentos
+      const { error: historicoError } = await supabase
+        .from('historico_pagamentos')
+        .insert({
+          divida_id: dividaSelecionada.id,
+          mentorado_nome: divida.mentorado_nome,
+          valor_pago: valorPagoNum,
+          data_pagamento: new Date().toISOString().split('T')[0],
+          observacoes: observacoesPagamento || null,
+          lead_id: lead?.id || null
+        })
+
+      if (historicoError) {
+        console.error('Erro ao registrar histórico:', historicoError)
+      }
+
+      // 4. Se encontrou o lead, atualizar o valor arrecadado
+      if (lead) {
+        const novoValorArrecadado = (lead.valor_arrecadado || 0) + valorPagoNum
+
+        const { error: updateLeadError } = await supabase
+          .from('leads')
+          .update({
+            valor_arrecadado: novoValorArrecadado
+          })
+          .eq('id', lead.id)
+
+        if (updateLeadError) {
+          console.error('Erro ao atualizar valor arrecadado do lead:', updateLeadError)
+        } else {
+          console.log(`✅ Valor R$ ${valorPagoNum} adicionado ao lead ${lead.nome_completo}. Total arrecadado: R$ ${novoValorArrecadado}`)
+        }
+
+        // 5. Registrar na tabela lead_vendas se necessário
+        if (lead.valor_vendido && novoValorArrecadado > 0) {
+          const { data: vendaExistente } = await supabase
+            .from('lead_vendas')
+            .select('id, valor_arrecadado')
+            .eq('lead_id', lead.id)
+            .single()
+
+          if (vendaExistente) {
+            await supabase
+              .from('lead_vendas')
+              .update({
+                valor_arrecadado: novoValorArrecadado,
+                data_arrecadacao: new Date().toISOString().split('T')[0],
+                status_pagamento: novoValorArrecadado >= lead.valor_vendido ? 'pago' : 'parcial'
+              })
+              .eq('id', vendaExistente.id)
+          }
+        }
+      }
+
+      await loadDividasData()
+      setIsModalPagamentoOpen(false)
+      setDividaSelecionada(null)
+      setValorPago('')
+      setObservacoesPagamento('')
+
+      // Mensagem de sucesso
+      if (lead) {
+        alert(`✅ Pagamento de R$ ${valorPagoNum.toFixed(2)} registrado com sucesso!\nValor adicionado ao lead: ${lead.nome_completo}`)
+      } else {
+        alert(`✅ Dívida marcada como paga!\n⚠️ Lead não encontrado para somar no valor arrecadado.`)
+      }
+
+    } catch (error) {
+      console.error('Erro ao confirmar pagamento:', error)
+      alert('Erro ao confirmar pagamento: ' + (error as Error).message)
+    }
+  }
+
   const marcarComoPago = async (dividaId: string) => {
     try {
-      const { error } = await supabase
+      // 1. Primeiro, buscar os dados da dívida
+      const { data: divida, error: dividaError } = await supabase
+        .from('dividas')
+        .select('*')
+        .eq('id', dividaId)
+        .single()
+
+      if (dividaError) throw dividaError
+
+      if (!divida) {
+        alert('Dívida não encontrada')
+        return
+      }
+
+      // 2. Buscar o lead relacionado ao mentorado (pelo nome ou email)
+      // Primeiro tentativa: buscar por nome exato
+      let { data: lead } = await supabase
+        .from('leads')
+        .select('id, nome_completo, email, valor_arrecadado, valor_vendido')
+        .eq('nome_completo', divida.mentorado_nome)
+        .single()
+
+      // Se não encontrou por nome, tentar buscar por similaridade ou email
+      if (!lead) {
+        const { data: leadsDisponiveis } = await supabase
+          .from('leads')
+          .select('id, nome_completo, email, valor_arrecadado, valor_vendido')
+          .ilike('nome_completo', `%${divida.mentorado_nome.split(' ')[0]}%`)
+
+        if (leadsDisponiveis && leadsDisponiveis.length > 0) {
+          lead = leadsDisponiveis[0] // Pega o primeiro match
+        }
+      }
+
+      // 3. Marcar a dívida como paga
+      const { error: updateDividaError } = await supabase
         .from('dividas')
         .update({
           status: 'pago',
@@ -362,12 +524,63 @@ export default function PendenciasPage() {
         })
         .eq('id', dividaId)
 
-      if (error) throw error
+      if (updateDividaError) throw updateDividaError
+
+      // 4. Se encontrou o lead, atualizar o valor arrecadado
+      if (lead) {
+        const novoValorArrecadado = (lead.valor_arrecadado || 0) + divida.valor
+
+        const { error: updateLeadError } = await supabase
+          .from('leads')
+          .update({
+            valor_arrecadado: novoValorArrecadado
+          })
+          .eq('id', lead.id)
+
+        if (updateLeadError) {
+          console.error('Erro ao atualizar valor arrecadado do lead:', updateLeadError)
+          // Não bloqueia o processo, só loga o erro
+        } else {
+          console.log(`✅ Valor R$ ${divida.valor} adicionado ao lead ${lead.nome_completo}. Total arrecadado: R$ ${novoValorArrecadado}`)
+        }
+
+        // 5. Registrar na tabela lead_vendas se necessário
+        if (lead.valor_vendido && novoValorArrecadado > 0) {
+          // Verificar se já existe registro na tabela lead_vendas
+          const { data: vendaExistente } = await supabase
+            .from('lead_vendas')
+            .select('id, valor_arrecadado')
+            .eq('lead_id', lead.id)
+            .single()
+
+          if (vendaExistente) {
+            // Atualizar o registro existente
+            await supabase
+              .from('lead_vendas')
+              .update({
+                valor_arrecadado: novoValorArrecadado,
+                data_arrecadacao: new Date().toISOString().split('T')[0],
+                status_pagamento: novoValorArrecadado >= lead.valor_vendido ? 'pago' : 'parcial'
+              })
+              .eq('id', vendaExistente.id)
+          }
+        }
+      } else {
+        console.warn(`⚠️ Lead não encontrado para o mentorado: ${divida.mentorado_nome}`)
+      }
 
       await loadDividasData()
+
+      // Mensagem de sucesso
+      if (lead) {
+        alert(`✅ Pagamento de R$ ${divida.valor.toFixed(2)} registrado com sucesso!\nValor adicionado ao lead: ${lead.nome_completo}`)
+      } else {
+        alert(`✅ Dívida marcada como paga!\n⚠️ Lead não encontrado para somar no valor arrecadado.`)
+      }
+
     } catch (error) {
       console.error('Erro ao marcar como pago:', error)
-      alert('Erro ao marcar como pago')
+      alert('Erro ao marcar como pago: ' + (error as Error).message)
     }
   }
 
@@ -1262,7 +1475,7 @@ export default function PendenciasPage() {
                                 <Edit className="w-3 h-3" />
                               </button>
                               <button
-                                onClick={() => marcarComoPago(dividasDoMes[0].id)}
+                                onClick={() => abrirModalPagamento(dividasDoMes[0])}
                                 className="w-5 h-5 bg-green-500 text-white rounded-full flex items-center justify-center hover:bg-green-600"
                                 title="Marcar como pago"
                               >
@@ -1322,6 +1535,77 @@ export default function PendenciasPage() {
             </p>
           </div>
         )}
+
+        {/* Modal de Pagamento */}
+        <Dialog open={isModalPagamentoOpen} onOpenChange={setIsModalPagamentoOpen}>
+          <DialogContent className="cyber-modal max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-white flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-green-400" />
+                Confirmar Pagamento
+              </DialogTitle>
+            </DialogHeader>
+            {dividaSelecionada && (
+              <div className="space-y-6">
+                <div className="bg-slate-800/30 p-4 rounded-xl border border-cyan-500/30">
+                  <h4 className="text-cyan-300 font-semibold mb-2">Detalhes da Dívida</h4>
+                  <p className="text-white">
+                    <span className="text-cyan-300">Mentorado:</span> {dividaSelecionada.mentorado_nome}
+                  </p>
+                  <p className="text-white">
+                    <span className="text-cyan-300">Valor Original:</span> R$ {dividaSelecionada.valor.toFixed(2)}
+                  </p>
+                  <p className="text-white">
+                    <span className="text-cyan-300">Vencimento:</span> {new Date(dividaSelecionada.data_vencimento).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-cyan-300">Valor do Pagamento</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={valorPago}
+                      onChange={(e) => setValorPago(e.target.value)}
+                      placeholder="0.00"
+                      className="neon-input"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-cyan-300">Observações (opcional)</Label>
+                    <Input
+                      value={observacoesPagamento}
+                      onChange={(e) => setObservacoesPagamento(e.target.value)}
+                      placeholder="Adicionar observações sobre o pagamento..."
+                      className="neon-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => setIsModalPagamentoOpen(false)}
+                    variant="outline"
+                    className="flex-1 cyber-button-outline"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={confirmarPagamento}
+                    className="flex-1 cyber-button-primary"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Confirmar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   )

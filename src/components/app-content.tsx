@@ -43,8 +43,9 @@ export function AppContent({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Don't show sidebar on login page, forms, or for mentorados
+  // Don't show sidebar on login page, forms, mentorado page, or for mentorados
   if (pathname === '/login' ||
+      pathname === '/mentorado' ||
       (pathname.startsWith('/formulario/') && pathname !== '/formularios') ||
       pathname.startsWith('/forms/') ||
       isMentorado) {

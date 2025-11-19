@@ -200,9 +200,8 @@ export const generateDetailedLeadsPDF = (leads: Lead[], title = 'Relatório Deta
 
 const getStatusLabel = (status: string): string => {
   const statusLabels: { [key: string]: string } = {
-    'novo': 'Novo',
     'call_agendada': 'Call Agendada',
-    'proposta_enviada': 'Proposta Enviada',
+    'proposta_enviada': 'Aguardando resposta',
     'vendido': 'Vendido',
     'perdido': 'Perdido',
     'no_show': 'No Show',
@@ -252,34 +251,61 @@ const generateSummary = (leads: Lead[]) => {
 export const generateDashboardPDF = (leads: Lead[], stats: LeadStats[], title = 'Dashboard de Leads') => {
   const doc = new jsPDF()
 
-  // Header
-  doc.setFontSize(22)
-  doc.text(title, 14, 22)
+  // Background gradient effect (simulated with rectangles)
+  doc.setFillColor(59, 130, 246) // Blue
+  doc.rect(0, 0, 210, 40, 'F')
 
-  doc.setFontSize(12)
-  doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 14, 32)
+  doc.setFillColor(79, 150, 266) // Lighter blue
+  doc.rect(0, 40, 210, 20, 'F')
 
-  // Cards principais (estatísticas)
-  drawStatsCards(doc, stats, leads)
+  // Modern header with white text
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(26)
+  doc.setFont('helvetica', 'bold')
+  doc.text('📊 ' + title, 14, 25)
+
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`🕐 Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 14, 35)
+
+  // Reset text color
+  doc.setTextColor(0, 0, 0)
+
+  // Cards principais (estatísticas) - ajustado para novo layout
+  drawStatsCards(doc, stats, leads, 70)
+
+  // Seção de gráficos com background
+  doc.setFillColor(248, 250, 252) // Light gray background
+  doc.rect(10, 115, 190, 85, 'F')
 
   // Gráfico de pizza (distribuição por status)
-  drawPieChart(doc, stats, 20, 80, 'Distribuição por Status')
+  drawPieChart(doc, stats, 20, 130, '📈 Distribuição por Status')
 
   // Gráfico de barras (valores por status)
-  drawBarChart(doc, stats, 120, 80, 'Valores por Status')
+  drawBarChart(doc, stats, 120, 130, '💰 Valores por Status')
 
-  // Tabela resumo
-  drawSummaryTable(doc, stats, 20, 180)
+  // Tabela resumo modernizada
+  drawSummaryTable(doc, stats, 20, 220)
 
   // Nova página para lista de leads
   doc.addPage()
 
-  doc.setFontSize(18)
-  doc.text('Lista Completa de Leads', 14, 22)
+  // Header para segunda página
+  doc.setFillColor(34, 197, 94) // Green
+  doc.rect(0, 0, 210, 30, 'F')
 
-  // Tabela de leads
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(20)
+  doc.setFont('helvetica', 'bold')
+  doc.text('📋 Lista Completa de Leads', 14, 20)
+
+  // Reset text color
+  doc.setTextColor(0, 0, 0)
+
+  // Tabela de leads (excluindo leads com status "novo")
   const headers = ['Nome', 'Status', 'Telefone', 'Empresa', 'Valor', 'Data']
-  const data = leads.map(lead => [
+  const filteredLeads = leads.filter(lead => lead.status !== 'novo')
+  const data = filteredLeads.map(lead => [
     lead.nome_completo || '-',
     getStatusLabel(lead.status),
     lead.telefone || '-',
@@ -292,26 +318,51 @@ export const generateDashboardPDF = (leads: Lead[], stats: LeadStats[], title = 
     head: [headers],
     body: data,
     startY: 35,
-    styles: { fontSize: 8, cellPadding: 3 },
+    styles: {
+      fontSize: 8,
+      cellPadding: 4,
+      lineColor: [229, 231, 235], // Border gray-200
+      lineWidth: 0.5
+    },
     headStyles: {
-      fillColor: [34, 197, 94],
+      fillColor: [34, 197, 94], // Green-500
       textColor: 255,
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      halign: 'center'
     },
     alternateRowStyles: {
-      fillColor: [248, 250, 252]
+      fillColor: [248, 250, 252] // Gray-50
+    },
+    columnStyles: {
+      1: { halign: 'center' }, // Status center aligned
+      4: { halign: 'right' },  // Valor right aligned
+      5: { halign: 'center' }  // Data center aligned
     }
   })
 
-  // Footer em todas as páginas
+  // Footer moderno em todas as páginas
   const pageCount = doc.getNumberOfPages()
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
+
+    // Footer background
+    doc.setFillColor(249, 250, 251) // Gray-50
+    doc.rect(0, doc.internal.pageSize.height - 15, 210, 15, 'F')
+
+    doc.setTextColor(75, 85, 99) // Gray-600
     doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
     doc.text(
-      `Página ${i} de ${pageCount} - Customer Success Dashboard`,
+      `📊 Customer Success Dashboard • Página ${i} de ${pageCount}`,
       14,
-      doc.internal.pageSize.height - 10
+      doc.internal.pageSize.height - 5
+    )
+
+    // Timestamp no footer
+    doc.text(
+      `Generated: ${new Date().toLocaleString('pt-BR')}`,
+      doc.internal.pageSize.width - 60,
+      doc.internal.pageSize.height - 5
     )
   }
 
@@ -319,41 +370,63 @@ export const generateDashboardPDF = (leads: Lead[], stats: LeadStats[], title = 
   doc.save(fileName)
 }
 
-// Desenhar cards de estatísticas
-function drawStatsCards(doc: jsPDF, stats: LeadStats[], leads: Lead[]) {
+// Desenhar cards de estatísticas modernos
+function drawStatsCards(doc: jsPDF, stats: LeadStats[], leads: Lead[], startY = 45) {
   const totalLeads = leads.length
   const vendidos = stats.find(s => s.status === 'vendido')?.quantidade || 0
   const valorTotal = stats.reduce((sum, stat) => sum + (stat.valor_total_vendido || 0), 0)
   const taxaConversao = totalLeads > 0 ? ((vendidos / totalLeads) * 100).toFixed(1) : '0'
 
   const cards = [
-    { title: 'Total de Leads', value: totalLeads.toString(), color: [59, 130, 246] },
-    { title: 'Leads Vendidos', value: vendidos.toString(), color: [34, 197, 94] },
-    { title: 'Valor Total', value: formatCurrency(valorTotal), color: [168, 85, 247] },
-    { title: 'Taxa Conversão', value: `${taxaConversao}%`, color: [245, 158, 11] }
+    { title: 'Total de Leads', value: totalLeads.toString(), color: [59, 130, 246], icon: '👥' },
+    { title: 'Leads Vendidos', value: vendidos.toString(), color: [34, 197, 94], icon: '✅' },
+    { title: 'Valor Total', value: formatCurrency(valorTotal), color: [168, 85, 247], icon: '💰' },
+    { title: 'Taxa Conversão', value: `${taxaConversao}%`, color: [245, 158, 11], icon: '📈' }
   ]
 
   cards.forEach((card, index) => {
-    const x = 14 + (index * 45)
-    const y = 45
+    const x = 14 + (index * 47)
+    const y = startY
 
-    // Fundo do card
+    // Shadow effect
+    doc.setFillColor(0, 0, 0, 0.1)
+    doc.rect(x + 1, y + 1, 42, 27, 'F')
+
+    // Fundo do card com bordas arredondadas (simuladas)
+    doc.setFillColor(255, 255, 255)
+    doc.rect(x, y, 42, 27, 'F')
+
+    // Borda colorida no topo
     doc.setFillColor(card.color[0], card.color[1], card.color[2])
-    doc.rect(x, y, 40, 25, 'F')
+    doc.rect(x, y, 42, 3, 'F')
 
-    // Texto
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(8)
-    doc.text(card.title, x + 2, y + 6)
-    doc.setFontSize(14)
-    doc.text(card.value, x + 2, y + 16)
-    doc.setTextColor(0, 0, 0) // Reset cor
+    // Ícone
+    doc.setFontSize(16)
+    doc.text(card.icon, x + 3, y + 15)
+
+    // Título
+    doc.setTextColor(75, 85, 99) // Gray-600
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'normal')
+    doc.text(card.title, x + 3, y + 21)
+
+    // Valor
+    doc.setTextColor(17, 24, 39) // Gray-900
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.text(card.value, x + 3, y + 25)
+
+    // Reset
+    doc.setTextColor(0, 0, 0)
+    doc.setFont('helvetica', 'normal')
   })
 }
 
 // Desenhar gráfico de pizza simples
 function drawPieChart(doc: jsPDF, stats: LeadStats[], x: number, y: number, title: string) {
-  const total = stats.reduce((sum, stat) => sum + stat.quantidade, 0)
+  // Filtrar status "novo"
+  const filteredStats = stats.filter(stat => stat.status !== 'novo')
+  const total = filteredStats.reduce((sum, stat) => sum + stat.quantidade, 0)
 
   doc.setFontSize(12)
   doc.text(title, x, y - 5)
@@ -373,7 +446,7 @@ function drawPieChart(doc: jsPDF, stats: LeadStats[], x: number, y: number, titl
   const centerX = x + 30
   const centerY = y + 30
 
-  stats.forEach((stat, index) => {
+  filteredStats.forEach((stat, index) => {
     const percentage = total > 0 ? stat.quantidade / total : 0
     const endAngle = startAngle + (percentage * 2 * Math.PI)
 
@@ -387,7 +460,7 @@ function drawPieChart(doc: jsPDF, stats: LeadStats[], x: number, y: number, titl
 
   // Legenda
   let legendY = y + 70
-  stats.forEach((stat, index) => {
+  filteredStats.forEach((stat, index) => {
     if (stat.quantidade > 0) {
       // Quadradinho colorido
       const color = colors[index % colors.length]
@@ -407,11 +480,13 @@ function drawBarChart(doc: jsPDF, stats: LeadStats[], x: number, y: number, titl
   doc.setFontSize(12)
   doc.text(title, x, y - 5)
 
-  const maxValue = Math.max(...stats.map(s => s.valor_total_vendido || 0))
+  // Filtrar status "novo"
+  const filteredStats = stats.filter(stat => stat.status !== 'novo')
+  const maxValue = Math.max(...filteredStats.map(s => s.valor_total_vendido || 0))
   const barWidth = 12
   const maxHeight = 40
 
-  stats.forEach((stat, index) => {
+  filteredStats.forEach((stat, index) => {
     if ((stat.valor_total_vendido || 0) > 0) {
       const barHeight = maxValue > 0 ? ((stat.valor_total_vendido || 0) / maxValue) * maxHeight : 0
       const barX = x + (index * (barWidth + 2))
@@ -442,7 +517,9 @@ function drawSummaryTable(doc: jsPDF, stats: LeadStats[], x: number, y: number) 
   doc.setFontSize(12)
   doc.text('Resumo por Status', x, y)
 
-  const tableData = stats.map(stat => [
+  // Filtrar status "novo"
+  const filteredStats = stats.filter(stat => stat.status !== 'novo')
+  const tableData = filteredStats.map(stat => [
     getStatusLabel(stat.status),
     stat.quantidade.toString(),
     stat.valor_total_vendido ? formatCurrency(stat.valor_total_vendido) : 'R$ 0,00',
@@ -450,13 +527,28 @@ function drawSummaryTable(doc: jsPDF, stats: LeadStats[], x: number, y: number) 
   ])
 
   autoTable(doc, {
-    head: [['Status', 'Quantidade', 'Total Vendido', 'Valor Médio']],
+    head: [['📊 Status', '📈 Quantidade', '💰 Total Vendido', '💵 Valor Médio']],
     body: tableData,
     startY: y + 10,
-    styles: { fontSize: 8 },
+    styles: {
+      fontSize: 8,
+      cellPadding: 3,
+      lineColor: [229, 231, 235],
+      lineWidth: 0.5
+    },
     headStyles: {
-      fillColor: [75, 85, 99],
-      textColor: 255
+      fillColor: [79, 70, 229], // Indigo-600
+      textColor: 255,
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    alternateRowStyles: {
+      fillColor: [249, 250, 251] // Gray-50
+    },
+    columnStyles: {
+      1: { halign: 'center' },
+      2: { halign: 'right' },
+      3: { halign: 'right' }
     }
   })
 }

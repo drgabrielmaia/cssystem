@@ -104,6 +104,11 @@ export default function LeadTrackingPage() {
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false)
   const [isEditFollowUpModalOpen, setIsEditFollowUpModalOpen] = useState(false)
 
+  // Estados para controlar campos modificados e salvamento
+  const [leadDataTemp, setLeadDataTemp] = useState<Partial<Lead>>({})
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
   useEffect(() => {
     if (leadId) {
       loadLeadData()
@@ -121,6 +126,8 @@ export default function LeadTrackingPage() {
 
       if (leadData) {
         setLead(leadData)
+        setLeadDataTemp(leadData)
+        setHasUnsavedChanges(false)
       }
 
       // Carregar histórico
@@ -223,32 +230,50 @@ export default function LeadTrackingPage() {
     }
   }
 
-  const updateLeadField = async (field: string, value: any) => {
+  // Função para atualizar campos temporários (sem salvar no banco)
+  const updateLeadFieldTemp = (field: string, value: any) => {
+    setLeadDataTemp(prev => ({ ...prev, [field]: value }))
+    setHasUnsavedChanges(true)
+  }
+
+  // Função para salvar todas as alterações
+  const saveLeadChanges = async () => {
+    if (!hasUnsavedChanges) return
+
+    setIsSaving(true)
     try {
       const { error } = await supabase
         .from('leads')
-        .update({ [field]: value })
+        .update(leadDataTemp)
         .eq('id', leadId)
 
       if (error) throw error
 
-      setLead(prev => prev ? { ...prev, [field]: value } : null)
+      setLead(prev => prev ? { ...prev, ...leadDataTemp } : null)
 
-      // Se mudou status para call_agendada, criar follow-ups automáticos
-      if (field === 'status' && value === 'call_agendada' && lead?.call_agendada) {
+      // Verificar se precisa criar follow-ups automáticos
+      if (leadDataTemp.status === 'call_agendada' && leadDataTemp.call_agendada) {
         await criarFollowUpsAutomaticos()
       }
 
-      // Se atualizou call_agendada e status já é call_agendada, criar follow-ups
-      if (field === 'call_agendada' && value && lead?.status === 'call_agendada') {
-        await criarFollowUpsAutomaticos()
-      }
-
+      setHasUnsavedChanges(false)
       await loadLeadData() // Recarregar para atualizar histórico
     } catch (error) {
-      console.error('Erro ao atualizar lead:', error)
+      console.error('Erro ao salvar alterações do lead:', error)
+      alert('Erro ao salvar alterações')
+    } finally {
+      setIsSaving(false)
     }
   }
+
+  // Função para cancelar alterações
+  const cancelChanges = () => {
+    if (lead) {
+      setLeadDataTemp(lead)
+      setHasUnsavedChanges(false)
+    }
+  }
+
 
   const adicionarFollowUp = async () => {
     try {
@@ -442,7 +467,27 @@ export default function LeadTrackingPage() {
             Voltar
           </Button>
 
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {hasUnsavedChanges && (
+              <div className="flex gap-2 mr-4">
+                <Button
+                  size="sm"
+                  onClick={saveLeadChanges}
+                  disabled={isSaving}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {isSaving ? 'Salvando...' : '💾 Salvar'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={cancelChanges}
+                  disabled={isSaving}
+                >
+                  ❌ Cancelar
+                </Button>
+              </div>
+            )}
             <Badge className={getStatusColor(lead.status)}>
               {lead.status}
             </Badge>
@@ -490,8 +535,8 @@ export default function LeadTrackingPage() {
                 <Label className="text-xs text-gray-500">Próxima Ação</Label>
                 <Input
                   type="date"
-                  value={lead.proxima_acao || ''}
-                  onChange={(e) => updateLeadField('proxima_acao', e.target.value)}
+                  value={leadDataTemp.proxima_acao || lead.proxima_acao || ''}
+                  onChange={(e) => updateLeadFieldTemp('proxima_acao', e.target.value)}
                   className="h-8 text-sm"
                 />
               </div>
@@ -499,8 +544,8 @@ export default function LeadTrackingPage() {
                 <Label className="text-xs text-gray-500">Previsão Fechamento</Label>
                 <Input
                   type="date"
-                  value={lead.data_prevista_fechamento || ''}
-                  onChange={(e) => updateLeadField('data_prevista_fechamento', e.target.value)}
+                  value={leadDataTemp.data_prevista_fechamento || lead.data_prevista_fechamento || ''}
+                  onChange={(e) => updateLeadFieldTemp('data_prevista_fechamento', e.target.value)}
                   className="h-8 text-sm"
                 />
               </div>
@@ -519,16 +564,16 @@ export default function LeadTrackingPage() {
                   type="number"
                   min="1"
                   max="10"
-                  value={lead.nivel_interesse || ''}
-                  onChange={(e) => updateLeadField('nivel_interesse', parseInt(e.target.value))}
+                  value={leadDataTemp.nivel_interesse || lead.nivel_interesse || ''}
+                  onChange={(e) => updateLeadFieldTemp('nivel_interesse', parseInt(e.target.value))}
                   className="h-8 text-sm"
                 />
               </div>
               <div>
                 <Label className="text-xs text-gray-500">Urgência</Label>
                 <Select
-                  value={lead.urgencia_compra || 'media'}
-                  onValueChange={(value) => updateLeadField('urgencia_compra', value)}
+                  value={leadDataTemp.urgencia_compra || lead.urgencia_compra || 'media'}
+                  onValueChange={(value) => updateLeadFieldTemp('urgencia_compra', value)}
                 >
                   <SelectTrigger className="h-8 text-sm">
                     <SelectValue />
@@ -555,8 +600,8 @@ export default function LeadTrackingPage() {
                 <Input
                   type="number"
                   step="0.01"
-                  value={lead.orcamento_disponivel || ''}
-                  onChange={(e) => updateLeadField('orcamento_disponivel', parseFloat(e.target.value))}
+                  value={leadDataTemp.orcamento_disponivel || lead.orcamento_disponivel || ''}
+                  onChange={(e) => updateLeadFieldTemp('orcamento_disponivel', parseFloat(e.target.value))}
                   placeholder="R$ 0,00"
                   className="h-8 text-sm"
                 />
@@ -564,8 +609,8 @@ export default function LeadTrackingPage() {
               <div>
                 <Label className="text-xs text-gray-500">Responsável Vendas</Label>
                 <Input
-                  value={lead.responsavel_vendas || ''}
-                  onChange={(e) => updateLeadField('responsavel_vendas', e.target.value)}
+                  value={leadDataTemp.responsavel_vendas || lead.responsavel_vendas || ''}
+                  onChange={(e) => updateLeadFieldTemp('responsavel_vendas', e.target.value)}
                   placeholder="Nome do vendedor"
                   className="h-8 text-sm"
                 />
@@ -901,8 +946,8 @@ export default function LeadTrackingPage() {
                   <div>
                     <Label>Dor Principal</Label>
                     <Textarea
-                      value={lead.dor_principal || ''}
-                      onChange={(e) => updateLeadField('dor_principal', e.target.value)}
+                      value={leadDataTemp.dor_principal || lead.dor_principal || ''}
+                      onChange={(e) => updateLeadFieldTemp('dor_principal', e.target.value)}
                       placeholder="Qual o principal problema que o lead quer resolver?"
                       rows={3}
                     />
@@ -910,8 +955,8 @@ export default function LeadTrackingPage() {
                   <div>
                     <Label>Objetivo Principal</Label>
                     <Textarea
-                      value={lead.objetivo_principal || ''}
-                      onChange={(e) => updateLeadField('objetivo_principal', e.target.value)}
+                      value={leadDataTemp.objetivo_principal || lead.objetivo_principal || ''}
+                      onChange={(e) => updateLeadFieldTemp('objetivo_principal', e.target.value)}
                       placeholder="O que o lead quer alcançar?"
                       rows={3}
                     />
@@ -927,8 +972,8 @@ export default function LeadTrackingPage() {
                   <div>
                     <Label>Motivo de Não Fechamento</Label>
                     <Textarea
-                      value={lead.motivo_nao_fechou || ''}
-                      onChange={(e) => updateLeadField('motivo_nao_fechou', e.target.value)}
+                      value={leadDataTemp.motivo_nao_fechou || lead.motivo_nao_fechou || ''}
+                      onChange={(e) => updateLeadFieldTemp('motivo_nao_fechou', e.target.value)}
                       placeholder="Por que o lead não fechou? Timing, orçamento, autoridade..."
                       rows={3}
                     />
@@ -936,8 +981,8 @@ export default function LeadTrackingPage() {
                   <div>
                     <Label>Principais Objeções</Label>
                     <Textarea
-                      value={lead.objecoes_principais || ''}
-                      onChange={(e) => updateLeadField('objecoes_principais', e.target.value)}
+                      value={leadDataTemp.objecoes_principais || lead.objecoes_principais || ''}
+                      onChange={(e) => updateLeadFieldTemp('objecoes_principais', e.target.value)}
                       placeholder="Quais foram as principais objeções apresentadas?"
                       rows={3}
                     />
