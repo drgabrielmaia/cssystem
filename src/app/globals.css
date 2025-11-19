@@ -3,77 +3,67 @@
 @tailwind utilities;
 
 @layer base {
-  /* Paleta Ciberpunk Premium */
+  /* Paleta Orgânica Minimalista */
   :root {
-    /* Deep Space Backgrounds */
-    --background: 240 20% 6%;
-    --foreground: 210 40% 98%;
+    /* Cores Base Claras */
+    --background: 102 60% 97%;  /* Branco gelo esverdeado */
+    --foreground: 210 12% 15%;  /* Cinza escuro legível */
 
-    /* Card Glassmorphism */
-    --card: 240 15% 8%;
-    --card-foreground: 210 40% 98%;
+    /* Cards Ultra Limpos */
+    --card: 0 0% 100%;          /* Branco puro */
+    --card-foreground: 210 12% 15%;
 
-    --popover: 240 15% 8%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 12% 15%;
 
-    /* Neon Blue Primary */
-    --primary: 192 100% 50%;
-    --primary-foreground: 240 20% 6%;
+    /* Verde Lima Primary */
+    --primary: 72 100% 68%;     /* #C8FF5A - Verde lima suave */
+    --primary-foreground: 210 12% 15%;
 
-    /* Electric Purple Secondary */
-    --secondary: 280 100% 67%;
-    --secondary-foreground: 240 20% 6%;
+    /* Verde Pastel Secondary */
+    --secondary: 100 49% 72%;   /* #A6E885 - Verde pastel */
+    --secondary-foreground: 210 12% 15%;
 
-    /* Smoke Gray Muted */
-    --muted: 240 15% 15%;
-    --muted-foreground: 210 20% 70%;
+    /* Cinza Ultra Suave */
+    --muted: 0 0% 93%;          /* #EDEDED - Cinza suave */
+    --muted-foreground: 210 12% 45%;
 
-    /* Cyber Green Accent */
-    --accent: 160 100% 50%;
-    --accent-foreground: 240 20% 6%;
+    /* Verde Água Accent */
+    --accent: 150 67% 85%;      /* #A7F5D0 - Verde água/mint */
+    --accent-foreground: 210 12% 15%;
 
-    /* Magenta Neon Destructive */
-    --destructive: 328 100% 50%;
-    --destructive-foreground: 210 40% 98%;
+    /* Vermelho Suave para Destructive */
+    --destructive: 0 65% 65%;
+    --destructive-foreground: 0 0% 100%;
 
-    /* Chrome Silver Borders */
-    --border: 210 10% 25%;
-    --input: 240 15% 12%;
-    --ring: 192 100% 50%;
+    /* Bordas Ultra Suaves */
+    --border: 0 0% 90%;         /* Cinza muito claro */
+    --input: 0 0% 100%;         /* Fundo branco inputs */
+    --ring: 72 100% 68%;        /* Verde lima para focus */
 
-    --radius: 0.8rem;
+    --radius: 1.25rem;          /* Bordas mais arredondadas */
 
-    /* Cores Cyberpunk Premium */
-    --neon-blue: #00D9FF;
-    --electric-purple: #AC00FF;
-    --magenta-neon: #FF0096;
-    --cyber-green: #00FF9C;
-    --deep-space: #0A0A0F;
-    --smoke-gray: #1A1A22;
-    --chrome-silver: #B7BDC6;
-    --cyber-orange: #ff8500;
-    --cyber-yellow: #ffff00;
+    /* Paleta Orgânica Completa */
+    --lime-green: #C8FF5A;      /* Verde lima suave */
+    --pastel-green: #A6E885;    /* Verde pastel */
+    --mint-green: #A7F5D0;      /* Verde água/mint */
+    --pool-blue: #B9F1FF;       /* Azul piscina claro */
+    --ice-white: #F8FAF7;       /* Branco gelo */
+    --soft-gray: #EDEDED;       /* Cinza suave */
 
-    /* Deep Space Backgrounds Premium */
-    --bg-primary: linear-gradient(135deg, var(--deep-space) 0%, var(--smoke-gray) 30%, #0D0D15 70%, var(--deep-space) 100%);
-    --bg-secondary: linear-gradient(135deg, var(--smoke-gray) 0%, #1A1A2E 50%, #2D1B69 100%);
-    --bg-glass: rgba(26, 26, 34, 0.4);
+    /* Fundos Orgânicos */
+    --bg-primary: linear-gradient(135deg, #F8FAF7 0%, #B9F1FF 25%, #A7F5D0 50%, #A6E885 75%, #C8FF5A 100%);
+    --bg-card: rgba(248, 250, 247, 0.85);
+    --bg-glass: rgba(255, 255, 255, 0.7);
 
-    /* Premium Glass morphism */
-    --glass-bg: rgba(26, 26, 34, 0.15);
-    --glass-border: rgba(0, 217, 255, 0.2);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-    --glass-highlight: rgba(183, 189, 198, 0.1);
+    /* Sombras Ultra Suaves */
+    --soft-shadow: 0 2px 20px rgba(167, 245, 208, 0.15);
+    --card-shadow: 0 4px 25px rgba(200, 255, 90, 0.08);
+    --hover-shadow: 0 8px 35px rgba(166, 232, 133, 0.2);
 
-    /* Premium Neon Effects */
-    --neon-glow-blue: 0 0 15px var(--neon-blue), 0 0 25px var(--neon-blue), 0 0 35px var(--neon-blue);
-    --neon-glow-purple: 0 0 15px var(--electric-purple), 0 0 25px var(--electric-purple), 0 0 35px var(--electric-purple);
-    --neon-glow-green: 0 0 15px var(--cyber-green), 0 0 25px var(--cyber-green), 0 0 35px var(--cyber-green);
-    --neon-glow-magenta: 0 0 15px var(--magenta-neon), 0 0 25px var(--magenta-neon), 0 0 35px var(--magenta-neon);
-
-    /* Premium Grid futurista */
-    --grid-color: rgba(0, 217, 255, 0.08);
-    --grid-secondary: rgba(172, 0, 255, 0.05);
+    /* Gradientes Orgânicos */
+    --gradient-organic: linear-gradient(135deg, #B9F1FF 0%, #A7F5D0 50%, #C8FF5A 100%);
+    --gradient-soft: linear-gradient(120deg, #A6E885 0%, #A7F5D0 100%);
   }
 }
 
@@ -86,11 +76,14 @@
     @apply bg-background text-foreground;
     background: var(--bg-primary);
     min-height: 100vh;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
+    font-weight: 400;
     overflow-x: hidden;
+    line-height: 1.6;
+    letter-spacing: -0.02em;
   }
 
-  /* Premium Grid futurista de fundo */
+  /* Padrão Orgânico Sutil de Fundo */
   body::before {
     content: '';
     position: fixed;
@@ -99,510 +92,178 @@
     width: 100%;
     height: 100%;
     background-image:
-      linear-gradient(var(--grid-color) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid-color) 1px, transparent 1px),
-      radial-gradient(circle at 25% 25%, var(--grid-secondary) 1px, transparent 1px);
-    background-size: 60px 60px, 60px 60px, 120px 120px;
+      radial-gradient(circle at 20% 20%, rgba(200, 255, 90, 0.03) 1px, transparent 1px),
+      radial-gradient(circle at 80% 80%, rgba(167, 245, 208, 0.02) 1px, transparent 1px);
+    background-size: 80px 80px, 120px 120px;
     pointer-events: none;
     z-index: -1;
-    opacity: 0.6;
+    opacity: 0.4;
   }
 }
 
-/* ====== COMPONENTES FUTURISTAS ====== */
+/* ====== COMPONENTES ORGÂNICOS MINIMALISTAS ====== */
 
-/* Glass Morphism Cards */
-.glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
-  border-radius: 1rem;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.glass-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transition: left 0.6s ease;
-}
-
-.glass-card:hover::before {
-  left: 100%;
-}
-
-.glass-card:hover {
-  transform: translateY(-6px) scale(1.01);
-  box-shadow:
-    var(--glass-shadow),
-    0 0 30px rgba(0, 217, 255, 0.4);
-  border-color: var(--neon-blue);
-}
-
-/* Neon Buttons */
-.btn-neon {
-  background: transparent;
-  border: 2px solid var(--neon-blue);
-  color: var(--neon-blue);
-  padding: 0.75rem 2rem;
-  border-radius: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 0 15px rgba(0, 217, 255, 0.4);
-}
-
-.btn-neon::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(0, 245, 255, 0.2), transparent);
-  transition: left 0.5s ease;
-}
-
-.btn-neon:hover::before {
-  left: 100%;
-}
-
-.btn-neon:hover {
-  background: rgba(0, 217, 255, 0.15);
-  box-shadow: var(--neon-glow-blue);
-  transform: translateY(-2px);
-}
-
-.btn-neon-purple {
-  border-color: var(--electric-purple);
-  color: var(--electric-purple);
-  box-shadow: 0 0 15px rgba(172, 0, 255, 0.4);
-}
-
-.btn-neon-purple:hover {
-  background: rgba(172, 0, 255, 0.15);
-  box-shadow: var(--neon-glow-purple);
-}
-
-.btn-neon-green {
-  border-color: var(--cyber-green);
-  color: var(--cyber-green);
-  box-shadow: 0 0 15px rgba(0, 255, 156, 0.4);
-}
-
-.btn-neon-green:hover {
-  background: rgba(0, 255, 156, 0.15);
-  box-shadow: var(--neon-glow-green);
-}
-
-/* Holographic Text Premium */
-.holographic-text {
-  background: linear-gradient(45deg, var(--neon-blue), var(--electric-purple), var(--magenta-neon));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-weight: 700;
-  text-shadow: 0 0 20px rgba(0, 217, 255, 0.6);
-  animation: holographic 3s ease-in-out infinite alternate;
-}
-
-@keyframes holographic {
-  0% { text-shadow: 0 0 20px rgba(0, 217, 255, 0.6); }
-  50% { text-shadow: 0 0 25px rgba(172, 0, 255, 0.8); }
-  100% { text-shadow: 0 0 20px rgba(255, 0, 150, 0.6); }
-}
-
-/* Premium Neon Inputs */
-.neon-input {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 0.75rem;
-  padding: 0.875rem 1.25rem;
-  color: #ffffff;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(15px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.neon-input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.neon-input:focus {
-  outline: none;
-  border-color: var(--neon-blue);
-  box-shadow:
-    0 0 20px rgba(0, 217, 255, 0.6),
-    inset 0 1px 0 var(--glass-highlight);
-  background: rgba(0, 217, 255, 0.08);
-}
-
-/* Cyber Grid */
-.cyber-grid {
-  background-image:
-    linear-gradient(rgba(0, 245, 255, 0.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 245, 255, 0.1) 1px, transparent 1px);
-  background-size: 20px 20px;
-}
-
-/* Status Badges Futuristas */
-.status-badge {
-  padding: 0.5rem 1rem;
-  border-radius: 2rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border: 1px solid;
+/* Cards Orgânicos Ultra Limpos */
+.organic-card {
+  background: var(--bg-card);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-}
-
-.status-novo {
-  background: rgba(0, 217, 255, 0.15);
-  border-color: var(--neon-blue);
-  color: var(--neon-blue);
-  box-shadow: 0 0 15px rgba(0, 217, 255, 0.4);
-}
-
-.status-vendido {
-  background: rgba(0, 255, 156, 0.15);
-  border-color: var(--cyber-green);
-  color: var(--cyber-green);
-  box-shadow: 0 0 15px rgba(0, 255, 156, 0.4);
-}
-
-.status-perdido {
-  background: rgba(255, 0, 150, 0.15);
-  border-color: var(--magenta-neon);
-  color: var(--magenta-neon);
-  box-shadow: 0 0 15px rgba(255, 0, 150, 0.4);
-}
-
-/* Loading Animation Futurista */
-.cyber-loading {
+  border: 1px solid rgba(237, 237, 237, 0.6);
+  border-radius: var(--radius);
   position: relative;
   overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: var(--card-shadow);
 }
 
-.cyber-loading::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg,
-    transparent,
-    rgba(0, 245, 255, 0.4),
-    transparent
-  );
-  animation: cyber-sweep 1.5s infinite;
-}
-
-@keyframes cyber-sweep {
-  0% { left: -100%; }
-  100% { left: 100%; }
-}
-
-/* Sidebar Futurista */
-.cyber-sidebar {
-  background: linear-gradient(180deg,
-    rgba(10, 10, 15, 0.95) 0%,
-    rgba(26, 26, 46, 0.9) 50%,
-    rgba(22, 33, 62, 0.95) 100%
-  );
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(0, 245, 255, 0.2);
-  box-shadow: 4px 0 40px rgba(0, 0, 0, 0.5);
-}
-
-.sidebar-item {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 0.75rem;
-  margin: 0.25rem;
-  position: relative;
-  overflow: hidden;
-}
-
-.sidebar-item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 3px;
-  height: 100%;
-  background: var(--cyber-blue);
-  transform: scaleY(0);
-  transition: transform 0.3s ease;
-}
-
-.sidebar-item:hover::before {
-  transform: scaleY(1);
-}
-
-.sidebar-item:hover {
-  background: rgba(0, 245, 255, 0.1);
-  box-shadow: 0 8px 32px rgba(0, 245, 255, 0.2);
-}
-
-.sidebar-item.active {
-  background: linear-gradient(90deg,
-    rgba(0, 245, 255, 0.2) 0%,
-    rgba(179, 71, 217, 0.1) 100%
-  );
-  border: 1px solid rgba(0, 245, 255, 0.3);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 8px 32px rgba(0, 245, 255, 0.3);
-}
-
-.sidebar-item.active::before {
-  transform: scaleY(1);
-}
-
-/* Header Futurista */
-.cyber-header {
-  background: linear-gradient(90deg,
-    rgba(10, 10, 15, 0.95) 0%,
-    rgba(26, 26, 46, 0.9) 50%,
-    rgba(22, 33, 62, 0.95) 100%
-  );
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(0, 245, 255, 0.2);
-  box-shadow: 0 4px 40px rgba(0, 0, 0, 0.3);
-}
-
-/* Cards de Estatística Futuristas */
-.stat-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: 1rem;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.stat-card::before {
+.organic-card::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--cyber-blue), var(--cyber-purple));
+  background: var(--gradient-organic);
+  border-radius: var(--radius) var(--radius) 0 0;
+  opacity: 0.7;
 }
 
-.stat-card:hover {
+.organic-card:hover {
   transform: translateY(-8px);
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.5),
-    0 0 40px rgba(179, 71, 217, 0.3);
+  box-shadow: var(--hover-shadow);
+  border-color: rgba(200, 255, 90, 0.3);
+  background: rgba(255, 255, 255, 0.9);
 }
 
-/* Kanban Futurista */
-.kanban-column {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: 1rem;
-  min-height: 500px;
-}
-
-.kanban-card {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.75rem;
-  transition: all 0.3s ease;
-  cursor: grab;
-}
-
-.kanban-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(179, 71, 217, 0.2);
-  border-color: rgba(179, 71, 217, 0.5);
-}
-
-.kanban-card:active {
-  cursor: grabbing;
-}
-
-/* Progress Bar Futurista */
-.cyber-progress {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 1rem;
+/* Botões Orgânicos */
+.organic-button-primary {
+  background: var(--gradient-organic);
+  border: none;
+  color: var(--foreground);
+  padding: 0.875rem 2.5rem;
+  border-radius: var(--radius);
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: var(--soft-shadow);
+  position: relative;
   overflow: hidden;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.cyber-progress-bar {
-  background: linear-gradient(90deg, var(--cyber-blue), var(--cyber-purple));
-  border-radius: 1rem;
-  box-shadow: 0 0 20px rgba(0, 245, 255, 0.5);
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+.organic-button-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--hover-shadow);
+  background: var(--gradient-soft);
 }
 
-/* Animações */
-@keyframes float {
+.organic-button-outline {
+  background: transparent;
+  border: 2px solid var(--lime-green);
+  color: var(--foreground);
+  padding: 0.75rem 2rem;
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.organic-button-outline:hover {
+  background: rgba(200, 255, 90, 0.1);
+  border-color: var(--pastel-green);
+  transform: translateY(-1px);
+}
+
+/* Inputs Orgânicos */
+.organic-input {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(237, 237, 237, 0.8);
+  border-radius: var(--radius);
+  padding: 1rem 1.5rem;
+  color: var(--foreground);
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  box-shadow: 0 2px 10px rgba(167, 245, 208, 0.05);
+}
+
+.organic-input::placeholder {
+  color: rgba(33, 41, 60, 0.4);
+}
+
+.organic-input:focus {
+  outline: none;
+  border-color: var(--lime-green);
+  box-shadow:
+    0 0 0 3px rgba(200, 255, 90, 0.15),
+    0 4px 20px rgba(167, 245, 208, 0.2);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* Status Orgânicos */
+.status-organic-new {
+  background: rgba(185, 241, 255, 0.2);
+  border: 1px solid var(--pool-blue);
+  color: rgba(33, 41, 60, 0.8);
+  border-radius: 0.75rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.status-organic-success {
+  background: rgba(167, 245, 208, 0.2);
+  border: 1px solid var(--mint-green);
+  color: rgba(33, 41, 60, 0.8);
+  border-radius: 0.75rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.status-organic-warning {
+  background: rgba(200, 255, 90, 0.2);
+  border: 1px solid var(--lime-green);
+  color: rgba(33, 41, 60, 0.8);
+  border-radius: 0.75rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Texto Orgânico */
+.organic-text-primary {
+  background: var(--gradient-organic);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 600;
+}
+
+.organic-text-soft {
+  color: rgba(33, 41, 60, 0.7);
+  font-weight: 400;
+}
+
+/* Animações Fluidas */
+@keyframes float-gentle {
   0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-}
-
-@keyframes pulse-neon {
-  0%, 100% { box-shadow: 0 0 20px rgba(0, 245, 255, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(0, 245, 255, 0.8); }
-}
-
-@keyframes rotate-border {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  50% { transform: translateY(-4px); }
 }
 
 .float-animation {
-  animation: float 6s ease-in-out infinite;
+  animation: float-gentle 4s ease-in-out infinite;
 }
 
-.pulse-neon {
-  animation: pulse-neon 2s ease-in-out infinite;
-}
-
-/* Scrollbar Futurista */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, var(--cyber-blue), var(--cyber-purple));
-  border-radius: 4px;
-  box-shadow: 0 0 10px rgba(0, 245, 255, 0.5);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  box-shadow: 0 0 20px rgba(0, 245, 255, 0.8);
-}
-
-/* Modal Futurista */
-.cyber-modal {
-  background: var(--glass-bg);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border: 1px solid var(--glass-border);
-  border-radius: 1.5rem;
-  box-shadow:
-    0 25px 50px rgba(0, 0, 0, 0.7),
-    0 0 60px rgba(179, 71, 217, 0.3);
-}
-
-/* Tabela Futurista */
-.cyber-table {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: 1rem;
-  overflow: hidden;
-}
-
-.cyber-table th {
-  background: linear-gradient(90deg,
-    rgba(0, 245, 255, 0.2),
-    rgba(179, 71, 217, 0.2)
-  );
-  border-bottom: 1px solid rgba(0, 245, 255, 0.3);
-  color: var(--cyber-blue);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.cyber-table td {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.cyber-table tr:hover {
-  background: rgba(0, 245, 255, 0.05);
-}
-
-/* ====== NOVOS COMPONENTES PREMIUM ====== */
-
-/* Cyber Button Primary Premium */
-.cyber-button-primary {
-  background: linear-gradient(135deg, var(--neon-blue), var(--electric-purple));
-  border: 1px solid var(--neon-blue);
-  color: var(--deep-space);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-radius: 0.75rem;
-  padding: 0.75rem 2rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 4px 15px rgba(0, 217, 255, 0.4);
-}
-
-.cyber-button-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--neon-glow-blue);
-  background: linear-gradient(135deg, var(--electric-purple), var(--magenta-neon));
-}
-
-/* Cyber Button Outline Premium */
-.cyber-button-outline {
-  background: transparent;
-  border: 2px solid var(--neon-blue);
-  color: var(--neon-blue);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-radius: 0.75rem;
-  padding: 0.75rem 2rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.cyber-button-outline:hover {
-  background: rgba(0, 217, 255, 0.15);
-  box-shadow: 0 0 25px rgba(0, 217, 255, 0.6);
-  border-color: var(--electric-purple);
-  color: var(--electric-purple);
-}
-
-/* Premium Card Variants */
+/* Premium Cards - Novos Componentes */
 .premium-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: 1.2rem;
+  background: var(--bg-card);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(237, 237, 237, 0.4);
+  border-radius: var(--radius);
   position: relative;
   overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: var(--card-shadow);
 }
 
 .premium-card::before {
@@ -612,35 +273,19 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, var(--neon-blue), var(--electric-purple), var(--magenta-neon));
+  background: var(--gradient-organic);
   opacity: 0.8;
 }
 
 .premium-card:hover {
-  transform: translateY(-8px) scale(1.01);
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.5),
-    0 0 40px rgba(0, 217, 255, 0.3);
-  border-color: var(--neon-blue);
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: var(--hover-shadow);
+  border-color: rgba(200, 255, 90, 0.4);
+  background: rgba(255, 255, 255, 0.95);
 }
 
-/* Chrome Silver Text */
-.chrome-text {
-  color: var(--chrome-silver);
-  text-shadow: 0 1px 2px rgba(183, 189, 198, 0.3);
-}
-
-/* Deep Space Background Variants */
-.deep-space-bg {
-  background: var(--deep-space);
-}
-
-.smoke-gray-bg {
-  background: var(--smoke-gray);
-}
-
-/* Premium Grid Overlay */
-.premium-grid-overlay::after {
+/* Grid Overlay Orgânico */
+.organic-grid-overlay::after {
   content: '';
   position: absolute;
   top: 0;
@@ -648,27 +293,41 @@
   right: 0;
   bottom: 0;
   background-image:
-    linear-gradient(var(--grid-color) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
-  background-size: 40px 40px;
+    radial-gradient(circle at 25% 25%, rgba(200, 255, 90, 0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
   opacity: 0.3;
   pointer-events: none;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .glass-card {
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-  }
+/* Texto Clean */
+.clean-text {
+  color: rgba(33, 41, 60, 0.8);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
 
-  .cyber-sidebar {
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
+.clean-title {
+  color: rgba(33, 41, 60, 0.9);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .organic-card {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 1rem;
   }
 
   .premium-card {
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 1rem;
+  }
+
+  .organic-button-primary {
+    padding: 0.75rem 2rem;
+    font-size: 0.9rem;
   }
 }

@@ -577,48 +577,48 @@ export default function Dashboard() {
     trend?: 'up' | 'down' | 'neutral'
   }) => (
     <div
-      className="premium-card p-6 cursor-pointer group"
+      className="premium-card p-8 cursor-pointer group float-animation"
       onClick={onClick}
     >
       <div className="relative z-10">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex-1 space-y-2">
-            <p className="text-sm font-medium chrome-text uppercase tracking-wider">{title}</p>
-            <p className="text-3xl font-bold holographic-text">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex-1 space-y-3">
+            <p className="text-sm clean-text uppercase tracking-wide font-medium opacity-70">{title}</p>
+            <p className="text-4xl clean-title">
               {loading ? (
-                <div className="h-8 w-20 bg-gradient-to-r from-gray-700 to-gray-600 rounded animate-pulse"></div>
+                <div className="h-10 w-24 bg-gradient-to-r from-gray-200 to-gray-100 rounded-lg animate-pulse"></div>
               ) : (
                 typeof value === 'number' ? value.toLocaleString() : value
               )}
             </p>
             {subtitle && (
-              <p className="text-sm chrome-text opacity-80">{subtitle}</p>
+              <p className="text-sm organic-text-soft">{subtitle}</p>
             )}
           </div>
-          <div className="ml-6">
-            <div className="w-14 h-14 bg-gradient-to-br from-neon-blue/20 to-electric-purple/20 rounded-xl flex items-center justify-center border border-neon-blue/30 group-hover:scale-110 transition-all duration-300 pulse-neon">
-              <Icon className="h-7 w-7 text-neon-blue" />
+          <div className="ml-8">
+            <div className="w-16 h-16 bg-gradient-to-br from-pool-blue/30 to-mint-green/40 rounded-2xl flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-lg">
+              <Icon className="h-8 w-8 text-gray-600" />
             </div>
           </div>
         </div>
 
-        {/* Linha de progresso premium */}
-        <div className="w-full h-0.5 bg-gradient-to-r from-neon-blue via-electric-purple to-magenta-neon opacity-60 rounded-full"></div>
+        {/* Indicador de tendência sutil */}
+        <div className="w-full h-1 bg-gradient-to-r from-pool-blue via-mint-green to-lime-green opacity-40 rounded-full"></div>
       </div>
     </div>
   )
 
   return (
     <div className="flex-1 overflow-y-auto min-h-screen relative">
-      {/* Premium Grid Overlay */}
-      <div className="absolute inset-0 premium-grid-overlay pointer-events-none z-0"></div>
+      {/* Organic Grid Overlay */}
+      <div className="absolute inset-0 organic-grid-overlay pointer-events-none z-0"></div>
 
       <Header
-        title={<span className="holographic-text">NEURAL COMMAND CENTER</span>}
-        subtitle={<span className="chrome-text">Sistema de Análise Avançada</span>}
+        title={<span className="organic-text-primary text-4xl">Dashboard Executivo</span>}
+        subtitle={<span className="clean-text">Visão completa do Customer Success</span>}
       />
 
-      <main className="relative z-10 flex-1 p-4 sm:p-6 space-y-6 sm:space-y-8">
+      <main className="relative z-10 flex-1 p-6 sm:p-8 space-y-8 sm:space-y-12">
         {/* Filtros Avançados */}
         <DateFilters
           filtroTempo={dateFilters.filtroTempo}
@@ -713,17 +713,17 @@ export default function Dashboard() {
           </div>
 
           {/* Métricas Principais */}
-          <div className="space-y-6">
-            <div className="border-b border-neon-blue/30 pb-6">
-              <h2 className="text-3xl font-bold holographic-text">
-                📊 MÉTRICAS NEURAIS
+          <div className="space-y-8">
+            <div className="border-b border-lime-green/20 pb-8">
+              <h2 className="text-4xl clean-title mb-3">
+                📊 Métricas Principais
               </h2>
-              <p className="chrome-text mt-2 uppercase tracking-wider text-sm">
-                Indicadores-chave do sistema avançado
+              <p className="clean-text text-lg">
+                Indicadores essenciais do sistema
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
               <MinimalStatsCard
                 title="Total Mentorados"
                 value={stats.totalMentorados}
@@ -763,17 +763,17 @@ export default function Dashboard() {
           </div>
 
           {/* Análise Financeira */}
-          <div className="space-y-6">
-            <div className="border-b border-electric-purple/30 pb-6">
-              <h2 className="text-3xl font-bold holographic-text">
-                💰 ANÁLISE FINANCEIRA NEURAL
+          <div className="space-y-8">
+            <div className="border-b border-mint-green/20 pb-8">
+              <h2 className="text-4xl clean-title mb-3">
+                💰 Análise Financeira
               </h2>
-              <p className="chrome-text mt-2 uppercase tracking-wider text-sm">
+              <p className="clean-text text-lg">
                 Status financeiro e fluxo de pagamentos
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <MinimalStatsCard
                 title="Total de Dívidas"
                 value={dividasStats.totalDividas}
@@ -806,16 +806,16 @@ export default function Dashboard() {
           {/* Performance de Vendas */}
           <div className="space-y-6">
             <div className="border-b border-magenta-neon/30 pb-6">
-              <h2 className="text-3xl font-bold holographic-text">
-                🚀 PERFORMANCE DE VENDAS NEURAL
+              <h2 className="text-4xl clean-title mb-3">
+                🚀 Performance de Vendas
                 {dateFilters.hasActiveFilter && (
-                  <span className="text-lg chrome-text ml-3 font-normal opacity-80">
-                    › FILTRO ATIVO
+                  <span className="text-lg organic-text-soft ml-4 font-normal">
+                    • Filtro aplicado
                   </span>
                 )}
               </h2>
-              <p className="chrome-text mt-2 uppercase tracking-wider text-sm">
-                Conversões e análise de leads avançada
+              <p className="clean-text text-lg">
+                Conversões e análise de leads
               </p>
             </div>
 
