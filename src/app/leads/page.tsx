@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Header } from '@/components/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -82,6 +82,9 @@ interface Lead {
   data_venda: string | null // Data da venda - usado para filtros e estatísticas
   origem_detalhada: string | null
   temperatura: string | null
+  pix_key: string | null // Chave Pix para devolução
+  pix_paid: boolean // Status de pagamento do Pix
+  pix_paid_at: string | null // Data/hora do pagamento confirmado
   created_at: string
   updated_at: string
   lead_venda_id?: number // ID da venda na tabela lead_vendas (opcional)
@@ -128,6 +131,7 @@ export default function LeadsPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [hasNextPage, setHasNextPage] = useState(false)
   const leadsPerPage = 20 // Mostrar apenas 20 leads por vez
+  const [allLeads, setAllLeads] = useState<Lead[]>([]) // Todos os leads carregados
 
   // Estados do formulário
   const [formData, setFormData] = useState({
@@ -142,7 +146,9 @@ export default function LeadsPage() {
     valor_vendido: '',
     valor_arrecadado: '',
     origem_detalhada: '',
-    temperatura: 'frio'
+    temperatura: 'frio',
+    pix_key: '',
+    pix_paid: false
   })
 
   // Cache das estatísticas para evitar recálculo
@@ -153,6 +159,11 @@ export default function LeadsPage() {
     loadData()
   }, [])
 
+  // Efeito separado para filtros não relacionados à busca
+  useEffect(() => {
+    loadLeads()
+  }, [statusFilter, origemFilter, temperaturaFilter, dateFilters.dataInicio, dateFilters.dataFim, dateFilters.filtroTempo])
+
   // Atualizar estatísticas quando filtros mudarem
   useEffect(() => {
     // Para filtros apenas recarregar stats e vendidos, os leads são carregados pelo debounce effect
@@ -162,28 +173,15 @@ export default function LeadsPage() {
     ])
   }, [statusFilter, origemFilter, temperaturaFilter, dateFilters.dataInicio, dateFilters.dataFim, dateFilters.filtroTempo])
 
-  // Debounce para busca
-  useEffect(() => {
-    if (searchDebounceTimer) {
-      clearTimeout(searchDebounceTimer)
-    }
-
-    const timer = setTimeout(() => {
-      if (searchTerm || statusFilter !== 'todos' || origemFilter !== 'todas' || temperaturaFilter !== 'todas' || dateFilters.hasActiveFilter) {
-        loadLeads(1, false) // Recarregar da primeira página quando filtrar
-      }
-    }, 300)
-
-    setSearchDebounceTimer(timer)
-
-    return () => {
-      if (timer) clearTimeout(timer)
-    }
-  }, [searchTerm, statusFilter, origemFilter, temperaturaFilter, dateFilters.dataInicio, dateFilters.dataFim, dateFilters.filtroTempo])
+  // A busca por texto não precisa de debounce nem de reload - é feita no cliente
+  // Remove o useEffect de debounce pois agora a busca é instantânea
 
   const loadLeads = async (page = 1, append = false) => {
     try {
-      setLoading(page === 1) // Só mostrar loading na primeira página
+      // Não mostrar loading se é uma busca incremental para evitar flickering
+      if (page === 1 && !append) {
+        setLoading(true)
+      }
 
       const from = (page - 1) * leadsPerPage
       const to = from + leadsPerPage - 1
@@ -193,10 +191,7 @@ export default function LeadsPage() {
         .from('leads')
         .select('*', { count: 'exact' })
 
-      // Aplicar filtros de texto
-      if (searchTerm) {
-        query = query.or(`nome_completo.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,empresa.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%`)
-      }
+      // Não aplicar filtro de texto no servidor - será feito no cliente
 
       // Aplicar filtros de status
       if (statusFilter !== 'todos') {
@@ -274,9 +269,9 @@ export default function LeadsPage() {
       if (error) throw error
 
       if (append) {
-        setLeads(prev => [...prev, ...(data || [])])
+        setAllLeads(prev => [...prev, ...(data || [])])
       } else {
-        setLeads(data || [])
+        setAllLeads(data || [])
       }
 
       setTotalCount(count || 0)
@@ -398,6 +393,9 @@ export default function LeadsPage() {
         valor_arrecadado: formData.valor_arrecadado ? parseFloat(formData.valor_arrecadado) : null,
         origem_detalhada: formData.origem_detalhada || null,
         temperatura: formData.temperatura,
+        pix_key: formData.pix_key || null,
+        pix_paid: formData.pix_paid,
+        pix_paid_at: formData.pix_paid && !editingLead?.pix_paid ? new Date().toISOString() : editingLead?.pix_paid_at,
         // Definir data_venda se status for vendido
         data_venda: formData.status === 'vendido' ? new Date().toISOString().split('T')[0] : null
       }
@@ -451,7 +449,9 @@ export default function LeadsPage() {
       valor_vendido: '',
       valor_arrecadado: '',
       origem_detalhada: '',
-      temperatura: 'frio'
+      temperatura: 'frio',
+      pix_key: '',
+      pix_paid: false
     })
     setEditingLead(null)
   }
@@ -470,7 +470,9 @@ export default function LeadsPage() {
       valor_vendido: lead.valor_vendido?.toString() || '',
       valor_arrecadado: lead.valor_arrecadado?.toString() || '',
       origem_detalhada: lead.origem_detalhada || '',
-      temperatura: lead.temperatura || 'frio'
+      temperatura: lead.temperatura || 'frio',
+      pix_key: lead.pix_key || '',
+      pix_paid: lead.pix_paid || false
     })
     setIsModalOpen(true)
   }
@@ -714,7 +716,7 @@ export default function LeadsPage() {
   // Função para atualizar status do lead
   const updateLeadStatus = async (leadId: string, newStatus: string) => {
     // Store original lead for rollback
-    const originalLead = leads.find(l => l.id === leadId)
+    const originalLead = allLeads.find(l => l.id === leadId)
     if (!originalLead) {
       console.error('Lead não encontrado para atualização')
       alert('Erro: Lead não encontrado')
@@ -871,7 +873,7 @@ export default function LeadsPage() {
 
     return statusColumns.map(column => ({
       ...column,
-      leads: leads.filter(lead => {
+      leads: filteredLeads.filter(lead => {
         // Primeiro filtrar por status
         if (lead.status !== column.key) return false
 
@@ -902,9 +904,28 @@ export default function LeadsPage() {
     }))
   }
 
-  // Filtrar leads baseado na pesquisa e filtros
-  // Como os filtros agora são aplicados no servidor, usamos leads diretamente
-  const filteredLeads = leads
+  // Filtrar leads no cliente - busca por texto
+  const filteredLeads = React.useMemo(() => {
+    let filtered = allLeads
+
+    // Filtro de busca por texto (feito no cliente)
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim()
+      filtered = filtered.filter(lead => {
+        return (
+          lead.nome_completo?.toLowerCase().includes(searchLower) ||
+          lead.email?.toLowerCase().includes(searchLower) ||
+          lead.telefone?.toLowerCase().includes(searchLower) ||
+          lead.empresa?.toLowerCase().includes(searchLower) ||
+          lead.cargo?.toLowerCase().includes(searchLower)
+        )
+      })
+    }
+
+    return filtered
+  }, [allLeads, searchTerm])
+
+  // Os leads exibidos agora são diretamente os filteredLeads
 
   // Obter listas únicas para filtros - usar todos os leads para não perder opções
   const allStatusOptions = [
@@ -926,7 +947,7 @@ export default function LeadsPage() {
     'reativar'
   ]
   const statusOptions = allStatusOptions
-  const origemOptions = ['todas', ...Array.from(new Set(leads.map(l => l.origem).filter(Boolean)))]
+  const origemOptions = ['todas', ...Array.from(new Set(allLeads.map(l => l.origem).filter(Boolean)))]
   const temperaturaOptions = ['todas', 'frio', 'morno', 'quente']
 
   // Função para obter badge de temperatura
@@ -957,7 +978,7 @@ export default function LeadsPage() {
     }))
 
     // Origin distribution
-    const origemData = leads.reduce((acc, lead) => {
+    const origemData = allLeads.reduce((acc, lead) => {
       const origem = lead.origem || 'Não informado'
       if (!acc[origem]) {
         acc[origem] = 0
@@ -992,7 +1013,7 @@ export default function LeadsPage() {
   // Drag and drop functions
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
-    const lead = leads.find(l => l.id === active.id)
+    const lead = allLeads.find(l => l.id === active.id)
     setActiveId(active.id as string)
     setDraggedLead(lead || null)
   }
@@ -1012,7 +1033,7 @@ export default function LeadsPage() {
     const newStatus = over.id as string
 
     // Se o status não mudou, não faz nada
-    const currentLead = leads.find(l => l.id === leadId)
+    const currentLead = allLeads.find(l => l.id === leadId)
     if (!currentLead) {
       console.error('Lead não encontrado no drag end:', leadId)
       return
@@ -1135,6 +1156,19 @@ export default function LeadsPage() {
               )}
             </div>
           )}
+
+          {/* Status PIX */}
+          <div className="flex items-center justify-between text-xs mt-2">
+            {lead.pix_paid ? (
+              <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded">
+                <span>✅ PIX OK</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                <span>⏳ PIX Pendente</span>
+              </div>
+            )}
+          </div>
 
           {/* Quick Status Change */}
           <div className="flex gap-1 mt-2">
@@ -1607,6 +1641,70 @@ export default function LeadsPage() {
                   </div>
                 </div>
 
+                {/* Informações de Pagamento Pix */}
+                <div className="space-y-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                  <h3 className="text-lg font-semibold text-blue-800 flex items-center gap-2">
+                    💳 Informações de Pagamento PIX
+                    <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                      Para confirmação da call
+                    </span>
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Chave Pix para devolução */}
+                    <div className="space-y-2">
+                      <Label htmlFor="pix_key" className="text-blue-800 font-semibold">
+                        🔑 Chave Pix para Devolução
+                      </Label>
+                      <Input
+                        id="pix_key"
+                        value={formData.pix_key}
+                        onChange={(e) => setFormData({...formData, pix_key: e.target.value})}
+                        className="border-2 border-blue-200 focus:border-blue-400 focus:ring-blue-200 bg-white/70"
+                        placeholder="CPF, email, telefone ou chave aleatória..."
+                      />
+                      <p className="text-xs text-blue-600">
+                        💡 Chave que o lead usará caso precise devolver o valor pago
+                      </p>
+                    </div>
+
+                    {/* Status do pagamento */}
+                    <div className="space-y-2">
+                      <Label htmlFor="pix_paid" className="text-blue-800 font-semibold">
+                        ✅ Status do Pagamento PIX
+                      </Label>
+                      <div className="flex items-center space-x-2 p-3 border-2 border-blue-200 rounded-md bg-white/70">
+                        <input
+                          type="checkbox"
+                          id="pix_paid"
+                          checked={formData.pix_paid}
+                          onChange={(e) => setFormData({...formData, pix_paid: e.target.checked})}
+                          className="w-4 h-4 text-blue-600 border-2 border-blue-300 rounded focus:ring-blue-500"
+                        />
+                        <Label htmlFor="pix_paid" className="text-sm font-medium text-blue-700">
+                          {formData.pix_paid ? '✅ PIX pago - Call confirmada' : '⏳ PIX pendente'}
+                        </Label>
+                      </div>
+                      {formData.pix_paid && (
+                        <p className="text-xs text-green-600 bg-green-50 p-2 rounded border border-green-200">
+                          🎉 Pagamento confirmado! A call está garantida.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-100 p-3 rounded-lg border border-blue-300">
+                    <p className="text-sm text-blue-800">
+                      <strong>📋 Instruções:</strong>
+                    </p>
+                    <ul className="text-xs text-blue-700 mt-1 space-y-1">
+                      <li>• <strong>Chave Pix:</strong> Registre a chave que o lead informou para possível devolução</li>
+                      <li>• <strong>Status:</strong> Marque como "pago" apenas após confirmar o recebimento do PIX</li>
+                      <li>• <strong>Call:</strong> Leads que pagaram têm prioridade no agendamento</li>
+                    </ul>
+                  </div>
+                </div>
+
                 {/* Observações - Destaque especial */}
                 <div className="space-y-2">
                   <Label htmlFor="observacoes" className="text-green-800 font-semibold flex items-center gap-2">
@@ -1659,8 +1757,22 @@ export default function LeadsPage() {
               placeholder="Buscar por nome, email, telefone, empresa ou cargo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 pr-10"
+              autoComplete="off"
             />
+            {searchTerm && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                  onClick={() => setSearchTerm('')}
+                >
+                  ✕
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Filtros Avançados de Data */}
@@ -1842,6 +1954,7 @@ export default function LeadsPage() {
                     <th className="text-left p-4 font-semibold text-green-800">🏢 Empresa</th>
                     <th className="text-left p-4 font-semibold text-green-800">📍 Origem</th>
                     <th className="text-left p-4 font-semibold text-green-800">🎯 Status</th>
+                    <th className="text-center p-4 font-semibold text-green-800">💳 PIX</th>
                     <th className="text-right p-4 font-semibold text-green-800">💰 Valores</th>
                     <th className="text-left p-4 font-semibold text-green-800">📝 Observações</th>
                     <th className="text-center p-4 font-semibold text-green-800">⚙️ Ações</th>
@@ -1887,6 +2000,31 @@ export default function LeadsPage() {
                       </td>
                       <td className="p-4">
                         {getStatusBadge(lead.status)}
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="space-y-1">
+                          {lead.pix_paid ? (
+                            <div className="flex flex-col items-center">
+                              <Badge className="bg-green-100 text-green-800 border-green-300">
+                                ✅ PIX Pago
+                              </Badge>
+                              {lead.pix_paid_at && (
+                                <span className="text-xs text-green-600 mt-1">
+                                  {new Date(lead.pix_paid_at).toLocaleDateString('pt-BR')}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge className="bg-orange-100 text-orange-800 border-orange-300">
+                              ⏳ Pendente
+                            </Badge>
+                          )}
+                          {lead.pix_key && (
+                            <div className="text-xs text-gray-600 mt-1 max-w-24 truncate" title={lead.pix_key}>
+                              🔑 {lead.pix_key}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 text-right">
                         <div className="space-y-1">
