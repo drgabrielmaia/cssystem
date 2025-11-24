@@ -159,18 +159,16 @@ export default function LeadsPage() {
     loadData()
   }, [])
 
-  // Efeito separado para filtros não relacionados à busca
+  // Recarregar leads quando filtros (não busca) mudarem
   useEffect(() => {
-    loadLeads()
+    if (statusFilter !== 'todos' || origemFilter !== 'todas' || temperaturaFilter !== 'todas' || dateFilters.hasActiveFilter) {
+      loadLeads()
+    }
   }, [statusFilter, origemFilter, temperaturaFilter, dateFilters.dataInicio, dateFilters.dataFim, dateFilters.filtroTempo])
 
   // Atualizar estatísticas quando filtros mudarem
   useEffect(() => {
-    // Para filtros apenas recarregar stats e vendidos, os leads são carregados pelo debounce effect
-    Promise.all([
-      loadStatsWithCache(),
-      loadStatsWithCache()
-    ])
+    loadStatsWithCache()
   }, [statusFilter, origemFilter, temperaturaFilter, dateFilters.dataInicio, dateFilters.dataFim, dateFilters.filtroTempo])
 
   // A busca por texto não precisa de debounce nem de reload - é feita no cliente
@@ -178,6 +176,8 @@ export default function LeadsPage() {
 
   const loadLeads = async (page = 1, append = false) => {
     try {
+      console.log('📥 Carregando leads - page:', page, 'append:', append)
+
       // Não mostrar loading se é uma busca incremental para evitar flickering
       if (page === 1 && !append) {
         setLoading(true)
@@ -268,6 +268,8 @@ export default function LeadsPage() {
 
       if (error) throw error
 
+      console.log('📊 Dados recebidos:', data?.length || 0, 'leads')
+
       if (append) {
         setAllLeads(prev => [...prev, ...(data || [])])
         setLeads(prev => [...prev, ...(data || [])])
@@ -279,6 +281,8 @@ export default function LeadsPage() {
       setTotalCount(count || 0)
       setHasNextPage(data && data.length === leadsPerPage)
       setCurrentPage(page)
+
+      console.log('✅ AllLeads definido com', (data || []).length, 'leads')
     } catch (error) {
       console.error('Erro ao carregar leads:', error)
     } finally {
@@ -908,6 +912,7 @@ export default function LeadsPage() {
 
   // Filtrar leads no cliente - busca por texto
   const filteredLeads = React.useMemo(() => {
+    console.log('🔍 Filtrando leads - allLeads:', allLeads.length, 'searchTerm:', searchTerm)
     let filtered = allLeads
 
     // Filtro de busca por texto (feito no cliente)
@@ -924,6 +929,7 @@ export default function LeadsPage() {
       })
     }
 
+    console.log('✅ Leads filtrados:', filtered.length)
     return filtered
   }, [allLeads, searchTerm])
 
