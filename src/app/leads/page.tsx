@@ -131,7 +131,7 @@ export default function LeadsPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [hasNextPage, setHasNextPage] = useState(false)
   const leadsPerPage = 20 // Mostrar apenas 20 leads por vez
-  const [allLeads, setAllLeads] = useState<Lead[]>([]) // Todos os leads carregados
+  // Removido allLeads - simplificando para usar apenas leads
 
   // Estados do formulário
   const [formData, setFormData] = useState({
@@ -209,7 +209,7 @@ export default function LeadsPage() {
 
       // Aplicar filtro de datas personalizadas usando o novo sistema
       const dateFilter = dateFilters.getDateFilter()
-      let allLeads = []
+      // Removido allLeads - usando filteredData localmente
 
       if (dateFilter?.start || dateFilter?.end) {
         // Para filtros de data, precisamos buscar todos os leads e filtrar no JavaScript
@@ -218,7 +218,7 @@ export default function LeadsPage() {
         if (allError) throw allError
 
         // Filtrar no JavaScript usando a mesma lógica das estatísticas
-        allLeads = allData?.filter(lead => {
+        const filteredData = allData?.filter(lead => {
           let dataParaFiltro
 
           if (lead.status === 'vendido') {
@@ -247,8 +247,8 @@ export default function LeadsPage() {
         }) || []
 
         // Aplicar paginação manualmente
-        const totalFiltered = allLeads.length
-        const paginatedData = allLeads.slice(from, from + leadsPerPage)
+        const totalFiltered = filteredData.length
+        const paginatedData = filteredData.slice(from, from + leadsPerPage)
 
         if (append) {
           setLeads(prev => [...prev, ...paginatedData])
@@ -271,10 +271,8 @@ export default function LeadsPage() {
       console.log('📊 Dados recebidos:', data?.length || 0, 'leads')
 
       if (append) {
-        setAllLeads(prev => [...prev, ...(data || [])])
         setLeads(prev => [...prev, ...(data || [])])
       } else {
-        setAllLeads(data || [])
         setLeads(data || [])
       }
 
@@ -282,7 +280,7 @@ export default function LeadsPage() {
       setHasNextPage(data && data.length === leadsPerPage)
       setCurrentPage(page)
 
-      console.log('✅ AllLeads definido com', (data || []).length, 'leads')
+      console.log('✅ Leads definidos:', (data || []).length, 'leads')
     } catch (error) {
       console.error('Erro ao carregar leads:', error)
     } finally {
@@ -722,7 +720,7 @@ export default function LeadsPage() {
   // Função para atualizar status do lead
   const updateLeadStatus = async (leadId: string, newStatus: string) => {
     // Store original lead for rollback
-    const originalLead = allLeads.find(l => l.id === leadId)
+    const originalLead = leads.find(l => l.id === leadId)
     if (!originalLead) {
       console.error('Lead não encontrado para atualização')
       alert('Erro: Lead não encontrado')
@@ -910,10 +908,10 @@ export default function LeadsPage() {
     }))
   }
 
-  // Filtrar leads no cliente - busca por texto
+  // Filtrar leads no cliente - busca por texto - SIMPLIFICADO
   const filteredLeads = React.useMemo(() => {
-    console.log('🔍 Filtrando leads - allLeads:', allLeads.length, 'searchTerm:', searchTerm)
-    let filtered = allLeads
+    console.log('🔍 Filtrando leads - leads:', leads.length, 'searchTerm:', searchTerm)
+    let filtered = leads // Usar leads diretamente em vez de allLeads
 
     // Filtro de busca por texto (feito no cliente)
     if (searchTerm.trim()) {
@@ -931,12 +929,9 @@ export default function LeadsPage() {
 
     console.log('✅ Leads filtrados:', filtered.length)
     return filtered
-  }, [allLeads, searchTerm])
+  }, [leads, searchTerm])
 
-  // Atualizar leads exibidos quando filtro mudar
-  React.useEffect(() => {
-    setLeads(filteredLeads)
-  }, [filteredLeads])
+  // Remover useEffect que causa loop
 
   // Obter listas únicas para filtros - usar todos os leads para não perder opções
   const allStatusOptions = [
@@ -958,7 +953,7 @@ export default function LeadsPage() {
     'reativar'
   ]
   const statusOptions = allStatusOptions
-  const origemOptions = ['todas', ...Array.from(new Set(allLeads.map(l => l.origem).filter(Boolean)))]
+  const origemOptions = ['todas', ...Array.from(new Set(leads.map(l => l.origem).filter(Boolean)))]
   const temperaturaOptions = ['todas', 'frio', 'morno', 'quente']
 
   // Função para obter badge de temperatura
@@ -989,7 +984,7 @@ export default function LeadsPage() {
     }))
 
     // Origin distribution
-    const origemData = allLeads.reduce((acc, lead) => {
+    const origemData = leads.reduce((acc, lead) => {
       const origem = lead.origem || 'Não informado'
       if (!acc[origem]) {
         acc[origem] = 0
@@ -1024,7 +1019,7 @@ export default function LeadsPage() {
   // Drag and drop functions
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
-    const lead = allLeads.find(l => l.id === active.id)
+    const lead = leads.find(l => l.id === active.id)
     setActiveId(active.id as string)
     setDraggedLead(lead || null)
   }
@@ -1044,7 +1039,7 @@ export default function LeadsPage() {
     const newStatus = over.id as string
 
     // Se o status não mudou, não faz nada
-    const currentLead = allLeads.find(l => l.id === leadId)
+    const currentLead = leads.find(l => l.id === leadId)
     if (!currentLead) {
       console.error('Lead não encontrado no drag end:', leadId)
       return
