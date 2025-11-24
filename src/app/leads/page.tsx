@@ -270,8 +270,10 @@ export default function LeadsPage() {
 
       if (append) {
         setAllLeads(prev => [...prev, ...(data || [])])
+        setLeads(prev => [...prev, ...(data || [])])
       } else {
         setAllLeads(data || [])
+        setLeads(data || [])
       }
 
       setTotalCount(count || 0)
@@ -925,7 +927,10 @@ export default function LeadsPage() {
     return filtered
   }, [allLeads, searchTerm])
 
-  // Os leads exibidos agora são diretamente os filteredLeads
+  // Atualizar leads exibidos quando filtro mudar
+  React.useEffect(() => {
+    setLeads(filteredLeads)
+  }, [filteredLeads])
 
   // Obter listas únicas para filtros - usar todos os leads para não perder opções
   const allStatusOptions = [
