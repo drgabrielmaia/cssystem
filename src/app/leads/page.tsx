@@ -176,7 +176,6 @@ export default function LeadsPage() {
 
   const loadLeads = async (page = 1, append = false) => {
     try {
-      console.log('📥 Carregando leads - page:', page, 'append:', append)
 
       // Não mostrar loading se é uma busca incremental para evitar flickering
       if (page === 1 && !append) {
@@ -268,7 +267,6 @@ export default function LeadsPage() {
 
       if (error) throw error
 
-      console.log('📊 Dados recebidos:', data?.length || 0, 'leads')
 
       if (append) {
         setLeads(prev => [...prev, ...(data || [])])
@@ -280,7 +278,6 @@ export default function LeadsPage() {
       setHasNextPage(data && data.length === leadsPerPage)
       setCurrentPage(page)
 
-      console.log('✅ Leads definidos:', (data || []).length, 'leads')
     } catch (error) {
       console.error('Erro ao carregar leads:', error)
     } finally {
@@ -910,7 +907,6 @@ export default function LeadsPage() {
 
   // Filtrar leads no cliente - busca por texto - SIMPLIFICADO
   const filteredLeads = React.useMemo(() => {
-    console.log('🔍 Filtrando leads - leads:', leads.length, 'searchTerm:', searchTerm)
     let filtered = leads // Usar leads diretamente em vez de allLeads
 
     // Filtro de busca por texto (feito no cliente)
@@ -927,7 +923,6 @@ export default function LeadsPage() {
       })
     }
 
-    console.log('✅ Leads filtrados:', filtered.length)
     return filtered
   }, [leads, searchTerm])
 
