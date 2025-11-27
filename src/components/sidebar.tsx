@@ -41,7 +41,7 @@ const navigation = [
   { name: 'Calendário', href: '/calendario', icon: Calendar, description: 'Agendar eventos' },
   { name: 'Social Seller', href: '/social-seller', icon: Phone, description: 'Métricas de vendas' },
   { name: 'Check-ins', href: '/checkins', icon: BarChart3, description: 'Acompanhamento' },
-  { name: 'Formulários', href: '/formularios', icon: FileText, description: 'Pesquisas + IA' },
+  { name: 'Onboarding', href: '/onboarding', icon: Brain, description: 'Mapa mental de metas' },
   { name: 'Form Builder', href: '/form-builder', icon: Wrench, description: 'Criar formulários' },
   { name: 'Respostas Forms', href: '/form-responses', icon: Eye, description: 'Ver respostas' },
   { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle, description: 'Mensagens' },

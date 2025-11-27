@@ -8,7 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { MessageCircle, Phone, QrCode, Send, Users, Wifi, WifiOff, ExternalLink, Search, RefreshCw } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MessageCircle, Phone, QrCode, Send, Users, Wifi, WifiOff, ExternalLink, Search, RefreshCw, Settings, Clock, X, CalendarDays, Plus, Trash2 } from 'lucide-react';
 import { whatsappCoreAPI, type WhatsAppStatus, type Contact, type Chat, type Message } from '@/lib/whatsapp-core-api';
 import Link from 'next/link';
 
@@ -22,6 +25,16 @@ export default function WhatsAppPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncingChat, setIsSyncingChat] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAutoMessageModal, setShowAutoMessageModal] = useState(false);
+  const [autoMessages, setAutoMessages] = useState([
+    {
+      id: '1',
+      message: '',
+      scheduledTime: '',
+      targetGroup: '',
+      isActive: true
+    }
+  ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -272,6 +285,55 @@ export default function WhatsAppPage() {
     return text.length > 45 ? text.substring(0, 45) + '...' : text;
   };
 
+  const addAutoMessage = () => {
+    const newMessage = {
+      id: Date.now().toString(),
+      message: '',
+      scheduledTime: '',
+      targetGroup: '',
+      isActive: true
+    };
+    setAutoMessages([...autoMessages, newMessage]);
+  };
+
+  const removeAutoMessage = (id: string) => {
+    setAutoMessages(autoMessages.filter(msg => msg.id !== id));
+  };
+
+  const updateAutoMessage = (id: string, field: string, value: string) => {
+    setAutoMessages(autoMessages.map(msg =>
+      msg.id === id ? { ...msg, [field]: value } : msg
+    ));
+  };
+
+  const saveAutoMessages = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/auto-messages/bulk`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          autoMessages: autoMessages.filter(msg => msg.message && msg.scheduledTime && msg.targetGroup)
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(data.message || 'Mensagens automáticas configuradas com sucesso!');
+        setShowAutoMessageModal(false);
+        console.log('✅ Mensagens automáticas salvas:', data.data);
+      } else {
+        alert('Erro ao salvar mensagens automáticas: ' + data.error);
+        console.error('❌ Erro:', data.error);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao salvar mensagens automáticas:', error);
+      alert('Erro ao conectar com o servidor. Tente novamente.');
+    }
+  };
+
   // SSE para atualizações em tempo real
   useEffect(() => {
     if (!status?.isReady) return;
@@ -378,8 +440,15 @@ export default function WhatsAppPage() {
             </div>
 
             {status?.isReady && (
-              <div className="hidden sm:flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-green-100 px-3 py-2 rounded-full">
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={() => setShowAutoMessageModal(true)}
+                  className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hidden sm:flex items-center gap-2"
+                >
+                  <Clock className="h-4 w-4" />
+                  Mensagens Automáticas
+                </Button>
+                <div className="hidden lg:flex items-center gap-2 bg-green-100 px-3 py-2 rounded-full">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                   <span className="text-sm font-medium text-green-700">Online</span>
                 </div>
@@ -755,6 +824,170 @@ export default function WhatsAppPage() {
           </div>
         </div>
       )}
+
+      {/* Modal de Mensagens Automáticas */}
+      <Dialog open={showAutoMessageModal} onOpenChange={setShowAutoMessageModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-xl">
+              <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-2 rounded-lg">
+                <Clock className="h-5 w-5 text-white" />
+              </div>
+              Configurar Mensagens Automáticas
+            </DialogTitle>
+            <p className="text-gray-600">
+              Configure mensagens para serem enviadas automaticamente em horários específicos
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Header com instruções */}
+            <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="bg-orange-100 p-2 rounded-lg">
+                    <CalendarDays className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-orange-800 mb-2">Como funciona:</h4>
+                    <ul className="text-sm text-orange-700 space-y-1">
+                      <li>• Configure múltiplas mensagens para diferentes horários</li>
+                      <li>• Selecione os grupos ou contatos que receberão as mensagens</li>
+                      <li>• As mensagens serão enviadas automaticamente nos horários definidos</li>
+                      <li>• Não é necessário estar logado para o envio automático</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Lista de mensagens configuradas */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-800">Mensagens Programadas</h3>
+                <Button
+                  onClick={addAutoMessage}
+                  className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Adicionar Mensagem
+                </Button>
+              </div>
+
+              {autoMessages.map((autoMsg, index) => (
+                <Card key={autoMsg.id} className="border-2 border-gray-200 hover:border-green-300 transition-colors">
+                  <CardHeader className="bg-gradient-to-r from-gray-50 to-white pb-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-gray-800">Mensagem {index + 1}</h4>
+                      {autoMessages.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeAutoMessage(autoMsg.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 p-4">
+                    {/* Horário */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor={`time-${autoMsg.id}`} className="text-sm font-medium">
+                          Horário de Envio
+                        </Label>
+                        <Input
+                          id={`time-${autoMsg.id}`}
+                          type="time"
+                          value={autoMsg.scheduledTime}
+                          onChange={(e) => updateAutoMessage(autoMsg.id, 'scheduledTime', e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+
+                      {/* Grupo/Contato de destino */}
+                      <div>
+                        <Label htmlFor={`target-${autoMsg.id}`} className="text-sm font-medium">
+                          Destino
+                        </Label>
+                        <Select
+                          value={autoMsg.targetGroup}
+                          onValueChange={(value) => updateAutoMessage(autoMsg.id, 'targetGroup', value)}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Selecione o grupo ou contato" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredChats.map((chat) => (
+                              <SelectItem key={chat.id} value={chat.id}>
+                                {chat.name === chat.id ? chat.id.split('@')[0] : chat.name}
+                                {chat.isGroup && ' (Grupo)'}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Mensagem */}
+                    <div>
+                      <Label htmlFor={`message-${autoMsg.id}`} className="text-sm font-medium">
+                        Mensagem
+                      </Label>
+                      <Textarea
+                        id={`message-${autoMsg.id}`}
+                        placeholder="Digite a mensagem que será enviada automaticamente..."
+                        value={autoMsg.message}
+                        onChange={(e) => updateAutoMessage(autoMsg.id, 'message', e.target.value)}
+                        className="mt-1 min-h-[100px]"
+                      />
+                    </div>
+
+                    {/* Preview da configuração */}
+                    {autoMsg.scheduledTime && autoMsg.targetGroup && autoMsg.message && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <div className="bg-green-100 p-1 rounded">
+                            <Clock className="h-4 w-4 text-green-600" />
+                          </div>
+                          <div className="text-sm">
+                            <p className="text-green-800 font-medium">
+                              Será enviado às {autoMsg.scheduledTime} para{' '}
+                              {filteredChats.find(c => c.id === autoMsg.targetGroup)?.name || autoMsg.targetGroup}
+                            </p>
+                            <p className="text-green-600 mt-1 italic">
+                              "{autoMsg.message.substring(0, 100)}{autoMsg.message.length > 100 ? '...' : ''}"
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Botões de ação */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setShowAutoMessageModal(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={saveAutoMessages}
+                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                disabled={!autoMessages.some(msg => msg.message && msg.scheduledTime && msg.targetGroup)}
+              >
+                Salvar Configurações
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

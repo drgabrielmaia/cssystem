@@ -1,4 +1,5 @@
 // WhatsApp Core API Client for Bohr.io integration
+import { supabase } from './supabase';
 
 export interface WhatsAppStatus {
   isReady: boolean;
@@ -67,18 +68,37 @@ class WhatsAppCoreAPI {
     console.log('🔍 WhatsApp API - baseUrl final:', this.baseUrl);
   }
 
-  private async request<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
+  private async request<T>(endpoint: string, options?: RequestInit, requireAuth = false): Promise<ApiResponse<T>> {
     try {
       const url = `${this.baseUrl}${endpoint}`;
       console.log('🌐 WhatsApp API - Fazendo request para:', url);
       console.log('🔍 WhatsApp API - URL protocol:', new URL(url).protocol);
 
+      let headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      };
+
+      // Adicionar headers personalizados se fornecidos
+      if (options?.headers) {
+        Object.assign(headers, options.headers);
+      }
+
+      // Adicionar token de autenticação se necessário
+      if (requireAuth) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        } else {
+          return {
+            success: false,
+            error: 'Usuário não autenticado. Faça login para enviar mensagens.',
+          } as ApiResponse<T>;
+        }
+      }
+
       const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-          ...options?.headers,
-        },
+        headers,
         ...options,
       });
 
@@ -125,7 +145,7 @@ class WhatsAppCoreAPI {
     return this.request(`/users/${this.userId}/send`, {
       method: 'POST',
       body: JSON.stringify({ to, message }),
-    });
+    }, true); // Exigir autenticação
   }
 
   async getHealth(): Promise<ApiResponse<{ message: string; timestamp: string }>> {

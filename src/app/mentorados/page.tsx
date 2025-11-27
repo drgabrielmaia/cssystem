@@ -11,6 +11,7 @@ import { supabase, type Mentorado } from '@/lib/supabase'
 import { ExternalLink, Mail, Phone, Calendar, User, Plus, Search, Filter, CheckSquare, Square, Trash2, Edit } from 'lucide-react'
 import { AddMentoradoModal } from '@/components/add-mentorado-modal'
 import { EditMentoradoModal } from '@/components/edit-mentorado-modal'
+import { MentoradosStats } from '@/components/mentorados-stats'
 
 export default function MentoradosPage() {
   console.log('🚀 MentoradosPage component renderizando...')
@@ -205,8 +206,10 @@ export default function MentoradosPage() {
             : `${mentoradosFiltrados.length} de ${mentorados.length} mentorados (filtrados)`
         }
       />
-      
+
       <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
+        {/* Estatísticas Gerais */}
+        <MentoradosStats mentorados={mentorados} />
         {/* Header com ações */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4">
