@@ -32,6 +32,8 @@ export default function WhatsAppPage() {
       message: '',
       scheduledTime: '',
       targetGroup: '',
+      photoUrl: '',
+      photoCaption: '',
       isActive: true
     }
   ]);
@@ -291,6 +293,8 @@ export default function WhatsAppPage() {
       message: '',
       scheduledTime: '',
       targetGroup: '',
+      photoUrl: '',
+      photoCaption: '',
       isActive: true
     };
     setAutoMessages([...autoMessages, newMessage]);
@@ -314,7 +318,11 @@ export default function WhatsAppPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          autoMessages: autoMessages.filter(msg => msg.message && msg.scheduledTime && msg.targetGroup)
+          autoMessages: autoMessages.filter(msg => msg.message && msg.scheduledTime && msg.targetGroup).map(msg => ({
+            ...msg,
+            photo_url: msg.photoUrl,
+            photo_caption: msg.photoCaption
+          }))
         }),
       });
 
@@ -854,6 +862,7 @@ export default function WhatsAppPage() {
                       <li>• Configure múltiplas mensagens para diferentes horários</li>
                       <li>• Selecione os grupos ou contatos que receberão as mensagens</li>
                       <li>• As mensagens serão enviadas automaticamente nos horários definidos</li>
+                      <li>• Adicione fotos usando uma URL pública (opcional)</li>
                       <li>• Não é necessário estar logado para o envio automático</li>
                     </ul>
                   </div>
@@ -945,6 +954,35 @@ export default function WhatsAppPage() {
                       />
                     </div>
 
+                    {/* Foto (opcional) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor={`photo-url-${autoMsg.id}`} className="text-sm font-medium">
+                          URL da Foto (opcional)
+                        </Label>
+                        <Input
+                          id={`photo-url-${autoMsg.id}`}
+                          type="url"
+                          placeholder="https://exemplo.com/imagem.jpg"
+                          value={autoMsg.photoUrl}
+                          onChange={(e) => updateAutoMessage(autoMsg.id, 'photoUrl', e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`photo-caption-${autoMsg.id}`} className="text-sm font-medium">
+                          Legenda da Foto (opcional)
+                        </Label>
+                        <Input
+                          id={`photo-caption-${autoMsg.id}`}
+                          placeholder="Legenda da imagem..."
+                          value={autoMsg.photoCaption}
+                          onChange={(e) => updateAutoMessage(autoMsg.id, 'photoCaption', e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+
                     {/* Preview da configuração */}
                     {autoMsg.scheduledTime && autoMsg.targetGroup && autoMsg.message && (
                       <div className="bg-green-50 border border-green-200 rounded-lg p-3">
@@ -957,6 +995,11 @@ export default function WhatsAppPage() {
                               Será enviado às {autoMsg.scheduledTime} para{' '}
                               {filteredChats.find(c => c.id === autoMsg.targetGroup)?.name || autoMsg.targetGroup}
                             </p>
+                            {autoMsg.photoUrl && (
+                              <p className="text-green-600 mt-1">
+                                📸 Com foto: {autoMsg.photoCaption || 'Sem legenda'}
+                              </p>
+                            )}
                             <p className="text-green-600 mt-1 italic">
                               "{autoMsg.message.substring(0, 100)}{autoMsg.message.length > 100 ? '...' : ''}"
                             </p>
