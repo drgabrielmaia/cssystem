@@ -1,12 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { whatsappCoreAPI, type WhatsAppStatus, type QRCodeData } from '@/lib/whatsapp-core-api';
 import { Loader2, Smartphone, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 
 export function WhatsAppQRReader() {
+  const searchParams = useSearchParams();
+  const userId = searchParams.get('userId') || 'default';
+
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
   const [qrData, setQRData] = useState<QRCodeData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -14,7 +18,7 @@ export function WhatsAppQRReader() {
 
   const fetchStatus = async () => {
     try {
-      const response = await whatsappCoreAPI.getStatus();
+      const response = await whatsappCoreAPI.getStatus(userId);
       if (response.success && response.data) {
         setStatus(response.data);
         setError(null);
@@ -28,7 +32,7 @@ export function WhatsAppQRReader() {
 
   const fetchQRCode = async () => {
     try {
-      const response = await whatsappCoreAPI.getQRCode();
+      const response = await whatsappCoreAPI.getQRCode(userId);
       if (response.success && response.data) {
         setQRData(response.data);
         setError(null);
@@ -96,6 +100,9 @@ export function WhatsAppQRReader() {
             {getStatusIcon()}
             WhatsApp Web Connection
           </CardTitle>
+          <div className="text-sm text-gray-600">
+            Usuário: <span className="font-medium">{userId}</span>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Status */}

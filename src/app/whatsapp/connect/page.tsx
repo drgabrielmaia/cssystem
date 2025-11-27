@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { WhatsAppQRReader } from '@/components/whatsapp-qr-reader';
 
 export default function WhatsAppConnectPage() {
@@ -10,7 +11,9 @@ export default function WhatsAppConnectPage() {
         </p>
       </div>
 
-      <WhatsAppQRReader />
+      <Suspense fallback={<div className="text-center">Carregando...</div>}>
+        <WhatsAppQRReader />
+      </Suspense>
     </div>
   );
 }
