@@ -60,12 +60,26 @@ export interface ApiResponse<T> {
 
 class WhatsAppCoreAPI {
   private baseUrl: string;
-  private userId: string = 'default'; // Default user ID for single-user mode
 
   constructor() {
     // Usar variável de ambiente ou fallback
     this.baseUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br';
     console.log('🔍 WhatsApp API - baseUrl final:', this.baseUrl);
+  }
+
+  // Função para determinar userId baseado no usuário logado
+  private getUserId(userEmail?: string): string {
+    if (!userEmail) return 'default';
+
+    // Admin sempre usa 'default'
+    if (userEmail === 'admin@medicosderesultado.com.br' ||
+        userEmail === 'emersin7x@gmail.com' ||
+        userEmail === 'admin@empresa.com') {
+      return 'default';
+    }
+
+    // Outros usuários usam seu email
+    return userEmail;
   }
 
   private async request<T>(endpoint: string, options?: RequestInit, requireAuth = false): Promise<ApiResponse<T>> {
@@ -113,36 +127,44 @@ class WhatsAppCoreAPI {
     }
   }
 
-  async getStatus(): Promise<ApiResponse<WhatsAppStatus>> {
-    return this.request<WhatsAppStatus>(`/users/${this.userId}/status`);
+  async getStatus(userEmail?: string): Promise<ApiResponse<WhatsAppStatus>> {
+    const userId = this.getUserId(userEmail);
+    return this.request<WhatsAppStatus>(`/users/${userId}/status`);
   }
 
-  async getQRCode(): Promise<ApiResponse<QRCodeData>> {
-    return this.request<QRCodeData>(`/users/${this.userId}/qr`);
+  async getQRCode(userEmail?: string): Promise<ApiResponse<QRCodeData>> {
+    const userId = this.getUserId(userEmail);
+    return this.request<QRCodeData>(`/users/${userId}/qr`);
   }
 
-  async getContacts(): Promise<ApiResponse<Contact[]>> {
-    return this.request<Contact[]>(`/users/${this.userId}/contacts`);
+  async getContacts(userEmail?: string): Promise<ApiResponse<Contact[]>> {
+    const userId = this.getUserId(userEmail);
+    return this.request<Contact[]>(`/users/${userId}/contacts`);
   }
 
-  async getChats(): Promise<ApiResponse<Chat[]>> {
-    return this.request<Chat[]>(`/users/${this.userId}/chats`);
+  async getChats(userEmail?: string): Promise<ApiResponse<Chat[]>> {
+    const userId = this.getUserId(userEmail);
+    return this.request<Chat[]>(`/users/${userId}/chats`);
   }
 
-  async getMessages(limit = 50): Promise<ApiResponse<Message[]>> {
-    return this.request<Message[]>(`/users/${this.userId}/messages?limit=${limit}`);
+  async getMessages(limit = 50, userEmail?: string): Promise<ApiResponse<Message[]>> {
+    const userId = this.getUserId(userEmail);
+    return this.request<Message[]>(`/users/${userId}/messages?limit=${limit}`);
   }
 
-  async getChatMessages(chatId: string, limit = 50): Promise<ApiResponse<Message[]>> {
-    return this.request<Message[]>(`/users/${this.userId}/messages/${encodeURIComponent(chatId)}?limit=${limit}`);
+  async getChatMessages(chatId: string, limit = 50, userEmail?: string): Promise<ApiResponse<Message[]>> {
+    const userId = this.getUserId(userEmail);
+    return this.request<Message[]>(`/users/${userId}/messages/${encodeURIComponent(chatId)}?limit=${limit}`);
   }
 
-  async getChatHistory(chatId: string, limit = 5): Promise<ApiResponse<Message[]>> {
-    return this.request<Message[]>(`/users/${this.userId}/chats/${encodeURIComponent(chatId)}/history?limit=${limit}`);
+  async getChatHistory(chatId: string, limit = 5, userEmail?: string): Promise<ApiResponse<Message[]>> {
+    const userId = this.getUserId(userEmail);
+    return this.request<Message[]>(`/users/${userId}/chats/${encodeURIComponent(chatId)}/history?limit=${limit}`);
   }
 
-  async sendMessage(to: string, message: string): Promise<ApiResponse<{ messageId: string; timestamp: number }>> {
-    return this.request(`/users/${this.userId}/send`, {
+  async sendMessage(to: string, message: string, userEmail?: string): Promise<ApiResponse<{ messageId: string; timestamp: number }>> {
+    const userId = this.getUserId(userEmail);
+    return this.request(`/users/${userId}/send`, {
       method: 'POST',
       body: JSON.stringify({ to, message }),
     }, true); // Exigir autenticação
@@ -152,14 +174,16 @@ class WhatsAppCoreAPI {
     return this.request('/health');
   }
 
-  async registerUser(): Promise<ApiResponse<{ message: string; userId: string }>> {
-    return this.request(`/users/${this.userId}/register`, {
+  async registerUser(userEmail?: string): Promise<ApiResponse<{ message: string; userId: string }>> {
+    const userId = this.getUserId(userEmail);
+    return this.request(`/users/${userId}/register`, {
       method: 'POST',
     });
   }
 
-  async syncChat(chatId: string): Promise<ApiResponse<{ chatId: string; messageCount: number; messages: Message[] }>> {
-    return this.request(`/users/${this.userId}/chats/${encodeURIComponent(chatId)}/sync`, {
+  async syncChat(chatId: string, userEmail?: string): Promise<ApiResponse<{ chatId: string; messageCount: number; messages: Message[] }>> {
+    const userId = this.getUserId(userEmail);
+    return this.request(`/users/${userId}/chats/${encodeURIComponent(chatId)}/sync`, {
       method: 'POST',
     });
   }

@@ -13,9 +13,28 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MessageCircle, Phone, QrCode, Send, Users, Wifi, WifiOff, ExternalLink, Search, RefreshCw, Settings, Clock, X, CalendarDays, Plus, Trash2 } from 'lucide-react';
 import { whatsappCoreAPI, type WhatsAppStatus, type Contact, type Chat, type Message } from '@/lib/whatsapp-core-api';
+import { useAuth } from '@/contexts/auth';
 import Link from 'next/link';
 
 export default function WhatsAppPage() {
+  const { user } = useAuth();
+  const userEmail = user?.email;
+
+  // Função para determinar userId (igual ao backend)
+  const getUserId = (email?: string): string => {
+    if (!email) return 'default';
+
+    // Admin sempre usa 'default'
+    if (email === 'admin@medicosderesultado.com.br' ||
+        email === 'emersin7x@gmail.com' ||
+        email === 'admin@empresa.com') {
+      return 'default';
+    }
+
+    // Outros usuários usam seu email
+    return email;
+  };
+
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -49,14 +68,14 @@ export default function WhatsAppPage() {
 
   const checkStatus = useCallback(async () => {
     try {
-      const response = await whatsappCoreAPI.getStatus();
+      const response = await whatsappCoreAPI.getStatus(userEmail);
       if (response.success && response.data) {
         setStatus(response.data);
       }
     } catch (error) {
       console.error('Erro ao verificar status:', error);
     }
-  }, []);
+  }, [userEmail]);
 
   const loadChats = useCallback(async () => {
     try {
@@ -64,8 +83,8 @@ export default function WhatsAppPage() {
 
       // Buscar chats existentes e contatos em paralelo
       const [chatsResponse, contactsResponse] = await Promise.all([
-        whatsappCoreAPI.getChats(),
-        whatsappCoreAPI.getContacts()
+        whatsappCoreAPI.getChats(userEmail),
+        whatsappCoreAPI.getContacts(userEmail)
       ]);
 
       let allChats: Chat[] = [];
@@ -142,18 +161,18 @@ export default function WhatsAppPage() {
     } catch (error) {
       console.error('❌ Erro ao carregar chats:', error);
     }
-  }, []);
+  }, [userEmail]);
 
   const loadContacts = useCallback(async () => {
     try {
-      const response = await whatsappCoreAPI.getContacts();
+      const response = await whatsappCoreAPI.getContacts(userEmail);
       if (response.success && response.data) {
         setContacts(response.data.filter(contact => contact.isMyContact));
       }
     } catch (error) {
       console.error('Erro ao carregar contatos:', error);
     }
-  }, []);
+  }, [userEmail]);
 
   const loadChatMessages = useCallback(async (chatId: string) => {
     // Debounce: cancelar carregamento anterior se ainda não executou
@@ -164,7 +183,7 @@ export default function WhatsAppPage() {
     loadingTimeoutRef.current = setTimeout(async () => {
       try {
         console.log(`📨 Carregando mensagens para: ${chatId}`);
-        const response = await whatsappCoreAPI.getChatMessages(chatId, 50);
+        const response = await whatsappCoreAPI.getChatMessages(chatId, 50, userEmail);
         if (response.success && response.data) {
           // Ordenar mensagens da mais antiga para mais nova
           const sortedMessages = response.data.sort((a, b) => a.timestamp - b.timestamp);
@@ -185,7 +204,7 @@ export default function WhatsAppPage() {
         setChatMessages([]);
       }
     }, 300); // Debounce de 300ms
-  }, []);
+  }, [userEmail]);
 
   const sendMessage = async () => {
     if (!selectedChat || !newMessage.trim() || isLoading) return;
@@ -194,7 +213,7 @@ export default function WhatsAppPage() {
     try {
       console.log(`📤 Enviando mensagem para ${selectedChat.id}: ${newMessage}`);
 
-      const response = await whatsappCoreAPI.sendMessage(selectedChat.id, newMessage);
+      const response = await whatsappCoreAPI.sendMessage(selectedChat.id, newMessage, userEmail);
 
       if (response.success) {
         setNewMessage('');
@@ -223,7 +242,7 @@ export default function WhatsAppPage() {
     try {
       console.log(`🔄 Sincronizando conversa: ${selectedChat.id}`);
 
-      const response = await whatsappCoreAPI.syncChat(selectedChat.id);
+      const response = await whatsappCoreAPI.syncChat(selectedChat.id, userEmail);
 
       if (response.success && response.data) {
         console.log(`✅ Conversa sincronizada: ${response.data.messageCount} mensagens`);
@@ -347,7 +366,8 @@ export default function WhatsAppPage() {
     if (!status?.isReady) return;
 
     console.log('📡 Conectando SSE para atualizações...');
-    const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/default/events`);
+    const userId = getUserId(userEmail);
+    const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/${userId}/events`);
 
     eventSource.onmessage = (event) => {
       try {
@@ -406,7 +426,7 @@ export default function WhatsAppPage() {
       console.log('🔌 Desconectando SSE');
       eventSource.close();
     };
-  }, [status?.isReady, selectedChat, loadChats, loadContacts, loadChatMessages]);
+  }, [status?.isReady, selectedChat, loadChats, loadContacts, loadChatMessages, userEmail]);
 
   useEffect(() => {
     checkStatus();
@@ -523,7 +543,7 @@ export default function WhatsAppPage() {
               </div>
 
               {!status?.isReady && (
-                <Link href="/whatsapp/connect">
+                <Link href={`/whatsapp/connect?userId=${getUserId(userEmail)}`}>
                   <Button className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg">
                     <QrCode className="h-4 w-4" />
                     Conectar WhatsApp
