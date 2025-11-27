@@ -72,9 +72,7 @@ class WhatsAppCoreAPI {
     if (!userEmail) return 'default';
 
     // Admin sempre usa 'default'
-    if (userEmail === 'admin@medicosderesultado.com.br' ||
-        userEmail === 'emersin7x@gmail.com' ||
-        userEmail === 'admin@empresa.com') {
+    if (userEmail === 'admin@admin.com') {
       return 'default';
     }
 

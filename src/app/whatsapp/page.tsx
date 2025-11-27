@@ -25,9 +25,7 @@ export default function WhatsAppPage() {
     if (!email) return 'default';
 
     // Admin sempre usa 'default'
-    if (email === 'admin@medicosderesultado.com.br' ||
-        email === 'emersin7x@gmail.com' ||
-        email === 'admin@empresa.com') {
+    if (email === 'admin@admin.com') {
       return 'default';
     }
 
