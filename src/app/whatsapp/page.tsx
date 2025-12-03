@@ -37,6 +37,7 @@ export default function WhatsAppPage() {
   };
 
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
+  const [qrCode, setQrCode] = useState<string | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
@@ -67,16 +68,55 @@ export default function WhatsAppPage() {
     chat.lastMessage?.body.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const fetchQRCode = useCallback(async () => {
+    try {
+      console.log('📱 Buscando QR code...');
+      const response = await whatsappCoreAPI.getQRCode(userEmail);
+      if (response.success && response.data?.qr) {
+        setQrCode(response.data.qr);
+        console.log('✅ QR Code obtido com sucesso');
+      } else {
+        console.log('📭 QR Code não disponível ainda');
+        setQrCode(null);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar QR code:', error);
+      setQrCode(null);
+    }
+  }, [userEmail]);
+
   const checkStatus = useCallback(async () => {
     try {
       const response = await whatsappCoreAPI.getStatus(userEmail);
       if (response.success && response.data) {
         setStatus(response.data);
+
+        // Se o usuário não está registrado e não está conectando, iniciar registro
+        if (!response.data.isReady && !response.data.isConnecting && !response.data.hasQR) {
+          console.log('🔄 Usuário não registrado, iniciando registro automático...');
+          try {
+            const registerResponse = await whatsappCoreAPI.registerUser(userEmail);
+            if (registerResponse.success) {
+              console.log('✅ Registro iniciado:', registerResponse.data?.message || 'Registro iniciado com sucesso');
+              // Aguardar um momento e verificar status novamente
+              setTimeout(checkStatus, 3000);
+            }
+          } catch (registerError) {
+            console.error('Erro ao registrar usuário:', registerError);
+          }
+        }
+
+        // Se tem QR disponível, buscar o QR code
+        if (response.data.hasQR && !response.data.isReady) {
+          fetchQRCode();
+        } else if (response.data.isReady) {
+          setQrCode(null); // Limpar QR quando conectado
+        }
       }
     } catch (error) {
       console.error('Erro ao verificar status:', error);
     }
-  }, [userEmail]);
+  }, [userEmail, fetchQRCode]);
 
   const loadChats = useCallback(async () => {
     try {
@@ -504,20 +544,43 @@ export default function WhatsAppPage() {
       {/* Alerta de Conexão */}
       {!status?.isReady && (
         <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-2xl p-4 mb-6">
-          <div className="flex items-center gap-3">
-            <WifiOff className="w-5 h-5 text-orange-500" />
-            <div className="flex-1">
-              <p className="font-semibold text-orange-800">WhatsApp não conectado</p>
-              <p className="text-sm text-orange-700">
-                Conecte seu WhatsApp Business para começar a enviar mensagens
-              </p>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <WifiOff className="w-5 h-5 text-orange-500" />
+              <div className="flex-1">
+                <p className="font-semibold text-orange-800">WhatsApp não conectado</p>
+                <p className="text-sm text-orange-700">
+                  {status?.hasQR ? 'Escaneie o QR code com seu WhatsApp' : 'Conecte seu WhatsApp Business para começar a enviar mensagens'}
+                </p>
+              </div>
+              {!qrCode && (
+                <Link href={`/whatsapp/connect?userId=${getUserId(userEmail)}`}>
+                  <button className="flex items-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors">
+                    <QrCode className="w-4 h-4" />
+                    Conectar WhatsApp
+                  </button>
+                </Link>
+              )}
             </div>
-            <Link href={`/whatsapp/connect?userId=${getUserId(userEmail)}`}>
-              <button className="flex items-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors">
-                <QrCode className="w-4 h-4" />
-                Conectar WhatsApp
-              </button>
-            </Link>
+
+            {/* QR Code Display */}
+            {qrCode && (
+              <div className="flex flex-col items-center gap-4 p-4 bg-white rounded-xl border border-orange-200">
+                <div className="bg-white p-4 rounded-xl shadow-sm">
+                  <img
+                    src={`data:image/png;base64,${qrCode}`}
+                    alt="QR Code WhatsApp"
+                    className="w-48 h-48"
+                  />
+                </div>
+                <div className="text-center">
+                  <p className="font-medium text-orange-800">Escaneie com seu WhatsApp</p>
+                  <p className="text-sm text-orange-600 mt-1">
+                    Abra o WhatsApp → Menu (3 pontos) → Dispositivos conectados → Conectar dispositivo
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
