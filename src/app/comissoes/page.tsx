@@ -90,8 +90,8 @@ export default function ComissoesPage() {
     cancelado: 'cancelled'
   }
 
-  const [monthlyData, setMonthlyData] = useState([])
-  const [statusDistribution, setStatusDistribution] = useState([])
+  const [monthlyData, setMonthlyData] = useState<any[]>([])
+  const [statusDistribution, setStatusDistribution] = useState<{name: string, value: number, color: string}[]>([])
 
   useEffect(() => {
     loadComissoes()
@@ -148,16 +148,28 @@ export default function ComissoesPage() {
       // Transformar dados para compatibilidade com o tipo
       const comissoes = (comissoesData || []).map(comissao => ({
         ...comissao,
-        mentorados: {
-          nome: comissao.mentorados?.nome_completo || '',
-          email: comissao.mentorados?.email || '',
-          telefone: comissao.mentorados?.telefone || ''
-        },
-        leads: {
-          nome_completo: comissao.leads?.nome_completo || '',
-          email: comissao.leads?.email || '',
-          empresa: comissao.leads?.empresa || ''
-        }
+        mentorados: Array.isArray(comissao.mentorados) ?
+          (comissao.mentorados[0] ? {
+            nome: comissao.mentorados[0].nome_completo || '',
+            email: comissao.mentorados[0].email || '',
+            telefone: comissao.mentorados[0].telefone || ''
+          } : { nome: '', email: '', telefone: '' }) :
+          {
+            nome: (comissao.mentorados as any)?.nome_completo || '',
+            email: (comissao.mentorados as any)?.email || '',
+            telefone: (comissao.mentorados as any)?.telefone || ''
+          },
+        leads: Array.isArray(comissao.leads) ?
+          (comissao.leads[0] ? {
+            nome_completo: comissao.leads[0].nome_completo || '',
+            email: comissao.leads[0].email || '',
+            empresa: comissao.leads[0].empresa || ''
+          } : { nome_completo: '', email: '', empresa: '' }) :
+          {
+            nome_completo: (comissao.leads as any)?.nome_completo || '',
+            email: (comissao.leads as any)?.email || '',
+            empresa: (comissao.leads as any)?.empresa || ''
+          }
       }))
 
       // Filtro adicional por mentorado se especificado
@@ -268,7 +280,7 @@ export default function ComissoesPage() {
       comissao.leads?.empresa?.toLowerCase().includes(searchTerm.toLowerCase())
   })
 
-  const availableMentorados = [...new Set(comissoes.map(c => c.mentorados?.nome).filter(Boolean))]
+  const availableMentorados = Array.from(new Set(comissoes.map(c => c.mentorados?.nome).filter(Boolean)))
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -559,14 +571,13 @@ export default function ComissoesPage() {
       {/* Tabela de Comissões */}
       <DataTable
         title="Lista de Comissões"
-        subtitle={`${filteredComissoes.length} comissões encontradas`}
         columns={[
           {
             header: 'Mentorado',
             render: (comissao) => (
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#059669] to-[#10B981] flex items-center justify-center text-white font-semibold text-sm">
-                  {comissao.mentorados?.nome?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'ND'}
+                  {comissao.mentorados?.nome?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'ND'}
                 </div>
                 <div>
                   <p className="font-semibold text-[#0F172A]">{comissao.mentorados?.nome || 'Nome não encontrado'}</p>
@@ -614,7 +625,7 @@ export default function ComissoesPage() {
           },
           {
             header: 'Status',
-            render: (comissao) => <StatusBadge status={statusMap[comissao.status_pagamento] || 'pending'} />
+            render: (comissao) => <StatusBadge status={(statusMap[comissao.status_pagamento as keyof typeof statusMap] || 'pending') as 'pending' | 'completed' | 'cancelled'} />
           },
           {
             header: 'Ações',

@@ -452,39 +452,36 @@ export default function WhatsAppPage() {
     <PageLayout
       title="WhatsApp Business"
       subtitle="Sistema de mensagens profissional integrado"
-      actions={
-        status?.isReady ? (
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setShowAutoMessageModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
-            >
-              <Clock className="w-4 h-4" />
-              Mensagens Automáticas
-            </button>
-            <div className="hidden lg:flex items-center gap-2 bg-green-50 px-3 py-2 rounded-xl border border-green-200">
-              <div className="w-2 h-2 bg-[#059669] rounded-full animate-pulse" />
-              <span className="text-sm font-medium text-[#059669]">Online</span>
-            </div>
-          </div>
-        ) : undefined
-      }
     >
+      {/* Actions */}
+      {status?.isReady && (
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={() => setShowAutoMessageModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+          >
+            <Clock className="w-4 h-4" />
+            Mensagens Automáticas
+          </button>
+          <div className="hidden lg:flex items-center gap-2 bg-green-50 px-3 py-2 rounded-xl border border-green-200">
+            <div className="w-2 h-2 bg-[#059669] rounded-full animate-pulse" />
+            <span className="text-sm font-medium text-[#059669]">Online</span>
+          </div>
+        </div>
+      )}
       {/* Métricas de Status */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricCard
           title="Status da Conexão"
           value={status?.isReady ? "Conectado" : "Desconectado"}
           change={0}
-          changeType="neutral"
           icon={status?.isReady ? Wifi : WifiOff}
-          iconColor={status?.isReady ? "green" : "red"}
+          iconColor={status?.isReady ? "green" : "orange"}
         />
         <MetricCard
           title="Contatos"
           value={status?.contactsCount?.toString() || "0"}
           change={0}
-          changeType="neutral"
           icon={Users}
           iconColor="blue"
         />
@@ -492,7 +489,6 @@ export default function WhatsAppPage() {
           title="Mensagens"
           value={status?.messagesCount?.toString() || "0"}
           change={0}
-          changeType="neutral"
           icon={MessageCircle}
           iconColor="purple"
         />
@@ -500,7 +496,6 @@ export default function WhatsAppPage() {
           title="Conversas Ativas"
           value={filteredChats.length.toString()}
           change={0}
-          changeType="neutral"
           icon={MessageCircle}
           iconColor="orange"
         />

@@ -72,7 +72,6 @@ export default function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('todos')
   const [origemFilter, setOrigemFilter] = useState('todas')
-  const [temperaturaFilter, setTemperaturaFilter] = useState('todas')
   const [dateFilter, setDateFilter] = useState('mes_atual')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
@@ -184,7 +183,7 @@ export default function LeadsPage() {
       loadStats()
       loadOrigemData()
     }
-  }, [statusFilter, origemFilter, temperaturaFilter, dateFilter, customStartDate, customEndDate])
+  }, [statusFilter, origemFilter, dateFilter, customStartDate, customEndDate])
 
   const loadLeads = async () => {
     try {
@@ -201,9 +200,6 @@ export default function LeadsPage() {
         query = query.eq('origem', origemFilter)
       }
 
-      if (temperaturaFilter !== 'todas') {
-        query = query.eq('temperatura', temperaturaFilter)
-      }
 
       // Aplicar filtro de data
       const dateRange = getDateRange(dateFilter)
@@ -246,9 +242,6 @@ export default function LeadsPage() {
         query = query.eq('origem', origemFilter)
       }
 
-      if (temperaturaFilter !== 'todas') {
-        query = query.eq('temperatura', temperaturaFilter)
-      }
 
       const { data: leads } = await query
 
@@ -322,9 +315,8 @@ export default function LeadsPage() {
   })
 
   // Obter listas para os filtros
-  const availableStatuses = [...new Set(leads.map(lead => lead.status).filter(Boolean))]
-  const availableOrigens = [...new Set(leads.map(lead => lead.origem).filter(Boolean))]
-  const availableTemperaturas = [...new Set(leads.map(lead => lead.temperatura).filter(Boolean))]
+  const availableStatuses = Array.from(new Set(leads.map(lead => lead.status).filter(Boolean)))
+  const availableOrigens = Array.from(new Set(leads.map(lead => lead.origem).filter((origem): origem is string => Boolean(origem))))
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -556,9 +548,9 @@ export default function LeadsPage() {
           >
             <Filter className="w-4 h-4" />
             Filtros
-            {(statusFilter !== 'todos' || origemFilter !== 'todas' || temperaturaFilter !== 'todas' || dateFilter !== 'mes_atual') && (
+            {(statusFilter !== 'todos' || origemFilter !== 'todas' || dateFilter !== 'mes_atual') && (
               <span className="ml-1 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
-                {[statusFilter !== 'todos', origemFilter !== 'todas', temperaturaFilter !== 'todas', dateFilter !== 'mes_atual'].filter(Boolean).length}
+                {[statusFilter !== 'todos', origemFilter !== 'todas', dateFilter !== 'mes_atual'].filter(Boolean).length}
               </span>
             )}
           </button>
@@ -614,27 +606,12 @@ export default function LeadsPage() {
                 className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
               >
                 <option value="todas">Todas as Origens</option>
-                {availableOrigens.map(origem => (
+                {availableOrigens.map((origem) => (
                   <option key={origem} value={origem}>{origem}</option>
                 ))}
               </select>
             </div>
 
-            {availableTemperaturas.length > 0 && (
-              <div>
-                <label className="block text-xs font-medium text-[#475569] mb-2">Temperatura</label>
-                <select
-                  value={temperaturaFilter}
-                  onChange={(e) => setTemperaturaFilter(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
-                >
-                  <option value="todas">Todas as Temperaturas</option>
-                  {availableTemperaturas.map(temp => (
-                    <option key={temp} value={temp}>{temp}</option>
-                  ))}
-                </select>
-              </div>
-            )}
 
             <div>
               <label className="block text-xs font-medium text-[#475569] mb-2">Período</label>
@@ -682,7 +659,6 @@ export default function LeadsPage() {
               onClick={() => {
                 setStatusFilter('todos')
                 setOrigemFilter('todas')
-                setTemperaturaFilter('todas')
                 setDateFilter('mes_atual')
                 setCustomStartDate('')
                 setCustomEndDate('')
@@ -711,14 +687,13 @@ export default function LeadsPage() {
       {/* Tabela de Leads */}
       <DataTable
         title="Lista de Leads"
-        subtitle={`${filteredLeads.length} leads encontrados`}
         columns={[
           {
             header: 'Lead',
             render: (lead) => (
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#059669] to-[#10B981] flex items-center justify-center text-white font-semibold text-sm">
-                  {lead.nome_completo.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                  {lead.nome_completo.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                 </div>
                 <div>
                   <p className="font-semibold text-[#0F172A]">{lead.nome_completo}</p>
@@ -746,7 +721,7 @@ export default function LeadsPage() {
           },
           {
             header: 'Status',
-            render: (lead) => <StatusBadge status={statusMap[lead.status] || 'pending'} />
+            render: (lead) => <StatusBadge status={(statusMap as any)[lead.status] || 'pending'} />
           },
           {
             header: 'Valor',

@@ -34,8 +34,8 @@ export default function DashboardPage() {
     pendencias: 16
   })
   const [loading, setLoading] = useState(true)
-  const [monthlyData, setMonthlyData] = useState([])
-  const [recentActivity, setRecentActivity] = useState([])
+  const [monthlyData, setMonthlyData] = useState<{month: string, value: number}[]>([])
+  const [recentActivity, setRecentActivity] = useState<any[]>([])
 
   // Função para obter range de datas baseado no período selecionado
   const getDateRange = (period: string) => {
@@ -237,7 +237,7 @@ export default function DashboardPage() {
         .order('updated_at', { ascending: false })
         .limit(3)
 
-      const activities = []
+      const activities: any[] = []
 
       // Adicionar leads recentes
       recentLeads?.forEach(lead => {
@@ -267,7 +267,7 @@ export default function DashboardPage() {
       })
 
       // Ordenar por data e pegar apenas os 8 mais recentes
-      activities.sort((a, b) => new Date(b.date) - new Date(a.date))
+      activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       setRecentActivity(activities.slice(0, 8))
 
     } catch (error) {
@@ -515,14 +515,13 @@ export default function DashboardPage() {
       {/* Tabela de Atividade Recente */}
       <DataTable
         title="Atividade Recente"
-        subtitle="Últimas interações com mentorados"
         columns={[
           {
             header: 'Mentorado',
             render: (row) => (
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#059669] to-[#10B981] flex items-center justify-center text-white font-semibold text-sm">
-                  {row.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                  {row.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                 </div>
                 <div>
                   <p className="font-semibold text-[#0F172A]">{row.name}</p>

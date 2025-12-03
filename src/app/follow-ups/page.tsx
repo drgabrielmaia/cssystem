@@ -27,7 +27,7 @@ import {
   RefreshCw,
   Download
 } from 'lucide-react'
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from 'recharts'
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Cell } from 'recharts'
 
 // Importando componentes de modal
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -214,7 +214,7 @@ export default function FollowUpsPage() {
           .lte('data_agendada', dateRange.end)
       }
 
-      let { data: followUps, error } = await query.order('data_agendada', { ascending: true })
+      let { data: followUps, error } = await query.order('data_agendada', { ascending: true }) as { data: FollowUp[] | null, error: any }
 
       // Se não houver dados na tabela lead_followups, buscar da tabela leads (fallback)
       if (!followUps || followUps.length === 0) {
@@ -577,7 +577,7 @@ export default function FollowUpsPage() {
                 />
                 <Bar dataKey="value" radius={[0, 2, 2, 0]}>
                   {tipoDistribution.map((entry, index) => (
-                    <Bar key={index} fill={entry.color} />
+                    <Cell key={index} fill={entry.color} />
                   ))}
                 </Bar>
               </BarChart>
@@ -702,7 +702,6 @@ export default function FollowUpsPage() {
       {/* Tabela de Follow-ups */}
       <DataTable
         title="Lista de Follow-ups"
-        subtitle={`${filteredFollowUps.length} follow-ups encontrados`}
         columns={[
           {
             header: 'Título',
@@ -720,7 +719,7 @@ export default function FollowUpsPage() {
             render: (followUp) => (
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#059669] to-[#10B981] flex items-center justify-center text-white font-semibold text-xs">
-                  {followUp.leads?.nome_completo?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'ND'}
+                  {followUp.leads?.nome_completo?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'ND'}
                 </div>
                 <div>
                   <p className="font-medium text-[#0F172A]">{followUp.leads?.nome_completo || 'Lead não encontrado'}</p>
@@ -742,7 +741,7 @@ export default function FollowUpsPage() {
             render: (followUp) => (
               <span
                 className="px-3 py-1 rounded-full text-xs font-semibold text-white"
-                style={{ backgroundColor: prioridadeColors[followUp.prioridade] || '#94A3B8' }}
+                style={{ backgroundColor: (prioridadeColors as any)[followUp.prioridade] || '#94A3B8' }}
               >
                 {followUp.prioridade?.charAt(0).toUpperCase() + followUp.prioridade?.slice(1) || 'N/A'}
               </span>
@@ -759,7 +758,7 @@ export default function FollowUpsPage() {
           },
           {
             header: 'Status',
-            render: (followUp) => <StatusBadge status={statusMap[followUp.status] || 'pending'} />
+            render: (followUp) => <StatusBadge status={(statusMap as any)[followUp.status] || 'pending'} />
           },
           {
             header: 'Ações',

@@ -175,8 +175,8 @@ export default function MentoradosPage() {
       mentorado.telefone?.toLowerCase().includes(searchTerm.toLowerCase())
   })
 
-  const availableTurmas = [...new Set(mentorados.map(m => m.turma).filter(Boolean))]
-  const availableNiveis = [...new Set(mentorados.map(m => m.nivel).filter(Boolean))]
+  const availableTurmas = Array.from(new Set(mentorados.map(m => m.turma).filter(Boolean)))
+  const availableNiveis = Array.from(new Set(mentorados.map(m => m.nivel).filter(Boolean)))
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR')
@@ -481,14 +481,13 @@ export default function MentoradosPage() {
       {/* Tabela de Mentorados */}
       <DataTable
         title="Lista de Mentorados"
-        subtitle={`${filteredMentorados.length} mentorados encontrados`}
         columns={[
           {
             header: 'Mentorado',
             render: (mentorado) => (
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#059669] to-[#10B981] flex items-center justify-center text-white font-semibold text-sm">
-                  {mentorado.nome_completo?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'ND'}
+                  {mentorado.nome_completo?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'ND'}
                 </div>
                 <div>
                   <p className="font-semibold text-[#0F172A]">{mentorado.nome_completo || 'Nome não encontrado'}</p>
@@ -514,7 +513,7 @@ export default function MentoradosPage() {
           },
           {
             header: 'Status',
-            render: (mentorado) => <StatusBadge status={statusMap[mentorado.estado_atual] || 'pending'} />
+            render: (mentorado) => <StatusBadge status={(statusMap as any)[mentorado.estado_atual] || 'pending'} />
           },
           {
             header: 'Ações',
