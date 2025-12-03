@@ -13,7 +13,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { NotificationCenter } from '@/components/notifications'
 import { useAuth } from '@/contexts/auth'
 
 interface HeaderProps {
@@ -75,10 +74,6 @@ export function Header({ title, subtitle }: HeaderProps) {
           <div className="absolute inset-0 bg-purple-400/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         </button>
 
-        {/* Notifications */}
-        <div className="relative">
-          <NotificationCenter />
-        </div>
 
         {/* User Profile Neural Pod */}
         <DropdownMenu>

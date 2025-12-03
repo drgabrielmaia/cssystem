@@ -1,44 +1,40 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
+import { PageLayout } from '@/components/ui/page-layout'
+import { KPICardVibrant } from '@/components/ui/kpi-card-vibrant'
+import { MetricCard } from '@/components/ui/metric-card'
+import { DataTable } from '@/components/ui/data-table'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { ChartCard } from '@/components/ui/chart-card'
 import { supabase } from '@/lib/supabase'
-import { Plus, Calendar, Clock, User, Phone, Mail, MessageCircle, Handshake, FileText, AlertCircle, CheckCircle, XCircle, Timer, Filter, Search, Grid, List, Building } from 'lucide-react'
 import {
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  closestCenter,
-  useDroppable
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+  Calendar,
+  Clock,
+  Users,
+  TrendingUp,
+  Plus,
+  Search,
+  Filter,
+  Eye,
+  Edit,
+  Trash2,
+  Phone,
+  Mail,
+  MessageCircle,
+  AlertCircle,
+  CheckCircle,
+  RefreshCw,
+  Download
+} from 'lucide-react'
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from 'recharts'
 
-interface Lead {
-  id: string
-  nome_completo: string
-  email: string
-  telefone: string
-  empresa: string
-  status: string
-}
+// Importando componentes de modal
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface FollowUp {
   id: string
@@ -49,1041 +45,986 @@ interface FollowUp {
   tipo: string
   prioridade: string
   status: string
-  resultado: string
-  responsavel: string
-  notificacao_enviada: boolean
   created_at: string
   updated_at: string
-  lead: Lead
+  leads?: {
+    nome_completo: string
+    email: string
+    telefone: string
+    empresa: string
+  }
+}
+
+interface FollowUpStats {
+  total_followups: number
+  pendentes: number
+  concluidos: number
+  hoje: number
+  atrasados: number
+  taxa_conclusao: number
 }
 
 export default function FollowUpsPage() {
   const [followUps, setFollowUps] = useState<FollowUp[]>([])
-  const [leads, setLeads] = useState<Lead[]>([])
+  const [stats, setStats] = useState<FollowUpStats>({
+    total_followups: 0,
+    pendentes: 0,
+    concluidos: 0,
+    hoje: 0,
+    atrasados: 0,
+    taxa_conclusao: 0
+  })
   const [loading, setLoading] = useState(true)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingFollowUp, setEditingFollowUp] = useState<FollowUp | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('todos')
+  const [tipoFilter, setTipoFilter] = useState('todos')
   const [prioridadeFilter, setPrioridadeFilter] = useState('todas')
-  const [quickResultModal, setQuickResultModal] = useState<{open: boolean, followUpId: string}>({
-    open: false,
-    followUpId: ''
-  })
-  const [quickResult, setQuickResult] = useState('')
+  const [dateFilter, setDateFilter] = useState('mes_atual')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
+  const [isLoadingData, setIsLoadingData] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
 
-  // Sensors for drag and drop
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  )
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban')
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [draggedFollowUp, setDraggedFollowUp] = useState<FollowUp | null>(null)
+  // Estados para modais
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUp | null>(null)
 
-  const [formData, setFormData] = useState({
-    lead_id: '',
+  // Estados para formulário de edição
+  const [editForm, setEditForm] = useState({
     titulo: '',
     descricao: '',
     data_agendada: '',
-    tipo: 'call',
-    prioridade: 'media',
-    status: 'pendente',
-    responsavel: '',
-    resultado: ''
+    tipo: '',
+    prioridade: '',
+    status: ''
   })
 
-  const tipos = [
-    { value: 'call', label: 'Ligação', icon: Phone, color: 'text-blue-600' },
-    { value: 'email', label: 'Email', icon: Mail, color: 'text-green-600' },
-    { value: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, color: 'text-green-500' },
-    { value: 'meeting', label: 'Reunião', icon: Handshake, color: 'text-purple-600' },
-    { value: 'proposal', label: 'Proposta', icon: FileText, color: 'text-orange-600' }
+  // Função para obter range de datas
+  const getDateRange = (filter: string) => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth()
+
+    switch (filter) {
+      case 'mes_atual':
+        return {
+          start: new Date(year, month, 1).toISOString(),
+          end: new Date(year, month + 1, 0, 23, 59, 59).toISOString()
+        }
+      case 'semana_atual':
+        const currentDayOfWeek = now.getDay() === 0 ? 7 : now.getDay()
+        const startOfCurrentWeek = new Date(now)
+        startOfCurrentWeek.setDate(now.getDate() - (currentDayOfWeek - 1))
+        startOfCurrentWeek.setHours(0, 0, 0, 0)
+        const endOfCurrentWeek = new Date(startOfCurrentWeek)
+        endOfCurrentWeek.setDate(startOfCurrentWeek.getDate() + 6)
+        endOfCurrentWeek.setHours(23, 59, 59, 999)
+        return {
+          start: startOfCurrentWeek.toISOString(),
+          end: endOfCurrentWeek.toISOString()
+        }
+      case 'semana_passada':
+        const lastWeekDayOfWeek = now.getDay() === 0 ? 7 : now.getDay()
+        const startOfLastWeek = new Date(now)
+        startOfLastWeek.setDate(now.getDate() - (lastWeekDayOfWeek - 1) - 7)
+        startOfLastWeek.setHours(0, 0, 0, 0)
+        const endOfLastWeek = new Date(startOfLastWeek)
+        endOfLastWeek.setDate(startOfLastWeek.getDate() + 6)
+        endOfLastWeek.setHours(23, 59, 59, 999)
+        return {
+          start: startOfLastWeek.toISOString(),
+          end: endOfLastWeek.toISOString()
+        }
+      case 'mes_passado':
+        return {
+          start: new Date(year, month - 1, 1).toISOString(),
+          end: new Date(year, month, 0, 23, 59, 59).toISOString()
+        }
+      case 'personalizado':
+        if (customStartDate && customEndDate) {
+          return {
+            start: new Date(customStartDate).toISOString(),
+            end: new Date(customEndDate + 'T23:59:59').toISOString()
+          }
+        }
+        return null
+      case 'todos':
+      default:
+        return null
+    }
+  }
+
+  const statusMap = {
+    pendente: 'pending',
+    concluido: 'completed',
+    cancelado: 'cancelled'
+  }
+
+  const prioridadeColors = {
+    baixa: '#10B981',
+    media: '#F59E0B',
+    alta: '#EF4444'
+  }
+
+  const weeklyData = [
+    { week: 'Sem 1', criados: 12, concluidos: 8 },
+    { week: 'Sem 2', criados: 15, concluidos: 11 },
+    { week: 'Sem 3', criados: 18, concluidos: 14 },
+    { week: 'Sem 4', criados: 22, concluidos: 18 }
   ]
 
-  const prioridades = [
-    { value: 'baixa', label: 'Baixa', color: 'bg-gray-100 text-gray-800' },
-    { value: 'media', label: 'Média', color: 'bg-blue-100 text-blue-800' },
-    { value: 'alta', label: 'Alta', color: 'bg-orange-100 text-orange-800' },
-    { value: 'urgente', label: 'Urgente', color: 'bg-red-100 text-red-800' }
-  ]
-
-  const statusOptions = [
-    { value: 'pendente', label: 'Pendente', icon: Timer, color: 'bg-yellow-100 text-yellow-800' },
-    { value: 'concluido', label: 'Concluído', icon: CheckCircle, color: 'bg-green-100 text-green-800' },
-    { value: 'cancelado', label: 'Cancelado', icon: XCircle, color: 'bg-red-100 text-red-800' },
-    { value: 'adiado', label: 'Adiado', icon: AlertCircle, color: 'bg-gray-100 text-gray-800' }
+  const tipoDistribution = [
+    { name: 'Ligação', value: 45, color: '#059669' },
+    { name: 'Email', value: 25, color: '#3B82F6' },
+    { name: 'WhatsApp', value: 20, color: '#10B981' },
+    { name: 'Reunião', value: 10, color: '#F59E0B' }
   ]
 
   useEffect(() => {
-    fetchFollowUps()
-    fetchLeads()
+    loadFollowUps()
+    loadStats()
   }, [])
 
-  const fetchFollowUps = async () => {
+  useEffect(() => {
+    if (!loading) {
+      setIsLoadingData(true)
+      loadFollowUps()
+    }
+  }, [statusFilter, tipoFilter, prioridadeFilter, dateFilter, customStartDate, customEndDate])
+
+  const loadFollowUps = async () => {
     try {
-      const { data, error } = await supabase
+      // Primeiro tentar buscar da tabela lead_followups
+      let query = supabase
         .from('lead_followups')
         .select(`
-          *,
-          lead:leads (
-            id,
-            nome_completo,
-            email,
-            telefone,
-            empresa,
-            status
+          id, lead_id, titulo, descricao, data_agendada, tipo, prioridade, status,
+          created_at, updated_at,
+          leads:lead_id (
+            nome_completo, email, telefone, empresa
           )
         `)
-        .order('data_agendada', { ascending: true })
 
-      if (error) throw error
-      setFollowUps(data || [])
+      // Aplicar filtro de data
+      const dateRange = getDateRange(dateFilter)
+      if (dateRange) {
+        query = query
+          .gte('data_agendada', dateRange.start)
+          .lte('data_agendada', dateRange.end)
+      }
+
+      let { data: followUps, error } = await query.order('data_agendada', { ascending: true })
+
+      // Se não houver dados na tabela lead_followups, buscar da tabela leads (fallback)
+      if (!followUps || followUps.length === 0) {
+        let leadsQuery = supabase
+          .from('leads')
+          .select('id, nome_completo, email, telefone, empresa, status, next_followup_date, observacoes, created_at')
+          .not('next_followup_date', 'is', null)
+
+        if (dateRange) {
+          leadsQuery = leadsQuery
+            .gte('next_followup_date', dateRange.start)
+            .lte('next_followup_date', dateRange.end)
+        }
+
+        const { data: leadsWithFollowups, error: leadsError } = await leadsQuery.order('next_followup_date', { ascending: true })
+
+        if (leadsError) throw leadsError
+
+        // Converter leads em follow-ups
+        followUps = (leadsWithFollowups || []).map(lead => ({
+          id: lead.id,
+          lead_id: lead.id,
+          titulo: `Follow-up com ${lead.nome_completo}`,
+          descricao: lead.observacoes || 'Acompanhamento de lead',
+          data_agendada: lead.next_followup_date,
+          tipo: lead.telefone ? 'call' : 'email',
+          prioridade: lead.status === 'qualificado' ? 'alta' : lead.status === 'contactado' ? 'media' : 'baixa',
+          status: 'pendente',
+          created_at: lead.created_at,
+          updated_at: lead.created_at,
+          leads: {
+            nome_completo: lead.nome_completo,
+            email: lead.email,
+            telefone: lead.telefone,
+            empresa: lead.empresa
+          }
+        }))
+      }
+
+      // Aplicar filtros
+      let filteredData = followUps
+
+      if (statusFilter !== 'todos') {
+        filteredData = filteredData.filter(f => f.status === statusFilter)
+      }
+
+      if (tipoFilter !== 'todos') {
+        filteredData = filteredData.filter(f => f.tipo === tipoFilter)
+      }
+
+      if (prioridadeFilter !== 'todas') {
+        filteredData = filteredData.filter(f => f.prioridade === prioridadeFilter)
+      }
+
+      setFollowUps(filteredData)
     } catch (error) {
-      console.error('Erro ao buscar follow-ups:', error)
+      console.error('Erro ao carregar follow-ups:', error)
     } finally {
       setLoading(false)
+      setIsLoadingData(false)
     }
   }
 
-  const fetchLeads = async () => {
+  const loadStats = async () => {
     try {
-      const { data, error } = await supabase
-        .from('leads')
-        .select('id, nome_completo, email, telefone, empresa, status')
-        .order('nome_completo')
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
 
-      if (error) throw error
-      setLeads(data || [])
-    } catch (error) {
-      console.error('Erro ao buscar leads:', error)
-    }
-  }
+      // Primeiro tentar buscar da tabela lead_followups
+      let { data: followupsData, error } = await supabase
+        .from('lead_followups')
+        .select('id, data_agendada, status')
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+      // Se não tiver dados na tabela lead_followups, usar dados da tabela leads
+      if (!followupsData || followupsData.length === 0) {
+        const { data: leadsWithFollowups, error: leadsError } = await supabase
+          .from('leads')
+          .select('id, next_followup_date, status, created_at')
+          .not('next_followup_date', 'is', null)
 
-    try {
-      const data = {
-        ...formData,
-        data_agendada: new Date(formData.data_agendada).toISOString()
+        if (leadsError) throw leadsError
+
+        followupsData = (leadsWithFollowups || []).map(lead => ({
+          id: lead.id,
+          data_agendada: lead.next_followup_date,
+          status: new Date(lead.next_followup_date) < today ? 'atrasado' : 'pendente'
+        }))
       }
 
-      if (editingFollowUp) {
-        const { error } = await supabase
-          .from('lead_followups')
-          .update(data)
-          .eq('id', editingFollowUp.id)
+      if (error && !followupsData) throw error
 
-        if (error) throw error
-      } else {
-        const { error } = await supabase
-          .from('lead_followups')
-          .insert([data])
+      const allFollowUps = followupsData || []
 
-        if (error) throw error
+      // Calcular estatísticas baseadas nos dados reais
+      const total_followups = allFollowUps.length
+      const pendentes = allFollowUps.filter(f => f.status === 'pendente' || new Date(f.data_agendada) >= today).length
+      const concluidos = allFollowUps.filter(f => f.status === 'concluido').length
 
-        // Enviar notificação se for um novo follow-up
-        const lead = leads.find(l => l.id === formData.lead_id)
-        if (lead) {
-          try {
-            await fetch('/api/notify-followup', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ followUp: data, lead })
-            })
-          } catch (notifyError) {
-            console.warn('Erro ao enviar notificação:', notifyError)
-          }
-        }
-      }
+      const hoje = allFollowUps.filter(f => {
+        const followupDate = new Date(f.data_agendada)
+        followupDate.setHours(0, 0, 0, 0)
+        return followupDate.getTime() === today.getTime()
+      }).length
 
-      fetchFollowUps()
-      resetForm()
+      const atrasados = allFollowUps.filter(f => {
+        const followupDate = new Date(f.data_agendada)
+        return followupDate < today && f.status !== 'concluido'
+      }).length
+
+      const taxa_conclusao = total_followups > 0 ? (concluidos / total_followups) * 100 : 0
+
+      setStats({
+        total_followups,
+        pendentes,
+        concluidos,
+        hoje,
+        atrasados,
+        taxa_conclusao
+      })
     } catch (error) {
-      console.error('Erro ao salvar follow-up:', error)
-      alert('Erro ao salvar follow-up')
-    }
-  }
-
-  const resetForm = () => {
-    setFormData({
-      lead_id: '',
-      titulo: '',
-      descricao: '',
-      data_agendada: '',
-      tipo: 'call',
-      prioridade: 'media',
-      status: 'pendente',
-      responsavel: '',
-      resultado: ''
-    })
-    setEditingFollowUp(null)
-    setIsModalOpen(false)
-  }
-
-  const handleEdit = (followUp: FollowUp) => {
-    setFormData({
-      lead_id: followUp.lead_id,
-      titulo: followUp.titulo,
-      descricao: followUp.descricao || '',
-      data_agendada: followUp.data_agendada.slice(0, 16),
-      tipo: followUp.tipo,
-      prioridade: followUp.prioridade,
-      status: followUp.status,
-      responsavel: followUp.responsavel || '',
-      resultado: followUp.resultado || ''
-    })
-    setEditingFollowUp(followUp)
-    setIsModalOpen(true)
-  }
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja deletar este follow-up?')) return
-
-    try {
-      const { error } = await supabase
-        .from('lead_followups')
-        .delete()
-        .eq('id', id)
-
-      if (error) throw error
-      fetchFollowUps()
-    } catch (error) {
-      console.error('Erro ao deletar follow-up:', error)
-      alert('Erro ao deletar follow-up')
-    }
-  }
-
-  const handleQuickStatusUpdate = async (id: string, newStatus: string) => {
-    // Se marcar como concluído, abrir modal para resultado
-    if (newStatus === 'concluido') {
-      setQuickResultModal({ open: true, followUpId: id })
-      return
-    }
-
-    try {
-      const updateData: any = { status: newStatus }
-
-      const { error } = await supabase
-        .from('lead_followups')
-        .update(updateData)
-        .eq('id', id)
-
-      if (error) throw error
-      fetchFollowUps()
-    } catch (error) {
-      console.error('Erro ao atualizar status:', error)
-      alert('Erro ao atualizar status')
-    }
-  }
-
-  const handleQuickComplete = async () => {
-    try {
-      const updateData = {
-        status: 'concluido',
-        resultado: quickResult,
-        updated_at: new Date().toISOString()
-      }
-
-      const { error } = await supabase
-        .from('lead_followups')
-        .update(updateData)
-        .eq('id', quickResultModal.followUpId)
-
-      if (error) throw error
-
-      fetchFollowUps()
-      setQuickResultModal({ open: false, followUpId: '' })
-      setQuickResult('')
-    } catch (error) {
-      console.error('Erro ao concluir follow-up:', error)
-      alert('Erro ao concluir follow-up')
+      console.error('Erro ao carregar estatísticas:', error)
     }
   }
 
   const filteredFollowUps = followUps.filter(followUp => {
-    const searchMatch =
-      followUp.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      followUp.lead.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      followUp.responsavel?.toLowerCase().includes(searchTerm.toLowerCase())
-
-    const statusMatch = statusFilter === 'todos' || followUp.status === statusFilter
-    const prioridadeMatch = prioridadeFilter === 'todas' || followUp.prioridade === prioridadeFilter
-
-    return searchMatch && statusMatch && prioridadeMatch
+    return searchTerm === '' ||
+      followUp.titulo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      followUp.descricao?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      followUp.leads?.nome_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      followUp.leads?.empresa?.toLowerCase().includes(searchTerm.toLowerCase())
   })
 
-  const getTipoIcon = (tipo: string) => {
-    const tipoConfig = tipos.find(t => t.value === tipo)
-    return tipoConfig ? tipoConfig.icon : FileText
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR')
   }
 
-  const getTipoColor = (tipo: string) => {
-    const tipoConfig = tipos.find(t => t.value === tipo)
-    return tipoConfig ? tipoConfig.color : 'text-gray-600'
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleString('pt-BR')
   }
 
-  const getPrioridadeColor = (prioridade: string) => {
-    const prioridadeConfig = prioridades.find(p => p.value === prioridade)
-    return prioridadeConfig ? prioridadeConfig.color : 'bg-gray-100 text-gray-800'
+  const isOverdue = (dateString: string, status: string) => {
+    const today = new Date()
+    const scheduledDate = new Date(dateString)
+    return scheduledDate < today && status === 'pendente'
   }
 
-  const getStatusColor = (status: string) => {
-    const statusConfig = statusOptions.find(s => s.value === status)
-    return statusConfig ? statusConfig.color : 'bg-gray-100 text-gray-800'
+  const handleNewFollowUp = () => {
+    // TODO: Implementar modal de novo follow-up
   }
 
-  const isOverdue = (dataAgendada: string, status: string) => {
-    return new Date(dataAgendada) < new Date() && status === 'pendente'
+  const handleViewFollowUp = (followUp: FollowUp) => {
+    setSelectedFollowUp(followUp)
+    setShowViewModal(true)
   }
 
-  const updateFollowUpStatus = async (followUpId: string, newStatus: string) => {
+  const handleEditFollowUp = (followUp: FollowUp) => {
+    setSelectedFollowUp(followUp)
+    setEditForm({
+      titulo: followUp.titulo,
+      descricao: followUp.descricao,
+      data_agendada: followUp.data_agendada.split('T')[0], // Apenas a data
+      tipo: followUp.tipo,
+      prioridade: followUp.prioridade,
+      status: followUp.status
+    })
+    setShowEditModal(true)
+  }
+
+  const handleUpdateFollowUp = async () => {
+    if (!selectedFollowUp) return
+
     try {
+      setIsLoadingData(true)
       const { error } = await supabase
-        .from('lead_followups')
-        .update({ status: newStatus })
+        .from('follow_ups')
+        .update({
+          titulo: editForm.titulo,
+          descricao: editForm.descricao,
+          data_agendada: editForm.data_agendada,
+          tipo: editForm.tipo,
+          prioridade: editForm.prioridade,
+          status: editForm.status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedFollowUp.id)
+
+      if (error) throw error
+
+      setShowEditModal(false)
+      setSelectedFollowUp(null)
+      await loadFollowUps()
+      await loadStats()
+    } catch (error) {
+      console.error('Erro ao atualizar follow-up:', error)
+      alert('Erro ao atualizar follow-up')
+      setIsLoadingData(false)
+    }
+  }
+
+  const handleDeleteFollowUp = async (followUpId: string) => {
+    if (confirm('Tem certeza que deseja excluir este follow-up?')) {
+      try {
+        setIsLoadingData(true)
+        const { error } = await supabase
+          .from('follow_ups')
+          .delete()
+          .eq('id', followUpId)
+
+        if (error) throw error
+
+        await loadFollowUps()
+        await loadStats()
+      } catch (error) {
+        console.error('Erro ao excluir follow-up:', error)
+        setIsLoadingData(false)
+      }
+    }
+  }
+
+  const handleMarkAsCompleted = async (followUpId: string) => {
+    try {
+      setIsLoadingData(true)
+      const { error } = await supabase
+        .from('follow_ups')
+        .update({ status: 'concluido' })
         .eq('id', followUpId)
 
       if (error) throw error
-      await fetchFollowUps()
+
+      await loadFollowUps()
+      await loadStats()
     } catch (error) {
-      console.error('Erro ao atualizar status:', error)
-      alert('Erro ao atualizar status do follow-up')
+      console.error('Erro ao marcar como concluído:', error)
+      setIsLoadingData(false)
     }
-  }
-
-  // Drag and drop functions
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event
-    const followUp = followUps.find(f => f.id === active.id)
-    setActiveId(active.id as string)
-    setDraggedFollowUp(followUp || null)
-  }
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
-
-    setActiveId(null)
-    setDraggedFollowUp(null)
-
-    if (!over) return
-
-    const followUpId = active.id as string
-    const newStatus = over.id as string
-
-    // Se o status não mudou, não faz nada
-    const currentFollowUp = followUps.find(f => f.id === followUpId)
-    if (!currentFollowUp || currentFollowUp.status === newStatus) return
-
-    try {
-      // Atualizar o follow-up no banco de dados
-      await updateFollowUpStatus(followUpId, newStatus)
-    } catch (error) {
-      console.error('Erro ao atualizar status do follow-up:', error)
-      alert('Erro ao atualizar status do follow-up')
-    }
-  }
-
-
-  // Draggable Follow-up Card Component
-  const DraggableFollowUpCard = ({ followUp, column }: { followUp: FollowUp, column: any }) => {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({ id: followUp.id })
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.5 : 1,
-    }
-
-    const TipoIcon = getTipoIcon(followUp.tipo)
-    const isLate = isOverdue(followUp.data_agendada, followUp.status)
-
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        {...attributes}
-        {...listeners}
-        className={`call-card ${
-          isLate ? 'call-card--late' : ''
-        } ${isDragging ? 'shadow-lg rotate-3 scale-105' : ''} hover:border-blue-300 cursor-grab`}
-        onClick={() => {
-          // Only open edit if not dragging
-          if (!isDragging) {
-            handleEdit(followUp)
-          }
-        }}
-      >
-        {/* Drag indicator */}
-        <div className="absolute top-2 right-2 text-gray-400 opacity-60 hover:opacity-100 transition-opacity">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 6H10V8H8V6ZM14 6H16V8H14V6ZM8 10H10V12H8V10ZM14 10H16V12H14V10ZM8 14H10V16H8V14ZM14 14H16V16H14V14Z" fill="currentColor"/>
-          </svg>
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <TipoIcon className={`h-4 w-4 ${getTipoColor(followUp.tipo)}`} />
-            <h4 className="font-medium text-sm text-gray-900 truncate">
-              {followUp.titulo}
-            </h4>
-          </div>
-
-          <div className="flex items-center text-xs text-gray-600">
-            <User className="w-3 h-3 mr-1" />
-            <span className="truncate">{followUp.lead.nome_completo}</span>
-          </div>
-
-          {followUp.lead.empresa && (
-            <div className="flex items-center text-xs text-gray-600">
-              <Building className="w-3 h-3 mr-1" />
-              <span className="truncate">{followUp.lead.empresa}</span>
-            </div>
-          )}
-
-          <div className="flex items-center text-xs text-gray-600">
-            <Calendar className="w-3 h-3 mr-1" />
-            <span className="truncate">
-              {format(new Date(followUp.data_agendada), "dd/MM 'às' HH:mm", { locale: ptBR })}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Badge className={getPrioridadeColor(followUp.prioridade)}>
-              {prioridades.find(p => p.value === followUp.prioridade)?.label}
-            </Badge>
-            {isLate && (
-              <span className="call-delay-badge">
-                Atrasado
-              </span>
-            )}
-          </div>
-
-          {/* Quick Status Change */}
-          <div className="status-actions mt-2">
-            {column.key === 'pendente' && (
-              <>
-                <button
-                  className="status-chip status-chip--vendido"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    updateFollowUpStatus(followUp.id, 'concluido')
-                  }}
-                >
-                  Concluir
-                </button>
-                <button
-                  className="status-chip status-chip--perdido"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    updateFollowUpStatus(followUp.id, 'adiado')
-                  }}
-                >
-                  Adiar
-                </button>
-              </>
-            )}
-            {column.key === 'adiado' && (
-              <>
-                <button
-                  className="status-chip status-chip--proposta"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    updateFollowUpStatus(followUp.id, 'pendente')
-                  }}
-                >
-                  Reativar
-                </button>
-                <button
-                  className="status-chip status-chip--vendido"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    updateFollowUpStatus(followUp.id, 'concluido')
-                  }}
-                >
-                  Concluir
-                </button>
-              </>
-            )}
-            {column.key === 'concluido' && (
-              <button
-                className="status-chip status-chip--proposta"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  updateFollowUpStatus(followUp.id, 'pendente')
-                }}
-              >
-                Reabrir
-              </button>
-            )}
-          </div>
-
-          {followUp.resultado && (
-            <div className="text-xs bg-gray-50 rounded p-2 mt-2">
-              <span className="font-medium text-gray-700">Resultado:</span>
-              <p className="text-gray-600 truncate">{followUp.resultado}</p>
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  const getFollowUpsByStatus = () => {
-    const statusColumns = [
-      { key: 'pendente', label: 'Pendente', color: 'bg-yellow-500' },
-      { key: 'concluido', label: 'Concluído', color: 'bg-green-500' },
-      { key: 'adiado', label: 'Adiado', color: 'bg-gray-500' },
-      { key: 'cancelado', label: 'Cancelado', color: 'bg-red-500' }
-    ]
-
-    return statusColumns.map(column => ({
-      ...column,
-      followUps: filteredFollowUps.filter(followUp => followUp.status === column.key)
-    }))
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+      <PageLayout title="Follow-ups" subtitle="Carregando...">
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#059669]"></div>
+        </div>
+      </PageLayout>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Follow-ups</h1>
-          <p className="mt-2 text-gray-600">Gerencie seus acompanhamentos de leads</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* View Mode Toggle */}
-          <div className="flex items-center border rounded-lg p-1 bg-gray-50">
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-              className="h-8 px-3"
-            >
-              <List className="h-4 w-4 mr-1" />
-              Lista
-            </Button>
-            <Button
-              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('kanban')}
-              className="h-8 px-3"
-            >
-              <Grid className="h-4 w-4 mr-1" />
-              Kanban
-            </Button>
-          </div>
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Follow-up
-          </Button>
-        </div>
+    <PageLayout title="Follow-ups" subtitle="Gestão de acompanhamentos e tarefas">
+      {/* KPI Cards - Grid responsivo */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <KPICardVibrant
+          title="Total Follow-ups"
+          value={stats.total_followups.toString()}
+          subtitle="Este mês"
+          percentage={12}
+          trend="up"
+          color="blue"
+          icon={Calendar}
+          sparklineData={[
+            { value: 10 }, { value: 15 }, { value: 18 }, { value: 22 },
+            { value: 25 }, { value: 28 }, { value: 32 }, { value: stats.total_followups }
+          ]}
+        />
+        <MetricCard
+          title="Pendentes"
+          value={stats.pendentes.toString()}
+          change={-5}
+          changeType="decrease"
+          icon={Clock}
+          iconColor="orange"
+        />
+        <MetricCard
+          title="Concluídos"
+          value={stats.concluidos.toString()}
+          change={8}
+          changeType="increase"
+          icon={CheckCircle}
+          iconColor="green"
+        />
+        <MetricCard
+          title="Taxa de Conclusão"
+          value={`${stats.taxa_conclusao.toFixed(1)}%`}
+          change={3.2}
+          changeType="increase"
+          icon={TrendingUp}
+          iconColor="purple"
+        />
       </div>
 
-      {/* Filtros */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar follow-ups..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os status</SelectItem>
-                {statusOptions.map(status => (
-                  <SelectItem key={status.value} value={status.value}>
-                    {status.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={prioridadeFilter} onValueChange={setPrioridadeFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por prioridade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas as prioridades</SelectItem>
-                {prioridades.map(prioridade => (
-                  <SelectItem key={prioridade.value} value={prioridade.value}>
-                    {prioridade.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center text-sm text-gray-500">
-              <Filter className="h-4 w-4 mr-2" />
-              {filteredFollowUps.length} follow-ups
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Kanban Board */}
-      {viewMode === 'kanban' && (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="space-y-4">
-            {/* Instructions */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-              💡 <strong>Dica:</strong> Arraste os cards entre as colunas para alterar o status dos follow-ups. Use o ícone ⋮⋮ no canto superior direito de cada card.
-            </div>
-
-            {/* Responsive horizontal scroll container */}
-            <div className="overflow-x-auto pb-4">
-              <div className="flex gap-4 min-w-max">
-                {getFollowUpsByStatus().map(column => {
-                  const DroppableCardContent = () => {
-                    const { isOver, setNodeRef } = useDroppable({
-                      id: column.key,
-                    })
-
-                    return (
-                      <CardContent
-                        ref={setNodeRef}
-                        className={`p-2 space-y-2 min-h-[400px] transition-all duration-200 ${
-                          isOver ? 'bg-blue-50/50' : ''
-                        }`}
-                      >
-                        <SortableContext
-                          items={column.followUps.map(followUp => followUp.id)}
-                          strategy={verticalListSortingStrategy}
-                        >
-                          {column.followUps.map(followUp => (
-                            <DraggableFollowUpCard
-                              key={followUp.id}
-                              followUp={followUp}
-                              column={column}
-                            />
-                          ))}
-                        </SortableContext>
-
-                        {column.followUps.length === 0 && (
-                          <div className="text-center text-gray-400 text-sm py-8 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
-                            Solte aqui
-                          </div>
-                        )}
-                      </CardContent>
-                    )
-                  }
-
-                  return (
-                    <div key={column.key} className="w-80 flex-shrink-0">
-                      <Card className="h-fit">
-                        <CardHeader className={`${column.color} text-white rounded-t-lg py-3`}>
-                          <CardTitle className="text-sm font-semibold flex items-center justify-between">
-                            {column.label}
-                            <Badge variant="secondary" className="bg-white/20 text-white">
-                              {column.followUps.length}
-                            </Badge>
-                          </CardTitle>
-                        </CardHeader>
-                        <DroppableCardContent />
-                      </Card>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Drag Overlay */}
-          <DragOverlay>
-            {activeId && draggedFollowUp ? (
-              <div className="bg-white border-2 border-blue-500 rounded-lg p-3 shadow-xl opacity-95 transform rotate-3 scale-105">
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm text-gray-900 truncate">
-                    {draggedFollowUp.titulo}
-                  </h4>
-                  <div className="flex items-center text-xs text-gray-600">
-                    <User className="w-3 h-3 mr-1" />
-                    <span className="truncate">{draggedFollowUp.lead.nome_completo}</span>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      )}
-
-      {/* Lista de Follow-ups */}
-      {viewMode === 'list' && (
-      <div className="grid gap-4">
-        {filteredFollowUps.map((followUp) => {
-          const TipoIcon = getTipoIcon(followUp.tipo)
-          const isLate = isOverdue(followUp.data_agendada, followUp.status)
-
-          return (
-            <Card key={followUp.id} className={`call-card ${isLate ? 'call-card--late' : ''}`}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <TipoIcon className={`h-5 w-5 ${getTipoColor(followUp.tipo)}`} />
-                      <h3 className="text-lg font-semibold text-gray-900">{followUp.titulo}</h3>
-                      <Badge className={getPrioridadeColor(followUp.prioridade)}>
-                        {prioridades.find(p => p.value === followUp.prioridade)?.label}
-                      </Badge>
-                      <Badge className={getStatusColor(followUp.status)}>
-                        {statusOptions.find(s => s.value === followUp.status)?.label}
-                      </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                      <div className="flex items-center text-gray-600">
-                        <User className="h-4 w-4 mr-2" />
-                        <span className="font-medium">{followUp.lead.nome_completo}</span>
-                        {followUp.lead.empresa && (
-                          <span className="ml-2 text-sm text-gray-500">({followUp.lead.empresa})</span>
-                        )}
-                      </div>
-                      <div className="flex items-center text-gray-600">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        <span>
-                          {format(new Date(followUp.data_agendada), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </span>
-                        {isLate && (
-                          <span className="call-delay-badge ml-2">
-                            Atrasado
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {followUp.descricao && (
-                      <p className="text-gray-600 mb-3">{followUp.descricao}</p>
-                    )}
-
-                    {followUp.responsavel && (
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Clock className="h-4 w-4 mr-1" />
-                        Responsável: {followUp.responsavel}
-                      </div>
-                    )}
-
-                    {followUp.resultado && (
-                      <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                        <h4 className="font-medium text-gray-900 mb-1">Resultado:</h4>
-                        <p className="text-gray-600 text-sm">{followUp.resultado}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-end gap-2 ml-4">
-                    {/* Botões de Status Rápido */}
-                    {followUp.status === 'pendente' && (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 text-xs"
-                          onClick={() => handleQuickStatusUpdate(followUp.id, 'concluido')}
-                        >
-                          ✓ Concluir
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="px-2 py-1 text-xs"
-                          onClick={() => handleQuickStatusUpdate(followUp.id, 'adiado')}
-                        >
-                          ⏸️ Adiar
-                        </Button>
-                      </div>
-                    )}
-
-                    {followUp.status === 'concluido' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="px-2 py-1 text-xs"
-                        onClick={() => handleQuickStatusUpdate(followUp.id, 'pendente')}
-                      >
-                        ↩️ Reabrir
-                      </Button>
-                    )}
-
-                    {followUp.status === 'adiado' && (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 text-xs"
-                          onClick={() => handleQuickStatusUpdate(followUp.id, 'pendente')}
-                        >
-                          🔄 Reativar
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 text-xs"
-                          onClick={() => handleQuickStatusUpdate(followUp.id, 'concluido')}
-                        >
-                          ✓ Concluir
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Botões de Ação */}
-                    <div className="flex items-center gap-1">
-                      <Button variant="outline" size="sm" className="px-2 py-1 text-xs" onClick={() => handleEdit(followUp)}>
-                        ✏️ Editar
-                      </Button>
-                      <Button variant="destructive" size="sm" className="px-2 py-1 text-xs" onClick={() => handleDelete(followUp.id)}>
-                        🗑️ Deletar
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
-
-        {filteredFollowUps.length === 0 && (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Nenhum follow-up encontrado
-              </h3>
-              <p className="text-gray-500 mb-4">
-                {searchTerm || statusFilter !== 'todos' || prioridadeFilter !== 'todas'
-                  ? 'Tente ajustar os filtros de busca'
-                  : 'Comece criando seu primeiro follow-up'
-                }
+      {/* Alertas para follow-ups importantes */}
+      {stats.atrasados > 0 && (
+        <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-2xl p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-orange-500" />
+            <div>
+              <p className="font-semibold text-orange-800">Atenção!</p>
+              <p className="text-sm text-orange-700">
+                Você tem {stats.atrasados} follow-up{stats.atrasados > 1 ? 's' : ''} atrasado{stats.atrasados > 1 ? 's' : ''}
               </p>
-              <Button onClick={() => setIsModalOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Criar Follow-up
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Modal de Criação/Edição */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {stats.hoje > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-2xl p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Calendar className="w-5 h-5 text-blue-500" />
+            <div>
+              <p className="font-semibold text-blue-800">Agenda de Hoje</p>
+              <p className="text-sm text-blue-700">
+                Você tem {stats.hoje} follow-up{stats.hoje > 1 ? 's' : ''} agendado{stats.hoje > 1 ? 's' : ''} para hoje
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gráficos - Grid responsivo */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Gráfico de Evolução Semanal */}
+        <ChartCard title="Evolução Semanal" subtitle="Follow-ups criados vs concluídos">
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={weeklyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                <XAxis dataKey="week" stroke="#94A3B8" fontSize={12} />
+                <YAxis stroke="#94A3B8" fontSize={12} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
+                  }}
+                />
+                <Bar dataKey="criados" fill="#059669" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="concluidos" fill="#10B981" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartCard>
+
+        {/* Gráfico de Distribuição por Tipo */}
+        <ChartCard title="Distribuição por Tipo" subtitle="Tipos de follow-up">
+          <div className="h-80 flex flex-col items-center justify-center">
+            <ResponsiveContainer width="100%" height="70%">
+              <BarChart data={tipoDistribution} layout="horizontal">
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                <XAxis type="number" stroke="#94A3B8" fontSize={12} />
+                <YAxis dataKey="name" type="category" stroke="#94A3B8" fontSize={12} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
+                  }}
+                />
+                <Bar dataKey="value" radius={[0, 2, 2, 0]}>
+                  {tipoDistribution.map((entry, index) => (
+                    <Bar key={index} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartCard>
+      </div>
+
+      {/* Ações e Filtros - Responsivo */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-0 mb-6">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#94A3B8] w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Buscar follow-ups..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all w-full sm:w-80"
+            />
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+          >
+            <option value="todos">Todos os Status</option>
+            <option value="pendente">Pendente</option>
+            <option value="concluido">Concluído</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+
+          <select
+            value={tipoFilter}
+            onChange={(e) => setTipoFilter(e.target.value)}
+            className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+          >
+            <option value="todos">Todos os Tipos</option>
+            <option value="ligacao">Ligação</option>
+            <option value="email">Email</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="reuniao">Reunião</option>
+          </select>
+
+          <select
+            value={prioridadeFilter}
+            onChange={(e) => setPrioridadeFilter(e.target.value)}
+            className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+          >
+            <option value="todas">Todas Prioridades</option>
+            <option value="baixa">Baixa</option>
+            <option value="media">Média</option>
+            <option value="alta">Alta</option>
+          </select>
+
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+          >
+            <option value="todos">Todas as Datas</option>
+            <option value="mes_atual">Mês Atual</option>
+            <option value="semana_atual">Semana Atual</option>
+            <option value="semana_passada">Última Semana</option>
+            <option value="mes_passado">Mês Passado</option>
+            <option value="personalizado">Personalizado</option>
+          </select>
+
+          {dateFilter === 'personalizado' && (
+            <>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+                placeholder="Data inicial"
+              />
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+                placeholder="Data final"
+              />
+            </>
+          )}
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <button
+            onClick={loadFollowUps}
+            className="flex items-center gap-2 px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Atualizar
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors">
+            <Download className="w-4 h-4" />
+            Exportar
+          </button>
+          <button
+            onClick={handleNewFollowUp}
+            className="flex items-center gap-2 px-6 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Follow-up
+          </button>
+        </div>
+      </div>
+
+      {/* Loading indicator para filtros */}
+      {isLoadingData && (
+        <div className="flex items-center justify-center py-4 mb-6">
+          <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-xl shadow-sm border border-[#E2E8F0]">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#059669]"></div>
+            <span className="text-sm text-[#475569]">Atualizando filtros...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Tabela de Follow-ups */}
+      <DataTable
+        title="Lista de Follow-ups"
+        subtitle={`${filteredFollowUps.length} follow-ups encontrados`}
+        columns={[
+          {
+            header: 'Título',
+            render: (followUp) => (
+              <div>
+                <p className="font-semibold text-[#0F172A]">{followUp.titulo}</p>
+                <p className="text-sm text-[#94A3B8] truncate max-w-xs">
+                  {followUp.descricao || 'Sem descrição'}
+                </p>
+              </div>
+            )
+          },
+          {
+            header: 'Lead',
+            render: (followUp) => (
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#059669] to-[#10B981] flex items-center justify-center text-white font-semibold text-xs">
+                  {followUp.leads?.nome_completo?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'ND'}
+                </div>
+                <div>
+                  <p className="font-medium text-[#0F172A]">{followUp.leads?.nome_completo || 'Lead não encontrado'}</p>
+                  <p className="text-sm text-[#94A3B8]">{followUp.leads?.empresa || '-'}</p>
+                </div>
+              </div>
+            )
+          },
+          {
+            header: 'Tipo',
+            render: (followUp) => (
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#F1F5F9] text-[#475569]">
+                {followUp.tipo?.charAt(0).toUpperCase() + followUp.tipo?.slice(1) || 'N/A'}
+              </span>
+            )
+          },
+          {
+            header: 'Prioridade',
+            render: (followUp) => (
+              <span
+                className="px-3 py-1 rounded-full text-xs font-semibold text-white"
+                style={{ backgroundColor: prioridadeColors[followUp.prioridade] || '#94A3B8' }}
+              >
+                {followUp.prioridade?.charAt(0).toUpperCase() + followUp.prioridade?.slice(1) || 'N/A'}
+              </span>
+            )
+          },
+          {
+            header: 'Data Agendada',
+            render: (followUp) => (
+              <div className={`${isOverdue(followUp.data_agendada, followUp.status) ? 'text-red-600' : 'text-[#475569]'}`}>
+                <p className="text-sm font-medium">{formatDate(followUp.data_agendada)}</p>
+                <p className="text-xs">{new Date(followUp.data_agendada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+              </div>
+            )
+          },
+          {
+            header: 'Status',
+            render: (followUp) => <StatusBadge status={statusMap[followUp.status] || 'pending'} />
+          },
+          {
+            header: 'Ações',
+            render: (followUp) => (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleViewFollowUp(followUp)}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  title="Ver detalhes"
+                >
+                  <Eye className="w-4 h-4 text-[#94A3B8] group-hover:text-[#475569]" />
+                </button>
+                <button
+                  onClick={() => handleEditFollowUp(followUp)}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  title="Editar"
+                >
+                  <Edit className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                </button>
+                {followUp.status === 'pendente' && (
+                  <button
+                    onClick={() => handleMarkAsCompleted(followUp.id)}
+                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                    title="Marcar como concluído"
+                  >
+                    <CheckCircle className="w-4 h-4 text-[#94A3B8] group-hover:text-[#10B981]" />
+                  </button>
+                )}
+                {followUp.leads?.telefone && (
+                  <button
+                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                    title="Ligar"
+                  >
+                    <Phone className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                  </button>
+                )}
+                {followUp.leads?.email && (
+                  <button
+                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                    title="Enviar email"
+                  >
+                    <Mail className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDeleteFollowUp(followUp.id)}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  title="Excluir"
+                >
+                  <Trash2 className="w-4 h-4 text-[#94A3B8] group-hover:text-[#EF4444]" />
+                </button>
+              </div>
+            )
+          }
+        ]}
+        data={filteredFollowUps}
+      />
+
+      {/* Modal de Visualização */}
+      <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              {editingFollowUp ? 'Editar Follow-up' : 'Novo Follow-up'}
+            <DialogTitle className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Eye className="w-5 h-5 text-blue-600" />
+              </div>
+              Detalhes do Follow-up
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {selectedFollowUp && (
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-[#475569]">Lead</Label>
+                  <div className="p-3 bg-[#F8FAFC] rounded-lg border">
+                    <p className="font-medium text-[#0F172A]">{selectedFollowUp.leads?.nome_completo}</p>
+                    <p className="text-sm text-[#94A3B8]">{selectedFollowUp.leads?.email}</p>
+                    {selectedFollowUp.leads?.telefone && (
+                      <p className="text-sm text-[#94A3B8]">{selectedFollowUp.leads?.telefone}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-[#475569]">Data Agendada</Label>
+                  <div className="p-3 bg-[#F8FAFC] rounded-lg border">
+                    <p className="font-medium text-[#0F172A]">
+                      {new Date(selectedFollowUp.data_agendada).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-[#475569]">Título</Label>
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border">
+                  <p className="font-medium text-[#0F172A]">{selectedFollowUp.titulo}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-[#475569]">Descrição</Label>
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border min-h-[100px]">
+                  <p className="text-[#475569]">{selectedFollowUp.descricao}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-[#475569]">Tipo</Label>
+                  <div className="p-3 bg-[#F8FAFC] rounded-lg border">
+                    <p className="font-medium text-[#0F172A]">{selectedFollowUp.tipo}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-[#475569]">Prioridade</Label>
+                  <div className="p-3 bg-[#F8FAFC] rounded-lg border">
+                    <p className="font-medium text-[#0F172A]">{selectedFollowUp.prioridade}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-[#475569]">Status</Label>
+                  <div className="p-3 bg-[#F8FAFC] rounded-lg border">
+                    <StatusBadge status={
+                      selectedFollowUp.status === 'pendente' ? 'pending' :
+                      selectedFollowUp.status === 'concluido' ? 'completed' : 'cancelled'
+                    } />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Edição */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="p-2 bg-[#059669] rounded-lg">
+                <Edit className="w-5 h-5 text-white" />
+              </div>
+              Editar Follow-up
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="lead_id">Lead *</Label>
-                <Select
-                  value={formData.lead_id}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, lead_id: value }))}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um lead" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {leads.map(lead => (
-                      <SelectItem key={lead.id} value={lead.id}>
-                        {lead.nome_completo} {lead.empresa && `(${lead.empresa})`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="edit-titulo">Título</Label>
+                <Input
+                  id="edit-titulo"
+                  value={editForm.titulo}
+                  onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })}
+                  placeholder="Título do follow-up"
+                />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="tipo">Tipo *</Label>
-                <Select
-                  value={formData.tipo}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, tipo: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tipos.map(tipo => (
-                      <SelectItem key={tipo.value} value={tipo.value}>
-                        {tipo.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="edit-data">Data Agendada</Label>
+                <Input
+                  id="edit-data"
+                  type="date"
+                  value={editForm.data_agendada}
+                  onChange={(e) => setEditForm({ ...editForm, data_agendada: e.target.value })}
+                />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="titulo">Título *</Label>
-              <Input
-                id="titulo"
-                value={formData.titulo}
-                onChange={(e) => setFormData(prev => ({ ...prev, titulo: e.target.value }))}
-                placeholder="Ex: Ligar para apresentar proposta"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="descricao">Descrição</Label>
+              <Label htmlFor="edit-descricao">Descrição</Label>
               <Textarea
-                id="descricao"
-                value={formData.descricao}
-                onChange={(e) => setFormData(prev => ({ ...prev, descricao: e.target.value }))}
-                placeholder="Detalhes sobre este follow-up..."
-                rows={3}
+                id="edit-descricao"
+                value={editForm.descricao}
+                onChange={(e) => setEditForm({ ...editForm, descricao: e.target.value })}
+                placeholder="Descrição do follow-up"
+                className="min-h-[100px]"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="data_agendada">Data e Hora *</Label>
-                <Input
-                  id="data_agendada"
-                  type="datetime-local"
-                  value={formData.data_agendada}
-                  onChange={(e) => setFormData(prev => ({ ...prev, data_agendada: e.target.value }))}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="prioridade">Prioridade</Label>
-                <Select
-                  value={formData.prioridade}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, prioridade: value }))}
-                >
+                <Label>Tipo</Label>
+                <Select value={editForm.tipo} onValueChange={(value) => setEditForm({ ...editForm, tipo: value })}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Selecionar tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    {prioridades.map(prioridade => (
-                      <SelectItem key={prioridade.value} value={prioridade.value}>
-                        {prioridade.label}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="ligacao">Ligação</SelectItem>
+                    <SelectItem value="email">E-mail</SelectItem>
+                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                    <SelectItem value="reuniao">Reunião</SelectItem>
+                    <SelectItem value="proposta">Proposta</SelectItem>
+                    <SelectItem value="contrato">Contrato</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
-                >
+                <Label>Prioridade</Label>
+                <Select value={editForm.prioridade} onValueChange={(value) => setEditForm({ ...editForm, prioridade: value })}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Selecionar prioridade" />
                   </SelectTrigger>
                   <SelectContent>
-                    {statusOptions.map(status => (
-                      <SelectItem key={status.value} value={status.value}>
-                        {status.label}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="baixa">Baixa</SelectItem>
+                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="alta">Alta</SelectItem>
+                    <SelectItem value="urgente">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={editForm.status} onValueChange={(value) => setEditForm({ ...editForm, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                    <SelectItem value="concluido">Concluído</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="responsavel">Responsável</Label>
-              <Input
-                id="responsavel"
-                value={formData.responsavel}
-                onChange={(e) => setFormData(prev => ({ ...prev, responsavel: e.target.value }))}
-                placeholder="Nome do responsável pelo follow-up"
-              />
-            </div>
-
-            {formData.status === 'concluido' && (
-              <div className="space-y-2">
-                <Label htmlFor="resultado">Resultado</Label>
-                <Textarea
-                  id="resultado"
-                  value={formData.resultado}
-                  onChange={(e) => setFormData(prev => ({ ...prev, resultado: e.target.value }))}
-                  placeholder="Descreva o resultado deste follow-up..."
-                  rows={3}
-                />
-              </div>
-            )}
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={resetForm}>
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
+              >
                 Cancelar
-              </Button>
-              <Button type="submit">
-                {editingFollowUp ? 'Atualizar' : 'Criar'} Follow-up
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal Rápido de Conclusão */}
-      <Dialog open={quickResultModal.open} onOpenChange={(open) => setQuickResultModal({open, followUpId: ''})}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Concluir Follow-up</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="quick-result">Como foi o resultado? (opcional)</Label>
-              <Textarea
-                id="quick-result"
-                value={quickResult}
-                onChange={(e) => setQuickResult(e.target.value)}
-                placeholder="Ex: Cliente interessado, agendar nova reunião..."
-                rows={3}
-              />
+              </button>
+              <button
+                onClick={handleUpdateFollowUp}
+                disabled={isLoadingData}
+                className="flex items-center gap-2 px-6 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+              >
+                {isLoadingData ? (
+                  <>
+                    <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Salvar Alterações
+                  </>
+                )}
+              </button>
             </div>
           </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setQuickResultModal({ open: false, followUpId: '' })
-                setQuickResult('')
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button onClick={handleQuickComplete} className="bg-green-600 hover:bg-green-700">
-              ✓ Concluir
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageLayout>
   )
 }

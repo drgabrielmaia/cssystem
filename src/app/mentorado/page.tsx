@@ -18,6 +18,7 @@ export default function MentoradoLoginPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [mentorado, setMentorado] = useState<any>(null)
   const [indicacoes, setIndicacoes] = useState<any[]>([])
+  const [comissoes, setComissoes] = useState<any[]>([])
   const [showNewIndicacao, setShowNewIndicacao] = useState(false)
   const [showBadges, setShowBadges] = useState(false)
   const [novaIndicacao, setNovaIndicacao] = useState({
@@ -110,16 +111,92 @@ export default function MentoradoLoginPage() {
 
   const loadIndicacoes = async (mentoradoId: string) => {
     try {
-      const { data, error } = await supabase
+      console.log('🔍 Carregando indicações para mentorado:', mentoradoId)
+
+      // Tentar buscar por diferentes campos possíveis
+      let data, error
+
+      // Primeira tentativa: campo indicado_por
+      const result1 = await supabase
         .from('leads')
         .select('*')
         .eq('indicado_por', mentoradoId)
         .order('created_at', { ascending: false })
 
+      // Segunda tentativa: campo mentorado_indicador_id
+      const result2 = await supabase
+        .from('leads')
+        .select('*')
+        .eq('mentorado_indicador_id', mentoradoId)
+        .order('created_at', { ascending: false })
+
+      // Usar o resultado que trouxe mais dados
+      if (result1.data && result1.data.length > 0) {
+        data = result1.data
+        error = result1.error
+        console.log('✅ Indicações encontradas via indicado_por:', data.length)
+      } else if (result2.data && result2.data.length > 0) {
+        data = result2.data
+        error = result2.error
+        console.log('✅ Indicações encontradas via mentorado_indicador_id:', data.length)
+      } else {
+        data = []
+        console.log('⚠️ Nenhuma indicação encontrada para este mentorado')
+      }
+
       if (error) throw error
       setIndicacoes(data || [])
+
+      // Carregar comissões reais do banco
+      await loadComissoes(mentoradoId)
     } catch (error) {
       console.error('Erro ao carregar indicações:', error)
+      setIndicacoes([]) // Fallback para lista vazia
+    }
+  }
+
+  const loadComissoes = async (mentoradoId: string) => {
+    try {
+      console.log('🔍 Carregando comissões para mentorado:', mentoradoId)
+
+      const { data, error } = await supabase
+        .from('comissoes')
+        .select('*')
+        .eq('mentorado_id', mentoradoId)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Erro na query de comissões:', error)
+        throw error
+      }
+
+      console.log('📊 Comissões encontradas:', data?.length || 0)
+      setComissoes(data || [])
+
+      // Se temos comissões, buscar dados dos leads separadamente
+      if (data && data.length > 0) {
+        const leadIds = data.map(c => c.lead_id).filter(Boolean)
+        if (leadIds.length > 0) {
+          const { data: leadsData, error: leadsError } = await supabase
+            .from('leads')
+            .select('id, nome_completo, telefone, status, valor_vendido, data_primeiro_contato, convertido_em')
+            .in('id', leadIds)
+
+          if (leadsError) {
+            console.error('Erro ao buscar leads:', leadsError)
+          } else {
+            // Associar dados dos leads às comissões
+            const comissoesComLeads = data.map(comissao => ({
+              ...comissao,
+              lead_info: leadsData?.find(lead => lead.id === comissao.lead_id)
+            }))
+            setComissoes(comissoesComLeads)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar comissões:', error)
+      setComissoes([]) // Fallback para lista vazia
     }
   }
 
@@ -132,10 +209,11 @@ export default function MentoradoLoginPage() {
         nome_completo: novaIndicacao.nome_completo,
         telefone: novaIndicacao.telefone,
         status: 'novo',
-        origem: `Indicação ${mentorado.nome_completo}`,
+        origem: 'indicacao',
         origem_detalhada: `Indicado por: ${mentorado.nome_completo} (${mentorado.email})`,
         observacoes: novaIndicacao.observacoes,
         indicado_por: mentorado.id,
+        mentorado_indicador_id: mentorado.id, // Campo adicional
         data_primeiro_contato: new Date().toISOString()
       }
 
@@ -210,22 +288,22 @@ export default function MentoradoLoginPage() {
     const numeroVendas = vendidos.length
     const totalVendas = vendidos.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
 
-    // Calcular comissão escalonada
-    let comissaoTotal = 0
-    vendidos.forEach((lead, index) => {
-      const vendasAteAqui = index + 1
-      const percentualComissao = calcularComissaoEscalonada(vendasAteAqui)
-      comissaoTotal += (lead.valor_vendido || 0) * percentualComissao / 100
-    })
+    // Usar comissões reais do banco de dados
+    const comissaoTotal = comissoes.reduce((sum, comissao) => sum + (comissao.valor_comissao || 0), 0)
+    const comissaoPendente = comissoes.filter(c => c.status_pagamento === 'pendente').reduce((sum, comissao) => sum + (comissao.valor_comissao || 0), 0)
+    const comissaoPaga = comissoes.filter(c => c.status_pagamento === 'pago').reduce((sum, comissao) => sum + (comissao.valor_comissao || 0), 0)
 
-    const percentualAtual = calcularComissaoEscalonada(numeroVendas)
+    // Usar percentual do mentorado (5% padrão)
+    const percentualAtual = mentorado?.porcentagem_comissao || 5
 
     return {
       vendidos: numeroVendas,
       totalVendas,
       comissaoTotal,
+      comissaoPendente,
+      comissaoPaga,
       percentualAtual,
-      proximoEscalao: getProximoEscalao(numeroVendas)
+      totalComissoes: comissoes.length
     }
   }
 
@@ -400,7 +478,7 @@ export default function MentoradoLoginPage() {
   }
 
   // Dashboard do mentorado logado
-  const { vendidos, totalVendas, comissaoTotal, percentualAtual, proximoEscalao } = calcularComissao()
+  const { vendidos, totalVendas, comissaoTotal, comissaoPendente, comissaoPaga, percentualAtual, totalComissoes } = calcularComissao()
   const nivelInfo = calcularNivel()
   const progresso = calcularProgresso()
   const nivelIndicacao = calcularNivelIndicacao()
@@ -423,13 +501,11 @@ export default function MentoradoLoginPage() {
                   Mentorado - {mentorado?.turma}
                 </span>
                 <span className="ml-3 text-sm text-green-600 font-semibold">
-                  Comissão Atual: {percentualAtual}%
+                  Comissão: {percentualAtual}%
                 </span>
-                {proximoEscalao && (
-                  <span className="ml-3 text-xs text-gray-500">
-                    Próximo escalão: {proximoEscalao.percentual}% ({proximoEscalao.vendas - vendidos} vendas restantes)
-                  </span>
-                )}
+                <span className="ml-3 text-sm text-blue-600">
+                  {totalComissoes} comissão{totalComissoes !== 1 ? 'ões' : ''} gerada{totalComissoes !== 1 ? 's' : ''}
+                </span>
               </div>
             </div>
             <div className="flex space-x-4">
@@ -456,7 +532,7 @@ export default function MentoradoLoginPage() {
         </div>
 
         {/* Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -498,118 +574,114 @@ export default function MentoradoLoginPage() {
               <div className="flex items-center">
                 <DollarSign className="h-8 w-8 text-yellow-600" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Sua Comissão</p>
+                  <p className="text-sm font-medium text-gray-600">Total Comissão</p>
                   <p className="text-2xl font-bold text-gray-900">{formatCurrency(comissaoTotal)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="h-8 w-8 bg-orange-100 rounded-full flex items-center justify-center">
+                  <span className="text-orange-600 font-bold text-sm">$</span>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">A Receber</p>
+                  <p className="text-2xl font-bold text-orange-600">{formatCurrency(comissaoPendente)}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Card de Gamificação */}
+        {/* Card de Resumo de Comissões */}
         <Card className="mb-6 overflow-hidden">
-          <div className={`bg-gradient-to-r ${nivelInfo.cor} p-6 text-white`}>
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-white">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-2xl font-bold flex items-center">
-                  {nivelInfo.emoji} Nível {nivelInfo.nivel}
+                  💰 Resumo Financeiro
                 </h2>
                 <p className="opacity-90">
-                  {vendidos === 0 ? 'Faça sua primeira venda para subir de nível!' :
-                   nivelInfo.proximoNivel ? `Faltam ${nivelInfo.proximoNivel - vendidos} vendas para o próximo nível` :
-                   'Você é uma LENDA! 🏆'}
+                  {totalComissoes === 0 ? 'Nenhuma comissão gerada ainda' :
+                   comissaoPendente > 0 ? `R$ ${(comissaoPendente).toFixed(2)} aguardando pagamento` :
+                   'Todas as comissões foram pagas!'}
                 </p>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-bold">{vendidos}</div>
-                <div className="text-sm opacity-90">vendas</div>
+                <div className="text-3xl font-bold">{totalComissoes}</div>
+                <div className="text-sm opacity-90">comissões</div>
               </div>
             </div>
 
-            {nivelInfo.proximoNivel && (
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span>Progresso para {nivelInfo.proximoNivel === 1 ? 'INICIANTE' :
-                                       nivelInfo.proximoNivel === 5 ? 'AVANÇADO' :
-                                       nivelInfo.proximoNivel === 15 ? 'EXPERT' :
-                                       nivelInfo.proximoNivel === 30 ? 'MESTRE' : 'LENDA'}</span>
-                  <span>{Math.round(progresso)}%</span>
-                </div>
-                <div className="w-full bg-black bg-opacity-20 rounded-full h-2">
-                  <div
-                    className="bg-white rounded-full h-2 transition-all duration-500"
-                    style={{ width: `${progresso}%` }}
-                  ></div>
-                </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white bg-opacity-20 rounded-lg p-3">
+                <div className="text-lg font-bold">{formatCurrency(comissaoPaga)}</div>
+                <div className="text-sm opacity-90">Já Recebido</div>
               </div>
-            )}
+              <div className="bg-white bg-opacity-20 rounded-lg p-3">
+                <div className="text-lg font-bold">{formatCurrency(comissaoPendente)}</div>
+                <div className="text-sm opacity-90">Pendente</div>
+              </div>
+            </div>
           </div>
 
-          {/* Badges de Conquistas */}
+          {/* Lista de Comissões */}
           <CardContent className="p-6">
             <h3 className="font-semibold mb-4 flex items-center">
-              <Trophy className="h-5 w-5 mr-2 text-yellow-500" />
-              Suas Conquistas
+              <DollarSign className="h-5 w-5 mr-2 text-green-500" />
+              Suas Comissões
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className={`p-3 rounded-lg text-center ${vendidos >= 1 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-400'}`}>
-                <div className="text-2xl mb-1">⭐</div>
-                <div className="text-sm font-medium">Primeira Venda</div>
-              </div>
-              <div className={`p-3 rounded-lg text-center ${vendidos >= 5 ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-400'}`}>
-                <div className="text-2xl mb-1">🚀</div>
-                <div className="text-sm font-medium">5 Vendas</div>
-              </div>
-              <div className={`p-3 rounded-lg text-center ${vendidos >= 15 ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-400'}`}>
-                <div className="text-2xl mb-1">💎</div>
-                <div className="text-sm font-medium">Expert</div>
-              </div>
-              <div className={`p-3 rounded-lg text-center ${vendidos >= 30 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-400'}`}>
-                <div className="text-2xl mb-1">🏆</div>
-                <div className="text-sm font-medium">Mestre</div>
-              </div>
-            </div>
 
-            {/* Tabela de Comissões Escalonadas */}
-            <div className="mt-6">
-              <h4 className="font-semibold mb-3 flex items-center">
-                <TrendingUp className="h-5 w-5 mr-2 text-green-500" />
-                Escalas de Comissão
-              </h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                <div className={`p-3 rounded-lg text-center border-2 ${vendidos >= 1 && vendidos <= 3 ? 'bg-green-100 border-green-400' : 'bg-gray-50 border-gray-200'}`}>
-                  <div className="font-bold text-lg">5%</div>
-                  <div className="text-xs">1-3 vendas</div>
-                </div>
-                <div className={`p-3 rounded-lg text-center border-2 ${vendidos >= 4 && vendidos <= 5 ? 'bg-blue-100 border-blue-400' : 'bg-gray-50 border-gray-200'}`}>
-                  <div className="font-bold text-lg">10%</div>
-                  <div className="text-xs">4-5 vendas</div>
-                </div>
-                <div className={`p-3 rounded-lg text-center border-2 ${vendidos >= 6 && vendidos <= 10 ? 'bg-purple-100 border-purple-400' : 'bg-gray-50 border-gray-200'}`}>
-                  <div className="font-bold text-lg">15%</div>
-                  <div className="text-xs">6-10 vendas</div>
-                </div>
-                <div className={`p-3 rounded-lg text-center border-2 ${vendidos >= 11 ? 'bg-yellow-100 border-yellow-400' : 'bg-gray-50 border-gray-200'}`}>
-                  <div className="font-bold text-lg">20%</div>
-                  <div className="text-xs">11+ vendas</div>
-                </div>
+            {comissoes.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhuma comissão gerada ainda.</p>
+                <p>Suas vendas aparecerão aqui!</p>
               </div>
+            ) : (
+              <div className="space-y-3">
+                {comissoes.map((comissao) => (
+                  <div key={comissao.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <div className="font-medium">{comissao.lead_info?.nome_completo || 'Lead não encontrado'}</div>
+                      <div className="text-sm text-gray-600">
+                        Venda: {formatCurrency(comissao.valor_venda || 0)} • Comissão: {comissao.percentual_comissao}%
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(comissao.created_at).toLocaleDateString('pt-BR')}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-lg text-green-600">
+                        {formatCurrency(comissao.valor_comissao || 0)}
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        comissao.status_pagamento === 'pago'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-orange-100 text-orange-800'
+                      }`}>
+                        {comissao.status_pagamento === 'pago' ? '✓ Pago' : '⏳ Pendente'}
+                      </span>
+                      {comissao.data_pagamento && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          Pago em: {new Date(comissao.data_pagamento).toLocaleDateString('pt-BR')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-              {proximoEscalao && (
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-                  <p className="text-sm text-blue-800">
-                    <strong>Próxima Meta:</strong> Faça mais {proximoEscalao.vendas - vendidos} venda{proximoEscalao.vendas - vendidos > 1 ? 's' : ''} para subir para {proximoEscalao.percentual}% de comissão! 🎯
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {vendidos >= 1 && comissaoTotal >= 1000 && (
+            {comissaoTotal >= 1000 && (
               <div className="mt-4 p-4 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-lg border-l-4 border-yellow-500">
                 <div className="flex items-center">
                   <Gift className="h-6 w-6 text-yellow-600 mr-3" />
                   <div>
-                    <h4 className="font-medium text-yellow-800">Bônus Desbloqueado! 🎉</h4>
+                    <h4 className="font-medium text-yellow-800">Parabéns! 🎉</h4>
                     <p className="text-sm text-yellow-700">Você já ganhou mais de R$ 1.000 em comissões!</p>
                   </div>
                 </div>
@@ -893,11 +965,8 @@ export default function MentoradoLoginPage() {
                   <tbody>
                     {indicacoes.map((indicacao, index) => {
                       const valorVendido = indicacao.valor_vendido || 0
-                      // Calcular qual era o número da venda quando esta foi fechada
-                      const vendasAnteriores = indicacoes.slice(0, index).filter(lead => lead.status === 'vendido' && lead.convertido_em && new Date(lead.convertido_em) < new Date(indicacao.convertido_em || indicacao.data_primeiro_contato)).length
-                      const numeroVenda = vendasAnteriores + 1
-                      const percentualComissao = calcularComissaoEscalonada(numeroVenda)
-                      const comissao = valorVendido * percentualComissao / 100
+                      // Buscar comissão real do banco de dados
+                      const comissaoReal = comissoes.find(c => c.lead_id === indicacao.id)
                       const statusDisplay = getStatusDisplay(indicacao.status)
 
                       return (
@@ -920,15 +989,24 @@ export default function MentoradoLoginPage() {
                             ) : '-'}
                           </td>
                           <td className="p-3 font-medium">
-                            {indicacao.status === 'vendido' ? (
+                            {indicacao.status === 'vendido' && comissaoReal ? (
                               <div className="flex flex-col">
                                 <span className="text-green-700 font-bold">
-                                  {formatCurrency(comissao)}
+                                  {formatCurrency(comissaoReal.valor_comissao || 0)}
                                 </span>
                                 <span className="text-xs text-gray-500">
-                                  ({percentualComissao}% - {numeroVenda}ª venda)
+                                  ({comissaoReal.percentual_comissao}%)
+                                </span>
+                                <span className={`text-xs px-1 py-0.5 rounded ${
+                                  comissaoReal.status_pagamento === 'pago'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-orange-100 text-orange-700'
+                                }`}>
+                                  {comissaoReal.status_pagamento === 'pago' ? 'Pago' : 'Pendente'}
                                 </span>
                               </div>
+                            ) : indicacao.status === 'vendido' ? (
+                              <span className="text-gray-500 text-sm">Processando...</span>
                             ) : '-'}
                           </td>
                           <td className="p-3">

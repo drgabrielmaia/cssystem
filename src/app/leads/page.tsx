@@ -1,69 +1,34 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { Header } from '@/components/header'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useState, useEffect } from 'react'
+import { PageLayout } from '@/components/ui/page-layout'
+import { KPICardVibrant } from '@/components/ui/kpi-card-vibrant'
+import { MetricCard } from '@/components/ui/metric-card'
+import { DataTable } from '@/components/ui/data-table'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { ChartCard } from '@/components/ui/chart-card'
 import { supabase } from '@/lib/supabase'
-import { useDateFilters } from '@/hooks/useDateFilters'
-import { DateFilters } from '@/components/date-filters'
-import { useSettings } from '@/contexts/settings'
-import { generateLeadsPDF, generateDetailedLeadsPDF, generateDashboardPDF } from '@/lib/pdfGenerator'
-import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import {
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  closestCenter
-} from '@dnd-kit/core'
-import {
-  arrayMove,
-  SortableContext,
-  verticalListSortingStrategy
-} from '@dnd-kit/sortable'
-import {
-  useDroppable
-} from '@dnd-kit/core'
-import {
-  useSortable
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import {
-  Plus,
-  User,
-  Phone,
-  Mail,
-  Building,
+  DollarSign,
+  Users,
   Target,
-  Calendar,
+  TrendingUp,
+  Plus,
+  Search,
+  Filter,
   Eye,
   Edit,
   Trash2,
-  FileDown,
-  Activity,
-  Users,
-  DollarSign,
-  TrendingUp,
-  FileText,
+  Phone,
+  Mail,
+  Building,
+  MoreVertical,
   Download,
-  Search,
-  Filter,
-  PhoneCall,
-  LayoutGrid,
-  Table,
-  BarChart3,
-  PieChart
+  RefreshCw,
+  BarChart3
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts'
 
 interface Lead {
   id: string
@@ -78,121 +43,156 @@ interface Lead {
   valor_vendido: number | null
   valor_arrecadado: number | null
   data_primeiro_contato: string
-  convertido_em: string | null
-  data_venda: string | null // Data da venda - usado para filtros e estatísticas
-  origem_detalhada: string | null
-  temperatura: string | null
-  pix_key: string | null // Chave Pix para devolução
-  pix_paid: boolean // Status de pagamento do Pix
-  pix_paid_at: string | null // Data/hora do pagamento confirmado
+  data_venda: string | null
   created_at: string
   updated_at: string
-  lead_venda_id?: number // ID da venda na tabela lead_vendas (opcional)
 }
 
 interface LeadStats {
-  status: string
-  quantidade: number
-  valor_total_vendido: number | null
-  valor_total_arrecadado: number | null
-  valor_medio_vendido: number | null
-  valor_medio_arrecadado: number | null
+  total_leads: number
+  leads_convertidos: number
+  valor_total_vendas: number
+  valor_total_arrecadado: number
+  taxa_conversao: number
+  ticket_medio: number
 }
 
 export default function LeadsPage() {
+  const router = useRouter()
   const [leads, setLeads] = useState<Lead[]>([])
-  const [stats, setStats] = useState<LeadStats[]>([])
+  const [stats, setStats] = useState<LeadStats>({
+    total_leads: 0,
+    leads_convertidos: 0,
+    valor_total_vendas: 0,
+    valor_total_arrecadado: 0,
+    taxa_conversao: 0,
+    ticket_medio: 0
+  })
   const [loading, setLoading] = useState(true)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingLead, setEditingLead] = useState<Lead | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('todos')
   const [origemFilter, setOrigemFilter] = useState('todas')
   const [temperaturaFilter, setTemperaturaFilter] = useState('todas')
-  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('kanban')
-  const [dashboardModalOpen, setDashboardModalOpen] = useState(false)
-  const [reportPeriod, setReportPeriod] = useState('mes')
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [draggedLead, setDraggedLead] = useState<Lead | null>(null)
-  const dateFilters = useDateFilters()
-  const { settings } = useSettings()
+  const [dateFilter, setDateFilter] = useState('mes_atual')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingLead, setEditingLead] = useState<Lead | null>(null)
+  const [isLoadingData, setIsLoadingData] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
 
-  // Sensors for drag and drop
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  )
+  // Função para obter range de datas
+  const getDateRange = (filter: string) => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth()
 
-  // Estados para paginação e otimização
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
-  const [hasNextPage, setHasNextPage] = useState(false)
-  const leadsPerPage = 20 // Mostrar apenas 20 leads por vez
-  // Removido allLeads - simplificando para usar apenas leads
+    switch (filter) {
+      case 'mes_atual':
+        return {
+          start: new Date(year, month, 1).toISOString(),
+          end: new Date(year, month + 1, 0, 23, 59, 59).toISOString()
+        }
+      case 'semana_atual':
+        // Semana atual: Segunda a Domingo desta semana
+        const currentDayOfWeek = now.getDay() === 0 ? 7 : now.getDay() // Domingo = 7, Segunda = 1
+        const startOfWeek = new Date(now)
+        startOfWeek.setDate(now.getDate() - (currentDayOfWeek - 1))
+        startOfWeek.setHours(0, 0, 0, 0)
+        const endOfWeek = new Date(startOfWeek)
+        endOfWeek.setDate(startOfWeek.getDate() + 6)
+        endOfWeek.setHours(23, 59, 59, 999)
+        return {
+          start: startOfWeek.toISOString(),
+          end: endOfWeek.toISOString()
+        }
+      case 'semana_passada':
+        // Última semana: Segunda a Domingo da semana passada
+        const lastWeekDayOfWeek = now.getDay() === 0 ? 7 : now.getDay()
+        const startOfLastWeek = new Date(now)
+        startOfLastWeek.setDate(now.getDate() - (lastWeekDayOfWeek - 1) - 7)
+        startOfLastWeek.setHours(0, 0, 0, 0)
+        const endOfLastWeek = new Date(startOfLastWeek)
+        endOfLastWeek.setDate(startOfLastWeek.getDate() + 6)
+        endOfLastWeek.setHours(23, 59, 59, 999)
+        return {
+          start: startOfLastWeek.toISOString(),
+          end: endOfLastWeek.toISOString()
+        }
+      case 'mes_passado':
+        return {
+          start: new Date(year, month - 1, 1).toISOString(),
+          end: new Date(year, month, 0, 23, 59, 59).toISOString()
+        }
+      case 'personalizado':
+        if (customStartDate && customEndDate) {
+          return {
+            start: new Date(customStartDate).toISOString(),
+            end: new Date(customEndDate + 'T23:59:59').toISOString()
+          }
+        }
+        return null
+      case 'todos':
+      default:
+        return null
+    }
+  }
+  const [origemData, setOrigemData] = useState<Array<{name: string, value: number, color: string, valorPago: number, taxaConversao: number}>>([])
+  const [selectedOrigem, setSelectedOrigem] = useState<{name: string, value: number, color: string, valorPago: number, taxaConversao: number} | null>(null)
+  const [showOrigemModal, setShowOrigemModal] = useState(false)
 
-  // Estados do formulário
-  const [formData, setFormData] = useState({
-    nome_completo: '',
-    email: '',
-    telefone: '',
-    empresa: '',
-    cargo: '',
-    origem: '',
-    status: 'novo',
-    observacoes: '',
-    valor_vendido: '',
-    valor_arrecadado: '',
-    origem_detalhada: '',
-    temperatura: 'frio',
-    pix_key: '',
-    pix_paid: false
-  })
+  const statusMap = {
+    novo: 'new',
+    contactado: 'contacted',
+    qualificado: 'qualified',
+    quente: 'hot',
+    vendido: 'converted',
+    perdido: 'lost'
+  }
 
-  // Cache das estatísticas para evitar recálculo
-  const [statsCache, setStatsCache] = useState<{ [key: string]: LeadStats[] }>({})
-  const [searchDebounceTimer, setSearchDebounceTimer] = useState<NodeJS.Timeout | null>(null)
+  const origemColors = {
+    'Instagram': '#F59E0B',
+    'WhatsApp': '#059669',
+    'Indicação': '#3B82F6',
+    'Site': '#EF4444',
+    'LinkedIn': '#8B5CF6',
+    'Facebook': '#3B82F6',
+    'Google': '#EF4444',
+    'Outros': '#94A3B8'
+  }
+
+  const conversionData = [
+    { month: 'Jul', leads: 25, vendas: 3, taxa: 12 },
+    { month: 'Ago', leads: 32, vendas: 5, taxa: 15.6 },
+    { month: 'Set', leads: 28, vendas: 4, taxa: 14.3 },
+    { month: 'Out', leads: 38, vendas: 7, taxa: 18.4 },
+    { month: 'Nov', leads: 42, vendas: 8, taxa: 19.0 },
+    { month: 'Dez', leads: 35, vendas: 6, taxa: 17.1 }
+  ]
 
   useEffect(() => {
-    loadData()
+    loadLeads()
+    loadStats()
+    loadOrigemData()
   }, [])
 
-  // Recarregar leads quando filtros (não busca) mudarem
+  // Recarregar dados quando filtros mudarem
   useEffect(() => {
-    if (statusFilter !== 'todos' || origemFilter !== 'todas' || temperaturaFilter !== 'todas' || dateFilters.hasActiveFilter) {
+    if (!loading) { // Só recarrega se não está no loading inicial
+      setIsLoadingData(true)
       loadLeads()
+      loadStats()
+      loadOrigemData()
     }
-  }, [statusFilter, origemFilter, temperaturaFilter, dateFilters.dataInicio, dateFilters.dataFim, dateFilters.filtroTempo])
+  }, [statusFilter, origemFilter, temperaturaFilter, dateFilter, customStartDate, customEndDate])
 
-  // Atualizar estatísticas quando filtros mudarem
-  useEffect(() => {
-    loadStatsWithCache()
-  }, [statusFilter, origemFilter, temperaturaFilter, dateFilters.dataInicio, dateFilters.dataFim, dateFilters.filtroTempo])
-
-  // A busca por texto não precisa de debounce nem de reload - é feita no cliente
-  // Remove o useEffect de debounce pois agora a busca é instantânea
-
-  const loadLeads = async (page = 1, append = false) => {
+  const loadLeads = async () => {
     try {
-
-      // Não mostrar loading se é uma busca incremental para evitar flickering
-      if (page === 1 && !append) {
-        setLoading(true)
-      }
-
-      const from = (page - 1) * leadsPerPage
-      const to = from + leadsPerPage - 1
-
-      // Construir query com filtros do servidor
       let query = supabase
         .from('leads')
-        .select('*', { count: 'exact' })
+        .select('*')
 
-      // Não aplicar filtro de texto no servidor - será feito no cliente
-
-      // Aplicar filtros de status
+      // Aplicar filtros no servidor se não for "todos"
       if (statusFilter !== 'todos') {
         query = query.eq('status', statusFilter)
       }
@@ -205,2132 +205,717 @@ export default function LeadsPage() {
         query = query.eq('temperatura', temperaturaFilter)
       }
 
-
-      // Aplicar filtro de datas personalizadas usando o novo sistema
-      const dateFilter = dateFilters.getDateFilter()
-      // Removido allLeads - usando filteredData localmente
-
-      if (dateFilter?.start || dateFilter?.end) {
-        // Para filtros de data, precisamos buscar todos os leads e filtrar no JavaScript
-        // para usar a lógica correta (convertido_em vs data_primeiro_contato)
-        const { data: allData, error: allError } = await query
-        if (allError) throw allError
-
-        // Filtrar no JavaScript usando a mesma lógica das estatísticas
-        const filteredData = allData?.filter(lead => {
-          let dataParaFiltro
-
-          if (lead.status === 'vendido') {
-            // Para vendidos, usar APENAS data_venda
-            dataParaFiltro = lead.data_venda
-          } else {
-            // Para outros status, usar data_primeiro_contato
-            dataParaFiltro = lead.data_primeiro_contato
-          }
-
-          if (dataParaFiltro) {
-            const dataObj = new Date(dataParaFiltro)
-            let incluirLead = true
-
-            if (dateFilter.start && dateFilter.end) {
-              incluirLead = dataObj >= new Date(dateFilter.start) && dataObj <= new Date(dateFilter.end)
-            } else if (dateFilter.start) {
-              incluirLead = dataObj >= new Date(dateFilter.start)
-            } else if (dateFilter.end) {
-              incluirLead = dataObj <= new Date(dateFilter.end)
-            }
-
-            return incluirLead
-          }
-          return false
-        }) || []
-
-        // Aplicar paginação manualmente
-        const totalFiltered = filteredData.length
-        const paginatedData = filteredData.slice(from, from + leadsPerPage)
-
-        if (append) {
-          setLeads(prev => [...prev, ...paginatedData])
-        } else {
-          setLeads(paginatedData)
-        }
-
-        setTotalCount(totalFiltered)
-        setHasNextPage(from + leadsPerPage < totalFiltered)
-        setCurrentPage(page)
-        return
+      // Aplicar filtro de data
+      const dateRange = getDateRange(dateFilter)
+      if (dateRange) {
+        query = query
+          .gte('created_at', dateRange.start)
+          .lte('created_at', dateRange.end)
       }
 
-      const { data, error, count } = await query
-        .order('created_at', { ascending: false })
-        .range(from, to)
+      const { data, error } = await query.order('created_at', { ascending: false })
 
       if (error) throw error
-
-
-      if (append) {
-        setLeads(prev => [...prev, ...(data || [])])
-      } else {
-        setLeads(data || [])
-      }
-
-      setTotalCount(count || 0)
-      setHasNextPage(data && data.length === leadsPerPage)
-      setCurrentPage(page)
-
+      setLeads(data || [])
     } catch (error) {
       console.error('Erro ao carregar leads:', error)
     } finally {
       setLoading(false)
+      setIsLoadingData(false)
     }
   }
 
-
-  const loadStatsWithCache = async () => {
-    // Criar chave de cache baseada nos filtros atuais
-    const cacheKey = `stats_${statusFilter}_${origemFilter}_${temperaturaFilter}_${dateFilters.dataInicio}_${dateFilters.dataFim}_${dateFilters.filtroTempo}`
-
-    // Verificar cache (válido por 2 minutos)
-    if (statsCache[cacheKey]) {
-      const cacheTime = parseInt(localStorage.getItem(`stats_cache_time_${cacheKey}`) || '0')
-      if (Date.now() - cacheTime < 2 * 60 * 1000) {
-        setStats(statsCache[cacheKey])
-        return
-      }
-    }
-
+  const loadStats = async () => {
     try {
-      const dateFilter = dateFilters.getDateFilter()
-      const statsMap: { [key: string]: LeadStats } = {}
+      let query = supabase.from('leads').select('*')
 
-      // 1. Buscar TODOS os leads da tabela leads (incluindo vendidos)
-      let leadsQuery = supabase
-        .from('leads')
-        .select('*')
+      // Aplicar filtros de data nas estatísticas também
+      const dateRange = getDateRange(dateFilter)
+      if (dateRange) {
+        query = query
+          .gte('created_at', dateRange.start)
+          .lte('created_at', dateRange.end)
+      }
 
-      // Aplicar filtros
+      // Aplicar filtros de status e origem se selecionados
       if (statusFilter !== 'todos') {
-        leadsQuery = leadsQuery.eq('status', statusFilter)
+        query = query.eq('status', statusFilter)
       }
+
       if (origemFilter !== 'todas') {
-        leadsQuery = leadsQuery.eq('origem', origemFilter)
+        query = query.eq('origem', origemFilter)
       }
+
       if (temperaturaFilter !== 'todas') {
-        leadsQuery = leadsQuery.eq('temperatura', temperaturaFilter)
+        query = query.eq('temperatura', temperaturaFilter)
       }
 
-      const { data: leadsData, error: leadsError } = await leadsQuery
-      if (leadsError) throw leadsError
+      const { data: leads } = await query
 
-      // Processar TODOS os leads
-      leadsData?.forEach(lead => {
-        // Aplicar filtro de data
-        if (dateFilter?.start || dateFilter?.end) {
-          // Para leads vendidos, usar APENAS data_venda, para outros usar data_primeiro_contato
-          const dataParaFiltro = lead.status === 'vendido'
-            ? lead.data_venda
-            : lead.data_primeiro_contato
-          if (dataParaFiltro) {
-            const dataObj = new Date(dataParaFiltro)
-            let incluirLead = true
+      if (leads) {
+        const convertedLeads = leads.filter(lead => lead.status === 'vendido')
+        const totalVendas = convertedLeads.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
+        const totalArrecadado = convertedLeads.reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0)
 
-            if (dateFilter.start && dateFilter.end) {
-              incluirLead = dataObj >= new Date(dateFilter.start) && dataObj <= new Date(dateFilter.end)
-            } else if (dateFilter.start) {
-              incluirLead = dataObj >= new Date(dateFilter.start)
-            } else if (dateFilter.end) {
-              incluirLead = dataObj <= new Date(dateFilter.end)
-            }
-
-            if (!incluirLead) return
-          }
-        }
-
-        if (!statsMap[lead.status]) {
-          statsMap[lead.status] = {
-            status: lead.status,
-            quantidade: 0,
-            valor_total_vendido: 0,
-            valor_total_arrecadado: 0,
-            valor_medio_vendido: 0,
-            valor_medio_arrecadado: 0
-          }
-        }
-
-        statsMap[lead.status].quantidade += 1
-        statsMap[lead.status].valor_total_vendido += lead.valor_vendido || 0
-        statsMap[lead.status].valor_total_arrecadado += lead.valor_arrecadado || 0
-      })
-
-      // Calcular médias
-      Object.values(statsMap).forEach(stat => {
-        stat.valor_medio_vendido = stat.quantidade > 0 ? (stat.valor_total_vendido || 0) / stat.quantidade : 0
-        stat.valor_medio_arrecadado = stat.quantidade > 0 ? (stat.valor_total_arrecadado || 0) / stat.quantidade : 0
-      })
-
-      const statsArray = Object.values(statsMap)
-
-      // Salvar no cache
-      setStatsCache(prev => ({ ...prev, [cacheKey]: statsArray }))
-      localStorage.setItem(`stats_cache_time_${cacheKey}`, Date.now().toString())
-      setStats(statsArray)
+        setStats({
+          total_leads: leads.length,
+          leads_convertidos: convertedLeads.length,
+          valor_total_vendas: totalVendas,
+          valor_total_arrecadado: totalArrecadado,
+          taxa_conversao: leads.length > 0 ? (convertedLeads.length / leads.length) * 100 : 0,
+          ticket_medio: convertedLeads.length > 0 ? totalVendas / convertedLeads.length : 0
+        })
+      }
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error)
-      // Tentar usar cache antigo se disponível
-      if (statsCache[cacheKey]) {
-        setStats(statsCache[cacheKey])
-      }
     }
   }
 
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
+  const loadOrigemData = async () => {
     try {
-      const leadData = {
-        ...formData,
-        valor_vendido: formData.valor_vendido ? parseFloat(formData.valor_vendido) : null,
-        valor_arrecadado: formData.valor_arrecadado ? parseFloat(formData.valor_arrecadado) : null,
-        origem_detalhada: formData.origem_detalhada || null,
-        temperatura: formData.temperatura,
-        pix_key: formData.pix_key || null,
-        pix_paid: formData.pix_paid,
-        pix_paid_at: formData.pix_paid && !editingLead?.pix_paid ? new Date().toISOString() : editingLead?.pix_paid_at,
-        // Definir data_venda se status for vendido
-        data_venda: formData.status === 'vendido' ? new Date().toISOString().split('T')[0] : null
-      }
+      const { data: leads } = await supabase.from('leads').select('origem, status, valor_arrecadado')
 
-      if (editingLead) {
-        // Atualizar lead
-        const { error } = await supabase
-          .from('leads')
-          .update(leadData)
-          .eq('id', editingLead.id)
+      if (leads) {
+        const origemStats = leads.reduce((acc, lead) => {
+          const origem = lead.origem || 'Outros'
 
-        if (error) throw error
-
-        // Se o lead está sendo editado E é vendido E tem lead_venda_id, atualizar tabela lead_vendas também
-        if (editingLead.status === 'vendido' && editingLead.lead_venda_id) {
-          console.log(`🔄 Lead vendido sendo editado, atualizando lead_vendas ID: ${editingLead.lead_venda_id}`)
-
-          await updateLeadVendaValues(editingLead.lead_venda_id, {
-            valor_vendido: leadData.valor_vendido || undefined,
-            valor_arrecadado: leadData.valor_arrecadado || undefined
-          })
-        }
-      } else {
-        const { error } = await supabase
-          .from('leads')
-          .insert([leadData])
-
-        if (error) throw error
-      }
-
-      await loadData()
-      resetForm()
-      setIsModalOpen(false)
-
-    } catch (error) {
-      console.error('Erro ao salvar lead:', error)
-      alert('Erro ao salvar lead')
-    }
-  }
-
-  const resetForm = () => {
-    setFormData({
-      nome_completo: '',
-      email: '',
-      telefone: '',
-      empresa: '',
-      cargo: '',
-      origem: '',
-      status: 'novo',
-      observacoes: '',
-      valor_vendido: '',
-      valor_arrecadado: '',
-      origem_detalhada: '',
-      temperatura: 'frio',
-      pix_key: '',
-      pix_paid: false
-    })
-    setEditingLead(null)
-  }
-
-  const handleEdit = (lead: Lead) => {
-    setEditingLead(lead)
-    setFormData({
-      nome_completo: lead.nome_completo,
-      email: lead.email || '',
-      telefone: lead.telefone || '',
-      empresa: lead.empresa || '',
-      cargo: lead.cargo || '',
-      origem: lead.origem || '',
-      status: lead.status,
-      observacoes: lead.observacoes || '',
-      valor_vendido: lead.valor_vendido?.toString() || '',
-      valor_arrecadado: lead.valor_arrecadado?.toString() || '',
-      origem_detalhada: lead.origem_detalhada || '',
-      temperatura: lead.temperatura || 'frio',
-      pix_key: lead.pix_key || '',
-      pix_paid: lead.pix_paid || false
-    })
-    setIsModalOpen(true)
-  }
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este lead?')) return
-
-    try {
-      const { error } = await supabase
-        .from('leads')
-        .delete()
-        .eq('id', id)
-
-      if (error) throw error
-
-      await loadData()
-    } catch (error) {
-      console.error('Erro ao excluir lead:', error)
-      alert('Erro ao excluir lead')
-    }
-  }
-
-  // Função para sincronizar leads vendidos entre tabelas leads e lead_vendas
-  const syncLeadsVendidos = async () => {
-    try {
-      console.log('🔄 Sincronizando leads vendidos entre tabelas...')
-
-      // 1. Buscar todos os leads com status 'vendido' na tabela leads
-      const { data: leadsVendidos, error: leadsError } = await supabase
-        .from('leads')
-        .select('id, nome_completo, valor_vendido, valor_arrecadado, convertido_em, created_at')
-        .eq('status', 'vendido')
-
-      if (leadsError) throw leadsError
-
-      console.log(`📊 Encontrados ${leadsVendidos?.length || 0} leads vendidos na tabela leads`)
-
-      // 2. Para cada lead vendido, verificar se existe na lead_vendas
-      for (const lead of leadsVendidos || []) {
-        const { data: vendaExistente, error: checkError } = await supabase
-          .from('lead_vendas')
-          .select('id')
-          .eq('lead_id', lead.id)
-          .single()
-
-        if (checkError && checkError.code !== 'PGRST116') {
-          console.error('Erro ao verificar venda existente:', checkError)
-          continue
-        }
-
-        // Se não existe, criar registro na lead_vendas
-        if (!vendaExistente) {
-          console.log(`➕ Criando registro de venda para lead ${lead.id} (${lead.nome_completo})`)
-
-          const vendaData = {
-            lead_id: lead.id,
-            valor_vendido: lead.valor_vendido || 0,
-            valor_arrecadado: lead.valor_arrecadado || 0,
-            data_venda: lead.convertido_em?.split('T')[0] || new Date().toISOString().split('T')[0],
-            data_arrecadacao: (lead.valor_arrecadado && lead.valor_arrecadado > 0)
-              ? lead.convertido_em?.split('T')[0] || new Date().toISOString().split('T')[0]
-              : null,
-            parcelas: 1,
-            tipo_venda: 'direta',
-            status_pagamento: (lead.valor_arrecadado && lead.valor_vendido && lead.valor_arrecadado >= lead.valor_vendido)
-              ? 'pago'
-              : lead.valor_arrecadado > 0
-                ? 'parcial'
-                : 'pendente',
-            observacoes: `Sincronizado automaticamente - ${lead.nome_completo}`
+          if (!acc[origem]) {
+            acc[origem] = {
+              total: 0,
+              convertidos: 0,
+              valorPago: 0
+            }
           }
 
-          const { error: insertError } = await supabase
-            .from('lead_vendas')
-            .insert([vendaData])
-
-          if (insertError) {
-            console.error('Erro ao inserir venda:', insertError)
-          } else {
-            console.log(`✅ Venda criada para ${lead.nome_completo}`)
+          acc[origem].total += 1
+          if (lead.status === 'vendido') {
+            acc[origem].convertidos += 1
+            acc[origem].valorPago += lead.valor_arrecadado || 0
           }
-        }
+
+          return acc
+        }, {} as Record<string, {total: number, convertidos: number, valorPago: number}>)
+
+        const origemArray = Object.entries(origemStats).map(([name, stats]) => ({
+          name,
+          value: stats.total,
+          valorPago: stats.valorPago,
+          taxaConversao: stats.total > 0 ? (stats.convertidos / stats.total) * 100 : 0,
+          color: origemColors[name as keyof typeof origemColors] || '#94A3B8'
+        })).sort((a, b) => b.value - a.value)
+
+        setOrigemData(origemArray)
       }
-
-      console.log('✅ Sincronização concluída')
-
     } catch (error) {
-      console.error('❌ Erro na sincronização:', error)
+      console.error('Erro ao carregar dados de origem:', error)
     }
   }
 
-  // Função para atualizar valores de venda na tabela lead_vendas
-  const updateLeadVendaValues = async (leadVendaId: number, valores: { valor_vendido?: number, valor_arrecadado?: number }) => {
-    try {
-      console.log(`🔄 Atualizando valores da venda ID ${leadVendaId}:`, valores)
+  // Busca só no cliente (instantânea) - filtros já aplicados no servidor
+  const filteredLeads = leads.filter(lead => {
+    return searchTerm === '' ||
+      lead.nome_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.empresa?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.cargo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.telefone?.toLowerCase().includes(searchTerm.toLowerCase())
+  })
 
-      const { error } = await supabase
-        .from('lead_vendas')
-        .update({
-          valor_vendido: valores.valor_vendido,
-          valor_arrecadado: valores.valor_arrecadado,
-          status_pagamento: valores.valor_arrecadado && valores.valor_vendido
-            ? valores.valor_arrecadado >= valores.valor_vendido ? 'pago'
-              : valores.valor_arrecadado > 0 ? 'parcial'
-              : 'pendente'
-            : 'pendente'
-        })
-        .eq('id', leadVendaId)
+  // Obter listas para os filtros
+  const availableStatuses = [...new Set(leads.map(lead => lead.status).filter(Boolean))]
+  const availableOrigens = [...new Set(leads.map(lead => lead.origem).filter(Boolean))]
+  const availableTemperaturas = [...new Set(leads.map(lead => lead.temperatura).filter(Boolean))]
 
-      if (error) throw error
-
-      console.log('✅ Valores atualizados com sucesso na lead_vendas')
-
-      // Recarregar dados
-      await loadData()
-
-    } catch (error) {
-      console.error('❌ Erro ao atualizar valores da venda:', error)
-      throw error
-    }
-  }
-
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      'novo': { label: 'Novo', className: 'bg-blue-500 text-white shadow-md' },
-      'contactado': { label: 'Contactado', className: 'bg-purple-500 text-white shadow-md' },
-      'qualificado': { label: 'Qualificado', className: 'bg-indigo-500 text-white shadow-md' },
-      'call_agendada': { label: 'Call Agendada', className: 'bg-orange-500 text-white shadow-md' },
-      'proposta_enviada': { label: 'Proposta Enviada', className: 'bg-amber-500 text-white shadow-md' },
-      'vendido': { label: 'Vendido', className: 'bg-green-600 text-white shadow-md' },
-      'perdido': { label: 'Perdido', className: 'bg-red-500 text-white shadow-md' },
-      'no-show': { label: 'No-show', className: 'bg-yellow-500 text-white shadow-md' }
-    }
-
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.novo
-    return <Badge className={config.className}>{config.label}</Badge>
-  }
-
-  const formatCurrency = (value: number | null) => {
-    if (!value) return 'R$ 0,00'
+  const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
     }).format(value)
   }
 
-  const getTotalVendido = () => {
-    return stats.reduce((total, stat) => total + (stat.valor_total_vendido || 0), 0)
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR')
   }
 
-  const getTotalArrecadado = () => {
-    return stats.reduce((total, stat) => total + (stat.valor_total_arrecadado || 0), 0)
+  const handleNewLead = () => {
+    setEditingLead(null)
+    setIsModalOpen(true)
   }
 
-  const getTotalLeads = () => {
-    return stats.reduce((total, stat) => total + stat.quantidade, 0)
+  const handleEditLead = (lead: Lead) => {
+    setEditingLead(lead)
+    setIsModalOpen(true)
   }
 
-  const getCallsRealizadas = () => {
-    // Calls realizadas: proposta_enviada, vendido, perdido, no_show
-    const statusCallsRealizadas = ['proposta_enviada', 'vendido', 'perdido', 'no_show']
-    return stats
-      .filter(stat => statusCallsRealizadas.includes(stat.status))
-      .reduce((total, stat) => total + stat.quantidade, 0)
-  }
-
-  const getTaxaConversaoCall = () => {
-    const callsRealizadas = getCallsRealizadas()
-    const vendidos = stats.find(s => s.status === 'vendido')?.quantidade || 0
-    return callsRealizadas > 0 ? Math.round((vendidos / callsRealizadas) * 100) : 0
-  }
-
-  const getQualificados = () => {
-    return stats.find(s => s.status === 'qualificado')?.quantidade || 0
-  }
-
-  const getCallsJaFeitas = () => {
-    const statusCallsFeitas = ['proposta_enviada', 'vendido', 'perdido']
-    return stats
-      .filter(stat => statusCallsFeitas.includes(stat.status))
-      .reduce((total, stat) => total + stat.quantidade, 0)
-  }
-
-  const getPercentualFaturamento = () => {
-    const valorVendido = getTotalVendido()
-    return settings.meta_faturamento_mes > 0
-      ? Math.round((valorVendido / settings.meta_faturamento_mes) * 100)
-      : 0
-  }
-
-  const getPercentualLeads = () => {
-    const leadsVendidos = stats.find(s => s.status === 'vendido')?.quantidade || 0
-    return settings.meta_vendas_mes > 0
-      ? Math.round((leadsVendidos / settings.meta_vendas_mes) * 100)
-      : 0
-  }
-
-  // Funções para exportar PDF
-  const handleExportPDF = () => {
-    try {
-      const title = `Relatório de Leads - ${dateFilters.filtroTempo === 'todos' ? 'Todos' : dateFilters.filtroTempo}`
-      generateLeadsPDF(filteredLeads, title)
-    } catch (error) {
-      console.error('Erro ao gerar PDF:', error)
-      alert('Erro ao gerar PDF. Tente novamente.')
-    }
-  }
-
-  const handleExportDetailedPDF = () => {
-    try {
-      const title = `Relatório Detalhado de Leads - ${dateFilters.filtroTempo === 'todos' ? 'Todos' : dateFilters.filtroTempo}`
-      generateDetailedLeadsPDF(filteredLeads, title)
-    } catch (error) {
-      console.error('Erro ao gerar PDF detalhado:', error)
-      alert('Erro ao gerar PDF detalhado. Tente novamente.')
-    }
-  }
-
-  const handleExportDashboardPDF = () => {
-    try {
-      const title = `Dashboard de Leads - ${dateFilters.filtroTempo === 'todos' ? 'Todos' : dateFilters.filtroTempo}`
-      generateDashboardPDF(filteredLeads, stats, title)
-    } catch (error) {
-      console.error('Erro ao gerar PDF dashboard:', error)
-      alert('Erro ao gerar PDF dashboard. Tente novamente.')
-    }
-  }
-
-  // Função centralizada para recarregar todos os dados
-  const loadData = async () => {
-    // Primeiro sincronizar leads vendidos para garantir consistência
-    await syncLeadsVendidos()
-
-    // Depois carregar todos os dados
-    await Promise.all([
-      loadLeads(),
-      loadStatsWithCache()
-    ])
-  }
-
-  // Função para atualizar status do lead
-  const updateLeadStatus = async (leadId: string, newStatus: string) => {
-    // Store original lead for rollback
-    const originalLead = leads.find(l => l.id === leadId)
-    if (!originalLead) {
-      console.error('Lead não encontrado para atualização')
-      alert('Erro: Lead não encontrado')
-      return false
-    }
-
-    // Validate status transition
-    const validStatuses = ['novo', 'contactado', 'qualificado', 'nao_qualificado', 'aguardando_resposta',
-                          'call_agendada', 'reagendamento', 'proposta_enviada', 'documentacao_pendente',
-                          'interesse_baixo', 'orcamento_insuficiente', 'vendido', 'perdido', 'no_show', 'reativar']
-
-    if (!validStatuses.includes(newStatus)) {
-      console.error('Status inválido:', newStatus)
-      alert('Erro: Status inválido')
-      return false
-    }
-
-    try {
-      console.log(`Atualizando lead ${leadId} de ${originalLead.status} para ${newStatus}`)
-
-      // Se está marcando como vendido, pegar dados do lead primeiro
-      let leadData = null
-      if (newStatus === 'vendido') {
-        const { data, error: fetchError } = await supabase
-          .from('leads')
-          .select('valor_vendido, valor_arrecadado, nome_completo')
-          .eq('id', leadId)
-          .single()
-
-        if (fetchError) {
-          console.error('Erro ao buscar dados do lead:', fetchError)
-          throw new Error('Não foi possível buscar os dados do lead para venda')
-        }
-        leadData = data
-
-        // Verificar se tem valor de venda definido
-        if (!leadData.valor_vendido || leadData.valor_vendido <= 0) {
-          alert('Para marcar como vendido, é necessário definir o valor de venda. Por favor, edite o lead e adicione o valor vendido.')
-          return false
-        }
-      }
-
-      // Atualizar status do lead
-      const updateData: any = {
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      }
-
-      if (newStatus === 'vendido') {
-        updateData.convertido_em = new Date().toISOString()
-        updateData.data_venda = new Date().toISOString().split('T')[0] // YYYY-MM-DD
-      }
-
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update(updateData)
-        .eq('id', leadId)
-
-      if (updateError) {
-        console.error('Erro ao atualizar lead:', updateError)
-        throw new Error(`Erro ao atualizar status: ${updateError.message}`)
-      }
-
-      // Se está marcando como vendido, salvar na tabela lead_vendas
-      if (newStatus === 'vendido' && leadData) {
-        console.log('Processando venda para lead_vendas...')
-
-        // Verificar se já existe registro na lead_vendas
-        const { data: existingVenda, error: checkError } = await supabase
-          .from('lead_vendas')
-          .select('id')
-          .eq('lead_id', leadId)
-          .single()
-
-        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = not found
-          console.error('Erro ao verificar venda existente:', checkError)
-          throw new Error('Erro ao verificar venda existente')
-        }
-
-        if (!existingVenda) {
-          // Criar registro na lead_vendas
-          const vendaData = {
-            lead_id: leadId,
-            valor_vendido: leadData.valor_vendido || 0,
-            valor_arrecadado: leadData.valor_arrecadado || 0,
-            data_venda: new Date().toISOString().split('T')[0],
-            data_arrecadacao: (leadData.valor_arrecadado && leadData.valor_arrecadado > 0)
-              ? new Date().toISOString().split('T')[0]
-              : null,
-            parcelas: 1,
-            tipo_venda: 'direta',
-            status_pagamento: (leadData.valor_arrecadado && leadData.valor_arrecadado >= leadData.valor_vendido)
-              ? 'pago'
-              : leadData.valor_arrecadado > 0
-                ? 'parcial'
-                : 'pendente',
-            observacoes: `Venda registrada automaticamente via drag and drop - ${leadData.nome_completo}`
-          }
-
-          const { error: vendaError } = await supabase
-            .from('lead_vendas')
-            .insert([vendaData])
-
-          if (vendaError) {
-            console.error('Erro ao criar registro de venda:', vendaError)
-            throw new Error(`Erro ao registrar venda: ${vendaError.message}`)
-          }
-
-          console.log('Venda registrada com sucesso na lead_vendas')
-        } else {
-          console.log('Registro de venda já existe, pulando inserção')
-        }
-      }
-
-      // Recarregar leads e stats
-      console.log('🔄 Recarregando dados após atualização de status para:', newStatus)
-      await loadData()
-
-      console.log(`Lead ${leadId} atualizado com sucesso para ${newStatus}`)
-      return true
-
-    } catch (error) {
-      console.error('Erro ao atualizar status do lead:', error)
-
-      // Show user-friendly error message
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
-      alert(`Erro ao atualizar status do lead: ${errorMessage}`)
-
-      // Reload data to ensure UI consistency
+  const handleDeleteLead = async (leadId: string) => {
+    if (confirm('Tem certeza que deseja excluir este lead?')) {
       try {
-        await loadData()
-      } catch (reloadError) {
-        console.error('Erro ao recarregar dados após falha:', reloadError)
-      }
+        setIsLoadingData(true)
+        const { error } = await supabase
+          .from('leads')
+          .delete()
+          .eq('id', leadId)
 
-      return false
-    }
-  }
+        if (error) throw error
 
-  // Agrupar leads por status para kanban
-  const getLeadsByStatus = () => {
-    const statusColumns = [
-      { key: 'novo', label: 'Novo', color: 'bg-blue-500' },
-      { key: 'contactado', label: 'Contactado', color: 'bg-purple-500' },
-      { key: 'qualificado', label: 'Qualificado', color: 'bg-indigo-500' },
-      { key: 'call_agendada', label: 'Call Agendada', color: 'bg-orange-500' },
-      { key: 'proposta_enviada', label: 'Proposta Enviada', color: 'bg-amber-500' },
-      { key: 'vendido', label: 'Vendido', color: 'bg-green-600' },
-      { key: 'perdido', label: 'Perdido', color: 'bg-red-500' },
-      { key: 'no_show', label: 'No-show', color: 'bg-yellow-500' }
-    ]
-
-    const dateFilter = dateFilters.getDateFilter()
-
-    return statusColumns.map(column => ({
-      ...column,
-      leads: filteredLeads.filter(lead => {
-        // Primeiro filtrar por status
-        if (lead.status !== column.key) return false
-
-        // Se não há filtro de data, incluir todos
-        if (!dateFilter?.start && !dateFilter?.end) return true
-
-        // Aplicar filtro de data
-        let dataParaFiltro
-        if (lead.status === 'vendido') {
-          // Para leads vendidos, usar APENAS data_venda
-          dataParaFiltro = lead.data_venda
-        } else {
-          dataParaFiltro = lead.data_primeiro_contato
-        }
-
-        if (!dataParaFiltro) return false
-
-        const dataObj = new Date(dataParaFiltro)
-        if (dateFilter.start && dateFilter.end) {
-          return dataObj >= new Date(dateFilter.start) && dataObj <= new Date(dateFilter.end)
-        } else if (dateFilter.start) {
-          return dataObj >= new Date(dateFilter.start)
-        } else if (dateFilter.end) {
-          return dataObj <= new Date(dateFilter.end)
-        }
-        return true
-      })
-    }))
-  }
-
-  // Filtrar leads no cliente - busca por texto - SIMPLIFICADO
-  const filteredLeads = React.useMemo(() => {
-    let filtered = leads // Usar leads diretamente em vez de allLeads
-
-    // Filtro de busca por texto (feito no cliente)
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase().trim()
-      filtered = filtered.filter(lead => {
-        return (
-          lead.nome_completo?.toLowerCase().includes(searchLower) ||
-          lead.email?.toLowerCase().includes(searchLower) ||
-          lead.telefone?.toLowerCase().includes(searchLower) ||
-          lead.empresa?.toLowerCase().includes(searchLower) ||
-          lead.cargo?.toLowerCase().includes(searchLower)
-        )
-      })
-    }
-
-    return filtered
-  }, [leads, searchTerm])
-
-  // Remover useEffect que causa loop
-
-  // Obter listas únicas para filtros - usar todos os leads para não perder opções
-  const allStatusOptions = [
-    'todos',
-    'novo',
-    'contactado',
-    'qualificado',
-    'nao_qualificado',
-    'aguardando_resposta',
-    'call_agendada',
-    'reagendamento',
-    'proposta_enviada',
-    'documentacao_pendente',
-    'interesse_baixo',
-    'orcamento_insuficiente',
-    'vendido',
-    'perdido',
-    'no_show',
-    'reativar'
-  ]
-  const statusOptions = allStatusOptions
-  const origemOptions = ['todas', ...Array.from(new Set(leads.map(l => l.origem).filter(Boolean)))]
-  const temperaturaOptions = ['todas', 'frio', 'morno', 'quente']
-
-  // Função para obter badge de temperatura
-  const getTemperaturaBadge = (temperatura: string | null) => {
-    const tempConfig = {
-      'frio': { label: '❄️ Frio', className: 'bg-blue-100 text-blue-700 border-blue-200' },
-      'morno': { label: '🔥 Morno', className: 'bg-orange-100 text-orange-700 border-orange-200' },
-      'quente': { label: '🚀 Quente', className: 'bg-red-100 text-red-700 border-red-200' }
-    }
-
-    const config = tempConfig[temperatura as keyof typeof tempConfig] || tempConfig.frio
-    return <Badge className={config.className}>{config.label}</Badge>
-  }
-
-  const getChartData = () => {
-    // Pie chart data for status distribution
-    const statusData = stats.map(stat => ({
-      name: stat.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-      value: stat.quantidade,
-      fill: getStatusColor(stat.status)
-    }))
-
-    // Bar chart data for revenue by status
-    const revenueData = stats.map(stat => ({
-      name: stat.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-      vendido: stat.valor_total_vendido || 0,
-      arrecadado: stat.valor_total_arrecadado || 0
-    }))
-
-    // Origin distribution
-    const origemData = leads.reduce((acc, lead) => {
-      const origem = lead.origem || 'Não informado'
-      if (!acc[origem]) {
-        acc[origem] = 0
-      }
-      acc[origem]++
-      return acc
-    }, {} as Record<string, number>)
-
-    const origemChartData = Object.entries(origemData).map(([key, value]) => ({
-      name: key,
-      value,
-      fill: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`
-    }))
-
-    return { statusData, revenueData, origemChartData }
-  }
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      'novo': '#3b82f6',
-      'contactado': '#8b5cf6',
-      'qualificado': '#06b6d4',
-      'call_agendada': '#f59e0b',
-      'proposta_enviada': '#eab308',
-      'vendido': '#10b981',
-      'no-show': '#f97316',
-      'cancelado': '#ef4444'
-    }
-    return colors[status] || '#6b7280'
-  }
-
-  // Drag and drop functions
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event
-    const lead = leads.find(l => l.id === active.id)
-    setActiveId(active.id as string)
-    setDraggedLead(lead || null)
-  }
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
-
-    setActiveId(null)
-    setDraggedLead(null)
-
-    if (!over) {
-      console.log('Drag cancelado: nenhum destino válido')
-      return
-    }
-
-    const leadId = active.id as string
-    const newStatus = over.id as string
-
-    // Se o status não mudou, não faz nada
-    const currentLead = leads.find(l => l.id === leadId)
-    if (!currentLead) {
-      console.error('Lead não encontrado no drag end:', leadId)
-      return
-    }
-
-    if (currentLead.status === newStatus) {
-      console.log('Status não mudou, ignorando drag')
-      return
-    }
-
-    console.log(`Drag and drop: ${leadId} de ${currentLead.status} para ${newStatus}`)
-
-    // Show loading state during update
-    const leadCard = document.querySelector(`[data-lead-id="${leadId}"]`)
-    if (leadCard) {
-      leadCard.classList.add('opacity-50')
-    }
-
-    try {
-      // Atualizar o lead no banco de dados
-      const success = await updateLeadStatus(leadId, newStatus)
-
-      if (!success) {
-        console.log('Atualização de status falhou, mantendo posição original')
-      }
-    } catch (error) {
-      console.error('Erro crítico no drag and drop:', error)
-      alert('Erro crítico ao mover lead. Recarregando página...')
-
-      // Force reload on critical error
-      setTimeout(() => {
-        window.location.reload()
-      }, 2000)
-    } finally {
-      // Remove loading state
-      if (leadCard) {
-        leadCard.classList.remove('opacity-50')
+        // Recarregar dados em vez de filtrar localmente
+        await loadLeads()
+        await loadStats()
+        await loadOrigemData()
+      } catch (error) {
+        console.error('Erro ao excluir lead:', error)
+        setIsLoadingData(false)
       }
     }
   }
 
-
-  // Draggable Lead Card Component
-  const DraggableLeadCard = ({ lead, column }: { lead: Lead, column: any }) => {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({ id: lead.id })
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.5 : 1,
-    }
-
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        {...attributes}
-        {...listeners}
-        data-lead-id={lead.id}
-        className={`bg-white border rounded-lg p-3 cursor-grab hover:shadow-md transition-all duration-200 relative ${
-          isDragging ? 'shadow-lg rotate-3 scale-105' : ''
-        } hover:border-blue-300`}
-        onClick={(e) => {
-          // Only open edit if not dragging
-          if (!isDragging) {
-            handleEdit(lead)
-          }
-        }}
-      >
-        {/* Drag indicator */}
-        <div className="absolute top-2 right-2 text-gray-400 opacity-60 hover:opacity-100 transition-opacity">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 6H10V8H8V6ZM14 6H16V8H14V6ZM8 10H10V12H8V10ZM14 10H16V12H14V10ZM8 14H10V16H8V14ZM14 14H16V16H14V14Z" fill="currentColor"/>
-          </svg>
-        </div>
-        <div className="space-y-2">
-          <h4 className="font-medium text-sm text-gray-900 truncate">
-            {lead.nome_completo}
-          </h4>
-
-          {lead.empresa && (
-            <div className="flex items-center text-xs text-gray-600">
-              <Building className="w-3 h-3 mr-1" />
-              <span className="truncate">{lead.empresa}</span>
-            </div>
-          )}
-
-          {lead.email && (
-            <div className="flex items-center text-xs text-gray-600">
-              <Mail className="w-3 h-3 mr-1" />
-              <span className="truncate">{lead.email}</span>
-            </div>
-          )}
-
-          {lead.telefone && (
-            <div className="flex items-center text-xs text-gray-600">
-              <Phone className="w-3 h-3 mr-1" />
-              <span className="truncate">{lead.telefone}</span>
-            </div>
-          )}
-
-          {(lead.valor_vendido || lead.valor_arrecadado) && (
-            <div className="text-xs space-y-1">
-              {lead.valor_vendido && (
-                <div className="text-green-600 font-semibold">
-                  Vendido: {formatCurrency(lead.valor_vendido)}
-                </div>
-              )}
-              {lead.valor_arrecadado && (
-                <div className="text-blue-600">
-                  Arrecadado: {formatCurrency(lead.valor_arrecadado)}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Status PIX */}
-          <div className="flex items-center justify-between text-xs mt-2">
-            {lead.pix_paid ? (
-              <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded">
-                <span>✅ PIX OK</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 bg-orange-100 text-orange-700 px-2 py-1 rounded">
-                <span>⏳ PIX Pendente</span>
-              </div>
-            )}
-          </div>
-
-          {/* Quick Status Change */}
-          <div className="flex gap-1 mt-2">
-            {column.key !== 'vendido' && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs h-6 px-2"
-                onClick={async (e) => {
-                  e.stopPropagation()
-                  const nextStatus = column.key === 'novo' ? 'contactado'
-                    : column.key === 'contactado' ? 'qualificado'
-                    : column.key === 'qualificado' ? 'call_agendada'
-                    : column.key === 'call_agendada' ? 'proposta_enviada'
-                    : column.key === 'proposta_enviada' ? 'vendido'
-                    : 'vendido'
-
-                  // Disable button during update
-                  const button = e.currentTarget
-                  const originalText = button.textContent
-                  button.disabled = true
-                  button.textContent = 'Atualizando...'
-
-                  try {
-                    await updateLeadStatus(lead.id, nextStatus)
-                  } finally {
-                    button.disabled = false
-                    button.textContent = originalText
-                  }
-                }}
-              >
-                Avançar
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    )
+  const handleViewDetails = (lead: Lead) => {
+    router.push(`/leads/${lead.id}`)
   }
 
   if (loading) {
     return (
-      <div className="flex-1 overflow-y-auto">
-        <Header title="Leads" subtitle="Carregando..." />
-        <main className="flex-1 p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
-              ))}
-            </div>
-          </div>
-        </main>
-      </div>
+      <PageLayout title="Leads" subtitle="Carregando...">
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#059669]"></div>
+        </div>
+      </PageLayout>
     )
   }
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <Header
-        title="Leads"
-        subtitle={
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-            <span>{getTotalLeads()} leads</span>
-            <span className="hidden sm:inline">•</span>
-            <span>Vendido: {formatCurrency(getTotalVendido())}</span>
-            <span className="hidden sm:inline">•</span>
-            <span>Arrecadado: {formatCurrency(getTotalArrecadado())}</span>
-          </div>
-        }
-      />
+    <PageLayout title="Leads" subtitle="Gestão completa de leads e oportunidades">
+      {/* KPI Cards - Grid responsivo */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <KPICardVibrant
+          title="Total de Leads"
+          value={stats.total_leads.toString()}
+          subtitle="Este mês"
+          percentage={15}
+          trend="up"
+          color="blue"
+          icon={Users}
+          sparklineData={[
+            { value: 20 }, { value: 25 }, { value: 30 }, { value: 28 },
+            { value: 35 }, { value: 38 }, { value: 42 }, { value: stats.total_leads }
+          ]}
+        />
+        <MetricCard
+          title="Taxa de Conversão"
+          value={`${stats.taxa_conversao.toFixed(1)}%`}
+          change={2.5}
+          changeType="increase"
+          icon={Target}
+          iconColor="green"
+        />
+        <MetricCard
+          title="Valor em Vendas"
+          value={formatCurrency(stats.valor_total_vendas)}
+          change={18}
+          changeType="increase"
+          icon={DollarSign}
+          iconColor="orange"
+        />
+        <MetricCard
+          title="Ticket Médio"
+          value={formatCurrency(stats.ticket_medio)}
+          change={8}
+          changeType="increase"
+          icon={TrendingUp}
+          iconColor="purple"
+        />
+      </div>
 
-      <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
-        {/* Metas do Mês - Seção EXATA conforme especificado */}
-        <section className="goals-section">
-          <div className="goals-bg"></div>
-
-          <div className="goals-card">
-            {/* Faturamento */}
-            <div className="goal-item goal-item--faturamento">
-              <div className="goal-item-header">
-                <div>
-                  <div className="goal-title">Faturamento</div>
-                  <div className="goal-subtitle">Meta mensal</div>
-                </div>
-                <div className="goal-percent">{getPercentualFaturamento()}%</div>
-              </div>
-
-              <div className="goal-values">
-                <span>Realizado: {formatCurrency(getTotalVendido())}</span>
-                <span>Meta: {formatCurrency(settings.meta_faturamento_mes)}</span>
-              </div>
-
-              <div className="goal-progress" style={{'--progress': `${Math.min(getPercentualFaturamento(), 100)}%`} as React.CSSProperties}>
-                <div></div>
-              </div>
+      {/* Gráficos - Grid responsivo */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Gráfico de Taxa de Conversão */}
+        <div className="lg:col-span-2">
+          <ChartCard title="Evolução da Taxa de Conversão" subtitle="Últimos 6 meses">
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={conversionData}>
+                  <defs>
+                    <linearGradient id="colorConversion" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#059669" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                  <XAxis dataKey="month" stroke="#94A3B8" fontSize={12} />
+                  <YAxis stroke="#94A3B8" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '12px',
+                      boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="taxa"
+                    stroke="#059669"
+                    fillOpacity={1}
+                    fill="url(#colorConversion)"
+                    strokeWidth={3}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-
-            {/* Leads Vendidos */}
-            <div className="goal-item goal-item--leads">
-              <div className="goal-item-header">
-                <div>
-                  <div className="goal-title">Leads Vendidos</div>
-                  <div className="goal-subtitle">Meta mensal</div>
-                </div>
-                <div className="goal-percent">{getPercentualLeads()}%</div>
-              </div>
-
-              <div className="goal-values">
-                <span>Vendidos: {stats.find(s => s.status === 'vendido')?.quantidade || 0}</span>
-                <span>Meta: {settings.meta_vendas_mes}</span>
-              </div>
-
-              <div className="goal-progress" style={{'--progress': `${Math.min(getPercentualLeads(), 100)}%`} as React.CSSProperties}>
-                <div></div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Cards de Estatísticas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total de Leads</p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {getTotalLeads()}
-                  </p>
-                </div>
-                <Users className="h-8 w-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Qualificados</p>
-                  <p className="text-2xl font-bold text-indigo-600">
-                    {getQualificados()}
-                  </p>
-                </div>
-                <Target className="h-8 w-8 text-indigo-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Calls Já Feitas</p>
-                  <p className="text-2xl font-bold text-amber-600">
-                    {getCallsJaFeitas()}
-                  </p>
-                </div>
-                <PhoneCall className="h-8 w-8 text-amber-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Calls Realizadas</p>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {getCallsRealizadas()}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {getTaxaConversaoCall()}% conversão • Vendas/Calls
-                  </p>
-                </div>
-                <PhoneCall className="h-8 w-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Vendidos</p>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {stats.find(s => s.status === 'vendido')?.quantidade || 0}
-                  </p>
-                </div>
-                <Target className="h-8 w-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Valor Vendido</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {formatCurrency(getTotalVendido())}
-                  </p>
-                </div>
-                <DollarSign className="h-8 w-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Valor Arrecadado</p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(getTotalArrecadado())}
-                  </p>
-                </div>
-                <DollarSign className="h-8 w-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
+          </ChartCard>
         </div>
 
-        {/* Controles de Visualização */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h2 className="text-xl font-semibold">Todos os Leads ({filteredLeads.length})</h2>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            {/* Toggle Kanban/Tabela */}
-            <div className="flex bg-gray-100 rounded-lg p-1">
-              <Button
-                variant={viewMode === 'table' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('table')}
-                className="flex items-center gap-2"
-              >
-                <Table className="w-4 h-4" />
-                Tabela
-              </Button>
-              <Button
-                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('kanban')}
-                className="flex items-center gap-2"
-              >
-                <LayoutGrid className="w-4 h-4" />
-                Kanban
-              </Button>
+        {/* Gráfico de Origem dos Leads */}
+        <ChartCard title="Origem dos Leads" subtitle="Performance por canal">
+          <div className="h-80 flex flex-col items-center justify-center">
+            <ResponsiveContainer width="100%" height="60%">
+              <PieChart>
+                <Pie
+                  data={origemData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={80}
+                  paddingAngle={4}
+                  dataKey="value"
+                  onClick={(data) => {
+                    setSelectedOrigem(data)
+                    setShowOrigemModal(true)
+                  }}
+                >
+                  {origemData.map((entry, index) => (
+                    <Cell
+                      key={index}
+                      fill={entry.color}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value, name) => [value, 'Leads']}
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="grid grid-cols-1 gap-1 w-full mt-2 max-h-32 overflow-y-auto">
+              {origemData.map((entry, index) => (
+                <div key={index} className="flex items-center justify-between p-2 hover:bg-[#F8FAFC] rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: entry.color }}
+                    />
+                    <span className="text-xs text-[#475569] font-medium">
+                      {entry.name}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-[#0F172A] font-semibold">
+                      {entry.value} leads
+                    </div>
+                    <div className="text-xs text-[#059669]">
+                      {formatCurrency(entry.valorPago)}
+                    </div>
+                    <div className="text-xs text-[#94A3B8]">
+                      {entry.taxaConversao.toFixed(1)}% conv.
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-
-            <Button
-              variant="outline"
-              onClick={() => setDashboardModalOpen(true)}
-            >
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Dashboard
-            </Button>
-
-            {/* Botões de Exportar PDF */}
-            <Button
-              onClick={handleExportDashboardPDF}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2 text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
-            >
-              <BarChart3 className="w-4 h-4" />
-              PDF Dashboard
-            </Button>
-            <Button
-              onClick={handleExportPDF}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-            >
-              <FileDown className="w-4 h-4" />
-              PDF Resumo
-            </Button>
-            <Button
-              onClick={handleExportDetailedPDF}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-            >
-              <FileDown className="w-4 h-4" />
-              PDF Detalhado
-            </Button>
-
-            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={resetForm}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Novo Lead
-                </Button>
-              </DialogTrigger>
-            <DialogContent className="max-w-lg w-[95vw] max-h-[90vh] overflow-y-auto bg-gradient-to-br from-green-50 to-yellow-50 border-2 border-green-200">
-              <DialogHeader className="text-center pb-6">
-                <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-green-700 to-yellow-600 bg-clip-text text-transparent">
-                  {editingLead ? '✨ Editar Lead' : '🌟 Novo Lead'}
-                </DialogTitle>
-                <p className="text-sm text-green-600 mt-2">Informações essenciais do prospect</p>
-              </DialogHeader>
-
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Nome Completo */}
-                <div className="space-y-2">
-                  <Label htmlFor="nome_completo" className="text-green-800 font-semibold">
-                    👤 Nome Completo *
-                  </Label>
-                  <Input
-                    id="nome_completo"
-                    value={formData.nome_completo}
-                    onChange={(e) => setFormData({...formData, nome_completo: e.target.value})}
-                    required
-                    className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
-                    placeholder="Digite o nome completo..."
-                  />
-                </div>
-
-                {/* Email e Telefone */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-green-800 font-semibold">
-                      📧 Email
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
-                      placeholder="email@exemplo.com"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="telefone" className="text-green-800 font-semibold">
-                      📞 Telefone
-                    </Label>
-                    <Input
-                      id="telefone"
-                      value={formData.telefone}
-                      onChange={(e) => setFormData({...formData, telefone: e.target.value})}
-                      className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
-                      placeholder="(11) 99999-9999"
-                    />
-                  </div>
-                </div>
-
-                {/* Empresa e Cargo */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="empresa" className="text-green-800 font-semibold">
-                      🏢 Empresa
-                    </Label>
-                    <Input
-                      id="empresa"
-                      value={formData.empresa}
-                      onChange={(e) => setFormData({...formData, empresa: e.target.value})}
-                      className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
-                      placeholder="Nome da empresa..."
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="cargo" className="text-green-800 font-semibold">
-                      👔 Cargo
-                    </Label>
-                    <Input
-                      id="cargo"
-                      value={formData.cargo}
-                      onChange={(e) => setFormData({...formData, cargo: e.target.value})}
-                      className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
-                      placeholder="Cargo/função..."
-                    />
-                  </div>
-                </div>
-
-                {/* Origem e Status */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="origem" className="text-green-800 font-semibold">
-                      📍 Origem
-                    </Label>
-                    <Select value={formData.origem} onValueChange={(value) => setFormData({...formData, origem: value})}>
-                      <SelectTrigger className="border-2 border-green-200 focus:border-yellow-400 bg-white/70">
-                        <SelectValue placeholder="Selecione a origem..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border-green-200">
-                        <SelectItem value="facebook">📘 Facebook</SelectItem>
-                        <SelectItem value="instagram">📸 Instagram</SelectItem>
-                        <SelectItem value="google">🔍 Google</SelectItem>
-                        <SelectItem value="indicacao">🤝 Indicação</SelectItem>
-                        <SelectItem value="linkedin">💼 LinkedIn</SelectItem>
-                        <SelectItem value="website">🌐 Website</SelectItem>
-                        <SelectItem value="outros">📋 Outros</SelectItem>
-                        <SelectItem value="whatsapp">💬 WhatsApp</SelectItem>
-                        <SelectItem value="youtube">📺 YouTube</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="status" className="text-green-800 font-semibold">
-                      🎯 Status
-                    </Label>
-                    <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
-                      <SelectTrigger className="border-2 border-green-200 focus:border-yellow-400 bg-white/70">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border-green-200">
-                        <SelectItem value="novo">🔵 Novo</SelectItem>
-                        <SelectItem value="contactado">🟣 Contactado</SelectItem>
-                        <SelectItem value="qualificado">🟦 Qualificado</SelectItem>
-                        <SelectItem value="call_agendada">🟠 Call Agendada</SelectItem>
-                        <SelectItem value="proposta_enviada">🟡 Proposta Enviada</SelectItem>
-                        <SelectItem value="vendido">🟢 Vendido</SelectItem>
-                        <SelectItem value="perdido">🔴 Perdido</SelectItem>
-                        <SelectItem value="no-show">🟨 No-show</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="temperatura" className="text-sm font-semibold text-green-800 flex items-center gap-2">
-                      🌡️ Temperatura
-                    </Label>
-                    <Select value={formData.temperatura} onValueChange={(value) => setFormData({...formData, temperatura: value})}>
-                      <SelectTrigger className="border-2 border-green-200 focus:border-yellow-400 bg-white/70">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border-green-200">
-                        <SelectItem value="frio">❄️ Frio</SelectItem>
-                        <SelectItem value="morno">🔥 Morno</SelectItem>
-                        <SelectItem value="quente">🚀 Quente</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Valores Financeiros */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="valor_vendido" className="text-green-800 font-semibold">
-                      💰 Valor Vendido
-                    </Label>
-                    <Input
-                      id="valor_vendido"
-                      type="number"
-                      step="0.01"
-                      value={formData.valor_vendido}
-                      onChange={(e) => setFormData({...formData, valor_vendido: e.target.value})}
-                      className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
-                      placeholder="Ex: 1500.00"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="valor_arrecadado" className="text-green-800 font-semibold">
-                      💵 Valor Arrecadado
-                    </Label>
-                    <Input
-                      id="valor_arrecadado"
-                      type="number"
-                      step="0.01"
-                      value={formData.valor_arrecadado}
-                      onChange={(e) => setFormData({...formData, valor_arrecadado: e.target.value})}
-                      className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70"
-                      placeholder="Ex: 750.00"
-                    />
-                  </div>
-                </div>
-
-                {/* Informações de Pagamento Pix */}
-                <div className="space-y-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                  <h3 className="text-lg font-semibold text-blue-800 flex items-center gap-2">
-                    💳 Informações de Pagamento PIX
-                    <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                      Para confirmação da call
-                    </span>
-                  </h3>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Chave Pix para devolução */}
-                    <div className="space-y-2">
-                      <Label htmlFor="pix_key" className="text-blue-800 font-semibold">
-                        🔑 Chave Pix para Devolução
-                      </Label>
-                      <Input
-                        id="pix_key"
-                        value={formData.pix_key}
-                        onChange={(e) => setFormData({...formData, pix_key: e.target.value})}
-                        className="border-2 border-blue-200 focus:border-blue-400 focus:ring-blue-200 bg-white/70"
-                        placeholder="CPF, email, telefone ou chave aleatória..."
-                      />
-                      <p className="text-xs text-blue-600">
-                        💡 Chave que o lead usará caso precise devolver o valor pago
-                      </p>
-                    </div>
-
-                    {/* Status do pagamento */}
-                    <div className="space-y-2">
-                      <Label htmlFor="pix_paid" className="text-blue-800 font-semibold">
-                        ✅ Status do Pagamento PIX
-                      </Label>
-                      <div className="flex items-center space-x-2 p-3 border-2 border-blue-200 rounded-md bg-white/70">
-                        <input
-                          type="checkbox"
-                          id="pix_paid"
-                          checked={formData.pix_paid}
-                          onChange={(e) => setFormData({...formData, pix_paid: e.target.checked})}
-                          className="w-4 h-4 text-blue-600 border-2 border-blue-300 rounded focus:ring-blue-500"
-                        />
-                        <Label htmlFor="pix_paid" className="text-sm font-medium text-blue-700">
-                          {formData.pix_paid ? '✅ PIX pago - Call confirmada' : '⏳ PIX pendente'}
-                        </Label>
-                      </div>
-                      {formData.pix_paid && (
-                        <p className="text-xs text-green-600 bg-green-50 p-2 rounded border border-green-200">
-                          🎉 Pagamento confirmado! A call está garantida.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-blue-100 p-3 rounded-lg border border-blue-300">
-                    <p className="text-sm text-blue-800">
-                      <strong>📋 Instruções:</strong>
-                    </p>
-                    <ul className="text-xs text-blue-700 mt-1 space-y-1">
-                      <li>• <strong>Chave Pix:</strong> Registre a chave que o lead informou para possível devolução</li>
-                      <li>• <strong>Status:</strong> Marque como "pago" apenas após confirmar o recebimento do PIX</li>
-                      <li>• <strong>Call:</strong> Leads que pagaram têm prioridade no agendamento</li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Observações - Destaque especial */}
-                <div className="space-y-2">
-                  <Label htmlFor="observacoes" className="text-green-800 font-semibold flex items-center gap-2">
-                    📝 Observações Importantes
-                    <span className="text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded-full">
-                      Campo essencial
-                    </span>
-                  </Label>
-                  <Textarea
-                    id="observacoes"
-                    value={formData.observacoes}
-                    onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
-                    rows={4}
-                    className="border-2 border-green-200 focus:border-yellow-400 focus:ring-yellow-200 bg-white/70 resize-none"
-                    placeholder="Adicione observações sobre o lead, contexto da conversa, interesses, objeções, próximos passos..."
-                  />
-                  <p className="text-xs text-green-600">
-                    💡 Dica: Detalhe o máximo possível para um melhor acompanhamento
-                  </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t border-green-200">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsModalOpen(false)}
-                    className="border-2 border-gray-300 hover:border-red-300 hover:text-red-600"
-                  >
-                    ❌ Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="bg-gradient-to-r from-green-600 to-yellow-500 hover:from-green-700 hover:to-yellow-600 text-white font-semibold shadow-lg"
-                  >
-                    {editingLead ? '✅ Atualizar Lead' : '🚀 Criar Lead'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
           </div>
-        </div>
+        </ChartCard>
+      </div>
 
-        {/* Seção de Pesquisa e Filtros */}
-        <div className="space-y-4">
-          {/* Barra de Pesquisa */}
-          <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Buscar por nome, email, telefone, empresa ou cargo..."
+      {/* Ações e Busca */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#94A3B8] w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Buscar leads..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-10"
-              autoComplete="off"
+              className="pl-10 pr-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all w-full sm:w-80"
             />
-            {searchTerm && (
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 hover:bg-gray-100"
-                  onClick={() => setSearchTerm('')}
+          </div>
+
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-sm font-medium transition-colors ${
+              showFilters
+                ? 'bg-[#059669] text-white border-[#059669]'
+                : 'bg-white text-[#475569] border-[#E2E8F0] hover:bg-[#F1F5F9]'
+            }`}
+          >
+            <Filter className="w-4 h-4" />
+            Filtros
+            {(statusFilter !== 'todos' || origemFilter !== 'todas' || temperaturaFilter !== 'todas' || dateFilter !== 'mes_atual') && (
+              <span className="ml-1 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
+                {[statusFilter !== 'todos', origemFilter !== 'todas', temperaturaFilter !== 'todas', dateFilter !== 'mes_atual'].filter(Boolean).length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <button
+            onClick={loadLeads}
+            className="flex items-center gap-2 px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Atualizar
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors">
+            <Download className="w-4 h-4" />
+            Exportar
+          </button>
+          <button
+            onClick={handleNewLead}
+            className="flex items-center gap-2 px-6 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Lead
+          </button>
+        </div>
+      </div>
+
+      {/* Filtros Expandíveis */}
+      {showFilters && (
+        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-[#475569] mb-2">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+              >
+                <option value="todos">Todos os Status</option>
+                {availableStatuses.map(status => (
+                  <option key={status} value={status}>
+                    {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-[#475569] mb-2">Origem</label>
+              <select
+                value={origemFilter}
+                onChange={(e) => setOrigemFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+              >
+                <option value="todas">Todas as Origens</option>
+                {availableOrigens.map(origem => (
+                  <option key={origem} value={origem}>{origem}</option>
+                ))}
+              </select>
+            </div>
+
+            {availableTemperaturas.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-[#475569] mb-2">Temperatura</label>
+                <select
+                  value={temperaturaFilter}
+                  onChange={(e) => setTemperaturaFilter(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
                 >
-                  ✕
-                </Button>
+                  <option value="todas">Todas as Temperaturas</option>
+                  {availableTemperaturas.map(temp => (
+                    <option key={temp} value={temp}>{temp}</option>
+                  ))}
+                </select>
               </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-medium text-[#475569] mb-2">Período</label>
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+              >
+                <option value="mes_atual">Mês Atual</option>
+                <option value="semana_atual">Semana Atual</option>
+                <option value="semana_passada">Última Semana</option>
+                <option value="mes_passado">Mês Passado</option>
+                <option value="personalizado">Personalizado</option>
+                <option value="todos">Todas as Datas</option>
+              </select>
+            </div>
+
+            {dateFilter === 'personalizado' && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-[#475569] mb-2">Data Início</label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[#475569] mb-2">Data Fim</label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+                  />
+                </div>
+              </>
             )}
           </div>
 
-          {/* Filtros Avançados de Data */}
-          <DateFilters
-            filtroTempo={dateFilters.filtroTempo}
-            dataInicio={dateFilters.dataInicio}
-            dataFim={dateFilters.dataFim}
-            setFiltroTempo={dateFilters.setFiltroTempo}
-            setDataInicio={dateFilters.setDataInicio}
-            setDataFim={dateFilters.setDataFim}
-            resetFilters={dateFilters.resetFilters}
-          />
-
-          {/* Filtros */}
-          <div className="flex flex-wrap gap-4">
-            {/* Filtro por Status */}
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-500" />
-              <span className="text-sm text-gray-600">Status:</span>
-              <div className="flex flex-wrap gap-1">
-                {statusOptions.map(status => (
-                  <Button
-                    key={status}
-                    variant={statusFilter === status ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setStatusFilter(status)}
-                    className="capitalize text-xs"
-                  >
-                    {status === 'todos' ? 'Todos' : status.replace('_', ' ')}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Filtro por Origem */}
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4"></div>
-              <span className="text-sm text-gray-600">Origem:</span>
-              <div className="flex flex-wrap gap-1">
-                {origemOptions.map(origem => (
-                  <Button
-                    key={origem}
-                    variant={origemFilter === origem ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setOrigemFilter(origem || 'todas')}
-                    className="capitalize text-xs"
-                  >
-                    {origem === 'todas' ? 'Todas' : origem}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Filtro por Temperatura */}
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4"></div>
-              <span className="text-sm text-gray-600">Temperatura:</span>
-              <div className="flex flex-wrap gap-1">
-                {temperaturaOptions.map(temp => (
-                  <Button
-                    key={temp}
-                    variant={temperaturaFilter === temp ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setTemperaturaFilter(temp)}
-                    className="capitalize text-xs"
-                  >
-                    {temp === 'todas' ? 'Todas' : temp === 'frio' ? '❄️ Frio' : temp === 'morno' ? '🔥 Morno' : '🚀 Quente'}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        {/* Kanban Board */}
-        {viewMode === 'kanban' && (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="space-y-4">
-              {/* Instructions */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-                💡 <strong>Dica:</strong> Arraste os cards entre as colunas para alterar o status dos leads. Use o ícone ⋮⋮ no canto superior direito de cada card.
-              </div>
-
-              {/* Responsive horizontal scroll container */}
-              <div className="overflow-x-auto pb-4">
-                <div className="flex gap-4 min-w-max">
-                  {getLeadsByStatus().map(column => {
-                    const DroppableCardContent = () => {
-                      const { isOver, setNodeRef } = useDroppable({
-                        id: column.key,
-                      })
-
-                      return (
-                        <CardContent
-                          ref={setNodeRef}
-                          className={`p-2 space-y-2 min-h-[400px] transition-all duration-200 ${
-                            isOver ? 'bg-blue-50/50' : ''
-                          }`}
-                        >
-                          <SortableContext
-                            items={column.leads.map(lead => lead.id)}
-                            strategy={verticalListSortingStrategy}
-                          >
-                            {column.leads.map(lead => (
-                              <DraggableLeadCard
-                                key={lead.id}
-                                lead={lead}
-                                column={column}
-                              />
-                            ))}
-                          </SortableContext>
-
-                          {column.leads.length === 0 && (
-                            <div className="text-center text-gray-400 text-sm py-8 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
-                              Solte aqui
-                            </div>
-                          )}
-                        </CardContent>
-                      )
-                    }
-
-                    return (
-                      <div key={column.key} className="w-80 flex-shrink-0">
-                        <Card className="h-fit">
-                          <CardHeader className={`${column.color} text-white rounded-t-lg py-3`}>
-                            <CardTitle className="text-sm font-semibold flex items-center justify-between">
-                              {column.label}
-                              <Badge variant="secondary" className="bg-white/20 text-white">
-                                {column.leads.length}
-                              </Badge>
-                            </CardTitle>
-                          </CardHeader>
-                          <DroppableCardContent />
-                        </Card>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Drag Overlay */}
-            <DragOverlay>
-              {activeId && draggedLead ? (
-                <div className="bg-white border-2 border-blue-500 rounded-lg p-3 shadow-xl opacity-95 transform rotate-3 scale-105">
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm text-gray-900 truncate">
-                      {draggedLead.nome_completo}
-                    </h4>
-                    {draggedLead.empresa && (
-                      <div className="flex items-center text-xs text-gray-600">
-                        <Building className="w-3 h-3 mr-1" />
-                        <span className="truncate">{draggedLead.empresa}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        )}
-
-        {/* Lista de Leads */}
-        {viewMode === 'table' && (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[800px]">
-                <thead className="bg-gradient-to-r from-green-100 to-yellow-100">
-                  <tr>
-                    <th className="text-left p-4 font-semibold text-green-800">👤 Lead</th>
-                    <th className="text-left p-4 font-semibold text-green-800">📞 Contato</th>
-                    <th className="text-left p-4 font-semibold text-green-800">🏢 Empresa</th>
-                    <th className="text-left p-4 font-semibold text-green-800">📍 Origem</th>
-                    <th className="text-left p-4 font-semibold text-green-800">🎯 Status</th>
-                    <th className="text-center p-4 font-semibold text-green-800">💳 PIX</th>
-                    <th className="text-right p-4 font-semibold text-green-800">💰 Valores</th>
-                    <th className="text-left p-4 font-semibold text-green-800">📝 Observações</th>
-                    <th className="text-center p-4 font-semibold text-green-800">⚙️ Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLeads.map((lead) => (
-                    <tr key={lead.id} className="border-t hover:bg-gradient-to-r hover:from-green-50 hover:to-yellow-50 transition-all duration-200">
-                      <td className="p-4">
-                        <div>
-                          <p className="font-medium text-green-800">{lead.nome_completo}</p>
-                          <p className="text-xs text-gray-500">{lead.cargo}</p>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="space-y-1">
-                          {lead.email && (
-                            <div className="flex items-center text-xs">
-                              <Mail className="w-3 h-3 mr-1 text-gray-400" />
-                              <span className="text-gray-700">{lead.email}</span>
-                            </div>
-                          )}
-                          {lead.telefone && (
-                            <div className="flex items-center text-xs">
-                              <Phone className="w-3 h-3 mr-1 text-gray-400" />
-                              <span className="text-gray-700">{lead.telefone}</span>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        {lead.empresa && (
-                          <div className="flex items-center text-sm">
-                            <Building className="w-3 h-3 mr-1 text-gray-400" />
-                            <span className="text-gray-700">{lead.empresa}</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <Badge variant="outline" className="text-xs border-green-300 text-green-700 bg-green-50">
-                          {lead.origem || 'Não informado'}
-                        </Badge>
-                      </td>
-                      <td className="p-4">
-                        {getStatusBadge(lead.status)}
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="space-y-1">
-                          {lead.pix_paid ? (
-                            <div className="flex flex-col items-center">
-                              <Badge className="bg-green-100 text-green-800 border-green-300">
-                                ✅ PIX Pago
-                              </Badge>
-                              {lead.pix_paid_at && (
-                                <span className="text-xs text-green-600 mt-1">
-                                  {new Date(lead.pix_paid_at).toLocaleDateString('pt-BR')}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <Badge className="bg-orange-100 text-orange-800 border-orange-300">
-                              ⏳ Pendente
-                            </Badge>
-                          )}
-                          {lead.pix_key && (
-                            <div className="text-xs text-gray-600 mt-1 max-w-24 truncate" title={lead.pix_key}>
-                              🔑 {lead.pix_key}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-4 text-right">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-green-600">
-                            {lead.valor_vendido ? `Vendido: ${formatCurrency(lead.valor_vendido)}` : '-'}
-                          </div>
-                          <div className="text-xs text-blue-600">
-                            {lead.valor_arrecadado ? `Arrecadado: ${formatCurrency(lead.valor_arrecadado)}` : '-'}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-4 max-w-xs">
-                        {lead.observacoes ? (
-                          <div className="relative group">
-                            <p className="text-sm text-gray-700 line-clamp-2 cursor-help">
-                              {lead.observacoes}
-                            </p>
-                            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 max-w-xs shadow-lg">
-                              {lead.observacoes}
-                              <div className="absolute top-full left-4 border-4 border-transparent border-t-gray-800"></div>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">Sem observações</span>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center justify-center space-x-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => window.location.href = `/leads/${lead.id}`}
-                            className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                            title="Tracking completo do lead"
-                          >
-                            <Activity className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEdit(lead)}
-                            className="border-green-300 text-green-700 hover:bg-green-50"
-                            title="Editar lead"
-                          >
-                            <Edit className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDelete(lead.id)}
-                            className="border-red-300 text-red-700 hover:bg-red-50"
-                            title="Excluir lead"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {/* Skeleton Loading */}
-              {loading && (
-                <div className="space-y-4 p-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="animate-pulse flex space-x-4">
-                      <div className="rounded-full bg-gray-200 h-10 w-10"></div>
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Botão Carregar Mais */}
-              {hasNextPage && !loading && (
-                <div className="p-4 text-center">
-                  <Button
-                    onClick={() => loadLeads(currentPage + 1, true)}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    Carregar Mais ({totalCount - leads.length} restantes)
-                  </Button>
-                </div>
-              )}
-
-              {/* Info de paginação */}
-              <div className="p-4 text-sm text-gray-500 text-center border-t">
-                Mostrando {leads.length} de {totalCount} leads
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        )}
-
-        {/* Mensagem quando não há leads filtrados */}
-        {filteredLeads.length === 0 && leads.length > 0 && (
-          <div className="text-center py-12">
-            <Users className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum lead encontrado</h3>
-            <p className="text-gray-500">
-              Tente ajustar os filtros ou termo de pesquisa para encontrar leads.
-            </p>
-            <Button
-              variant="outline"
-              className="mt-4"
+          {/* Botões de ação dos filtros */}
+          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-[#F1F5F9]">
+            <button
               onClick={() => {
-                setSearchTerm('')
                 setStatusFilter('todos')
                 setOrigemFilter('todas')
                 setTemperaturaFilter('todas')
-                dateFilters.resetFilters()
+                setDateFilter('mes_atual')
+                setCustomStartDate('')
+                setCustomEndDate('')
               }}
+              className="text-sm text-[#94A3B8] hover:text-[#475569] transition-colors"
             >
-              Limpar Filtros
-            </Button>
+              Limpar filtros
+            </button>
+            <div className="text-xs text-[#94A3B8]">
+              {filteredLeads.length} resultado{filteredLeads.length !== 1 ? 's' : ''} encontrado{filteredLeads.length !== 1 ? 's' : ''}
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Mensagem quando não há leads no sistema */}
-        {leads.length === 0 && !loading && (
-          <div className="text-center py-12">
-            <Users className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum lead cadastrado</h3>
-            <p className="text-gray-500">
-              Comece adicionando seu primeiro lead no sistema.
-            </p>
+      {/* Loading indicator para filtros */}
+      {isLoadingData && (
+        <div className="flex items-center justify-center py-4 mb-6">
+          <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-xl shadow-sm border border-[#E2E8F0]">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#059669]"></div>
+            <span className="text-sm text-[#475569]">Atualizando filtros...</span>
           </div>
-        )}
-      </main>
+        </div>
+      )}
 
-      {/* Dashboard Modal */}
-      <Dialog open={dashboardModalOpen} onOpenChange={setDashboardModalOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <BarChart3 className="h-6 w-6 text-blue-600" />
-              Dashboard de Leads - Relatórios Visuais
-            </DialogTitle>
-          </DialogHeader>
+      {/* Tabela de Leads */}
+      <DataTable
+        title="Lista de Leads"
+        subtitle={`${filteredLeads.length} leads encontrados`}
+        columns={[
+          {
+            header: 'Lead',
+            render: (lead) => (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#059669] to-[#10B981] flex items-center justify-center text-white font-semibold text-sm">
+                  {lead.nome_completo.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                </div>
+                <div>
+                  <p className="font-semibold text-[#0F172A]">{lead.nome_completo}</p>
+                  <p className="text-sm text-[#94A3B8]">{lead.email || 'Sem email'}</p>
+                </div>
+              </div>
+            )
+          },
+          {
+            header: 'Empresa',
+            render: (lead) => (
+              <div>
+                <p className="font-medium text-[#0F172A]">{lead.empresa || '-'}</p>
+                <p className="text-sm text-[#94A3B8]">{lead.cargo || '-'}</p>
+              </div>
+            )
+          },
+          {
+            header: 'Origem',
+            render: (lead) => (
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#F1F5F9] text-[#475569]">
+                {lead.origem || 'Não informado'}
+              </span>
+            )
+          },
+          {
+            header: 'Status',
+            render: (lead) => <StatusBadge status={statusMap[lead.status] || 'pending'} />
+          },
+          {
+            header: 'Valor',
+            render: (lead) => (
+              <div className="text-right">
+                {lead.valor_vendido ? (
+                  <p className="font-semibold text-[#059669]">{formatCurrency(lead.valor_vendido)}</p>
+                ) : (
+                  <p className="text-[#94A3B8]">-</p>
+                )}
+              </div>
+            )
+          },
+          {
+            header: 'Data',
+            render: (lead) => (
+              <span className="text-sm text-[#94A3B8]">{formatDate(lead.created_at)}</span>
+            )
+          },
+          {
+            header: 'Ações',
+            render: (lead) => (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleViewDetails(lead)}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  title="Ver detalhes"
+                >
+                  <Eye className="w-4 h-4 text-[#94A3B8] group-hover:text-[#475569]" />
+                </button>
+                <button
+                  onClick={() => handleViewDetails(lead)}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  title="Análise detalhada"
+                >
+                  <BarChart3 className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                </button>
+                <button
+                  onClick={() => handleEditLead(lead)}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  title="Editar"
+                >
+                  <Edit className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                </button>
+                {lead.telefone && (
+                  <button
+                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                    title="Ligar"
+                  >
+                    <Phone className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                  </button>
+                )}
+                {lead.email && (
+                  <button
+                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                    title="Enviar email"
+                  >
+                    <Mail className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDeleteLead(lead.id)}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  title="Excluir"
+                >
+                  <Trash2 className="w-4 h-4 text-[#94A3B8] group-hover:text-[#EF4444]" />
+                </button>
+              </div>
+            )
+          }
+        ]}
+        data={filteredLeads}
+      />
 
-          <div className="space-y-6">
-            {/* Period Selector */}
-            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-              <span className="font-medium text-gray-700">Período:</span>
-              <Select value={reportPeriod} onValueChange={setReportPeriod}>
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="semana_atual">Esta Semana</SelectItem>
-                  <SelectItem value="ultima_semana">Semana Passada</SelectItem>
-                  <SelectItem value="mes">Este Mês</SelectItem>
-                  <SelectItem value="ano">Este Ano</SelectItem>
-                  <SelectItem value="todos">Todos os Dados</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="ml-auto text-sm text-gray-600">
-                Total de leads: {leads.length} • Data: {new Date().toLocaleDateString('pt-BR')}
+      {/* Modal de Detalhes da Origem */}
+      {showOrigemModal && selectedOrigem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-[#0F172A]">
+                Detalhes da Origem: {selectedOrigem.name}
+              </h2>
+              <button
+                onClick={() => setShowOrigemModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <div
+                    className="w-4 h-4 rounded-full"
+                    style={{ backgroundColor: selectedOrigem.color }}
+                  />
+                  <h3 className="font-semibold text-[#0F172A]">Total de Leads</h3>
+                </div>
+                <p className="text-3xl font-bold text-blue-600">{selectedOrigem.value}</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6">
+                <h3 className="font-semibold text-[#0F172A] mb-2">Taxa de Conversão</h3>
+                <p className="text-3xl font-bold text-green-600">{selectedOrigem.taxaConversao.toFixed(1)}%</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl p-6">
+                <h3 className="font-semibold text-[#0F172A] mb-2">Valor Arrecadado</h3>
+                <p className="text-3xl font-bold text-orange-600">
+                  {new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                  }).format(selectedOrigem.valorPago)}
+                </p>
               </div>
             </div>
 
-            {/* Charts Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Status Distribution Pie Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <PieChart className="h-5 w-5 text-purple-600" />
-                    Distribuição por Status
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <RechartsPieChart>
-                      <Pie
-                        data={getChartData().statusData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {getChartData().statusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Origin Distribution Pie Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <PieChart className="h-5 w-5 text-green-600" />
-                    Distribuição por Origem
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <RechartsPieChart>
-                      <Pie
-                        data={getChartData().origemChartData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {getChartData().origemChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Revenue Bar Chart */}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-blue-600" />
-                    Faturamento por Status
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={getChartData().revenueData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                      <YAxis />
-                      <Tooltip
-                        formatter={(value, name) => [
-                          new Intl.NumberFormat('pt-BR', {
-                            style: 'currency',
-                            currency: 'BRL'
-                          }).format(Number(value)),
-                          name === 'vendido' ? 'Valor Vendido' : 'Valor Arrecadado'
-                        ]}
-                      />
-                      <Bar dataKey="vendido" fill="#10b981" name="vendido" />
-                      <Bar dataKey="arrecadado" fill="#3b82f6" name="arrecadado" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+            <div className="bg-gray-50 rounded-2xl p-6">
+              <h3 className="font-semibold text-[#0F172A] mb-4">Performance Detalhada</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-[#475569]">Ticket Médio</span>
+                  <span className="font-semibold">
+                    {selectedOrigem.value > 0
+                      ? new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL'
+                        }).format(selectedOrigem.valorPago / (selectedOrigem.value * selectedOrigem.taxaConversao / 100))
+                      : 'R$ 0,00'
+                    }
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#475569]">Leads Convertidos</span>
+                  <span className="font-semibold">
+                    {Math.round(selectedOrigem.value * selectedOrigem.taxaConversao / 100)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#475569]">ROI Estimado</span>
+                  <span className="font-semibold text-green-600">
+                    {selectedOrigem.valorPago > 0 ? '+' : ''}
+                    {((selectedOrigem.valorPago / Math.max(selectedOrigem.value * 50, 1) - 1) * 100).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
             </div>
 
-            {/* Summary Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-600">{leads.length}</div>
-                  <div className="text-sm text-gray-600">Total Leads</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {stats.find(s => s.status === 'vendido')?.quantidade || 0}
-                  </div>
-                  <div className="text-sm text-gray-600">Vendidos</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-emerald-600">
-                    {new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                      minimumFractionDigits: 0
-                    }).format(getTotalVendido())}
-                  </div>
-                  <div className="text-sm text-gray-600">Faturamento</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                      minimumFractionDigits: 0
-                    }).format(getTotalArrecadado())}
-                  </div>
-                  <div className="text-sm text-gray-600">Arrecadado</div>
-                </CardContent>
-              </Card>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => {
+                  setOrigemFilter(selectedOrigem.name.toLowerCase())
+                  setShowOrigemModal(false)
+                }}
+                className="flex-1 bg-[#059669] hover:bg-[#047857] text-white px-6 py-3 rounded-xl font-medium transition-colors"
+              >
+                Filtrar por esta origem
+              </button>
+              <button
+                onClick={() => setShowOrigemModal(false)}
+                className="px-6 py-3 border border-gray-300 hover:bg-gray-50 rounded-xl font-medium transition-colors"
+              >
+                Fechar
+              </button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+        </div>
+      )}
+    </PageLayout>
   )
 }

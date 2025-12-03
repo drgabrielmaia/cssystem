@@ -1,650 +1,552 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { Header } from '@/components/header'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { supabase, type Mentorado } from '@/lib/supabase'
-import { ExternalLink, Mail, Phone, Calendar, User, Plus, Search, Filter, CheckSquare, Square, Trash2, Edit } from 'lucide-react'
-import { AddMentoradoModal } from '@/components/add-mentorado-modal'
-import { EditMentoradoModal } from '@/components/edit-mentorado-modal'
-import { MentoradosStats } from '@/components/mentorados-stats'
+import { useState, useEffect } from 'react'
+import { PageLayout } from '@/components/ui/page-layout'
+import { KPICardVibrant } from '@/components/ui/kpi-card-vibrant'
+import { MetricCard } from '@/components/ui/metric-card'
+import { DataTable } from '@/components/ui/data-table'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { ChartCard } from '@/components/ui/chart-card'
+import { supabase } from '@/lib/supabase'
+import {
+  Users,
+  TrendingUp,
+  Calendar,
+  Star,
+  Plus,
+  Search,
+  Filter,
+  Eye,
+  Edit,
+  Trash2,
+  Phone,
+  Mail,
+  ExternalLink,
+  CheckCircle,
+  RefreshCw,
+  Download,
+  UserCheck,
+  UserX
+} from 'lucide-react'
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
+
+interface Mentorado {
+  id: string
+  nome_completo: string
+  email: string
+  telefone?: string
+  data_entrada: string
+  estado_atual: string
+  turma?: string
+  nivel?: string
+  pontuacao?: number
+  observacoes_privadas?: string
+  created_at: string
+  updated_at: string
+}
+
+interface MentoradoStats {
+  total_mentorados: number
+  ativos: number
+  inativos: number
+  novos_mes: number
+  taxa_retencao: number
+  pontuacao_media: number
+  checkins_pendentes: number
+}
 
 export default function MentoradosPage() {
-  console.log('🚀 MentoradosPage component renderizando...')
   const [mentorados, setMentorados] = useState<Mentorado[]>([])
+  const [stats, setStats] = useState<MentoradoStats>({
+    total_mentorados: 0,
+    ativos: 0,
+    inativos: 0,
+    novos_mes: 0,
+    taxa_retencao: 0,
+    pontuacao_media: 0,
+    checkins_pendentes: 0
+  })
   const [loading, setLoading] = useState(true)
-  const [selectedTurma, setSelectedTurma] = useState<string>('todas')
-  const [selectedStatus, setSelectedStatus] = useState<string>('todos')
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedMentorados, setSelectedMentorados] = useState<string[]>([])
-  const [bulkActionMode, setBulkActionMode] = useState(false)
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [mentoradoToEdit, setMentoradoToEdit] = useState<Mentorado | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(10)
-  const [showStatusModal, setShowStatusModal] = useState(false)
-  const [newStatus, setNewStatus] = useState('')
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [quickFilter, setQuickFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('todos')
+  const [turmaFilter, setTurmaFilter] = useState('todas')
+  const [nivelFilter, setNivelFilter] = useState('todos')
+  const [isLoadingData, setIsLoadingData] = useState(false)
 
-  const fetchMentorados = async () => {
+  const statusMap = {
+    ativo: 'confirmed',
+    inativo: 'cancelled',
+    engajado: 'completed',
+    cancelado: 'cancelled'
+  }
+
+  const monthlyData = [
+    { month: 'Jul', novos: 8, ativos: 65 },
+    { month: 'Ago', novos: 12, ativos: 72 },
+    { month: 'Set', novos: 15, ativos: 78 },
+    { month: 'Out', novos: 18, ativos: 85 },
+    { month: 'Nov', novos: 22, ativos: 92 },
+    { month: 'Dez', novos: 25, ativos: 98 }
+  ]
+
+  const levelDistribution = [
+    { name: 'Iniciante', value: 35, color: '#3B82F6' },
+    { name: 'Intermediário', value: 40, color: '#059669' },
+    { name: 'Avançado', value: 20, color: '#F59E0B' },
+    { name: 'Expert', value: 5, color: '#8B5CF6' }
+  ]
+
+  useEffect(() => {
+    loadMentorados()
+    loadStats()
+  }, [])
+
+  useEffect(() => {
+    if (!loading) {
+      setIsLoadingData(true)
+      loadMentorados()
+    }
+  }, [statusFilter, turmaFilter, nivelFilter])
+
+  const loadMentorados = async () => {
     try {
-      console.log('🔍 Buscando mentorados do Supabase...')
-      
-      const { data, error } = await supabase
+      let query = supabase
         .from('mentorados')
         .select('*')
-        .order('nome_completo', { ascending: true })
 
-      if (error) {
-        console.error('❌ Erro do Supabase:', error)
-        throw error
+      if (statusFilter !== 'todos') {
+        query = query.eq('estado_atual', statusFilter)
       }
 
-      console.log('✅ Mentorados carregados:', data?.length || 0)
+      if (turmaFilter !== 'todas') {
+        query = query.eq('turma', turmaFilter)
+      }
+
+      if (nivelFilter !== 'todos') {
+        query = query.eq('nivel', nivelFilter)
+      }
+
+      const { data, error } = await query.order('nome_completo', { ascending: true })
+
+      if (error) throw error
       setMentorados(data || [])
-      
     } catch (error) {
-      console.error('💥 Erro ao buscar mentorados:', error instanceof Error ? error.message : String(error))
-      setMentorados([])
+      console.error('Erro ao carregar mentorados:', error)
     } finally {
       setLoading(false)
+      setIsLoadingData(false)
     }
   }
 
+  const loadStats = async () => {
+    try {
+      const { data: mentorados } = await supabase.from('mentorados').select('*')
 
-  useEffect(() => {
-    console.log('🔥 useEffect triggered - calling fetchMentorados')
-    fetchMentorados()
-  }, [])
+      if (mentorados) {
+        const hoje = new Date()
+        const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
 
-  const handleMentoradoAdded = () => {
-    // Reload mentorados after adding new one
-    setLoading(true)
-    fetchMentorados()
+        const ativos = mentorados.filter(m => m.estado_atual === 'ativo')
+        const inativos = mentorados.filter(m => m.estado_atual === 'inativo')
+        const novosMes = mentorados.filter(m => new Date(m.created_at) >= inicioMes)
+        const pontuacaoMedia = mentorados.length > 0
+          ? mentorados.reduce((sum, m) => sum + (m.pontuacao || 0), 0) / mentorados.length
+          : 0
+
+        setStats({
+          total_mentorados: mentorados.length,
+          ativos: ativos.length,
+          inativos: inativos.length,
+          novos_mes: novosMes.length,
+          taxa_retencao: mentorados.length > 0 ? (ativos.length / mentorados.length) * 100 : 0,
+          pontuacao_media: pontuacaoMedia,
+          checkins_pendentes: 12 // TODO: Implementar contagem real de check-ins pendentes
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error)
+    }
+  }
+
+  const filteredMentorados = mentorados.filter(mentorado => {
+    return searchTerm === '' ||
+      mentorado.nome_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      mentorado.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      mentorado.telefone?.toLowerCase().includes(searchTerm.toLowerCase())
+  })
+
+  const availableTurmas = [...new Set(mentorados.map(m => m.turma).filter(Boolean))]
+  const availableNiveis = [...new Set(mentorados.map(m => m.nivel).filter(Boolean))]
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR')
+  }
+
+  const handleNewMentorado = () => {
+    // TODO: Implementar modal de novo mentorado
   }
 
   const handleEditMentorado = (mentorado: Mentorado) => {
-    setMentoradoToEdit(mentorado)
-    setIsEditModalOpen(true)
+    // Redirecionar para página de edição do mentorado
+    window.location.href = `/mentorados/${mentorado.id}/edit`
   }
 
-  const handleMentoradoEdited = () => {
-    // Reload mentorados after editing
-    setLoading(true)
-    fetchMentorados()
+  const handleViewMentorado = (mentorado: Mentorado) => {
+    // Redirecionar para página de detalhes do mentorado
+    window.location.href = `/mentorados/${mentorado.id}`
   }
 
-  const handleBulkDelete = async () => {
-    if (!confirm(`Tem certeza que deseja excluir ${selectedMentorados.length} mentorados? Esta ação não pode ser desfeita.`)) {
-      return
+  const handleDeleteMentorado = async (mentoradoId: string) => {
+    if (confirm('Tem certeza que deseja excluir este mentorado?')) {
+      try {
+        setIsLoadingData(true)
+        const { error } = await supabase
+          .from('mentorados')
+          .delete()
+          .eq('id', mentoradoId)
+
+        if (error) throw error
+
+        await loadMentorados()
+        await loadStats()
+      } catch (error) {
+        console.error('Erro ao excluir mentorado:', error)
+        setIsLoadingData(false)
+      }
     }
+  }
 
-    setIsProcessing(true)
+  const handleToggleStatus = async (mentoradoId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'ativo' ? 'inativo' : 'ativo'
     try {
-      const { error } = await supabase
-        .from('mentorados')
-        .delete()
-        .in('id', selectedMentorados)
-
-      if (error) throw error
-
-      alert(`${selectedMentorados.length} mentorados foram excluídos com sucesso!`)
-      setSelectedMentorados([])
-      setBulkActionMode(false)
-      fetchMentorados()
-    } catch (error) {
-      console.error('Erro ao excluir mentorados:', error)
-      alert('Erro ao excluir mentorados. Tente novamente.')
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  const handleBulkStatusChange = async () => {
-    if (!newStatus) {
-      alert('Selecione um status primeiro!')
-      return
-    }
-
-    setIsProcessing(true)
-    try {
+      setIsLoadingData(true)
       const { error } = await supabase
         .from('mentorados')
         .update({ estado_atual: newStatus })
-        .in('id', selectedMentorados)
+        .eq('id', mentoradoId)
 
       if (error) throw error
 
-      alert(`Status de ${selectedMentorados.length} mentorados foi alterado para "${newStatus}" com sucesso!`)
-      setSelectedMentorados([])
-      setBulkActionMode(false)
-      setShowStatusModal(false)
-      setNewStatus('')
-      fetchMentorados()
+      await loadMentorados()
+      await loadStats()
     } catch (error) {
       console.error('Erro ao alterar status:', error)
-      alert('Erro ao alterar status. Tente novamente.')
-    } finally {
-      setIsProcessing(false)
+      setIsLoadingData(false)
     }
-  }
-
-  const handleSelectAll = () => {
-    if (selectedMentorados.length === mentoradosPaginados.length) {
-      setSelectedMentorados([])
-    } else {
-      setSelectedMentorados(mentoradosPaginados.map(m => m.id))
-    }
-  }
-
-  const turmas = ['todas', ...Array.from(new Set(mentorados.map(m => m.turma).filter(Boolean)))]
-  const statusOptions = ['todos', ...Array.from(new Set(mentorados.map(m => m.estado_atual).filter(Boolean)))]
-
-  const mentoradosFiltrados = mentorados.filter(mentorado => {
-    const matchesTurma = selectedTurma === 'todas' || mentorado.turma === selectedTurma
-    const matchesStatus = selectedStatus === 'todos' || mentorado.estado_atual === selectedStatus
-    const matchesSearch = searchTerm === '' ||
-      mentorado.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentorado.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (mentorado.telefone && mentorado.telefone.includes(searchTerm))
-
-    // Quick filters
-    const matchesQuickFilter = quickFilter === '' ||
-      (quickFilter === 'ativos' && ['ativo', 'engajado'].includes(mentorado.estado_atual?.toLowerCase() || '')) ||
-      (quickFilter === 'inativos' && ['inativo', 'pausado', 'cancelado'].includes(mentorado.estado_atual?.toLowerCase() || '')) ||
-      (quickFilter === 'sem_telefone' && !mentorado.telefone) ||
-      (quickFilter === 'sem_email' && !mentorado.email) ||
-      (quickFilter === 'recentes' && mentorado.data_entrada && new Date(mentorado.data_entrada) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
-
-    return matchesTurma && matchesStatus && matchesSearch && matchesQuickFilter
-  })
-
-  // Paginação
-  const totalPages = Math.ceil(mentoradosFiltrados.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const mentoradosPaginados = mentoradosFiltrados.slice(startIndex, endIndex)
-
-  // Reset para primeira página quando filtros mudarem
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [selectedTurma, selectedStatus, searchTerm])
-
-  const getStatusColor = (status: string) => {
-    const statusLower = status?.toLowerCase() || ''
-    if (['ativo', 'engajado'].includes(statusLower)) return 'success'
-    if (['pausado', 'inseguro'].includes(statusLower)) return 'warning'
-    if (['cancelado', 'inativo'].includes(statusLower)) return 'destructive'
-    return 'secondary'
   }
 
   if (loading) {
     return (
-      <div className="flex-1 overflow-y-auto">
-        <Header title="Mentorados" subtitle="Gerenciar todos os mentorados do programa" />
+      <PageLayout title="Mentorados" subtitle="Carregando...">
         <div className="flex items-center justify-center h-96">
-          <div className="text-gray-500">Carregando mentorados...</div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#059669]"></div>
         </div>
-      </div>
+      </PageLayout>
     )
   }
 
-
   return (
-    <div className="flex-1 overflow-y-auto">
-      <Header
-        title="Mentorados"
-        subtitle={
-          mentoradosFiltrados.length === mentorados.length
-            ? `${mentorados.length} mentorados cadastrados`
-            : `${mentoradosFiltrados.length} de ${mentorados.length} mentorados (filtrados)`
-        }
-      />
+    <PageLayout title="Mentorados" subtitle="Gestão de mentorados e acompanhamento">
+      {/* KPI Cards - Grid responsivo */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <KPICardVibrant
+          title="Total Mentorados"
+          value={stats.total_mentorados.toString()}
+          subtitle="Este mês"
+          percentage={12}
+          trend="up"
+          color="blue"
+          icon={Users}
+          sparklineData={[
+            { value: 65 }, { value: 72 }, { value: 78 }, { value: 85 },
+            { value: 92 }, { value: 95 }, { value: 96 }, { value: stats.total_mentorados }
+          ]}
+        />
+        <MetricCard
+          title="Ativos"
+          value={stats.ativos.toString()}
+          change={8}
+          changeType="increase"
+          icon={UserCheck}
+          iconColor="green"
+        />
+        <MetricCard
+          title="Taxa de Retenção"
+          value={`${stats.taxa_retencao.toFixed(1)}%`}
+          change={2.3}
+          changeType="increase"
+          icon={TrendingUp}
+          iconColor="purple"
+        />
+        <MetricCard
+          title="Pontuação Média"
+          value={stats.pontuacao_media.toFixed(1)}
+          change={0.5}
+          changeType="increase"
+          icon={Star}
+          iconColor="orange"
+        />
+      </div>
 
-      <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
-        {/* Estatísticas Gerais */}
-        <MentoradosStats mentorados={mentorados} />
-        {/* Header com ações */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold">Lista de Mentorados</h2>
-            {bulkActionMode && (
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSelectAll}
-                  className="text-xs"
-                >
-                  {selectedMentorados.length === mentoradosPaginados.length ? (
-                    <><CheckSquare className="h-4 w-4 mr-1" /> Desmarcar Todos</>
-                  ) : (
-                    <><Square className="h-4 w-4 mr-1" /> Selecionar Todos</>
-                  )}
-                </Button>
-                {selectedMentorados.length > 0 && (
-                  <>
-                    <span className="text-sm text-gray-600">
-                      {selectedMentorados.length} selecionados
-                    </span>
-                <Button 
-                  size="sm" 
-                  variant="destructive"
-                  onClick={handleBulkDelete}
-                  disabled={isProcessing}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  {isProcessing ? 'Excluindo...' : 'Excluir'}
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => setShowStatusModal(true)}
-                  disabled={isProcessing}
-                >
-                  Alterar Status
-                </Button>
-                <Button size="sm" variant="outline">
-                  Enviar Formulário
-                </Button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant={bulkActionMode ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                setBulkActionMode(!bulkActionMode)
-                setSelectedMentorados([])
-              }}
-            >
-              {bulkActionMode ? "Cancelar Seleção" : "Seleção Múltipla"}
-            </Button>
-            <Button onClick={() => setIsAddModalOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Mentorado
-            </Button>
-          </div>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="space-y-4">
-          {/* Search Bar */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1 sm:max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Buscar por nome, email ou telefone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            {/* Botão limpar filtros */}
-            {(searchTerm || selectedTurma !== 'todas' || selectedStatus !== 'todos' || quickFilter) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSearchTerm('')
-                  setSelectedTurma('todas')
-                  setSelectedStatus('todos')
-                  setQuickFilter('')
-                }}
-                className="whitespace-nowrap"
-              >
-                Limpar Filtros
-              </Button>
-            )}
-          </div>
-
-          {/* Quick Filters */}
-          <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 font-medium">Filtros rápidos:</span>
-            </div>
-            {[
-              { key: '', label: 'Todos' },
-              { key: 'ativos', label: '🟢 Ativos' },
-              { key: 'inativos', label: '🔴 Inativos' },
-              { key: 'sem_telefone', label: '📞 Sem Telefone' },
-              { key: 'sem_email', label: '📧 Sem Email' },
-              { key: 'recentes', label: '⏰ Últimos 30 dias' }
-            ].map(filter => (
-              <Button
-                key={filter.key}
-                variant={quickFilter === filter.key ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setQuickFilter(filter.key)}
-                className="text-xs"
-              >
-                {filter.label}
-              </Button>
-            ))}
-          </div>
-
-          {/* Filter Pills */}
-          <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-500" />
-              <span className="text-sm text-gray-600">Turma:</span>
-            </div>
-            {turmas.map(turma => (
-              <Button
-                key={turma}
-                variant={selectedTurma === turma ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedTurma(turma)}
-                className="capitalize"
-              >
-                {turma === 'todas' ? 'Todas' : turma}
-              </Button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4"></div>
-              <span className="text-sm text-gray-600">Status:</span>
-            </div>
-            {statusOptions.map(status => (
-              <Button
-                key={status}
-                variant={selectedStatus === status ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedStatus(status)}
-                className="capitalize"
-              >
-                {status === 'todos' ? 'Todos' : status}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Lista de Mentorados */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {mentoradosPaginados.map((mentorado) => (
-            <Card key={mentorado.id} className={`rounded-2xl shadow-sm border transition-all ${
-              selectedMentorados.includes(mentorado.id) 
-                ? 'border-blue-500 bg-blue-50' 
-                : 'border-gray-200 hover:shadow-md'
-            }`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-2">
-                    {bulkActionMode && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => {
-                          setSelectedMentorados(prev => 
-                            prev.includes(mentorado.id)
-                              ? prev.filter(id => id !== mentorado.id)
-                              : [...prev, mentorado.id]
-                          )
-                        }}
-                      >
-                        {selectedMentorados.includes(mentorado.id) ? (
-                          <CheckSquare className="h-4 w-4 text-blue-600" />
-                        ) : (
-                          <Square className="h-4 w-4 text-gray-400" />
-                        )}
-                      </Button>
-                    )}
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-                      <User className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-medium text-gray-900 line-clamp-1">
-                        {mentorado.nome_completo}
-                      </CardTitle>
-                      <p className="text-xs text-gray-500">{mentorado.turma}</p>
-                    </div>
-                  </div>
-                  {!bulkActionMode && (
-                    <Link href={`/mentorados/${mentorado.id}`}>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <ExternalLink className="h-3 w-3" />
-                      </Button>
-                    </Link>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {/* Status */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Status atual</span>
-                  <Badge variant={getStatusColor(mentorado.estado_atual)} className="text-xs">
-                    {mentorado.estado_atual || 'Não definido'}
-                  </Badge>
-                </div>
-
-                {/* Estado de entrada */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Estado inicial</span>
-                  <span className="text-xs text-gray-700">{mentorado.estado_entrada}</span>
-                </div>
-
-                {/* Contato */}
-                <div className="space-y-1">
-                  {mentorado.email && (
-                    <div className="flex items-center space-x-2 text-xs text-gray-600">
-                      <Mail className="h-3 w-3" />
-                      <span className="truncate">{mentorado.email}</span>
-                    </div>
-                  )}
-                  {mentorado.telefone && (
-                    <div className="flex items-center space-x-2 text-xs text-gray-600">
-                      <Phone className="h-3 w-3" />
-                      <span>{mentorado.telefone}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Data de início da mentoria */}
-                <div className="flex items-center space-x-2 text-xs text-gray-500">
-                  <Calendar className="h-3 w-3" />
-                  <span>
-                    {mentorado.data_inicio_mentoria
-                      ? `Início: ${new Date(mentorado.data_inicio_mentoria + 'T00:00:00').toLocaleDateString('pt-BR')}`
-                      : `Cadastrado: ${new Date(mentorado.data_entrada).toLocaleDateString('pt-BR')}`
-                    }
-                  </span>
-                </div>
-
-                {/* Ações */}
-                <div className="flex space-x-2 pt-2">
-                  <Link href={`/mentorados/${mentorado.id}`} className="flex-1">
-                    <Button size="sm" variant="outline" className="w-full text-xs">
-                      Ver Detalhes
-                    </Button>
-                  </Link>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="text-xs"
-                    onClick={() => handleEditMentorado(mentorado)}
-                  >
-                    <Edit className="h-3 w-3 mr-1" />
-                    Editar
-                  </Button>
-                  <Link href="/formularios" className="flex-1">
-                    <Button size="sm" className="w-full text-xs">
-                      Formulários
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Paginação */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between bg-white px-4 py-3 sm:px-6 border rounded-lg">
-            <div className="flex flex-1 justify-between sm:hidden">
-              <Button
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                variant="outline"
-                size="sm"
-              >
-                Anterior
-              </Button>
-              <Button
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                variant="outline"
-                size="sm"
-              >
-                Próximo
-              </Button>
-            </div>
-            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  Mostrando <span className="font-medium">{startIndex + 1}</span> até{' '}
-                  <span className="font-medium">{Math.min(endIndex, mentoradosFiltrados.length)}</span> de{' '}
-                  <span className="font-medium">{mentoradosFiltrados.length}</span> mentorados
-                </p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  variant="outline"
-                  size="sm"
-                >
-                  Anterior
-                </Button>
-                
-                <div className="flex space-x-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNumber
-                    if (totalPages <= 5) {
-                      pageNumber = i + 1
-                    } else if (currentPage <= 3) {
-                      pageNumber = i + 1
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNumber = totalPages - 4 + i
-                    } else {
-                      pageNumber = currentPage - 2 + i
-                    }
-                    
-                    return (
-                      <Button
-                        key={pageNumber}
-                        onClick={() => setCurrentPage(pageNumber)}
-                        variant={currentPage === pageNumber ? "default" : "outline"}
-                        size="sm"
-                        className="w-10"
-                      >
-                        {pageNumber}
-                      </Button>
-                    )
-                  })}
-                </div>
-                
-                <Button
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  variant="outline"
-                  size="sm"
-                >
-                  Próximo
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {mentoradosFiltrados.length === 0 && (
-          <div className="text-center py-12">
-            <User className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum mentorado encontrado</h3>
-            <p className="text-gray-500">
-              {selectedTurma === 'todas' 
-                ? 'Não há mentorados cadastrados.' 
-                : `Não há mentorados na turma "${selectedTurma}".`
-              }
-            </p>
-          </div>
-        )}
-      </main>
-      
-      <AddMentoradoModal 
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSuccess={handleMentoradoAdded}
-      />
-      
-      <EditMentoradoModal 
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false)
-          setMentoradoToEdit(null)
-        }}
-        onSuccess={handleMentoradoEdited}
-        mentorado={mentoradoToEdit}
-      />
-
-      {/* Modal para Alterar Status */}
-      {showStatusModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 max-w-sm mx-4">
-            <h3 className="text-lg font-semibold mb-4">Alterar Status - {selectedMentorados.length} mentorados</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Novo status:
-                </label>
-                <select 
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Selecione um status...</option>
-                  <option value="ativo">Ativo</option>
-                  <option value="engajado">Engajado</option>
-                  <option value="pausado">Pausado</option>
-                  <option value="inativo">Inativo</option>
-                  <option value="concluido">Concluído</option>
-                </select>
-              </div>
-              <div className="flex space-x-2">
-                <Button 
-                  onClick={handleBulkStatusChange} 
-                  className="flex-1"
-                  disabled={isProcessing || !newStatus}
-                >
-                  {isProcessing ? 'Alterando...' : 'Alterar Status'}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setShowStatusModal(false)
-                    setNewStatus('')
-                  }}
-                  disabled={isProcessing}
-                >
-                  Cancelar
-                </Button>
-              </div>
+      {/* Alerta para check-ins pendentes */}
+      {stats.checkins_pendentes > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-2xl p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Calendar className="w-5 h-5 text-blue-500" />
+            <div>
+              <p className="font-semibold text-blue-800">Check-ins Pendentes</p>
+              <p className="text-sm text-blue-700">
+                {stats.checkins_pendentes} mentorado{stats.checkins_pendentes > 1 ? 's' : ''} com check-in pendente
+              </p>
             </div>
           </div>
         </div>
       )}
-    </div>
+
+      {/* Gráficos - Grid responsivo */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Gráfico de Evolução */}
+        <div className="lg:col-span-2">
+          <ChartCard title="Evolução dos Mentorados" subtitle="Últimos 6 meses">
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={monthlyData}>
+                  <defs>
+                    <linearGradient id="colorMentorados" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#059669" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                  <XAxis dataKey="month" stroke="#94A3B8" fontSize={12} />
+                  <YAxis stroke="#94A3B8" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '12px',
+                      boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="ativos"
+                    stroke="#059669"
+                    fillOpacity={1}
+                    fill="url(#colorMentorados)"
+                    strokeWidth={3}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="novos"
+                    stroke="#10B981"
+                    fillOpacity={0.5}
+                    fill="#10B981"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </ChartCard>
+        </div>
+
+        {/* Gráfico de Níveis */}
+        <ChartCard title="Distribuição por Nível" subtitle="Níveis dos mentorados">
+          <div className="h-80 flex flex-col items-center justify-center">
+            <ResponsiveContainer width="100%" height="70%">
+              <PieChart>
+                <Pie
+                  data={levelDistribution}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={90}
+                  paddingAngle={4}
+                  dataKey="value"
+                >
+                  {levelDistribution.map((entry, index) => (
+                    <Cell key={index} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="grid grid-cols-2 gap-2 w-full mt-4">
+              {levelDistribution.map((entry, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: entry.color }}
+                  />
+                  <span className="text-xs text-[#475569] font-medium">
+                    {entry.name}: {entry.value}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ChartCard>
+      </div>
+
+      {/* Ações e Filtros - Responsivo */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-0 mb-6">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#94A3B8] w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Buscar mentorados..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all w-full sm:w-80"
+            />
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+          >
+            <option value="todos">Todos os Status</option>
+            <option value="ativo">Ativo</option>
+            <option value="inativo">Inativo</option>
+          </select>
+
+          {availableTurmas.length > 0 && (
+            <select
+              value={turmaFilter}
+              onChange={(e) => setTurmaFilter(e.target.value)}
+              className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+            >
+              <option value="todas">Todas as Turmas</option>
+              {availableTurmas.map(turma => (
+                <option key={turma} value={turma}>{turma}</option>
+              ))}
+            </select>
+          )}
+
+          {availableNiveis.length > 0 && (
+            <select
+              value={nivelFilter}
+              onChange={(e) => setNivelFilter(e.target.value)}
+              className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+            >
+              <option value="todos">Todos os Níveis</option>
+              {availableNiveis.map(nivel => (
+                <option key={nivel} value={nivel}>{nivel}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <button
+            onClick={loadMentorados}
+            className="flex items-center gap-2 px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Atualizar
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors">
+            <Download className="w-4 h-4" />
+            Exportar
+          </button>
+          <button
+            onClick={handleNewMentorado}
+            className="flex items-center gap-2 px-6 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Mentorado
+          </button>
+        </div>
+      </div>
+
+      {/* Loading indicator para filtros */}
+      {isLoadingData && (
+        <div className="flex items-center justify-center py-4 mb-6">
+          <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-xl shadow-sm border border-[#E2E8F0]">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#059669]"></div>
+            <span className="text-sm text-[#475569]">Atualizando filtros...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Tabela de Mentorados */}
+      <DataTable
+        title="Lista de Mentorados"
+        subtitle={`${filteredMentorados.length} mentorados encontrados`}
+        columns={[
+          {
+            header: 'Mentorado',
+            render: (mentorado) => (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#059669] to-[#10B981] flex items-center justify-center text-white font-semibold text-sm">
+                  {mentorado.nome_completo?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'ND'}
+                </div>
+                <div>
+                  <p className="font-semibold text-[#0F172A]">{mentorado.nome_completo || 'Nome não encontrado'}</p>
+                  <p className="text-sm text-[#94A3B8]">{mentorado.email || 'Email não encontrado'}</p>
+                </div>
+              </div>
+            )
+          },
+          {
+            header: 'Turma/Nível',
+            render: (mentorado) => (
+              <div>
+                <p className="font-medium text-[#0F172A]">{mentorado.turma || '-'}</p>
+                <p className="text-sm text-[#94A3B8]">{mentorado.nivel || '-'}</p>
+              </div>
+            )
+          },
+          {
+            header: 'Data de Entrada',
+            render: (mentorado) => (
+              <span className="text-sm text-[#475569]">{formatDate(mentorado.data_entrada || mentorado.created_at)}</span>
+            )
+          },
+          {
+            header: 'Status',
+            render: (mentorado) => <StatusBadge status={statusMap[mentorado.estado_atual] || 'pending'} />
+          },
+          {
+            header: 'Ações',
+            render: (mentorado) => (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleViewMentorado(mentorado)}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  title="Ver detalhes"
+                >
+                  <Eye className="w-4 h-4 text-[#94A3B8] group-hover:text-[#475569]" />
+                </button>
+                <button
+                  onClick={() => handleEditMentorado(mentorado)}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  title="Editar"
+                >
+                  <Edit className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                </button>
+                <button
+                  onClick={() => handleDeleteMentorado(mentorado.id)}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  title="Excluir"
+                >
+                  <Trash2 className="w-4 h-4 text-[#94A3B8] group-hover:text-[#EF4444]" />
+                </button>
+              </div>
+            )
+          }
+        ]}
+        data={filteredMentorados}
+      />
+    </PageLayout>
   )
 }

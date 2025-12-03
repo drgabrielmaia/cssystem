@@ -1,1172 +1,570 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { PageLayout } from '@/components/ui/page-layout'
+import { KPICardVibrant } from '@/components/ui/kpi-card-vibrant'
+import { MetricCard } from '@/components/ui/metric-card'
+import { PeriodFilter } from '@/components/ui/period-filter'
+import { ChartCard } from '@/components/ui/chart-card'
+import { DataTable } from '@/components/ui/data-table'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { DollarSign, Target, Users, Calendar, AlertCircle, UserPlus, Phone, MoreVertical } from 'lucide-react'
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts'
 import { supabase } from '@/lib/supabase'
-import { Header } from '@/components/header'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useDateFilters } from '@/hooks/useDateFilters'
-import { DateFilters } from '@/components/date-filters'
-import { useSettings } from '@/contexts/settings'
-import {
-  Users,
-  Calendar,
-  DollarSign,
-  TrendingUp,
-  ArrowRight,
-  Target,
-  UserPlus,
-  CheckCircle,
-  Filter,
-  RefreshCw,
-  FileText,
-  CreditCard,
-  BarChart3,
-  ExternalLink,
-  Sparkles,
-  AlertTriangle,
-  Phone,
-  Clock,
-  CheckSquare,
-  X,
-  UserX,
-  Handshake
-} from 'lucide-react'
 
-export default function Dashboard() {
-  const router = useRouter()
-  const dateFilters = useDateFilters()
-  const { settings } = useSettings()
-  const [stats, setStats] = useState({
-    totalMentorados: 0,
-    totalCheckins: 0,
-    totalFormularios: 0,
-    npsMedia: 0
+interface KPIData {
+  total_vendas: number
+  meta_vendas: number
+  total_leads: number
+  leads_vendidos: number
+  total_mentorados: number
+  checkins_agendados: number
+  pendencias: number
+}
+
+export default function DashboardPage() {
+  const [selectedPeriod, setSelectedPeriod] = useState('month')
+  const [kpiData, setKpiData] = useState<KPIData>({
+    total_vendas: 88000,
+    meta_vendas: 500000,
+    total_leads: 38,
+    leads_vendidos: 2,
+    total_mentorados: 98,
+    checkins_agendados: 39,
+    pendencias: 16
   })
-  const [leadsStats, setLeadsStats] = useState({
-    totalLeads: 0,
-    valorVendido: 0,
-    valorArrecadado: 0,
-    leadsVendidos: 0
-  })
-  const [dividasStats, setDividasStats] = useState({
-    totalDividas: 0,
-    valorTotalPendente: 0,
-    pessoasComDividas: 0
-  })
-  const [callsStats, setCallsStats] = useState({
-    noShow: 0,
-    rejeitadas: 0,
-    vendidas: 0,
-    totalCalls: 0,
-    callsFeitas: 0
-  })
-  const [metasStats, setMetasStats] = useState({
-    percentualFaturamento: 0,
-    percentualLeads: 0
-  })
-  const [overdueCalls, setOverdueCalls] = useState<any[]>([])
-  const [weekCalls, setWeekCalls] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [updatingCallStatus, setUpdatingCallStatus] = useState<string | null>(null)
+  const [monthlyData, setMonthlyData] = useState([])
+  const [recentActivity, setRecentActivity] = useState([])
+
+  // Função para obter range de datas baseado no período selecionado
+  const getDateRange = (period: string) => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth()
+
+    switch (period) {
+      case 'week':
+        // Semana atual: Segunda a Domingo desta semana
+        const currentDayOfWeek = now.getDay() === 0 ? 7 : now.getDay() // Domingo = 7, Segunda = 1
+        const startOfCurrentWeek = new Date(now)
+        startOfCurrentWeek.setDate(now.getDate() - (currentDayOfWeek - 1))
+        startOfCurrentWeek.setHours(0, 0, 0, 0)
+        const endOfCurrentWeek = new Date(startOfCurrentWeek)
+        endOfCurrentWeek.setDate(startOfCurrentWeek.getDate() + 6)
+        endOfCurrentWeek.setHours(23, 59, 59, 999)
+        return {
+          start: startOfCurrentWeek.toISOString(),
+          end: endOfCurrentWeek.toISOString(),
+          label: 'Semana atual'
+        }
+      case 'lastWeek':
+        // Última semana: Segunda a Domingo da semana passada
+        const lastWeekDayOfWeek = now.getDay() === 0 ? 7 : now.getDay()
+        const startOfLastWeek = new Date(now)
+        startOfLastWeek.setDate(now.getDate() - (lastWeekDayOfWeek - 1) - 7)
+        startOfLastWeek.setHours(0, 0, 0, 0)
+        const endOfLastWeek = new Date(startOfLastWeek)
+        endOfLastWeek.setDate(startOfLastWeek.getDate() + 6)
+        endOfLastWeek.setHours(23, 59, 59, 999)
+        return {
+          start: startOfLastWeek.toISOString(),
+          end: endOfLastWeek.toISOString(),
+          label: 'Última semana'
+        }
+      case 'month':
+        return {
+          start: new Date(year, month, 1).toISOString(),
+          end: new Date(year, month + 1, 0, 23, 59, 59).toISOString(),
+          label: 'Mês atual'
+        }
+      case 'year':
+        return {
+          start: new Date(year, 0, 1).toISOString(),
+          end: new Date(year, 11, 31, 23, 59, 59).toISOString(),
+          label: 'Ano atual'
+        }
+      case 'all':
+      default:
+        return {
+          start: null,
+          end: null,
+          label: 'Todos os períodos'
+        }
+    }
+  }
+
+  // Dados para gráficos - será carregado dinamicamente
+  const [sparklineData, setSparklineData] = useState([
+    { value: 0 }, { value: 0 }, { value: 0 }, { value: 0 },
+    { value: 0 }, { value: 0 }, { value: 0 }, { value: 0 }
+  ])
+
+  const [leadDistribution, setLeadDistribution] = useState([
+    { name: 'Carregando...', value: 0, color: '#E2E8F0' }
+  ])
 
   useEffect(() => {
-    loadDashboardStats()
-    loadOverdueCalls()
-  }, [dateFilters.filtroTempo, dateFilters.dataInicio, dateFilters.dataFim])
+    loadDashboardData()
+  }, [])
 
-  const loadDashboardStats = async () => {
+  // Recarregar dados quando período mudar
+  useEffect(() => {
+    if (!loading) {
+      loadDashboardData()
+    }
+  }, [selectedPeriod])
+
+  const loadDashboardData = async () => {
     try {
-      const dateFilter = dateFilters.getDateFilter()
+      // Obter range de datas baseado no período selecionado
+      const dateRange = getDateRange(selectedPeriod)
 
-      // Buscar mentorados
-      const { data: mentorados } = await supabase
-        .from('mentorados')
-        .select('id')
+      let leadsQuery = supabase.from('leads').select('*')
+      let mentoradosQuery = supabase.from('mentorados').select('*')
+      let vendasQuery = supabase.from('leads').select('*').eq('status', 'vendido')
 
-      // Buscar checkins agendados/pendentes (não realizados)
-      const { data: checkins } = await supabase
-        .from('checkins')
-        .select('id')
-        .eq('status', 'agendado')
-      
-      // Buscar pendências financeiras - MESMA LÓGICA DA PÁGINA DE PENDÊNCIAS
-      const { data: mentoradosData } = await supabase
-        .from('mentorados')
-        .select('*')
-        .order('nome_completo')
-
-      const { data: despesasData } = await supabase
-        .from('despesas_mensais')
-        .select('*')
-
-      let totalPendencias = 0
-      let pessoasComPendencias = 0
-
-      if (mentoradosData && despesasData) {
-        const meses = [
-          { key: 'agosto' }, { key: 'setembro' }, { key: 'outubro' }, { key: 'novembro' },
-          { key: 'dezembro' }, { key: 'janeiro' }, { key: 'fevereiro' }, { key: 'marco' },
-          { key: 'abril' }, { key: 'maio' }, { key: 'junho' }, { key: 'julho' }
-        ]
-
-        mentoradosData.forEach(mentorado => {
-          const despesas = despesasData.find(d => d.nome === mentorado.nome_completo) || null
-          let totalPendente = 0
-
-          if (despesas) {
-            meses.forEach(mes => {
-              const valor = despesas[mes.key] || 0
-              if (valor && valor > 0) {
-                totalPendente += valor
-              }
-            })
-          }
-
-          if (totalPendente > 0) {
-            totalPendencias += totalPendente
-            pessoasComPendencias++
-          }
-        })
+      // Aplicar filtros de data se necessário
+      if (dateRange.start && dateRange.end) {
+        leadsQuery = leadsQuery.gte('created_at', dateRange.start).lte('created_at', dateRange.end)
+        mentoradosQuery = mentoradosQuery.gte('created_at', dateRange.start).lte('created_at', dateRange.end)
+        vendasQuery = vendasQuery.gte('created_at', dateRange.start).lte('created_at', dateRange.end)
       }
 
-      // Buscar todos os leads primeiro
-      const { data: allLeads } = await supabase
-        .from('leads')
-        .select('id, status, valor_vendido, valor_arrecadado, data_primeiro_contato, convertido_em')
+      // Executar queries
+      const { data: leadsPeriod } = await leadsQuery
+      const { data: mentoradosPeriod } = await mentoradosQuery
+      const { data: vendasPeriod } = await vendasQuery
 
-      let totalLeads = 0
-      let valorVendido = 0
-      let valorArrecadado = 0
-      let leadsVendidos = 0
+      const totalVendasPeriod = vendasPeriod?.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0) || 0
 
-      if (allLeads) {
-        // Filtrar leads por data_primeiro_contato para total de leads
-        let leadsParaContar = allLeads
-        if (dateFilter?.start || dateFilter?.end) {
-          leadsParaContar = allLeads.filter(lead => {
-            if (!lead.data_primeiro_contato) return false
-            const leadDate = new Date(lead.data_primeiro_contato)
+      // Carregar evolução do faturamento dos últimos 6 meses
+      await loadMonthlyRevenue()
 
-            if (dateFilter.start && dateFilter.end) {
-              return leadDate >= new Date(dateFilter.start) && leadDate <= new Date(dateFilter.end)
-            } else if (dateFilter.start) {
-              return leadDate >= new Date(dateFilter.start)
-            } else if (dateFilter.end) {
-              return leadDate <= new Date(dateFilter.end)
-            }
-            return true
-          })
-        }
-        totalLeads = leadsParaContar.length
+      // Carregar atividade recente
+      await loadRecentActivity()
 
-        // Para leads vendidos, usar convertido_em se disponível, senão data_primeiro_contato
-        let leadsVendidosParaContar = allLeads.filter(lead => lead.status === 'vendido')
-        if (dateFilter?.start || dateFilter?.end) {
-          leadsVendidosParaContar = leadsVendidosParaContar.filter(lead => {
-            const dataConversao = lead.convertido_em || lead.data_primeiro_contato
-            if (!dataConversao) return false
-            const conversionDate = new Date(dataConversao)
+      // Carregar distribuição de leads por origem
+      await loadLeadDistribution(leadsPeriod || [])
 
-            if (dateFilter.start && dateFilter.end) {
-              return conversionDate >= new Date(dateFilter.start) && conversionDate <= new Date(dateFilter.end)
-            } else if (dateFilter.start) {
-              return conversionDate >= new Date(dateFilter.start)
-            } else if (dateFilter.end) {
-              return conversionDate <= new Date(dateFilter.end)
-            }
-            return true
-          })
-        }
-
-        leadsVendidos = leadsVendidosParaContar.length
-        valorVendido = leadsVendidosParaContar.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
-        valorArrecadado = leadsVendidosParaContar.reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0)
-      }
-
-      // Buscar calls por status (no-show, rejeitadas, vendidas)
-      let noShow = 0
-      let rejeitadas = 0
-      let vendidas = 0
-      let totalCalls = 0
-      let callsFeitas = 0
-
-      if (allLeads) {
-        // Filtrar leads por data primeiro
-        let leadsParaCall = allLeads
-        if (dateFilter?.start || dateFilter?.end) {
-          leadsParaCall = allLeads.filter(lead => {
-            if (!lead.data_primeiro_contato) return false
-            const leadDate = new Date(lead.data_primeiro_contato)
-
-            if (dateFilter.start && dateFilter.end) {
-              return leadDate >= new Date(dateFilter.start) && leadDate <= new Date(dateFilter.end)
-            } else if (dateFilter.start) {
-              return leadDate >= new Date(dateFilter.start)
-            } else if (dateFilter.end) {
-              return leadDate <= new Date(dateFilter.end)
-            }
-            return true
-          })
-        }
-
-        // Contar calls por status
-        leadsParaCall.forEach(lead => {
-          if (lead.status === 'no-show') {
-            noShow++
-            // No-show NÃO conta como call realizada
-          } else if (lead.status === 'rejeitado' || lead.status === 'rejeitada') {
-            rejeitadas++
-            totalCalls++
-          } else if (lead.status === 'vendido') {
-            vendidas++
-            totalCalls++
-            callsFeitas++
-          } else if (lead.status === 'proposta_enviada') {
-            // Proposta enviada conta como call feita, mas NÃO como vendida
-            totalCalls++
-            callsFeitas++
-          } else if (lead.status === 'perdido') {
-            // Perdido também conta como call já feita
-            totalCalls++
-            callsFeitas++
-          }
-        })
-      }
-
-      // Buscar pendências financeiras - MESMA LÓGICA DA PÁGINA DE PENDÊNCIAS
-      const { data: mentoradosCompletos } = await supabase
-        .from('mentorados')
-        .select('*')
-        .order('nome_completo')
-
-      const { data: despesasDashboard } = await supabase
-        .from('despesas_mensais')
-        .select('*')
-
-      let totalDividas = 0
-      let valorTotalPendente = 0
-      let pessoasComDividas = 0
-
-      if (mentoradosCompletos && despesasDashboard) {
-        const meses = [
-          { key: 'agosto' }, { key: 'setembro' }, { key: 'outubro' }, { key: 'novembro' },
-          { key: 'dezembro' }, { key: 'janeiro' }, { key: 'fevereiro' }, { key: 'marco' },
-          { key: 'abril' }, { key: 'maio' }, { key: 'junho' }, { key: 'julho' }
-        ]
-
-        mentoradosCompletos.forEach(mentorado => {
-          const despesas = despesasDashboard.find(d => d.nome === mentorado.nome_completo) || null
-          let totalPendente = 0
-          let qtdDividas = 0
-
-          if (despesas) {
-            meses.forEach(mes => {
-              const valor = despesas[mes.key] || 0
-              if (valor && valor > 0) {
-                totalPendente += valor
-                qtdDividas++
-              }
-            })
-          }
-
-          if (totalPendente > 0) {
-            valorTotalPendente += totalPendente
-            pessoasComDividas++
-            totalDividas += qtdDividas
-          }
-        })
-      }
-
-      setStats({
-        totalMentorados: mentorados?.length || 0,
-        totalCheckins: checkins?.length || 0,
-        totalFormularios: pessoasComPendencias,
-        npsMedia: totalPendencias
+      setKpiData({
+        total_vendas: totalVendasPeriod,
+        meta_vendas: 500000,
+        total_leads: leadsPeriod?.length || 0,
+        leads_vendidos: vendasPeriod?.length || 0,
+        total_mentorados: mentoradosPeriod?.length || 0,
+        checkins_agendados: 39, // TODO: calcular baseado no período
+        pendencias: 16 // TODO: calcular baseado no período
       })
-
-      setLeadsStats({
-        totalLeads,
-        valorVendido,
-        valorArrecadado,
-        leadsVendidos
-      })
-
-      setDividasStats({
-        totalDividas,
-        valorTotalPendente,
-        pessoasComDividas
-      })
-
-      setCallsStats({
-        noShow,
-        rejeitadas,
-        vendidas,
-        totalCalls,
-        callsFeitas
-      })
-
-      // Calcular percentuais das metas usando configurações
-      const percentualFaturamento = settings.meta_faturamento_mes > 0
-        ? Math.round((valorVendido / settings.meta_faturamento_mes) * 100)
-        : 0
-      const percentualLeads = settings.meta_vendas_mes > 0
-        ? Math.round((leadsVendidos / settings.meta_vendas_mes) * 100)
-        : 0
-
-      setMetasStats(prev => ({
-        ...prev,
-        percentualFaturamento,
-        percentualLeads
-      }))
-
     } catch (error) {
-      console.error('Erro ao carregar stats:', error)
+      console.error('Erro ao carregar dados do dashboard:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  // Carregar calls atrasadas
-  const loadOverdueCalls = async () => {
+  const loadMonthlyRevenue = async () => {
     try {
-      const today = new Date()
-      today.setHours(23, 59, 59, 999) // Final do dia para comparação
+      // Primeiro buscar usando lead_vendas se existir, caso contrário usar leads
+      let { data: vendas } = await supabase
+        .from('lead_vendas')
+        .select('valor_vendido, data_venda')
+        .not('data_venda', 'is', null)
 
-      // Aplicar o mesmo filtro de período que está sendo usado no dashboard
-      const dateFilter = dateFilters.getDateFilter()
+      // Se não tiver dados na tabela lead_vendas, usar dados da tabela leads
+      if (!vendas || vendas.length === 0) {
+        const { data: leads } = await supabase
+          .from('leads')
+          .select('valor_vendido, data_venda, created_at, convertido_em')
+          .eq('status', 'vendido')
 
-      // Buscar leads com status 'call_agendada' no período filtrado
-      let leadsQuery = supabase
+        vendas = leads?.map(lead => ({
+          valor_vendido: lead.valor_vendido,
+          data_venda: lead.data_venda || lead.convertido_em || lead.created_at
+        })) || []
+      }
+
+      if (vendas && vendas.length > 0) {
+        // Agrupar vendas por mês dos últimos 8 meses para sparkline
+        const sparklineMonths = []
+        const monthlyDataPoints = []
+
+        for (let i = 7; i >= 0; i--) {
+          const date = new Date()
+          date.setMonth(date.getMonth() - i)
+          const year = date.getFullYear()
+          const month = date.getMonth() + 1
+
+          const monthSales = vendas.filter(venda => {
+            const saleDate = new Date(venda.data_venda)
+            return saleDate.getFullYear() === year && saleDate.getMonth() + 1 === month
+          })
+
+          const totalValue = monthSales.reduce((sum, venda) => sum + (venda.valor_vendido || 0), 0)
+
+          sparklineMonths.push({ value: totalValue / 1000 }) // Valor em milhares para o gráfico
+
+          // Para os últimos 6 meses, criar dados mensais detalhados
+          if (i <= 5) {
+            const monthName = date.toLocaleDateString('pt-BR', { month: 'short' })
+            monthlyDataPoints.push({
+              month: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+              value: totalValue
+            })
+          }
+        }
+
+        setSparklineData(sparklineMonths)
+        setMonthlyData(monthlyDataPoints)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados mensais:', error)
+    }
+  }
+
+  const loadRecentActivity = async () => {
+    try {
+      // Buscar atividades recentes de diferentes tabelas
+      const { data: recentLeads } = await supabase
         .from('leads')
-        .select('*')
-        .eq('status', 'call_agendada')
-        .order('updated_at', { ascending: true })
+        .select('nome_completo, email, status, created_at, updated_at')
+        .order('updated_at', { ascending: false })
+        .limit(5)
 
-      // Aplicar filtro de período se existir
-      if (dateFilter?.start) {
-        leadsQuery = leadsQuery.gte('created_at', dateFilter.start)
-      }
-      if (dateFilter?.end) {
-        leadsQuery = leadsQuery.lte('created_at', dateFilter.end)
-      }
+      const { data: recentMentorados } = await supabase
+        .from('mentorados')
+        .select('nome, email, created_at, updated_at')
+        .order('updated_at', { ascending: false })
+        .limit(3)
 
-      const { data: leadsCallAgendada, error } = await leadsQuery
-      if (error) throw error
+      const activities = []
 
-      // Buscar follow-ups de call que já passaram do prazo (independente do filtro de período)
-      const { data: overdueFollowups, error: followupError } = await supabase
-        .from('lead_followups')
-        .select(`
-          *,
-          lead:leads (*)
-        `)
-        .eq('tipo', 'call')
-        .eq('status', 'pendente')
-        .lt('data_agendada', today.toISOString())
-        .order('data_agendada', { ascending: true })
-
-      if (followupError) throw followupError
-
-      // Filtrar leads call_agendada que estão há mais de 2 dias OU que têm follow-ups atrasados
-      const twoDaysAgo = new Date()
-      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
-      twoDaysAgo.setHours(23, 59, 59, 999)
-
-      const overdueLeads = (leadsCallAgendada || []).filter(lead => {
-        const updatedDate = new Date(lead.updated_at)
-        return updatedDate < twoDaysAgo
+      // Adicionar leads recentes
+      recentLeads?.forEach(lead => {
+        const isRecent = new Date(lead.updated_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+        if (isRecent) {
+          activities.push({
+            id: `lead-${lead.nome_completo}`,
+            name: lead.nome_completo,
+            email: lead.email || 'Sem email',
+            type: lead.status === 'vendido' ? 'Venda' : 'Lead',
+            date: formatTimeAgo(lead.updated_at),
+            status: lead.status === 'vendido' ? 'completed' : 'pending'
+          })
+        }
       })
 
-      // Combinar leads atrasados e follow-ups atrasados
-      const combined = [
-        ...overdueLeads.map(lead => ({
-          ...lead,
-          type: 'lead',
-          overdueReason: `Call agendada em ${new Date(lead.updated_at).toLocaleDateString('pt-BR')} (há mais de 2 dias)`,
-          daysOverdue: Math.floor((today.getTime() - new Date(lead.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-        })),
-        ...(overdueFollowups || []).map(followup => ({
-          ...followup.lead,
-          type: 'followup',
-          followupId: followup.id,
-          overdueReason: `Call agendada para ${new Date(followup.data_agendada).toLocaleDateString('pt-BR')}`,
-          daysOverdue: Math.floor((today.getTime() - new Date(followup.data_agendada).getTime()) / (1000 * 60 * 60 * 24))
-        }))
-      ]
-
-      // Remover duplicatas por ID do lead e filtrar apenas calls realmente atrasadas
-      const unique = combined
-        .filter((item, index, self) => index === self.findIndex(t => t.id === item.id))
-        .filter(item => item.daysOverdue > 0) // Garantir que está realmente atrasado
-
-      // Debug: Log para verificar os dados
-      console.log('📞 CALLS ATRASADAS DEBUG:')
-      console.log(`- Leads com call_agendada no período: ${leadsCallAgendada?.length || 0}`)
-      console.log(`- Leads call_agendada há mais de 2 dias: ${overdueLeads.length}`)
-      console.log(`- Follow-ups atrasados: ${overdueFollowups?.length || 0}`)
-      console.log(`- Total calls atrasadas (únicos): ${unique.length}`)
-      console.log(`- Filtro de período ativo: ${dateFilter ? JSON.stringify({start: dateFilter.start?.substring(0,10), end: dateFilter.end?.substring(0,10)}) : 'Nenhum'}`)
-
-      setOverdueCalls(unique)
-
-      // Carregar calls da semana (segunda a domingo)
-      const now = new Date()
-
-      // Início da semana (segunda-feira)
-      const startOfWeek = new Date(now)
-      const dayOfWeek = startOfWeek.getDay() // 0 = domingo, 1 = segunda, etc
-      const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // Se domingo (0), volta 6 dias; senão, volta (dia - 1)
-      startOfWeek.setDate(now.getDate() - daysToSubtract)
-      startOfWeek.setHours(0, 0, 0, 0)
-
-      // Fim da semana (domingo)
-      const endOfWeek = new Date(startOfWeek)
-      endOfWeek.setDate(startOfWeek.getDate() + 6)
-      endOfWeek.setHours(23, 59, 59, 999)
-
-      // Buscar follow-ups de call desta semana
-      const { data: weekFollowups, error: weekError } = await supabase
-        .from('lead_followups')
-        .select(`
-          *,
-          lead:leads (*)
-        `)
-        .eq('tipo', 'call')
-        .gte('data_agendada', startOfWeek.toISOString())
-        .lte('data_agendada', endOfWeek.toISOString())
-        .order('data_agendada', { ascending: true })
-
-      if (weekError) throw weekError
-
-      // Buscar leads com call_agendada do período filtrado
-      let weekLeadsQuery = supabase
-        .from('leads')
-        .select('*')
-        .eq('status', 'call_agendada')
-
-      // Aplicar filtro de período se existir
-      if (dateFilter?.start) {
-        weekLeadsQuery = weekLeadsQuery.gte('created_at', dateFilter.start)
-      }
-      if (dateFilter?.end) {
-        weekLeadsQuery = weekLeadsQuery.lte('created_at', dateFilter.end)
-      }
-
-      const { data: weekLeadsCallAgendada, error: leadsError } = await weekLeadsQuery
-      if (leadsError) throw leadsError
-
-      const weekCombined = [
-        ...(weekFollowups || []).map(followup => ({
-          ...followup.lead,
-          type: 'followup',
-          followupId: followup.id,
-          scheduledDate: followup.data_agendada,
-          isScheduled: true
-        })),
-        ...(weekLeadsCallAgendada || []).map(lead => ({
-          ...lead,
-          type: 'lead',
-          isScheduled: true,
-          scheduledDate: lead.updated_at
-        }))
-      ]
-
-      // Remover duplicatas por ID do lead
-      const uniqueWeek = weekCombined.filter((item, index, self) =>
-        index === self.findIndex(t => t.id === item.id)
-      )
-
-      // Debug: Log para verificar as calls da semana
-      console.log('📅 CALLS DA SEMANA DEBUG:')
-      console.log(`- Período da semana: ${startOfWeek.toLocaleDateString('pt-BR')} até ${endOfWeek.toLocaleDateString('pt-BR')}`)
-      console.log(`- Follow-ups de call da semana: ${weekFollowups?.length || 0}`)
-      console.log(`- Leads call_agendada: ${weekLeadsCallAgendada?.length || 0}`)
-      console.log(`- Total calls da semana (únicos): ${uniqueWeek.length}`)
-
-      setWeekCalls(uniqueWeek)
-
-    } catch (error) {
-      console.error('Erro ao carregar calls atrasadas:', error)
-    }
-  }
-
-  // Atualizar status de call
-  const updateCallStatus = async (leadId: string, newStatus: string, followupId: string | null = null) => {
-    try {
-      setUpdatingCallStatus(leadId)
-
-      // Atualizar status do lead
-      const { error: leadError } = await supabase
-        .from('leads')
-        .update({
-          status: newStatus,
-          updated_at: new Date().toISOString()
+      // Adicionar mentorados recentes
+      recentMentorados?.forEach(mentorado => {
+        activities.push({
+          id: `mentorado-${mentorado.nome}`,
+          name: mentorado.nome,
+          email: mentorado.email || 'Sem email',
+          type: 'Check-in',
+          date: formatTimeAgo(mentorado.updated_at),
+          status: 'confirmed'
         })
-        .eq('id', leadId)
+      })
 
-      if (leadError) throw leadError
-
-      // Se houver follow-up associado, marcar como concluído
-      if (followupId) {
-        const { error: followupError } = await supabase
-          .from('lead_followups')
-          .update({
-            status: 'concluido',
-            resultado: `Status atualizado para: ${getStatusLabel(newStatus)}`
-          })
-          .eq('id', followupId)
-
-        if (followupError) throw followupError
-      }
-
-      // Recarregar dados
-      await loadOverdueCalls()
-      await loadDashboardStats()
+      // Ordenar por data e pegar apenas os 8 mais recentes
+      activities.sort((a, b) => new Date(b.date) - new Date(a.date))
+      setRecentActivity(activities.slice(0, 8))
 
     } catch (error) {
-      console.error('Erro ao atualizar status:', error)
-      alert('Erro ao atualizar status da call')
-    } finally {
-      setUpdatingCallStatus(null)
+      console.error('Erro ao carregar atividade recente:', error)
     }
   }
 
-  // Helper para obter label do status
-  const getStatusLabel = (status: string) => {
-    const labels: { [key: string]: string } = {
-      'proposta_enviada': 'Proposta Enviada',
-      'vendido': 'Vendido',
-      'perdido': 'Perdido',
-      'no_show': 'No Show'
+  const loadLeadDistribution = async (leads: any[]) => {
+    try {
+      if (!leads || leads.length === 0) {
+        setLeadDistribution([
+          { name: 'Sem dados', value: 100, color: '#E2E8F0' }
+        ])
+        return
+      }
+
+      // Agrupar leads por origem
+      const origemCount = leads.reduce((acc, lead) => {
+        const origem = lead.origem || 'Outros'
+        acc[origem] = (acc[origem] || 0) + 1
+        return acc
+      }, {})
+
+      const total = leads.length
+      const colors = ['#059669', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#10B981', '#F97316', '#EC4899']
+
+      const distribution = Object.entries(origemCount)
+        .map(([origem, count], index) => ({
+          name: origem,
+          value: count as number,
+          color: colors[index % colors.length]
+        }))
+        .sort((a, b) => b.value - a.value)
+
+      setLeadDistribution(distribution)
+    } catch (error) {
+      console.error('Erro ao carregar distribuição de leads:', error)
+      setLeadDistribution([
+        { name: 'Erro', value: 100, color: '#EF4444' }
+      ])
     }
-    return labels[status] || status
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value)
+  const formatTimeAgo = (dateString: string) => {
+    const now = new Date()
+    const date = new Date(dateString)
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
+
+    if (diffInHours < 1) return 'Agora mesmo'
+    if (diffInHours === 1) return '1 hora atrás'
+    if (diffInHours < 24) return `${diffInHours} horas atrás`
+
+    const diffInDays = Math.floor(diffInHours / 24)
+    if (diffInDays === 1) return '1 dia atrás'
+    if (diffInDays < 7) return `${diffInDays} dias atrás`
+
+    return date.toLocaleDateString('pt-BR')
   }
 
-  // Função para navegar para as páginas
-  const navigateTo = (path: string) => {
-    router.push(path)
-  }
+  const percentualVendas = Math.round((kpiData.total_vendas / kpiData.meta_vendas) * 100)
+  const percentualConversao = Math.round((kpiData.leads_vendidos / 15) * 100)
+  const currentPeriodLabel = getDateRange(selectedPeriod).label
 
-  // Componente Card Minimalista
-  const UltraCleanStatsCard = ({
-    title,
-    value,
-    subtitle,
-    icon: Icon,
-    onClick,
-    loading,
-    trend
-  }: {
-    title: string
-    value: string | number
-    subtitle?: string
-    icon: any
-    onClick: () => void
-    loading: boolean
-    trend?: 'up' | 'down' | 'neutral'
-  }) => (
-    <div
-      className="stats-clean-white cursor-pointer group"
-      onClick={onClick}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <p className="metric-label-clean mb-2">{title}</p>
-          <p className="metric-value-clean">
-            {loading ? (
-              <div className="h-7 w-16 bg-gray-100 rounded animate-pulse"></div>
-            ) : (
-              typeof value === 'number' ? value.toLocaleString() : value
-            )}
-          </p>
-          {subtitle && (
-            <p className="subtitle-ultra-clean mt-1">{subtitle}</p>
-          )}
-        </div>
-        <div className="ml-4">
-          <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-mint-green/10 transition-all duration-200">
-            <Icon className="sidebar-icon-clean" />
-          </div>
-        </div>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#F8FAFC]">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#059669]"></div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
-    <div className="flex-1 overflow-y-auto min-h-screen" style={{background: '#F8FAF7'}}>
-      <Header
-        title={<span className="title-ultra-clean">Dashboard</span>}
-        subtitle={<span className="subtitle-ultra-clean">Visão geral do Customer Success</span>}
-      />
+    <PageLayout title="Dashboard" subtitle="Visão geral do Customer Success">
+      {/* Filtros de Período */}
+      <div className="mb-8">
+        <PeriodFilter selected={selectedPeriod} onChange={setSelectedPeriod} />
+      </div>
 
-      <main className="layout-ultra-clean">
-        {/* Filtros Avançados */}
-        <DateFilters
-          filtroTempo={dateFilters.filtroTempo}
-          dataInicio={dateFilters.dataInicio}
-          dataFim={dateFilters.dataFim}
-          setFiltroTempo={dateFilters.setFiltroTempo}
-          setDataInicio={dateFilters.setDataInicio}
-          setDataFim={dateFilters.setDataFim}
-          resetFilters={dateFilters.resetFilters}
+      {/* KPI Cards Principais - Grid responsivo */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <KPICardVibrant
+          title="Faturamento"
+          value={new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+            minimumFractionDigits: 0
+          }).format(kpiData.total_vendas)}
+          subtitle={`${currentPeriodLabel} • Meta: ${new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+            minimumFractionDigits: 0
+          }).format(kpiData.meta_vendas)}`}
+          percentage={percentualVendas}
+          trend="up"
+          color="orange"
+          icon={DollarSign}
+          sparklineData={sparklineData}
         />
+        <KPICardVibrant
+          title="Leads Vendidos"
+          value={kpiData.leads_vendidos.toString()}
+          subtitle={`${currentPeriodLabel} • Meta: 15 leads`}
+          percentage={percentualConversao}
+          trend="up"
+          color="blue"
+          icon={Target}
+          sparklineData={sparklineData}
+        />
+      </div>
 
-        {/* Dashboard Principal */}
-        <div className="space-y-8">
-          {/* Metas do Mês - Estrutura Exata do Design de Referência */}
-          <section className="goals-section">
-            <div className="goals-bg"></div>
+      {/* Métricas Secundárias - Grid responsivo */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <MetricCard
+          title={`Mentorados (${currentPeriodLabel.toLowerCase()})`}
+          value={kpiData.total_mentorados.toString()}
+          change={12}
+          changeType="increase"
+          icon={Users}
+          iconColor="blue"
+          link="/mentorados"
+        />
+        <MetricCard
+          title="Check-ins Agendados"
+          value={kpiData.checkins_agendados.toString()}
+          change={8}
+          changeType="increase"
+          icon={Calendar}
+          iconColor="green"
+          link="/calendario"
+        />
+        <MetricCard
+          title="Pessoas c/ Pendências"
+          value={kpiData.pendencias.toString()}
+          change={5}
+          changeType="decrease"
+          icon={AlertCircle}
+          iconColor="orange"
+          link="/pendencias"
+        />
+        <MetricCard
+          title={`Leads (${currentPeriodLabel.toLowerCase()})`}
+          value={kpiData.total_leads.toString()}
+          change={15}
+          changeType="increase"
+          icon={UserPlus}
+          iconColor="purple"
+          link="/leads"
+        />
+      </div>
 
-            <div className="goals-card">
-              {/* Meta Faturamento */}
-              <div className="goal-item">
-                <div className="goal-item-header">
-                  <div>
-                    <div className="goal-title">Faturamento</div>
-                    <div className="goal-subtitle">Meta mensal</div>
-                  </div>
-                  <div className="goal-percent">{metasStats.percentualFaturamento}%</div>
-                </div>
-
-                <div className="goal-values">
-                  <span>Realizado: {formatCurrency(leadsStats.valorVendido)}</span>
-                  <span>Meta: {formatCurrency(settings.meta_faturamento_mes)}</span>
-                </div>
-
-                <div className="goal-progress" style={{'--progress': `${Math.min(metasStats.percentualFaturamento, 100)}%`} as React.CSSProperties}>
-                  <div></div>
-                </div>
-              </div>
-
-              {/* Meta Leads Vendidos */}
-              <div className="goal-item">
-                <div className="goal-item-header">
-                  <div>
-                    <div className="goal-title">Leads Vendidos</div>
-                    <div className="goal-subtitle">Meta mensal</div>
-                  </div>
-                  <div className="goal-percent">{metasStats.percentualLeads}%</div>
-                </div>
-
-                <div className="goal-values">
-                  <span>Vendidos: {leadsStats.leadsVendidos}</span>
-                  <span>Meta: {settings.meta_vendas_mes}</span>
-                </div>
-
-                <div className="goal-progress" style={{'--progress': `${Math.min(metasStats.percentualLeads, 100)}%`} as React.CSSProperties}>
-                  <div></div>
-                </div>
-              </div>
+      {/* Gráficos - Grid responsivo */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Gráfico Principal - 2 colunas no desktop */}
+        <div className="lg:col-span-2">
+          <ChartCard
+            title="Evolução do Faturamento"
+            subtitle="Últimos 6 meses"
+            actions={
+              <select className="px-4 py-2 bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all">
+                <option>Mensal</option>
+                <option>Semanal</option>
+                <option>Diário</option>
+              </select>
+            }
+          >
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={monthlyData}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#059669" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                  <XAxis dataKey="month" stroke="#94A3B8" fontSize={12} />
+                  <YAxis stroke="#94A3B8" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '12px',
+                      boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#059669"
+                    fillOpacity={1}
+                    fill="url(#colorRevenue)"
+                    strokeWidth={3}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-          </section>
-
-          {/* Métricas Principais */}
-          <div className="space-y-8">
-            <div className="border-b border-gray-100 pb-6 mb-8">
-              <h2 className="title-ultra-clean">
-                Métricas Principais
-              </h2>
-              <p className="subtitle-ultra-clean">
-                Indicadores essenciais do sistema
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-              <UltraCleanStatsCard
-                title="Total Mentorados"
-                value={stats.totalMentorados}
-                subtitle="Gerenciar mentorados"
-                icon={Users}
-                onClick={() => navigateTo('/mentorados')}
-                loading={loading}
-              />
-
-              <UltraCleanStatsCard
-                title="Check-ins Agendados"
-                value={stats.totalCheckins}
-                subtitle="Visualizar check-ins"
-                icon={Calendar}
-                onClick={() => navigateTo('/checkins')}
-                loading={loading}
-              />
-
-              <UltraCleanStatsCard
-                title="Pessoas c/ Pendências"
-                value={dividasStats.pessoasComDividas}
-                subtitle="Ver pendências"
-                icon={CreditCard}
-                onClick={() => navigateTo('/pendencias')}
-                loading={loading}
-              />
-
-              <UltraCleanStatsCard
-                title="Total de Leads"
-                value={leadsStats.totalLeads}
-                subtitle="Gerenciar leads"
-                icon={Target}
-                onClick={() => navigateTo('/leads')}
-                loading={loading}
-              />
-            </div>
-          </div>
-
-          {/* Análise Financeira */}
-          <div className="space-y-8">
-            <div className="border-b border-gray-100 pb-6 mb-8">
-              <h2 className="title-ultra-clean">
-                Análise Financeira
-              </h2>
-              <p className="subtitle-ultra-clean">
-                Status financeiro e fluxo de pagamentos
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <UltraCleanStatsCard
-                title="Total de Dívidas"
-                value={dividasStats.totalDividas}
-                subtitle="Ver detalhes"
-                icon={TrendingUp}
-                onClick={() => navigateTo('/pendencias')}
-                loading={loading}
-              />
-
-              <UltraCleanStatsCard
-                title="Valor Pendente"
-                value={formatCurrency(dividasStats.valorTotalPendente)}
-                subtitle="Total em aberto"
-                icon={DollarSign}
-                onClick={() => navigateTo('/pendencias')}
-                loading={loading}
-              />
-
-              <UltraCleanStatsCard
-                title="Taxa de Pendências"
-                value={stats.totalMentorados > 0 ? `${Math.round((dividasStats.pessoasComDividas / stats.totalMentorados) * 100)}%` : '0%'}
-                subtitle="% com dívidas"
-                icon={BarChart3}
-                onClick={() => navigateTo('/pendencias')}
-                loading={loading}
-              />
-            </div>
-          </div>
-
-          {/* Performance de Vendas */}
-          <div className="space-y-6">
-            <div className="border-b border-gray-100 pb-6 mb-6">
-              <h2 className="title-ultra-clean">
-                Performance de Vendas
-                {dateFilters.hasActiveFilter && (
-                  <span className="text-base text-gray-400 ml-3 font-normal">
-                    • Filtro aplicado
-                  </span>
-                )}
-              </h2>
-              <p className="subtitle-ultra-clean">
-                Conversões e análise de leads
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-              <UltraCleanStatsCard
-                title="Total de Leads"
-                value={leadsStats.totalLeads}
-                subtitle="Todos os prospects"
-                icon={UserPlus}
-                onClick={() => navigateTo('/leads')}
-                loading={loading}
-              />
-
-              <UltraCleanStatsCard
-                title="Leads Convertidos"
-                value={leadsStats.leadsVendidos}
-                subtitle={
-                  leadsStats.totalLeads > 0
-                    ? `${Math.round((leadsStats.leadsVendidos / leadsStats.totalLeads) * 100)}% conversão`
-                    : 'Taxa de conversão'
-                }
-                icon={CheckCircle}
-                onClick={() => navigateTo('/leads')}
-                loading={loading}
-              />
-
-              <UltraCleanStatsCard
-                title="Valor Vendido"
-                value={formatCurrency(leadsStats.valorVendido)}
-                subtitle="Receita total"
-                icon={Target}
-                onClick={() => navigateTo('/leads')}
-                loading={loading}
-              />
-
-              <UltraCleanStatsCard
-                title="Valor Recebido"
-                value={formatCurrency(leadsStats.valorArrecadado)}
-                subtitle={
-                  leadsStats.valorVendido > 0
-                    ? `${Math.round((leadsStats.valorArrecadado / leadsStats.valorVendido) * 100)}% recebido`
-                    : '% recebido'
-                }
-                icon={DollarSign}
-                onClick={() => navigateTo('/leads')}
-                loading={loading}
-              />
-            </div>
-          </div>
-
-          {/* Performance de Calls */}
-          <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-2xl font-semibold text-gray-900">
-                Performance de Calls
-                {dateFilters.hasActiveFilter && (
-                  <span className="text-lg text-gray-500 ml-2 font-normal">
-                    - Filtro aplicado
-                  </span>
-                )}
-              </h2>
-              <p className="text-gray-600 mt-1">
-                Resultado das chamadas realizadas
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
-              <UltraCleanStatsCard
-                title="Calls Feitas"
-                value={callsStats.callsFeitas}
-                subtitle="Propostas + vendidas + perdidas"
-                icon={TrendingUp}
-                onClick={() => navigateTo('/leads')}
-                loading={loading}
-              />
-
-              <UltraCleanStatsCard
-                title="No-show"
-                value={callsStats.noShow}
-                subtitle="Não compareceram"
-                icon={Users}
-                onClick={() => navigateTo('/leads')}
-                loading={loading}
-              />
-
-              <UltraCleanStatsCard
-                title="Rejeitadas"
-                value={callsStats.rejeitadas}
-                subtitle="Não interessados"
-                icon={Target}
-                onClick={() => navigateTo('/leads')}
-                loading={loading}
-              />
-
-              <UltraCleanStatsCard
-                title="Vendidas"
-                value={callsStats.vendidas}
-                subtitle="Convertidas em venda"
-                icon={CheckCircle}
-                onClick={() => navigateTo('/leads')}
-                loading={loading}
-              />
-
-              <UltraCleanStatsCard
-                title="Taxa de Conversão"
-                value={callsStats.totalCalls > 0 ? `${Math.round((callsStats.vendidas / callsStats.totalCalls) * 100)}%` : '0%'}
-                subtitle={`${callsStats.totalCalls} calls total`}
-                icon={BarChart3}
-                onClick={() => navigateTo('/leads')}
-                loading={loading}
-              />
-            </div>
-          </div>
+          </ChartCard>
         </div>
 
-        {/* Calls Atrasadas */}
-        {overdueCalls.length > 0 && (
-          <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-                <h2 className="text-2xl font-semibold text-red-700">
-                  ⚠️ Calls Atrasadas ({overdueCalls.length})
-                </h2>
-              </div>
-              <p className="text-gray-600 mt-1">
-                Leads que passaram da data da call e precisam de atualização urgente
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {overdueCalls.map((call) => (
-                <Card key={call.id} className="border-l-4 border-l-red-500 bg-red-50">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-red-600" />
-                            <h3 className="font-semibold text-gray-900">{call.nome_completo}</h3>
-                          </div>
-                          <Badge variant="destructive" className="text-xs">
-                            {call.daysOverdue} dias atrás
-                          </Badge>
-                        </div>
-
-                        <div className="text-sm text-gray-600 mb-2">
-                          {call.empresa && (
-                            <span className="mr-4">🏢 {call.empresa}</span>
-                          )}
-                          {call.telefone && (
-                            <span className="mr-4">📞 {call.telefone}</span>
-                          )}
-                        </div>
-
-                        <div className="text-xs text-red-700 mb-3">
-                          <Clock className="h-3 w-3 inline mr-1" />
-                          {call.overdueReason}
-                        </div>
-
-                        <div className="text-xs text-gray-500">
-                          Como foi a call? Atualize o status:
-                        </div>
-                      </div>
-
-                      {/* Botões de Ação */}
-                      <div className="flex gap-2 flex-wrap">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                          onClick={() => updateCallStatus(call.id, 'proposta_enviada', call.followupId)}
-                          disabled={updatingCallStatus === call.id}
-                        >
-                          <Handshake className="h-3 w-3 mr-1" />
-                          Proposta Enviada
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                          onClick={() => updateCallStatus(call.id, 'vendido', call.followupId)}
-                          disabled={updatingCallStatus === call.id}
-                        >
-                          <CheckSquare className="h-3 w-3 mr-1" />
-                          Vendido
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
-                          onClick={() => updateCallStatus(call.id, 'perdido', call.followupId)}
-                          disabled={updatingCallStatus === call.id}
-                        >
-                          <X className="h-3 w-3 mr-1" />
-                          Perdido
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
-                          onClick={() => updateCallStatus(call.id, 'no_show', call.followupId)}
-                          disabled={updatingCallStatus === call.id}
-                        >
-                          <UserX className="h-3 w-3 mr-1" />
-                          No Show
-                        </Button>
-
-                        {updatingCallStatus === call.id && (
-                          <div className="flex items-center">
-                            <RefreshCw className="h-3 w-3 animate-spin text-blue-600" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Botão para ver todos os leads */}
-            <div className="text-center pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => navigateTo('/leads')}
-                className="hover:bg-gray-50"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Ver todos os leads
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Calls desta Semana */}
-        <div className="space-y-6">
-          <div className="border-b border-gray-200 pb-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-blue-600" />
-              <h2 className="text-2xl font-semibold text-blue-700">
-                📅 Calls desta Semana ({weekCalls.length})
-              </h2>
-            </div>
-            <p className="text-gray-600 mt-1">
-              Todos os leads agendados para call até domingo
-            </p>
-          </div>
-
-          {weekCalls.length > 0 ? (
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {weekCalls.map((call) => (
-                <Card key={call.id} className="border-l-4 border-l-blue-500 bg-blue-50/30">
-                  <CardContent className="p-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-blue-600" />
-                        <h3 className="font-semibold text-gray-900 text-sm">{call.nome_completo}</h3>
-                      </div>
-
-                      <div className="text-xs text-gray-600">
-                        {call.empresa && (
-                          <span className="block">🏢 {call.empresa}</span>
-                        )}
-                        {call.telefone && (
-                          <span className="block">📞 {call.telefone}</span>
-                        )}
-                      </div>
-
-                      {call.scheduledDate && (
-                        <div className="text-xs text-blue-700">
-                          <Clock className="h-3 w-3 inline mr-1" />
-                          {call.type === 'followup'
-                            ? new Date(call.scheduledDate).toLocaleDateString('pt-BR', {
-                                weekday: 'short', day: '2-digit', month: 'short',
-                                hour: '2-digit', minute: '2-digit'
-                              })
-                            : 'Call agendada'
-                          }
-                        </div>
-                      )}
-
-                      <Badge variant="outline" className="text-xs">
-                        Status: {call.status}
-                      </Badge>
-
-                      {/* Botões de ação rápida para calls desta semana também */}
-                      <div className="flex gap-1 pt-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs h-6 px-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                          onClick={() => updateCallStatus(call.id, 'vendido', call.followupId)}
-                          disabled={updatingCallStatus === call.id}
-                        >
-                          ✓ Vendido
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs h-6 px-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                          onClick={() => updateCallStatus(call.id, 'proposta_enviada', call.followupId)}
-                          disabled={updatingCallStatus === call.id}
-                        >
-                          📄 Proposta
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card className="text-center p-8">
-              <CardContent>
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Nenhuma call agendada esta semana
-                </h3>
-                <p className="text-gray-500 mb-4">
-                  Que tal agendar algumas calls para converter mais leads?
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => navigateTo('/leads')}
-                  className="hover:bg-gray-50"
+        {/* Gráfico Donut - 1 coluna */}
+        <ChartCard title="Distribuição de Leads" subtitle="Por canal de origem">
+          <div className="h-80 flex flex-col items-center justify-center">
+            <ResponsiveContainer width="100%" height="70%">
+              <PieChart>
+                <Pie
+                  data={leadDistribution}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={90}
+                  paddingAngle={4}
+                  dataKey="value"
                 >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Ver leads disponíveis
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+                  {leadDistribution.map((entry, index) => (
+                    <Cell key={index} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="grid grid-cols-2 gap-3 w-full mt-4">
+              {leadDistribution.map((entry, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: entry.color }}
+                  />
+                  <span className="text-sm text-[#475569] font-medium">
+                    {entry.name}: {entry.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ChartCard>
+      </div>
 
-          {/* Estatísticas rápidas */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
-            <Card className="text-center p-4">
-              <div className="text-2xl font-bold text-blue-600">{weekCalls.length}</div>
-              <div className="text-sm text-gray-600">Calls esta semana</div>
-            </Card>
-            <Card className="text-center p-4">
-              <div className="text-2xl font-bold text-red-600">{overdueCalls.length}</div>
-              <div className="text-sm text-gray-600">Calls atrasadas</div>
-            </Card>
-            <Card className="text-center p-4">
-              <div className="text-2xl font-bold text-green-600">
-                {callsStats.vendidas || 0}
+      {/* Tabela de Atividade Recente */}
+      <DataTable
+        title="Atividade Recente"
+        subtitle="Últimas interações com mentorados"
+        columns={[
+          {
+            header: 'Mentorado',
+            render: (row) => (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#059669] to-[#10B981] flex items-center justify-center text-white font-semibold text-sm">
+                  {row.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                </div>
+                <div>
+                  <p className="font-semibold text-[#0F172A]">{row.name}</p>
+                  <p className="text-sm text-[#94A3B8]">{row.email}</p>
+                </div>
               </div>
-              <div className="text-sm text-gray-600">Calls vendidas (período)</div>
-            </Card>
-          </div>
-        </div>
-
-        {/* Navegação Rápida */}
-        <div className="space-y-6">
-          <div className="border-b border-gray-200 pb-4">
-            <h2 className="text-2xl font-semibold text-gray-900">
-              Navegação Rápida
-            </h2>
-            <p className="text-gray-600 mt-1">
-              Acesso direto às funcionalidades
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { icon: Users, label: 'Mentorados', path: '/mentorados' },
-              { icon: Calendar, label: 'Check-ins', path: '/checkins' },
-              { icon: CreditCard, label: 'Pendências', path: '/pendencias' },
-              { icon: Target, label: 'Leads', path: '/leads' },
-              { icon: FileText, label: 'Formulários', path: '/formularios' },
-              { icon: BarChart3, label: 'Calendário', path: '/calendario' },
-              { icon: DollarSign, label: 'Despesas', path: '/despesas' }
-            ].map((item, index) => (
-              <Button
-                key={index}
-                variant="outline"
-                className="h-20 flex-col space-y-2 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 group"
-                onClick={() => navigateTo(item.path)}
-              >
-                <item.icon className="h-5 w-5 text-gray-600 group-hover:text-gray-900 transition-colors duration-200" />
-                <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors duration-200">
-                  {item.label}
-                </span>
-              </Button>
-            ))}
-          </div>
-        </div>
-      </main>
-    </div>
+            )
+          },
+          {
+            header: 'Tipo',
+            render: (row) => (
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#F1F5F9] text-[#475569]">
+                {row.type}
+              </span>
+            )
+          },
+          {
+            header: 'Data',
+            render: (row) => (
+              <span className="text-sm text-[#94A3B8] font-medium">{row.date}</span>
+            )
+          },
+          {
+            header: 'Status',
+            render: (row) => <StatusBadge status={row.status} />
+          },
+          {
+            header: 'Ações',
+            render: () => (
+              <div className="flex items-center gap-2">
+                <button className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group">
+                  <Phone className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                </button>
+                <button className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group">
+                  <MoreVertical className="w-4 h-4 text-[#94A3B8] group-hover:text-[#475569]" />
+                </button>
+              </div>
+            )
+          }
+        ]}
+        data={recentActivity}
+      />
+    </PageLayout>
   )
 }

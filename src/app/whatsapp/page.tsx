@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { PageLayout } from '@/components/ui/page-layout';
+import { ChartCard } from '@/components/ui/chart-card';
+import { MetricCard } from '@/components/ui/metric-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -446,117 +449,86 @@ export default function WhatsAppPage() {
   }, [selectedChat, loadChatMessages]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50">
-      {/* Header Moderno */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="bg-gradient-to-r from-green-500 to-green-600 p-3 rounded-xl shadow-lg">
-                <MessageCircle className="h-8 w-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-green-600 to-green-700 bg-clip-text text-transparent">
-                  WhatsApp Business
-                </h1>
-                <p className="text-gray-600 text-sm sm:text-base">
-                  Sistema de mensagens profissional integrado
-                </p>
-              </div>
+    <PageLayout
+      title="WhatsApp Business"
+      subtitle="Sistema de mensagens profissional integrado"
+      actions={
+        status?.isReady ? (
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowAutoMessageModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+            >
+              <Clock className="w-4 h-4" />
+              Mensagens Automáticas
+            </button>
+            <div className="hidden lg:flex items-center gap-2 bg-green-50 px-3 py-2 rounded-xl border border-green-200">
+              <div className="w-2 h-2 bg-[#059669] rounded-full animate-pulse" />
+              <span className="text-sm font-medium text-[#059669]">Online</span>
             </div>
+          </div>
+        ) : undefined
+      }
+    >
+      {/* Métricas de Status */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <MetricCard
+          title="Status da Conexão"
+          value={status?.isReady ? "Conectado" : "Desconectado"}
+          change={0}
+          changeType="neutral"
+          icon={status?.isReady ? Wifi : WifiOff}
+          iconColor={status?.isReady ? "green" : "red"}
+        />
+        <MetricCard
+          title="Contatos"
+          value={status?.contactsCount?.toString() || "0"}
+          change={0}
+          changeType="neutral"
+          icon={Users}
+          iconColor="blue"
+        />
+        <MetricCard
+          title="Mensagens"
+          value={status?.messagesCount?.toString() || "0"}
+          change={0}
+          changeType="neutral"
+          icon={MessageCircle}
+          iconColor="purple"
+        />
+        <MetricCard
+          title="Conversas Ativas"
+          value={filteredChats.length.toString()}
+          change={0}
+          changeType="neutral"
+          icon={MessageCircle}
+          iconColor="orange"
+        />
+      </div>
 
-            {status?.isReady && (
-              <div className="flex items-center gap-3">
-                <Button
-                  onClick={() => setShowAutoMessageModal(true)}
-                  className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hidden sm:flex items-center gap-2"
-                >
-                  <Clock className="h-4 w-4" />
-                  Mensagens Automáticas
-                </Button>
-                <div className="hidden lg:flex items-center gap-2 bg-green-100 px-3 py-2 rounded-full">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-sm font-medium text-green-700">Online</span>
-                </div>
-                <Badge variant="outline" className="bg-white">
-                  {filteredChats.length} conversas
-                </Badge>
-              </div>
-            )}
+      {/* Alerta de Conexão */}
+      {!status?.isReady && (
+        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-2xl p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <WifiOff className="w-5 h-5 text-orange-500" />
+            <div className="flex-1">
+              <p className="font-semibold text-orange-800">WhatsApp não conectado</p>
+              <p className="text-sm text-orange-700">
+                Conecte seu WhatsApp Business para começar a enviar mensagens
+              </p>
+            </div>
+            <Link href={`/whatsapp/connect?userId=${getUserId(userEmail)}`}>
+              <button className="flex items-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors">
+                <QrCode className="w-4 h-4" />
+                Conectar WhatsApp
+              </button>
+            </Link>
           </div>
         </div>
-      </div>
-
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
-
-        {/* Status e Conexão */}
-        <Card className="mb-6 overflow-hidden bg-gradient-to-r from-white to-gray-50 border-0 shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-full ${
-                  status?.isReady
-                    ? 'bg-green-100 text-green-600'
-                    : 'bg-red-100 text-red-600'
-                }`}>
-                  {status?.isReady ? (
-                    <Wifi className="h-6 w-6" />
-                  ) : (
-                    <WifiOff className="h-6 w-6" />
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className="font-semibold text-lg text-gray-800">Status da Conexão</h3>
-                    <Badge
-                      variant={status?.isReady ? "default" : "secondary"}
-                      className={`${
-                        status?.isReady
-                          ? 'bg-green-500 hover:bg-green-600'
-                          : status?.isConnecting
-                            ? 'bg-yellow-500 hover:bg-yellow-600'
-                            : 'bg-gray-500 hover:bg-gray-600'
-                      } px-3 py-1`}
-                    >
-                      {status?.isReady ? "🟢 Conectado" :
-                       status?.isConnecting ? "🟡 Conectando..." :
-                       status?.hasQR ? "🔶 QR Code Disponível" : "🔴 Desconectado"}
-                    </Badge>
-                  </div>
-
-                  {status && (
-                    <div className="flex items-center gap-6 text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        <span>{status.contactsCount} contatos</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MessageCircle className="h-4 w-4" />
-                        <span>{status.messagesCount} mensagens</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {!status?.isReady && (
-                <Link href={`/whatsapp/connect?userId=${getUserId(userEmail)}`}>
-                  <Button className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg">
-                    <QrCode className="h-4 w-4" />
-                    Conectar WhatsApp
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      )}
 
       {status?.isReady && (
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Lista de Chats */}
             <Card className="bg-white shadow-xl border-0 overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white pb-4">
@@ -847,7 +819,6 @@ export default function WhatsAppPage() {
               )}
             </CardContent>
           </Card>
-          </div>
         </div>
       )}
 
@@ -1049,6 +1020,6 @@ export default function WhatsAppPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageLayout>
   );
 }

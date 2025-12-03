@@ -1,13 +1,25 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Header } from '@/components/header'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Plus, Calendar as CalendarIcon, Clock, Edit, Trash2, ChevronLeft, ChevronRight, MessageCircle, CheckCircle } from 'lucide-react'
-import { AddEventModal } from '@/components/add-event-modal'
-import { EditEventModal } from '@/components/edit-event-modal'
+import { useState, useEffect } from 'react'
+import { PageLayout } from '@/components/ui/page-layout'
+import { MetricCard } from '@/components/ui/metric-card'
+import { ChartCard } from '@/components/ui/chart-card'
+import {
+  Calendar as CalendarIcon,
+  Clock,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Edit,
+  Trash2,
+  Eye,
+  RefreshCw,
+  Users,
+  CheckCircle,
+  AlertCircle,
+  Phone,
+  MessageCircle
+} from 'lucide-react'
 
 interface CalendarEvent {
   id: string
@@ -37,10 +49,22 @@ export default function CalendarioPage() {
   const [loading, setLoading] = useState(true)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [eventToEdit, setEventToEdit] = useState<CalendarEvent | null>(null)
   const [view, setView] = useState<'month' | 'week' | 'day'>('month')
+
+  const today = new Date()
+  const todayEvents = Array.isArray(events) ? events.filter(event => {
+    const eventDate = new Date(event.start_datetime)
+    return eventDate.toDateString() === today.toDateString()
+  }) : []
+
+  const upcomingEvents = Array.isArray(events) ? events.filter(event => {
+    const eventDate = new Date(event.start_datetime)
+    return eventDate > today
+  }).slice(0, 5) : []
+
+  useEffect(() => {
+    fetchEvents()
+  }, [])
 
   const fetchEvents = async () => {
     try {
@@ -50,60 +74,15 @@ export default function CalendarioPage() {
           'ngrok-skip-browser-warning': 'true'
         }
       })
-      const data = await response.json()
 
-      if (data.success) {
-        setEvents(data.events || [])
-      } else {
-        console.error('Erro na API:', data.error)
-        setEvents([])
+      if (response.ok) {
+        const result = await response.json()
+        setEvents(result.events || [])
       }
     } catch (error) {
-      console.error('Erro ao buscar eventos:', error)
-      setEvents([])
+      console.error('Erro ao carregar eventos:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchEvents()
-  }, [])
-
-  const handleEventAdded = () => {
-    fetchEvents()
-  }
-
-  const handleEventEdited = () => {
-    fetchEvents()
-  }
-
-  const handleEditEvent = (event: CalendarEvent) => {
-    setEventToEdit(event)
-    setIsEditModalOpen(true)
-  }
-
-  const handleDeleteEvent = async (eventId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este evento?')) return
-
-    try {
-      const response = await fetch(`/routes/calendar/events/${eventId}`, {
-        method: 'DELETE',
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      })
-
-      const result = await response.json()
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Erro ao excluir evento')
-      }
-
-      setEvents(prev => prev.filter(e => e.id !== eventId))
-      alert('Evento excluído com sucesso!')
-    } catch (error) {
-      console.error('Erro ao excluir evento:', error)
-      alert('Erro ao excluir evento')
     }
   }
 
@@ -117,313 +96,358 @@ export default function CalendarioPage() {
 
     const days = []
 
-    // Dias do mês anterior
-    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
-      const prevDate = new Date(year, month, -i)
-      days.push({ date: prevDate, isCurrentMonth: false })
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null)
     }
 
-    // Dias do mês atual
+    // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
-      days.push({ date: new Date(year, month, day), isCurrentMonth: true })
-    }
-
-    // Dias do próximo mês para completar a grid
-    const remainingDays = 42 - days.length // 6 semanas x 7 dias
-    for (let day = 1; day <= remainingDays; day++) {
-      days.push({ date: new Date(year, month + 1, day), isCurrentMonth: false })
+      days.push(new Date(year, month, day))
     }
 
     return days
   }
 
-  const getEventsForDate = (date: Date) => {
-    return events.filter(event => {
-      // Para garantir comparação correta de datas, usar apenas a parte da data
-      const eventDateStr = event.start_datetime.split('T')[0] // YYYY-MM-DD
-      const targetDateStr = date.toISOString().split('T')[0] // YYYY-MM-DD
-      return eventDateStr === targetDateStr
-    })
-  }
-
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    setCurrentDate(prev => {
-      const newDate = new Date(prev)
-      if (direction === 'prev') {
-        newDate.setMonth(prev.getMonth() - 1)
-      } else {
-        newDate.setMonth(prev.getMonth() + 1)
-      }
-      return newDate
-    })
+  const getEventsForDate = (date: Date | null) => {
+    if (!date) return []
+    return Array.isArray(events) ? events.filter(event => {
+      const eventDate = new Date(event.start_datetime)
+      return eventDate.toDateString() === date.toDateString()
+    }) : []
   }
 
   const formatTime = (dateString: string) => {
-    try {
-      // Converter para Date e formatar em timezone local brasileiro
-      const date = new Date(dateString);
-
-      // Verificar se a data é válida
-      if (isNaN(date.getTime())) {
-        console.warn('Data inválida:', dateString);
-        return '--:--';
-      }
-
-      // Forçar timezone brasileiro (UTC-3) para exibição correta
-      return date.toLocaleTimeString('pt-BR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'America/Sao_Paulo'
-      });
-    } catch (error) {
-      console.error('Erro ao formatar horário:', error);
-      return '--:--';
-    }
+    return new Date(dateString).toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
   }
 
-  const renderMessageStatus = (event: CalendarEvent) => {
-    if (event.mensagem_enviada) {
-      return (
-        <div className="flex items-center gap-1 text-green-600" title="Mensagem de lembrete enviada">
-          <CheckCircle className="h-4 w-4" />
-          <span className="text-xs font-medium">Enviado</span>
-        </div>
-      )
-    }
-
-    // Verificar se é um evento futuro que pode receber lembrete
-    const eventStart = new Date(event.start_datetime)
-    const now = new Date()
-    const timeDiff = eventStart.getTime() - now.getTime()
-    const hoursDiff = timeDiff / (1000 * 60 * 60)
-
-    if (hoursDiff > 0.5 && hoursDiff < 24) { // Entre 30min e 24h no futuro
-      return (
-        <div className="flex items-center gap-1 text-gray-400" title="Aguardando envio de lembrete (30min antes)">
-          <MessageCircle className="h-4 w-4" />
-          <span className="text-xs">Pendente</span>
-        </div>
-      )
-    }
-
-    return null
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
   }
 
-  const isToday = (date: Date) => {
-    const today = new Date()
-    return date.toDateString() === today.toDateString()
+  const goToPreviousMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))
   }
 
-  const days = getDaysInMonth(currentDate)
+  const goToNextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))
+  }
+
+  const goToToday = () => {
+    setCurrentDate(new Date())
+    setSelectedDate(new Date())
+  }
 
   if (loading) {
     return (
-      <div className="flex-1 overflow-y-auto">
-        <Header title="Calendário" subtitle="Gerenciar eventos e agendamentos" />
+      <PageLayout title="Calendário" subtitle="Carregando...">
         <div className="flex items-center justify-center h-96">
-          <div className="text-gray-500">Carregando calendário...</div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#059669]"></div>
         </div>
-      </div>
+      </PageLayout>
     )
   }
 
+  const days = getDaysInMonth(currentDate)
+  const selectedDateEvents = getEventsForDate(selectedDate)
+
   return (
-    <div className="flex-1 overflow-y-auto">
-      <Header title="Calendário" subtitle={`${events.length} eventos agendados`} />
+    <PageLayout title="Calendário" subtitle="Agenda e eventos">
+      {/* Métricas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <MetricCard
+          title="Eventos Hoje"
+          value={todayEvents.length.toString()}
+          change={2}
+          changeType="increase"
+          icon={CalendarIcon}
+          iconColor="blue"
+        />
+        <MetricCard
+          title="Total de Eventos"
+          value={Array.isArray(events) ? events.length.toString() : '0'}
+          change={8}
+          changeType="increase"
+          icon={Users}
+          iconColor="green"
+        />
+        <MetricCard
+          title="Próximos Eventos"
+          value={upcomingEvents.length.toString()}
+          change={1}
+          changeType="increase"
+          icon={Clock}
+          iconColor="orange"
+        />
+        <MetricCard
+          title="Eventos Concluídos"
+          value={Array.isArray(events) ? events.filter(e => e.call_status === 'completed').length.toString() : '0'}
+          change={5}
+          changeType="increase"
+          icon={CheckCircle}
+          iconColor="purple"
+        />
+      </div>
 
-      <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
-        {/* Header do Calendário */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full sm:w-auto">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => navigateMonth('prev')}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <h2 className="text-xl font-semibold min-w-[200px] text-center">
-                {MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}
-              </h2>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => navigateMonth('next')}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+      {/* Alerta para eventos de hoje */}
+      {todayEvents.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-2xl p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <CalendarIcon className="w-5 h-5 text-blue-500" />
+            <div>
+              <p className="font-semibold text-blue-800">Agenda de Hoje</p>
+              <p className="text-sm text-blue-700">
+                Você tem {todayEvents.length} evento{todayEvents.length > 1 ? 's' : ''} agendado{todayEvents.length > 1 ? 's' : ''} para hoje
+              </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentDate(new Date())}
-            >
-              Hoje
-            </Button>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button
-              variant={view === 'month' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setView('month')}
-            >
-              Mês
-            </Button>
-            <Button onClick={() => setIsAddModalOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Evento
-            </Button>
           </div>
         </div>
+      )}
 
-        {/* Grid do Calendário */}
-        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
-          {/* Header dos dias da semana */}
-          <div className="grid grid-cols-7 border-b min-w-[700px]">
-            {DAYS.map(day => (
-              <div key={day} className="p-2 sm:p-4 text-center text-xs sm:text-sm font-medium text-gray-500">
-                {day}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Calendário Principal */}
+        <div className="lg:col-span-2">
+          <ChartCard
+            title="Calendário"
+            subtitle={`${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`}
+            actions={
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={goToToday}
+                  className="px-3 py-1 text-xs bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-lg transition-colors"
+                >
+                  Hoje
+                </button>
+                <button
+                  onClick={goToPreviousMonth}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={goToNextMonth}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
-            ))}
+            }
+          >
+            <div className="p-4">
+              {/* Dias da semana */}
+              <div className="grid grid-cols-7 gap-1 mb-2">
+                {DAYS.map(day => (
+                  <div key={day} className="h-8 flex items-center justify-center text-xs font-medium text-[#94A3B8]">
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              {/* Dias do mês */}
+              <div className="grid grid-cols-7 gap-1">
+                {days.map((day, index) => {
+                  const isToday = day && day.toDateString() === today.toDateString()
+                  const isSelected = day && selectedDate && day.toDateString() === selectedDate.toDateString()
+                  const dayEvents = day ? getEventsForDate(day) : []
+
+                  return (
+                    <div
+                      key={index}
+                      className={`
+                        h-16 p-1 border border-[#E2E8F0] cursor-pointer transition-colors relative
+                        ${day ? 'hover:bg-[#F8FAFC]' : 'bg-[#F8FAFC]'}
+                        ${isToday ? 'bg-[#059669] text-white' : ''}
+                        ${isSelected ? 'ring-2 ring-[#059669] ring-offset-1' : ''}
+                      `}
+                      onClick={() => day && setSelectedDate(day)}
+                    >
+                      {day && (
+                        <>
+                          <div className={`text-xs font-medium ${isToday ? 'text-white' : 'text-[#0F172A]'}`}>
+                            {day.getDate()}
+                          </div>
+                          {dayEvents.length > 0 && (
+                            <div className="absolute bottom-1 left-1 right-1">
+                              <div className="flex gap-1">
+                                {dayEvents.slice(0, 2).map((event, i) => (
+                                  <div
+                                    key={i}
+                                    className="h-1 flex-1 bg-[#059669] rounded-full"
+                                  />
+                                ))}
+                                {dayEvents.length > 2 && (
+                                  <div className="text-xs text-[#059669] font-medium">
+                                    +{dayEvents.length - 2}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </ChartCard>
+        </div>
+
+        {/* Sidebar - Eventos */}
+        <div className="space-y-6">
+          {/* Ações */}
+          <div className="flex gap-2">
+            <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors">
+              <Plus className="w-4 h-4" />
+              Novo Evento
+            </button>
+            <button
+              onClick={fetchEvents}
+              className="p-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* Grid dos dias */}
-          <div className="grid grid-cols-7 min-w-[700px]">
-            {days.map((day, index) => {
-              const dayEvents = getEventsForDate(day.date)
-              const isCurrentMonth = day.isCurrentMonth
-              const isTodayDate = isToday(day.date)
-
-              return (
-                <div
-                  key={index}
-                  className={`min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 border-b border-r border-gray-100 ${
-                    !isCurrentMonth ? 'bg-gray-50' : 'bg-white'
-                  } hover:bg-gray-50 cursor-pointer transition-colors`}
-                  onClick={() => setSelectedDate(day.date)}
-                >
-                  <div className={`text-sm mb-2 ${
-                    !isCurrentMonth
-                      ? 'text-gray-400'
-                      : isTodayDate
-                        ? 'text-white bg-blue-600 rounded-full w-6 h-6 flex items-center justify-center font-semibold'
-                        : 'text-gray-900'
-                  }`}>
-                    {day.date.getDate()}
-                  </div>
-
-                  <div className="space-y-1">
-                    {dayEvents.slice(0, 3).map(event => (
-                      <div
-                        key={event.id}
-                        className="text-xs p-1 bg-blue-100 text-blue-800 rounded truncate cursor-pointer hover:bg-blue-200"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleEditEvent(event)
-                        }}
-                      >
-                        {event.all_day ? event.title : `${formatTime(event.start_datetime)} ${event.title}`}
+          {/* Eventos do dia selecionado */}
+          {selectedDate && (
+            <ChartCard
+              title="Eventos do Dia"
+              subtitle={formatDate(selectedDate)}
+            >
+              <div className="p-4">
+                {selectedDateEvents.length === 0 ? (
+                  <p className="text-[#94A3B8] text-center py-8">
+                    Nenhum evento agendado para este dia
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedDateEvents.map((event) => (
+                      <div key={event.id} className="border border-[#E2E8F0] rounded-xl p-3 hover:bg-[#F8FAFC] transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-[#0F172A] text-sm">
+                              {event.title}
+                            </h4>
+                            {!event.all_day && (
+                              <p className="text-xs text-[#94A3B8] mt-1 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {formatTime(event.start_datetime)} - {formatTime(event.end_datetime)}
+                              </p>
+                            )}
+                            {event.description && (
+                              <p className="text-xs text-[#475569] mt-1 line-clamp-2">
+                                {event.description}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 ml-2">
+                            <button className="p-1 hover:bg-[#F1F5F9] rounded-lg transition-colors group">
+                              <Eye className="w-3 h-3 text-[#94A3B8] group-hover:text-[#475569]" />
+                            </button>
+                            <button className="p-1 hover:bg-[#F1F5F9] rounded-lg transition-colors group">
+                              <Edit className="w-3 h-3 text-[#94A3B8] group-hover:text-[#059669]" />
+                            </button>
+                          </div>
+                        </div>
+                        {(event.call_status || event.sale_value || event.mensagem_enviada !== undefined) && (
+                          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[#F1F5F9]">
+                            {event.call_status === 'completed' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-green-50 text-green-700">
+                                <CheckCircle className="w-3 h-3" />
+                                Concluído
+                              </span>
+                            )}
+                            {event.mensagem_enviada && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
+                                <MessageCircle className="w-3 h-3" />
+                                Msg Enviada
+                              </span>
+                            )}
+                            {event.mensagem_enviada === false && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-orange-50 text-orange-700">
+                                <AlertCircle className="w-3 h-3" />
+                                Pendente
+                              </span>
+                            )}
+                            {event.sale_value && (
+                              <span className="text-xs font-medium text-[#059669]">
+                                {new Intl.NumberFormat('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL'
+                                }).format(event.sale_value)}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
-                    {dayEvents.length > 3 && (
-                      <div className="text-xs text-gray-500">
-                        +{dayEvents.length - 3} mais
-                      </div>
-                    )}
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+                )}
+              </div>
+            </ChartCard>
+          )}
 
-        {/* Lista de Eventos do Dia Selecionado */}
-        {selectedDate && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CalendarIcon className="h-5 w-5" />
-                Eventos para {selectedDate.toLocaleDateString('pt-BR', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {getEventsForDate(selectedDate).length === 0 ? (
-                <p className="text-gray-500 text-center py-4">
-                  Nenhum evento agendado para este dia
+          {/* Próximos eventos */}
+          <ChartCard title="Próximos Eventos" subtitle="Agenda da semana">
+            <div className="p-4">
+              {upcomingEvents.length === 0 ? (
+                <p className="text-[#94A3B8] text-center py-8">
+                  Nenhum evento próximo
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {getEventsForDate(selectedDate).map(event => (
-                    <div key={event.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium">{event.title}</h4>
-                          <Badge variant={event.all_day ? 'secondary' : 'default'}>
-                            {event.all_day ? 'Dia inteiro' : 'Horário específico'}
-                          </Badge>
-                        </div>
+                  {upcomingEvents.map((event) => (
+                    <div key={event.id} className="border border-[#E2E8F0] rounded-xl p-3 hover:bg-[#F8FAFC] transition-colors">
+                      <h4 className="font-semibold text-[#0F172A] text-sm">
+                        {event.title}
+                      </h4>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-[#94A3B8]">
+                        <CalendarIcon className="w-3 h-3" />
+                        {new Date(event.start_datetime).toLocaleDateString('pt-BR')}
                         {!event.all_day && (
-                          <div className="flex items-center gap-1 text-sm text-gray-600 mb-1">
-                            <Clock className="h-4 w-4" />
-                            {formatTime(event.start_datetime)} - {formatTime(event.end_datetime)}
-                          </div>
+                          <>
+                            <Clock className="w-3 h-3 ml-1" />
+                            {formatTime(event.start_datetime)}
+                          </>
                         )}
-                        {event.description && (
-                          <p className="text-sm text-gray-600 mb-2">{event.description}</p>
-                        )}
-                        {/* Status da mensagem de lembrete */}
-                        <div className="mt-2">
-                          {renderMessageStatus(event)}
+                      </div>
+                      {event.description && (
+                        <p className="text-xs text-[#475569] mt-1 line-clamp-1">
+                          {event.description}
+                        </p>
+                      )}
+                      {event.mensagem_enviada !== undefined && (
+                        <div className="flex items-center gap-1 mt-2">
+                          {event.mensagem_enviada ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700">
+                              <MessageCircle className="w-2 h-2" />
+                              Msg Enviada
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-orange-50 text-orange-700">
+                              <AlertCircle className="w-2 h-2" />
+                              Pendente
+                            </span>
+                          )}
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEditEvent(event)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDeleteEvent(event.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        )}
-      </main>
-
-      <AddEventModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSuccess={handleEventAdded}
-        initialDate={selectedDate}
-      />
-
-      <EditEventModal
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false)
-          setEventToEdit(null)
-        }}
-        onSuccess={handleEventEdited}
-        event={eventToEdit}
-      />
-    </div>
+            </div>
+          </ChartCard>
+        </div>
+      </div>
+    </PageLayout>
   )
 }

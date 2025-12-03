@@ -36,6 +36,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, description: 'Visão geral' },
   { name: 'Leads', href: '/leads', icon: UserPlus, description: 'Novos prospects' },
   { name: 'Follow-ups', href: '/follow-ups', icon: Clock, description: 'Acompanhamentos' },
+  { name: 'Comissões', href: '/comissoes', icon: DollarSign, description: 'Gestão de comissões' },
   { name: 'Cadastro', href: '/cadastro', icon: UserCheck, description: 'Mentorados indicadores' },
   { name: 'Mentorados', href: '/mentorados', icon: Users, description: 'Gerenciar pessoas' },
   { name: 'Calendário', href: '/calendario', icon: Calendar, description: 'Agendar eventos' },
@@ -45,7 +46,7 @@ const navigation = [
   { name: 'Form Builder', href: '/form-builder', icon: Wrench, description: 'Criar formulários' },
   { name: 'Respostas Forms', href: '/form-responses', icon: Eye, description: 'Ver respostas' },
   { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle, description: 'Mensagens' },
-  { name: 'Pendências', href: '/pendencias', icon: DollarSign, description: 'Financeiro' },
+  { name: 'Pendências', href: '/pendencias', icon: TrendingUp, description: 'Financeiro' },
   { name: 'Configurações', href: '/configuracoes', icon: Settings, description: 'Metas e preferências' },
 ]
 

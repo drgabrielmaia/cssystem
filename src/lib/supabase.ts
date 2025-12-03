@@ -32,6 +32,7 @@ export interface Mentorado {
   estado_entrada: string
   estado_atual: string
   data_entrada: string
+  porcentagem_comissao?: number
   created_at: string
 }
 

@@ -93,6 +93,9 @@ export default function PendenciasPage() {
   const [weekOffset, setWeekOffset] = useState(0)
   const [showNotifications, setShowNotifications] = useState(false)
 
+  // Estado para comissões
+  const [comissoesPendentes, setComissoesPendentes] = useState<any[]>([])
+
   // Estado do filtro de turma
   const [turmaSelecionada, setTurmaSelecionada] = useState('todas')
 
@@ -102,7 +105,34 @@ export default function PendenciasPage() {
   useEffect(() => {
     loadDividasData()
     loadMentoradosDisponiveis()
+    loadComissoesPendentes()
   }, [anoSelecionado])
+
+  const loadComissoesPendentes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('comissoes')
+        .select(`
+          *,
+          leads!inner(
+            nome_completo,
+            telefone
+          ),
+          mentorados!inner(
+            nome_completo,
+            email,
+            turma
+          )
+        `)
+        .eq('status_pagamento', 'pendente')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setComissoesPendentes(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar comissões pendentes:', error)
+    }
+  }
 
   const loadMentoradosDisponiveis = async () => {
     try {
@@ -785,8 +815,27 @@ export default function PendenciasPage() {
       />
 
       <main className="flex-1 p-6 space-y-6">
-        {/* Previsibilidade de Recebimento */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* Previsibilidade de Recebimento e Comissões */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-orange-700">Comissões Pendentes</p>
+                  <p className="text-2xl font-bold text-orange-600">
+                    {formatCurrency(comissoesPendentes.reduce((sum, c) => sum + (c.valor_comissao || 0), 0))}
+                  </p>
+                  {comissoesPendentes.length > 0 && (
+                    <div className="mt-2 flex items-center text-xs text-orange-600">
+                      <User className="h-3 w-3 mr-1" />
+                      <span>{comissoesPendentes.length} pessoa{comissoesPendentes.length !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                </div>
+                <DollarSign className="h-8 w-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
           <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -851,15 +900,82 @@ export default function PendenciasPage() {
           </Card>
         </div>
 
-        {/* Visualização da Semana */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <span>Agenda da Semana</span>
-                <span className="text-sm font-normal text-gray-500">
-                  {getWeekRangeText()}
-                </span>
+        {/* Visualização da Semana - Dívidas e Comissões */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Agenda Semanal - Dívidas */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm">📋 Dívidas da Semana</span>
+                  <span className="text-xs font-normal text-gray-500">
+                    {getWeekRangeText()}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handlePreviousWeek}
+                    title="Semana anterior"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleNextWeek}
+                    title="Próxima semana"
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-7 gap-1">
+                {diasDaSemana.map((dia, index) => (
+                  <div
+                    key={index}
+                    className={`text-center p-2 rounded-md border text-xs ${
+                      dia.isHoje
+                        ? 'bg-blue-100 border-blue-300'
+                        : dia.valor > 0
+                          ? 'bg-red-50 border-red-200'
+                          : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <div className={`font-medium ${
+                      dia.isHoje ? 'text-blue-700' : 'text-gray-600'
+                    }`}>
+                      {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'][index]}
+                    </div>
+                    <div className={`text-sm font-bold ${
+                      dia.isHoje ? 'text-blue-600' : 'text-gray-900'
+                    }`}>
+                      {dia.data.getDate()}
+                    </div>
+                    {dia.valor > 0 && (
+                      <div className="text-xs font-semibold text-red-600 mt-1">
+                        {dia.valor > 1000 ? `${(dia.valor / 1000).toFixed(0)}k` : formatCurrency(dia.valor).replace('R$ ', '')}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Agenda Semanal - Comissões */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm">💰 Comissões a Pagar</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {comissoesPendentes.length} pendentes
+                  </Badge>
+                </div>
                 {weekOffset !== 0 && (
                   <Button
                     variant="outline"
@@ -870,80 +986,57 @@ export default function PendenciasPage() {
                     Semana Atual
                   </Button>
                 )}
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handlePreviousWeek}
-                  title="Semana anterior"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleNextWeek}
-                  title="Próxima semana"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 gap-2">
-              {diasDaSemana.map((dia, index) => (
-                <div
-                  key={index}
-                  className={`text-center p-3 rounded-lg border transition-all ${
-                    dia.isHoje
-                      ? 'bg-blue-100 border-blue-300 shadow-md'
-                      : dia.valor > 0
-                        ? 'bg-green-50 border-green-200'
-                        : 'bg-gray-50 border-gray-200'
-                  }`}
-                >
-                  <div className={`text-xs font-medium ${
-                    dia.isHoje ? 'text-blue-700' : 'text-gray-600'
-                  }`}>
-                    {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'][index]}
-                  </div>
-                  <div className={`text-lg font-bold ${
-                    dia.isHoje ? 'text-blue-600' : 'text-gray-900'
-                  }`}>
-                    {dia.data.getDate()}
-                  </div>
-                  {weekOffset === 0 && (
-                    <div className={`text-xs ${
-                      dia.isHoje ? 'text-blue-500' : 'text-gray-400'
-                    }`}>
-                      {dia.data.toLocaleDateString('pt-BR', { month: 'short' })}
-                    </div>
-                  )}
-                  {weekOffset !== 0 && (
-                    <div className="text-xs text-gray-400">
-                      {dia.data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                    </div>
-                  )}
-                  {dia.valor > 0 && (
-                    <div className="text-xs font-semibold text-green-600 mt-1">
-                      {formatCurrency(dia.valor)}
-                    </div>
-                  )}
-                  {dia.isHoje && (
-                    <div className="mt-1">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mx-auto"></div>
-                    </div>
-                  )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {comissoesPendentes.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <DollarSign className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Nenhuma comissão pendente</p>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {comissoesPendentes.slice(0, 6).map((comissao, index) => (
+                    <div key={comissao.id} className="flex items-center justify-between p-2 bg-orange-50 rounded-lg border border-orange-200">
+                      <div className="flex-1">
+                        <div className="font-medium text-sm text-orange-800">
+                          {comissao.mentorados?.nome_completo || 'Mentorado'}
+                        </div>
+                        <div className="text-xs text-orange-600">
+                          Lead: {comissao.leads?.nome_completo || 'N/A'}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-sm text-orange-700">
+                          {formatCurrency(comissao.valor_comissao || 0)}
+                        </div>
+                        <div className="text-xs text-orange-500">
+                          {comissao.percentual_comissao}%
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {comissoesPendentes.length > 6 && (
+                    <div className="text-center pt-2">
+                      <span className="text-xs text-gray-500">+{comissoesPendentes.length - 6} mais</span>
+                    </div>
+                  )}
+                  <div className="pt-2 border-t border-orange-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-orange-800">Total a pagar:</span>
+                      <span className="text-lg font-bold text-orange-700">
+                        {formatCurrency(comissoesPendentes.reduce((sum, c) => sum + (c.valor_comissao || 0), 0))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Stats Cards com Pendências em Atraso */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">{/* Card de Pendências em Atraso - destacado */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">{/* Card de Pendências em Atraso - destacado */}
           <Card className="bg-gradient-to-r from-red-50 to-red-100 border-red-200 shadow-md">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
