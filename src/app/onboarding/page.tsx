@@ -1,18 +1,31 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Header } from '@/components/header'
+import { PageLayout } from '@/components/ui/page-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase, type Mentorado } from '@/lib/supabase'
-import { Brain, User, Target, Plus, Share2 } from 'lucide-react'
+import { Brain, User, Target, Plus, Share2, Settings, Save } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { ModernMindMap } from '@/components/modern-mind-map'
 
 export default function OnboardingPage() {
   const [mentorados, setMentorados] = useState<Mentorado[]>([])
   const [selectedMentorado, setSelectedMentorado] = useState<Mentorado | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showGoalsConfig, setShowGoalsConfig] = useState(false)
+  const [goals, setGoals] = useState({
+    financeira: '',
+    pessoal: '',
+    profissional: '',
+    saude: '',
+    relacionamentos: '',
+    aprendizado: ''
+  })
+  const [savingGoals, setSavingGoals] = useState(false)
 
   useEffect(() => {
     fetchMentorados()
@@ -37,27 +50,82 @@ export default function OnboardingPage() {
   const handleMentoradoSelect = (mentoradoId: string) => {
     const mentorado = mentorados.find(m => m.id === mentoradoId)
     setSelectedMentorado(mentorado || null)
+    setShowGoalsConfig(false)
+    loadExistingGoals(mentoradoId)
+  }
+
+  const loadExistingGoals = async (mentoradoId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('mentorado_metas')
+        .select('*')
+        .eq('mentorado_id', mentoradoId)
+        .single()
+
+      if (data && !error) {
+        setGoals({
+          financeira: data.meta_financeira || '',
+          pessoal: data.meta_pessoal || '',
+          profissional: data.meta_profissional || '',
+          saude: data.meta_saude || '',
+          relacionamentos: data.meta_relacionamentos || '',
+          aprendizado: data.meta_aprendizado || ''
+        })
+      }
+    } catch (error) {
+      console.log('Nenhuma meta existente encontrada')
+    }
+  }
+
+  const saveGoals = async () => {
+    if (!selectedMentorado) return
+
+    setSavingGoals(true)
+    try {
+      const { error } = await supabase
+        .from('mentorado_metas')
+        .upsert({
+          mentorado_id: selectedMentorado.id,
+          meta_financeira: goals.financeira,
+          meta_pessoal: goals.pessoal,
+          meta_profissional: goals.profissional,
+          meta_saude: goals.saude,
+          meta_relacionamentos: goals.relacionamentos,
+          meta_aprendizado: goals.aprendizado,
+          updated_at: new Date().toISOString()
+        })
+
+      if (error) throw error
+
+      alert('Metas salvas com sucesso!')
+      setShowGoalsConfig(false)
+    } catch (error) {
+      console.error('Erro ao salvar metas:', error)
+      alert('Erro ao salvar metas')
+    } finally {
+      setSavingGoals(false)
+    }
   }
 
   if (loading) {
     return (
-      <div className="flex-1 overflow-y-auto">
-        <Header title="Onboarding" subtitle="Mapa mental de metas dos mentorados" />
+      <PageLayout
+        title="Onboarding"
+        subtitle="Mapa mental de metas dos mentorados"
+      >
         <div className="flex items-center justify-center h-96">
-          <div className="text-gray-500">Carregando...</div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#059669]"></div>
         </div>
-      </div>
+      </PageLayout>
     )
   }
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <Header
-        title="Onboarding"
-        subtitle="Mapa mental de metas e acompanhamento de evolução pessoal"
-      />
-
-      <main className="flex-1 p-4 sm:p-6 space-y-6">
+    <PageLayout
+      title="Onboarding"
+      subtitle="Mapa mental de metas e acompanhamento de evolução pessoal"
+    >
+      <div className="space-y-6">
         {/* Seletor de Mentorado */}
         <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
           <CardHeader>
@@ -90,7 +158,17 @@ export default function OnboardingPage() {
               </div>
               {selectedMentorado && (
                 <div className="flex gap-2">
-                  <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Button
+                    onClick={() => setShowGoalsConfig(!showGoalsConfig)}
+                    className="bg-orange-600 hover:bg-orange-700"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Configurar Metas
+                  </Button>
+                  <Button
+                    onClick={() => window.open(`/mindmap/${selectedMentorado.id}`, '_blank')}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
                     <Brain className="h-4 w-4 mr-2" />
                     Visualizar Mapa Mental
                   </Button>
@@ -142,8 +220,113 @@ export default function OnboardingPage() {
           </Card>
         )}
 
+        {/* Configuração de Metas */}
+        {selectedMentorado && showGoalsConfig && (
+          <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-purple-800">
+                <Target className="h-5 w-5" />
+                Configurar Metas para {selectedMentorado.nome_completo}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="financeira" className="text-purple-700 font-medium">Meta Financeira</Label>
+                  <Textarea
+                    id="financeira"
+                    placeholder="Ex: Aumentar renda em 50% até dezembro..."
+                    value={goals.financeira}
+                    onChange={(e) => setGoals(prev => ({ ...prev, financeira: e.target.value }))}
+                    className="mt-1 border-purple-200"
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="pessoal" className="text-purple-700 font-medium">Meta Pessoal</Label>
+                  <Textarea
+                    id="pessoal"
+                    placeholder="Ex: Praticar exercícios 3x por semana..."
+                    value={goals.pessoal}
+                    onChange={(e) => setGoals(prev => ({ ...prev, pessoal: e.target.value }))}
+                    className="mt-1 border-purple-200"
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="profissional" className="text-purple-700 font-medium">Meta Profissional</Label>
+                  <Textarea
+                    id="profissional"
+                    placeholder="Ex: Conseguir promoção ou mudar de carreira..."
+                    value={goals.profissional}
+                    onChange={(e) => setGoals(prev => ({ ...prev, profissional: e.target.value }))}
+                    className="mt-1 border-purple-200"
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="saude" className="text-purple-700 font-medium">Meta de Saúde</Label>
+                  <Textarea
+                    id="saude"
+                    placeholder="Ex: Perder 10kg, parar de fumar..."
+                    value={goals.saude}
+                    onChange={(e) => setGoals(prev => ({ ...prev, saude: e.target.value }))}
+                    className="mt-1 border-purple-200"
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="relacionamentos" className="text-purple-700 font-medium">Meta de Relacionamentos</Label>
+                  <Textarea
+                    id="relacionamentos"
+                    placeholder="Ex: Melhorar comunicação familiar..."
+                    value={goals.relacionamentos}
+                    onChange={(e) => setGoals(prev => ({ ...prev, relacionamentos: e.target.value }))}
+                    className="mt-1 border-purple-200"
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="aprendizado" className="text-purple-700 font-medium">Meta de Aprendizado</Label>
+                  <Textarea
+                    id="aprendizado"
+                    placeholder="Ex: Aprender inglês, fazer curso de..."
+                    value={goals.aprendizado}
+                    onChange={(e) => setGoals(prev => ({ ...prev, aprendizado: e.target.value }))}
+                    className="mt-1 border-purple-200"
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowGoalsConfig(false)}
+                  className="border-purple-200"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={saveGoals}
+                  disabled={savingGoals}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {savingGoals ? 'Salvando...' : 'Salvar Metas'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Instruções */}
-        {selectedMentorado ? (
+        {selectedMentorado && !showGoalsConfig ? (
           <Card className="bg-gradient-to-r from-green-50 to-yellow-50 border-green-200">
             <CardContent className="p-6 text-center">
               <Brain className="h-12 w-12 mx-auto text-green-600 mb-4" />
@@ -198,7 +381,7 @@ export default function OnboardingPage() {
             </CardContent>
           </Card>
         )}
-      </main>
-    </div>
+      </div>
+    </PageLayout>
   )
 }

@@ -25,7 +25,8 @@ import {
   MoreVertical,
   Download,
   RefreshCw,
-  BarChart3
+  BarChart3,
+  Calendar
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts'
@@ -46,6 +47,8 @@ interface Lead {
   data_venda: string | null
   created_at: string
   updated_at: string
+  mentorado_indicador_id?: string | null
+  fonte_referencia?: string | null
 }
 
 interface LeadStats {
@@ -55,6 +58,12 @@ interface LeadStats {
   valor_total_arrecadado: number
   taxa_conversao: number
   ticket_medio: number
+}
+
+interface Mentorado {
+  id: string
+  nome_completo: string
+  email: string
 }
 
 export default function LeadsPage() {
@@ -760,6 +769,13 @@ export default function LeadsPage() {
                   <BarChart3 className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
                 </button>
                 <button
+                  onClick={() => router.push(`/agendar/lead/${lead.id}`)}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  title="Agendar call"
+                >
+                  <Calendar className="w-4 h-4 text-[#94A3B8] group-hover:text-[#7C3AED]" />
+                </button>
+                <button
                   onClick={() => handleEditLead(lead)}
                   className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
                   title="Editar"
@@ -891,6 +907,330 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
+
+      {/* Modal de Edição/Criação de Lead */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-[#0F172A]">
+                {editingLead ? `Editar Lead: ${editingLead.nome_completo}` : 'Criar Novo Lead'}
+              </h2>
+              <button
+                onClick={() => {
+                  setIsModalOpen(false)
+                  setEditingLead(null)
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <EditLeadForm
+              lead={editingLead}
+              onSave={async (leadData) => {
+                try {
+                  if (editingLead) {
+                    // Editar lead existente
+                    const { error } = await supabase
+                      .from('leads')
+                      .update(leadData)
+                      .eq('id', editingLead.id)
+
+                    if (error) throw error
+                  } else {
+                    // Criar novo lead
+                    const { error } = await supabase
+                      .from('leads')
+                      .insert(leadData)
+
+                    if (error) throw error
+                  }
+
+                  setIsModalOpen(false)
+                  setEditingLead(null)
+                  await loadLeads() // Recarregar dados
+                } catch (error) {
+                  console.error('Erro ao salvar lead:', error)
+                  alert(editingLead ? 'Erro ao salvar alterações' : 'Erro ao criar lead')
+                }
+              }}
+              onCancel={() => {
+                setIsModalOpen(false)
+                setEditingLead(null)
+              }}
+            />
+          </div>
+        </div>
+      )}
     </PageLayout>
+  )
+}
+
+// Componente de formulário de edição/criação
+function EditLeadForm({ lead, onSave, onCancel }: {
+  lead: Lead | null
+  onSave: (lead: Partial<Lead>) => void
+  onCancel: () => void
+}) {
+  const [formData, setFormData] = useState({
+    nome_completo: lead?.nome_completo || '',
+    email: lead?.email || '',
+    telefone: lead?.telefone || '',
+    empresa: lead?.empresa || '',
+    cargo: lead?.cargo || '',
+    origem: lead?.origem || '',
+    status: lead?.status || 'novo',
+    observacoes: lead?.observacoes || '',
+    valor_vendido: lead?.valor_vendido || '',
+    valor_arrecadado: lead?.valor_arrecadado || '',
+    data_venda: lead?.data_venda || '',
+    mentorado_indicador_id: lead?.mentorado_indicador_id || '',
+    fonte_referencia: lead?.fonte_referencia || ''
+  })
+
+  const [mentorados, setMentorados] = useState<Mentorado[]>([])
+
+  // Carregar lista de mentorados
+  useEffect(() => {
+    async function loadMentorados() {
+      try {
+        const { data, error } = await supabase
+          .from('mentorados')
+          .select('id, nome_completo, email')
+          .order('nome_completo')
+
+        if (error) throw error
+        setMentorados(data || [])
+      } catch (error) {
+        console.error('Erro ao carregar mentorados:', error)
+      }
+    }
+
+    loadMentorados()
+  }, [])
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSave({
+      ...formData,
+      valor_vendido: formData.valor_vendido ? parseFloat(formData.valor_vendido as string) : null,
+      valor_arrecadado: formData.valor_arrecadado ? parseFloat(formData.valor_arrecadado as string) : null,
+      mentorado_indicador_id: formData.mentorado_indicador_id || null,
+      fonte_referencia: formData.fonte_referencia || null,
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Nome Completo *
+          </label>
+          <input
+            type="text"
+            required
+            value={formData.nome_completo}
+            onChange={(e) => setFormData(prev => ({ ...prev, nome_completo: e.target.value }))}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Email
+          </label>
+          <input
+            type="email"
+            value={formData.email}
+            onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Telefone
+          </label>
+          <input
+            type="tel"
+            value={formData.telefone}
+            onChange={(e) => setFormData(prev => ({ ...prev, telefone: e.target.value }))}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Empresa
+          </label>
+          <input
+            type="text"
+            value={formData.empresa}
+            onChange={(e) => setFormData(prev => ({ ...prev, empresa: e.target.value }))}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Cargo
+          </label>
+          <input
+            type="text"
+            value={formData.cargo}
+            onChange={(e) => setFormData(prev => ({ ...prev, cargo: e.target.value }))}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Origem
+          </label>
+          <select
+            value={formData.origem}
+            onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+          >
+            <option value="">Selecione uma origem</option>
+            <option value="instagram">Instagram</option>
+            <option value="facebook">Facebook</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="indicacao">Indicação</option>
+            <option value="google">Google</option>
+            <option value="site">Site</option>
+            <option value="outros">Outros</option>
+          </select>
+        </div>
+
+        {/* Campos de Indicação - aparecem quando origem for indicação */}
+        {formData.origem === 'indicacao' && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mentorado que Indicou *
+              </label>
+              <select
+                value={formData.mentorado_indicador_id}
+                onChange={(e) => setFormData(prev => ({ ...prev, mentorado_indicador_id: e.target.value }))}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+                required
+              >
+                <option value="">Selecione quem indicou</option>
+                {mentorados.map((mentorado) => (
+                  <option key={mentorado.id} value={mentorado.id}>
+                    {mentorado.nome_completo} ({mentorado.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Detalhes da Indicação
+              </label>
+              <input
+                type="text"
+                value={formData.fonte_referencia}
+                onChange={(e) => setFormData(prev => ({ ...prev, fonte_referencia: e.target.value }))}
+                placeholder="Como foi feita a indicação? (ex: WhatsApp, conversa pessoal, etc.)"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+              />
+            </div>
+          </>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Status
+          </label>
+          <select
+            value={formData.status}
+            onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+          >
+            <option value="novo">Novo</option>
+            <option value="contactado">Contactado</option>
+            <option value="qualificado">Qualificado</option>
+            <option value="call_agendada">Call Agendada</option>
+            <option value="proposta_enviada">Proposta Enviada</option>
+            <option value="vendido">Vendido</option>
+            <option value="perdido">Perdido</option>
+            <option value="no-show">No-show</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Valor Vendido (R$)
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            value={formData.valor_vendido}
+            onChange={(e) => setFormData(prev => ({ ...prev, valor_vendido: e.target.value }))}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Valor Arrecadado (R$)
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            value={formData.valor_arrecadado}
+            onChange={(e) => setFormData(prev => ({ ...prev, valor_arrecadado: e.target.value }))}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Data de Venda
+          </label>
+          <input
+            type="date"
+            value={formData.data_venda}
+            onChange={(e) => setFormData(prev => ({ ...prev, data_venda: e.target.value }))}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Observações
+        </label>
+        <textarea
+          rows={4}
+          value={formData.observacoes}
+          onChange={(e) => setFormData(prev => ({ ...prev, observacoes: e.target.value }))}
+          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors resize-none"
+          placeholder="Adicione observações sobre este lead..."
+        />
+      </div>
+
+      <div className="flex justify-end gap-3 pt-6 border-t">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-6 py-3 border border-gray-300 hover:bg-gray-50 rounded-xl font-medium transition-colors"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          className="px-6 py-3 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+        >
+          {lead ? 'Salvar Alterações' : 'Criar Lead'}
+        </button>
+      </div>
+    </form>
   )
 }

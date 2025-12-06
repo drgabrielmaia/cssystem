@@ -1,0 +1,1123 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { PageLayout } from '@/components/ui/page-layout'
+import { KPICardVibrant } from '@/components/ui/kpi-card-vibrant'
+import { MetricCard } from '@/components/ui/metric-card'
+import { ChartCard } from '@/components/ui/chart-card'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import {
+  ArrowLeft,
+  Calendar as CalendarIcon,
+  Phone,
+  Mail,
+  MessageCircle,
+  Clock,
+  Target,
+  TrendingUp,
+  AlertCircle,
+  Plus,
+  Edit,
+  Trash2,
+  Star,
+  ThermometerSun,
+  DollarSign,
+  User,
+  Building,
+  Tag
+} from 'lucide-react'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+
+interface Lead {
+  id: string
+  nome_completo: string
+  email: string | null
+  telefone: string | null
+  empresa: string | null
+  cargo: string | null
+  origem: string | null
+  status: string
+  observacoes: string | null
+  valor_vendido: number | null
+  valor_arrecadado: number | null
+  data_primeiro_contato: string
+  convertido_em: string | null
+  data_venda: string | null // Data da venda
+  origem_detalhada: string | null
+  temperatura: string
+  proxima_acao: string
+  data_prevista_fechamento: string
+  motivo_nao_fechou: string
+  dor_principal: string
+  orcamento_disponivel: number
+  urgencia_compra: string
+  nivel_interesse: number
+  objetivo_principal: string
+  objecoes_principais: string
+  responsavel_vendas: string
+  call_agendada: string
+  created_at: string
+  updated_at: string
+}
+
+interface HistoricoItem {
+  id: number
+  tipo_evento: string
+  titulo: string
+  descricao: string
+  status_anterior: string
+  status_novo: string
+  temperatura_antes: string
+  temperatura_depois: string
+  created_at: string
+}
+
+interface FollowUp {
+  id: number
+  titulo: string
+  descricao: string
+  data_agendada: string
+  tipo: string
+  prioridade: string
+  status: string
+}
+
+export default function LeadTrackingPage() {
+  const params = useParams()
+  const router = useRouter()
+  const leadId = params?.id as string
+
+  const [lead, setLead] = useState<Lead | null>(null)
+  const [historico, setHistorico] = useState<HistoricoItem[]>([])
+  const [followUps, setFollowUps] = useState<FollowUp[]>([])
+  const [loading, setLoading] = useState(true)
+  const [leadScore, setLeadScore] = useState(0)
+
+  // Estados para modais/formulários
+  const [novoFollowUp, setNovoFollowUp] = useState({
+    titulo: '',
+    descricao: '',
+    data_agendada: '',
+    tipo: 'call',
+    prioridade: 'media'
+  })
+  const [editandoFollowUp, setEditandoFollowUp] = useState<FollowUp | null>(null)
+  const [novaAnotacao, setNovaAnotacao] = useState('')
+  const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false)
+  const [isEditFollowUpModalOpen, setIsEditFollowUpModalOpen] = useState(false)
+
+  // Estados para controlar campos modificados e salvamento
+  const [leadDataTemp, setLeadDataTemp] = useState<Partial<Lead>>({})
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    if (leadId) {
+      loadLeadData()
+    }
+  }, [leadId])
+
+  const loadLeadData = async () => {
+    try {
+      // Carregar dados do lead
+      const { data: leadData } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', leadId)
+        .single()
+
+      if (leadData) {
+        setLead(leadData)
+        setLeadDataTemp(leadData)
+        setHasUnsavedChanges(false)
+      }
+
+      // Carregar histórico
+      const { data: historicoData } = await supabase
+        .from('lead_historico')
+        .select('*')
+        .eq('lead_id', leadId)
+        .order('created_at', { ascending: false })
+
+      setHistorico(historicoData || [])
+
+      // Carregar follow-ups
+      const { data: followUpsData } = await supabase
+        .from('lead_followups')
+        .select('*')
+        .eq('lead_id', leadId)
+        .order('data_agendada', { ascending: true })
+
+      setFollowUps(followUpsData || [])
+
+      // Calcular score do lead
+      const { data: scoreData } = await supabase
+        .rpc('calcular_lead_score', { lead_uuid: leadId })
+
+      setLeadScore(scoreData || 0)
+
+    } catch (error) {
+      console.error('Erro ao carregar dados do lead:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Função para criar follow-ups automáticos quando call_agendada
+  const criarFollowUpsAutomaticos = async () => {
+    if (!lead?.call_agendada) return
+
+    try {
+      const dataCall = new Date(lead.call_agendada)
+
+      // Calcular as datas dos follow-ups
+      const umDiaAntes = new Date(dataCall)
+      umDiaAntes.setDate(dataCall.getDate() - 1)
+      umDiaAntes.setHours(20, 0, 0, 0) // 20:00 (noite)
+
+      const manhaDaCall = new Date(dataCall)
+      manhaDaCall.setHours(8, 0, 0, 0) // 08:00 (manhã)
+
+      const umaHoraAntes = new Date(dataCall)
+      umaHoraAntes.setHours(dataCall.getHours() - 1)
+
+      const meiaHoraAntes = new Date(dataCall)
+      meiaHoraAntes.setHours(dataCall.getHours(), dataCall.getMinutes() - 30)
+
+      // Criar os 4 follow-ups
+      const followUps = [
+        {
+          lead_id: leadId,
+          tipo: 'lembrete_call',
+          descricao: 'Lembrete: Call agendada para amanhã',
+          data_prevista: umDiaAntes.toISOString(),
+          status: 'pendente',
+          prioridade: 'media'
+        },
+        {
+          lead_id: leadId,
+          tipo: 'lembrete_call',
+          descricao: 'Lembrete: Call hoje pela manhã',
+          data_prevista: manhaDaCall.toISOString(),
+          status: 'pendente',
+          prioridade: 'alta'
+        },
+        {
+          lead_id: leadId,
+          tipo: 'lembrete_call',
+          descricao: 'Lembrete: Call em 1 hora',
+          data_prevista: umaHoraAntes.toISOString(),
+          status: 'pendente',
+          prioridade: 'alta'
+        },
+        {
+          lead_id: leadId,
+          tipo: 'lembrete_call',
+          descricao: 'Lembrete: Call em 30 minutos',
+          data_prevista: meiaHoraAntes.toISOString(),
+          status: 'pendente',
+          prioridade: 'urgente'
+        }
+      ]
+
+      const { error } = await supabase
+        .from('lead_followups')
+        .insert(followUps)
+
+      if (error) throw error
+
+      console.log(`✅ Criados 4 follow-ups automáticos para call de ${lead.nome_completo}`)
+    } catch (error) {
+      console.error('Erro ao criar follow-ups automáticos:', error)
+    }
+  }
+
+  // Função para atualizar campos temporários (sem salvar no banco)
+  const updateLeadFieldTemp = (field: string, value: any) => {
+    setLeadDataTemp(prev => ({ ...prev, [field]: value }))
+    setHasUnsavedChanges(true)
+  }
+
+  // Função para salvar todas as alterações
+  const saveLeadChanges = async () => {
+    if (!hasUnsavedChanges) return
+
+    setIsSaving(true)
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update(leadDataTemp)
+        .eq('id', leadId)
+
+      if (error) throw error
+
+      setLead(prev => prev ? { ...prev, ...leadDataTemp } : null)
+
+      // Verificar se precisa criar follow-ups automáticos
+      if (leadDataTemp.status === 'call_agendada' && leadDataTemp.call_agendada) {
+        await criarFollowUpsAutomaticos()
+      }
+
+      setHasUnsavedChanges(false)
+      await loadLeadData() // Recarregar para atualizar histórico
+    } catch (error) {
+      console.error('Erro ao salvar alterações do lead:', error)
+      alert('Erro ao salvar alterações')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Função para cancelar alterações
+  const cancelChanges = () => {
+    if (lead) {
+      setLeadDataTemp(lead)
+      setHasUnsavedChanges(false)
+    }
+  }
+
+
+  const adicionarFollowUp = async () => {
+    try {
+      const { error } = await supabase
+        .from('lead_followups')
+        .insert({
+          lead_id: leadId,
+          ...novoFollowUp
+        })
+
+      if (error) throw error
+
+      // Enviar notificação sobre o novo follow-up
+      if (lead) {
+        try {
+          await fetch('/api/notify-followup', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              followUp: {
+                ...novoFollowUp,
+                lead_id: leadId
+              },
+              lead: {
+                nome_completo: lead.nome_completo,
+                empresa: lead.empresa,
+                telefone: lead.telefone,
+                temperatura: lead.temperatura,
+                nivel_interesse: lead.nivel_interesse,
+                urgencia_compra: lead.urgencia_compra,
+                orcamento_disponivel: lead.orcamento_disponivel,
+                responsavel_vendas: lead.responsavel_vendas
+              }
+            })
+          })
+        } catch (notifyError) {
+          console.error('Erro ao enviar notificação de follow-up:', notifyError)
+        }
+      }
+
+      setNovoFollowUp({
+        titulo: '',
+        descricao: '',
+        data_agendada: '',
+        tipo: 'call',
+        prioridade: 'media'
+      })
+      setIsFollowUpModalOpen(false)
+      await loadLeadData()
+    } catch (error) {
+      console.error('Erro ao adicionar follow-up:', error)
+    }
+  }
+
+  const editarFollowUp = async () => {
+    if (!editandoFollowUp) return
+
+    try {
+      const { error } = await supabase
+        .from('lead_followups')
+        .update({
+          titulo: editandoFollowUp.titulo,
+          descricao: editandoFollowUp.descricao,
+          data_agendada: editandoFollowUp.data_agendada,
+          tipo: editandoFollowUp.tipo,
+          prioridade: editandoFollowUp.prioridade,
+          status: editandoFollowUp.status
+        })
+        .eq('id', editandoFollowUp.id)
+
+      if (error) throw error
+
+      setEditandoFollowUp(null)
+      setIsEditFollowUpModalOpen(false)
+      await loadLeadData()
+    } catch (error) {
+      console.error('Erro ao editar follow-up:', error)
+    }
+  }
+
+  const excluirFollowUp = async (followUpId: number) => {
+    if (!confirm('Tem certeza que deseja excluir este follow-up?')) return
+
+    try {
+      const { error } = await supabase
+        .from('lead_followups')
+        .delete()
+        .eq('id', followUpId)
+
+      if (error) throw error
+
+      await loadLeadData()
+    } catch (error) {
+      console.error('Erro ao excluir follow-up:', error)
+    }
+  }
+
+  const iniciarEdicaoFollowUp = (followUp: FollowUp) => {
+    setEditandoFollowUp({ ...followUp })
+    setIsEditFollowUpModalOpen(true)
+  }
+
+  const adicionarAnotacao = async () => {
+    if (!novaAnotacao.trim()) return
+
+    try {
+      // Adicionar ao histórico como nota
+      const { error } = await supabase
+        .from('lead_historico')
+        .insert({
+          lead_id: leadId,
+          tipo_evento: 'note',
+          titulo: 'Nova anotação',
+          descricao: novaAnotacao
+        })
+
+      if (error) throw error
+
+      setNovaAnotacao('')
+      await loadLeadData()
+    } catch (error) {
+      console.error('Erro ao adicionar anotação:', error)
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    const colors = {
+      'novo': 'bg-blue-100 text-blue-700',
+      'contactado': 'bg-purple-100 text-purple-700',
+      'qualificado': 'bg-indigo-100 text-indigo-700',
+      'call_agendada': 'bg-orange-100 text-orange-700',
+      'proposta_enviada': 'bg-yellow-100 text-yellow-700',
+      'vendido': 'bg-green-100 text-green-700',
+      'perdido': 'bg-red-100 text-red-700',
+      'no-show': 'bg-gray-100 text-gray-700'
+    }
+    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-700'
+  }
+
+  const getTemperaturaColor = (temperatura: string) => {
+    const colors = {
+      'frio': 'bg-blue-100 text-blue-700',
+      'morno': 'bg-orange-100 text-orange-700',
+      'quente': 'bg-red-100 text-red-700'
+    }
+    return colors[temperatura as keyof typeof colors] || 'bg-gray-100 text-gray-700'
+  }
+
+  if (loading) {
+    return (
+      <PageLayout
+        title="Carregando..."
+        subtitle="Aguarde..."
+      >
+        <div className="p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-32 bg-gray-200 rounded"></div>
+            <div className="h-64 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </PageLayout>
+    )
+  }
+
+  if (!lead) {
+    return (
+      <PageLayout
+        title="Lead nao encontrado"
+        subtitle="O lead solicitado nao foi encontrado"
+      >
+        <div className="p-6">
+          <Button onClick={() => router.push('/leads')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar para Leads
+          </Button>
+        </div>
+      </PageLayout>
+    )
+  }
+
+  const pageTitle = lead.nome_completo
+  const pageSubtitle = (lead.empresa || 'Empresa nao informada') + ' - Lead Score: ' + leadScore + '/100 pontos'
+
+  return (
+    <div className="container mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-2">{pageTitle}</h1>
+      <p className="text-gray-600 mb-6">{pageSubtitle}</p>
+      {/* Header com acoes rapidas */}
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-8">
+        <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={() => router.push('/leads')} className="border-[#059669] text-[#059669] hover:bg-[#059669] hover:text-white">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar aos Leads
+            </Button>
+
+            <div className="flex items-center gap-2">
+              <StatusBadge status={lead.status as any} />
+              <div className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-orange-100 to-red-100 text-orange-700">
+                <ThermometerSun className="h-3 w-3" />
+                {lead.temperatura || 'frio'}
+              </div>
+              <div className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700">
+                <Star className="h-3 w-3" />
+                Score: {leadScore}/100
+              </div>
+            </div>
+          </div>
+
+          {hasUnsavedChanges && (
+            <div className="flex gap-2">
+              <Button
+                onClick={saveLeadChanges}
+                disabled={isSaving}
+                className="bg-[#059669] hover:bg-[#047857] text-white shadow-md"
+              >
+                {isSaving ? 'Salvando...' : '💾 Salvar Alterações'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={cancelChanges}
+                disabled={isSaving}
+                className="border-gray-300 hover:bg-gray-50"
+              >
+                Cancelar
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* KPIs principais com visual vibrante */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <KPICardVibrant
+            title="Lead Score"
+            value={`${leadScore}/100`}
+            description="Pontuação baseada no engajamento"
+            change={leadScore >= 70 ? "+15%" : leadScore >= 40 ? "+5%" : "-2%"}
+            changeType={leadScore >= 70 ? "increase" : leadScore >= 40 ? "increase" : "decrease"}
+            gradient="from-blue-500 to-indigo-600"
+            icon={Star}
+          />
+
+          <KPICardVibrant
+            title="Nível de Interesse"
+            value={`${lead.nivel_interesse || 5}/10`}
+            description="Auto-avaliação do prospect"
+            change={lead.nivel_interesse >= 8 ? "+20%" : lead.nivel_interesse >= 6 ? "+10%" : "0%"}
+            changeType={lead.nivel_interesse >= 8 ? "increase" : lead.nivel_interesse >= 6 ? "increase" : "decrease"}
+            gradient="from-purple-500 to-pink-600"
+            icon={Target}
+          />
+
+          <KPICardVibrant
+            title="Orçamento Disponível"
+            value={lead.orcamento_disponivel ? `R$ ${lead.orcamento_disponivel.toLocaleString('pt-BR')}` : 'Não informado'}
+            description="Capacidade financeira"
+            change={lead.orcamento_disponivel >= 50000 ? "+30%" : lead.orcamento_disponivel >= 20000 ? "+15%" : "+5%"}
+            changeType={lead.orcamento_disponivel >= 50000 ? "increase" : "increase"}
+            gradient="from-green-500 to-emerald-600"
+            icon={DollarSign}
+          />
+
+          <KPICardVibrant
+            title="Temperatura"
+            value={lead.temperatura || 'Frio'}
+            description="Nível de engajamento atual"
+            change={lead.temperatura === 'quente' ? "+25%" : lead.temperatura === 'morno' ? "+10%" : "0%"}
+            changeType={lead.temperatura === 'quente' ? "increase" : lead.temperatura === 'morno' ? "increase" : "decrease"}
+            gradient="from-orange-500 to-red-600"
+            icon={ThermometerSun}
+          />
+        </div>
+
+        {/* Informações detalhadas em cards modernos */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+          <MetricCard
+            title="Contato Principal"
+            value={lead.telefone || 'Não informado'}
+            icon={Phone}
+            iconColor="blue"
+            className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
+          />
+
+          <MetricCard
+            title="Email"
+            value={lead.email || 'Não informado'}
+            icon={Mail}
+            iconColor="green"
+            className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200"
+          />
+
+          <MetricCard
+            title="Empresa"
+            value={lead.empresa || 'Não informado'}
+            icon={Building}
+            iconColor="purple"
+            className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200"
+          />
+
+          <MetricCard
+            title="Responsável"
+            value={lead.responsavel_vendas || 'Não definido'}
+            icon={User}
+            iconColor="orange"
+            className="bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-200"
+          />
+        </div>
+
+        {/* Tabs principais com visual moderno */}
+        <div className="bg-white rounded-2xl shadow-[0_4px_20px_-2px_rgb(0_0_0_/_0.08)] border border-gray-100 overflow-hidden">
+          <Tabs defaultValue="timeline" className="w-full">
+            <TabsList className="grid w-full grid-cols-4 bg-gradient-to-r from-gray-50 to-gray-100 h-14 rounded-none border-b border-gray-200">
+              <TabsTrigger value="timeline" className="data-[state=active]:bg-[#059669] data-[state=active]:text-white font-medium transition-all duration-200">
+                📅 Timeline
+              </TabsTrigger>
+              <TabsTrigger value="followups" className="data-[state=active]:bg-[#059669] data-[state=active]:text-white font-medium transition-all duration-200">
+                ⏰ Follow-ups
+              </TabsTrigger>
+              <TabsTrigger value="details" className="data-[state=active]:bg-[#059669] data-[state=active]:text-white font-medium transition-all duration-200">
+                📝 Detalhes
+              </TabsTrigger>
+              <TabsTrigger value="actions" className="data-[state=active]:bg-[#059669] data-[state=active]:text-white font-medium transition-all duration-200">
+                ⚡ Ações
+              </TabsTrigger>
+            </TabsList>
+
+          {/* Timeline */}
+          <TabsContent value="timeline" className="p-6 space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-[#0F172A]">Histórico de Atividades</h3>
+                <p className="text-sm text-[#94A3B8] mt-1">Acompanhe todas as interações e mudanças</p>
+              </div>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button className="bg-[#059669] hover:bg-[#047857] text-white shadow-md">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova Anotação
+                  </Button>
+                </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Nova Anotação</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <Textarea
+                        value={novaAnotacao}
+                        onChange={(e) => setNovaAnotacao(e.target.value)}
+                        placeholder="Digite sua anotação..."
+                        rows={4}
+                        className="border-gray-200 focus:border-[#059669] focus:ring-[#059669]"
+                      />
+                      <Button onClick={adicionarAnotacao} className="w-full bg-[#059669] hover:bg-[#047857]">
+                        Adicionar Anotação
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+            <div className="space-y-4">
+              {historico.length === 0 ? (
+                <div className="text-center py-12">
+                  <Clock className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <p className="text-gray-500 mb-2">Nenhuma atividade registrada ainda</p>
+                  <p className="text-sm text-gray-400">As interações com este lead aparecerão aqui</p>
+                </div>
+              ) : (
+                historico.map((item, index) => (
+                  <div key={item.id} className="relative">
+                    {/* Linha da timeline */}
+                    {index !== historico.length - 1 && (
+                      <div className="absolute left-6 top-12 bottom-0 w-0.5 bg-gradient-to-b from-[#059669] to-gray-200"></div>
+                    )}
+
+                    <div className="flex gap-4">
+                      {/* Ícone da timeline */}
+                      <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-[#059669] to-[#10B981] rounded-full flex items-center justify-center text-white shadow-md">
+                        {item.tipo_evento === 'status_change' ? <Target className="w-5 h-5" /> :
+                         item.tipo_evento === 'note' ? <MessageCircle className="w-5 h-5" /> :
+                         item.tipo_evento === 'call' ? <Phone className="w-5 h-5" /> :
+                         <AlertCircle className="w-5 h-5" />}
+                      </div>
+
+                      {/* Conteúdo */}
+                      <div className="flex-1 bg-white rounded-xl shadow-[0_2px_8px_-2px_rgb(0_0_0_/_0.05)] border border-gray-100 p-4 hover:shadow-md transition-all duration-200">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#F1F5F9] text-[#475569]">
+                              {item.tipo_evento}
+                            </span>
+                            <span className="text-xs text-[#94A3B8]">
+                              {format(new Date(item.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                            </span>
+                          </div>
+                        </div>
+
+                        <h4 className="font-semibold text-[#0F172A] mb-2">{item.titulo}</h4>
+
+                        {item.descricao && (
+                          <p className="text-sm text-[#64748B] mb-3 leading-relaxed">{item.descricao}</p>
+                        )}
+
+                        {item.status_anterior && item.status_novo && (
+                          <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-blue-100">
+                            <StatusBadge status={item.status_anterior as any} />
+                            <div className="flex items-center text-[#94A3B8] mx-2">
+                              <div className="w-4 h-0.5 bg-[#94A3B8] rounded"></div>
+                              <div className="w-2 h-2 bg-[#94A3B8] rounded-full ml-1"></div>
+                            </div>
+                            <StatusBadge status={item.status_novo as any} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Follow-ups */}
+          <TabsContent value="followups" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Follow-ups Agendados</h3>
+              <Dialog open={isFollowUpModalOpen} onOpenChange={setIsFollowUpModalOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Novo Follow-up
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Agendar Follow-up</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Título</Label>
+                      <Input
+                        value={novoFollowUp.titulo}
+                        onChange={(e) => setNovoFollowUp(prev => ({ ...prev, titulo: e.target.value }))}
+                        placeholder="Ex: Ligar para verificar interesse"
+                      />
+                    </div>
+                    <div>
+                      <Label>Tipo</Label>
+                      <Select
+                        value={novoFollowUp.tipo}
+                        onValueChange={(value) => setNovoFollowUp(prev => ({ ...prev, tipo: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="call">📞 Ligação</SelectItem>
+                          <SelectItem value="email">📧 Email</SelectItem>
+                          <SelectItem value="whatsapp">💬 WhatsApp</SelectItem>
+                          <SelectItem value="meeting">🤝 Reunião</SelectItem>
+                          <SelectItem value="proposal">📄 Proposta</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Data e Hora</Label>
+                      <Input
+                        type="datetime-local"
+                        value={novoFollowUp.data_agendada}
+                        onChange={(e) => setNovoFollowUp(prev => ({ ...prev, data_agendada: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Prioridade</Label>
+                      <Select
+                        value={novoFollowUp.prioridade}
+                        onValueChange={(value) => setNovoFollowUp(prev => ({ ...prev, prioridade: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="baixa">🟦 Baixa</SelectItem>
+                          <SelectItem value="media">🟨 Média</SelectItem>
+                          <SelectItem value="alta">🟧 Alta</SelectItem>
+                          <SelectItem value="urgente">🟥 Urgente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Descrição</Label>
+                      <Textarea
+                        value={novoFollowUp.descricao}
+                        onChange={(e) => setNovoFollowUp(prev => ({ ...prev, descricao: e.target.value }))}
+                        placeholder="Detalhes do follow-up..."
+                        rows={3}
+                      />
+                    </div>
+                    <Button onClick={adicionarFollowUp} className="w-full">
+                      Agendar Follow-up
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Modal de edição de follow-up */}
+            <Dialog open={isEditFollowUpModalOpen} onOpenChange={setIsEditFollowUpModalOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Editar Follow-up</DialogTitle>
+                </DialogHeader>
+                {editandoFollowUp && (
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Título</Label>
+                      <Input
+                        value={editandoFollowUp.titulo}
+                        onChange={(e) => setEditandoFollowUp(prev => prev ? { ...prev, titulo: e.target.value } : null)}
+                        placeholder="Ex: Ligar para verificar interesse"
+                      />
+                    </div>
+                    <div>
+                      <Label>Tipo</Label>
+                      <Select
+                        value={editandoFollowUp.tipo}
+                        onValueChange={(value) => setEditandoFollowUp(prev => prev ? { ...prev, tipo: value } : null)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="call">📞 Ligação</SelectItem>
+                          <SelectItem value="email">📧 Email</SelectItem>
+                          <SelectItem value="whatsapp">💬 WhatsApp</SelectItem>
+                          <SelectItem value="meeting">🤝 Reunião</SelectItem>
+                          <SelectItem value="proposal">📄 Proposta</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Data e Hora</Label>
+                      <Input
+                        type="datetime-local"
+                        value={editandoFollowUp.data_agendada}
+                        onChange={(e) => setEditandoFollowUp(prev => prev ? { ...prev, data_agendada: e.target.value } : null)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Prioridade</Label>
+                      <Select
+                        value={editandoFollowUp.prioridade}
+                        onValueChange={(value) => setEditandoFollowUp(prev => prev ? { ...prev, prioridade: value } : null)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="baixa">🟦 Baixa</SelectItem>
+                          <SelectItem value="media">🟨 Média</SelectItem>
+                          <SelectItem value="alta">🟧 Alta</SelectItem>
+                          <SelectItem value="urgente">🟥 Urgente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Status</Label>
+                      <Select
+                        value={editandoFollowUp.status}
+                        onValueChange={(value) => setEditandoFollowUp(prev => prev ? { ...prev, status: value } : null)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pendente">🟡 Pendente</SelectItem>
+                          <SelectItem value="concluido">🟢 Concluído</SelectItem>
+                          <SelectItem value="cancelado">🔴 Cancelado</SelectItem>
+                          <SelectItem value="adiado">🟠 Adiado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Descrição</Label>
+                      <Textarea
+                        value={editandoFollowUp.descricao}
+                        onChange={(e) => setEditandoFollowUp(prev => prev ? { ...prev, descricao: e.target.value } : null)}
+                        placeholder="Detalhes do follow-up..."
+                        rows={3}
+                      />
+                    </div>
+                    <Button onClick={editarFollowUp} className="w-full">
+                      Salvar Alterações
+                    </Button>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+
+            <div className="space-y-4">
+              {followUps.length === 0 ? (
+                <div className="text-center py-12">
+                  <Clock className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <p className="text-gray-500 mb-2">Nenhum follow-up agendado</p>
+                  <p className="text-sm text-gray-400">Agende lembretes e acompanhamentos para este lead</p>
+                </div>
+              ) : (
+                followUps.map((followUp) => (
+                  <div key={followUp.id} className="bg-white rounded-xl shadow-[0_2px_8px_-2px_rgb(0_0_0_/_0.05)] border border-gray-100 p-6 hover:shadow-md transition-all duration-200">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
+                            followUp.prioridade === 'urgente' ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-700' :
+                            followUp.prioridade === 'alta' ? 'bg-gradient-to-r from-orange-100 to-orange-200 text-orange-700' :
+                            followUp.prioridade === 'media' ? 'bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-700' :
+                            'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700'
+                          }`}>
+                            {followUp.prioridade === 'urgente' ? '🔴' :
+                             followUp.prioridade === 'alta' ? '🟠' :
+                             followUp.prioridade === 'media' ? '🟡' : '🔵'}
+                            {followUp.prioridade}
+                          </div>
+                          <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
+                            followUp.tipo === 'call' ? 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700' :
+                            followUp.tipo === 'email' ? 'bg-gradient-to-r from-green-100 to-green-200 text-green-700' :
+                            followUp.tipo === 'whatsapp' ? 'bg-gradient-to-r from-emerald-100 to-emerald-200 text-emerald-700' :
+                            followUp.tipo === 'meeting' ? 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-700' :
+                            'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700'
+                          }`}>
+                            {followUp.tipo === 'call' ? '📞' :
+                             followUp.tipo === 'email' ? '📧' :
+                             followUp.tipo === 'whatsapp' ? '💬' :
+                             followUp.tipo === 'meeting' ? '🤝' :
+                             followUp.tipo === 'proposal' ? '📄' : '📋'}
+                            {followUp.tipo}
+                          </div>
+                          <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
+                            followUp.status === 'pendente' ? 'bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-700' :
+                            followUp.status === 'concluido' ? 'bg-gradient-to-r from-green-100 to-green-200 text-green-700' :
+                            followUp.status === 'cancelado' ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-700' :
+                            'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700'
+                          }`}>
+                            {followUp.status === 'pendente' ? '🟡' :
+                             followUp.status === 'concluido' ? '🟢' :
+                             followUp.status === 'cancelado' ? '🔴' : '⚪'}
+                            {followUp.status}
+                          </div>
+                        </div>
+
+                        <h4 className="font-semibold text-[#0F172A] mb-2">{followUp.titulo}</h4>
+
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-1 text-sm text-[#64748B]">
+                            <Clock className="h-4 w-4" />
+                            {format(new Date(followUp.data_agendada), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                          </div>
+                        </div>
+
+                        {followUp.descricao && (
+                          <p className="text-sm text-[#64748B] leading-relaxed">{followUp.descricao}</p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => iniciarEdicaoFollowUp(followUp)}
+                          className="border-gray-200 hover:bg-gray-50"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => excluirFollowUp(followUp.id)}
+                          className="border-red-200 text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Detalhes */}
+          <TabsContent value="details" className="p-6 space-y-6">
+            <div>
+              <h3 className="text-xl font-bold text-[#0F172A] mb-1">Informações Detalhadas</h3>
+              <p className="text-sm text-[#94A3B8]">Dados completos e insights sobre o prospect</p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white rounded-xl shadow-[0_2px_8px_-2px_rgb(0_0_0_/_0.05)] border border-gray-100 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                    <Target className="h-4 w-4 text-white" />
+                  </div>
+                  <h4 className="text-lg font-semibold text-[#0F172A]">Objetivos e Necessidades</h4>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Dor Principal</Label>
+                    <Textarea
+                      value={leadDataTemp.dor_principal || lead.dor_principal || ''}
+                      onChange={(e) => updateLeadFieldTemp('dor_principal', e.target.value)}
+                      placeholder="Qual o principal problema que o lead quer resolver?"
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <Label>Objetivo Principal</Label>
+                    <Textarea
+                      value={leadDataTemp.objetivo_principal || lead.objetivo_principal || ''}
+                      onChange={(e) => updateLeadFieldTemp('objetivo_principal', e.target.value)}
+                      placeholder="O que o lead quer alcançar?"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-[0_2px_8px_-2px_rgb(0_0_0_/_0.05)] border border-gray-100 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center">
+                    <AlertCircle className="h-4 w-4 text-white" />
+                  </div>
+                  <h4 className="text-lg font-semibold text-[#0F172A]">Objeções e Bloqueios</h4>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Motivo de Não Fechamento</Label>
+                    <Textarea
+                      value={leadDataTemp.motivo_nao_fechou || lead.motivo_nao_fechou || ''}
+                      onChange={(e) => updateLeadFieldTemp('motivo_nao_fechou', e.target.value)}
+                      placeholder="Por que o lead não fechou? Timing, orçamento, autoridade..."
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <Label>Principais Objeções</Label>
+                    <Textarea
+                      value={leadDataTemp.objecoes_principais || lead.objecoes_principais || ''}
+                      onChange={(e) => updateLeadFieldTemp('objecoes_principais', e.target.value)}
+                      placeholder="Quais foram as principais objeções apresentadas?"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Ações */}
+          <TabsContent value="actions" className="p-6 space-y-6">
+            <div>
+              <h3 className="text-xl font-bold text-[#0F172A] mb-1">Ações Rápidas</h3>
+              <p className="text-sm text-[#94A3B8]">Execute ações diretas com o lead</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="group bg-white rounded-xl shadow-[0_2px_8px_-2px_rgb(0_0_0_/_0.05)] border border-gray-100 p-6 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all duration-200">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl mx-auto mb-3 flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
+                    <Phone className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-[#0F172A] mb-1">Ligar</h3>
+                  <p className="text-xs text-[#64748B]">Fazer uma ligação agora</p>
+                </div>
+              </div>
+
+              <div className="group bg-white rounded-xl shadow-[0_2px_8px_-2px_rgb(0_0_0_/_0.05)] border border-gray-100 p-6 cursor-pointer hover:shadow-md hover:border-green-200 transition-all duration-200">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl mx-auto mb-3 flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
+                    <Mail className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-[#0F172A] mb-1">Enviar Email</h3>
+                  <p className="text-xs text-[#64748B]">Compor e enviar email</p>
+                </div>
+              </div>
+
+              <div className="group bg-white rounded-xl shadow-[0_2px_8px_-2px_rgb(0_0_0_/_0.05)] border border-gray-100 p-6 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all duration-200">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl mx-auto mb-3 flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
+                    <MessageCircle className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-[#0F172A] mb-1">WhatsApp</h3>
+                  <p className="text-xs text-[#64748B]">Enviar mensagem direta</p>
+                </div>
+              </div>
+
+              <div
+                onClick={() => router.push(`/agendar/lead/${lead?.id}`)}
+                className="group bg-white rounded-xl shadow-[0_2px_8px_-2px_rgb(0_0_0_/_0.05)] border border-gray-100 p-6 cursor-pointer hover:shadow-md hover:border-purple-200 transition-all duration-200"
+              >
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl mx-auto mb-3 flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
+                    <CalendarIcon className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-[#0F172A] mb-1">Agendar Call</h3>
+                  <p className="text-xs text-[#64748B]">Link de agendamento do lead</p>
+                </div>
+              </div>
+
+              <div className="group bg-white rounded-xl shadow-[0_2px_8px_-2px_rgb(0_0_0_/_0.05)] border border-gray-100 p-6 cursor-pointer hover:shadow-md hover:border-orange-200 transition-all duration-200">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl mx-auto mb-3 flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
+                    <Target className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-[#0F172A] mb-1">Enviar Proposta</h3>
+                  <p className="text-xs text-[#64748B]">Criar proposta comercial</p>
+                </div>
+              </div>
+
+              <div className="group bg-white rounded-xl shadow-[0_2px_8px_-2px_rgb(0_0_0_/_0.05)] border border-gray-100 p-6 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all duration-200">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl mx-auto mb-3 flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
+                    <TrendingUp className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-[#0F172A] mb-1">Atualizar Status</h3>
+                  <p className="text-xs text-[#64748B]">Alterar status do lead</p>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+    </div>
+  )
+}
