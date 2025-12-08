@@ -1,13 +1,13 @@
 'use client'
 
-import { Sidebar } from '@/components/sidebar'
+import { Navbar } from '@/components/dashboard/Navbar'
+import { Sidebar } from '@/components/dashboard/Sidebar'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export function AppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isMentorado, setIsMentorado] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -54,14 +54,18 @@ export function AppContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen" style={{ background: '#F8FAF7' }}>
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      <div className="flex flex-1 flex-col overflow-hidden lg:ml-0">
-        <main className="flex-1 relative overflow-y-auto focus:outline-none">
-          <div className="py-6">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
-              {children}
-            </div>
+    <div className="min-h-screen bg-[#F7F9FB]">
+      {/* Navbar */}
+      <Navbar />
+
+      <div className="flex">
+        {/* Sidebar */}
+        <Sidebar />
+
+        {/* Main Content */}
+        <main className="flex-1 px-8 py-6">
+          <div className="max-w-7xl mx-auto">
+            {children}
           </div>
         </main>
       </div>

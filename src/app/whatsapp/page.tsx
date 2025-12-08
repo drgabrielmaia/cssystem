@@ -51,6 +51,7 @@ export default function WhatsAppPage() {
     {
       id: '1',
       message: '',
+      scheduledDate: '',
       scheduledTime: '',
       targetGroup: '',
       photoUrl: '',
@@ -351,6 +352,7 @@ export default function WhatsAppPage() {
     const newMessage = {
       id: Date.now().toString(),
       message: '',
+      scheduledDate: '',
       scheduledTime: '',
       targetGroup: '',
       photoUrl: '',
@@ -378,7 +380,7 @@ export default function WhatsAppPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          autoMessages: autoMessages.filter(msg => msg.message && msg.scheduledTime && msg.targetGroup).map(msg => ({
+          autoMessages: autoMessages.filter(msg => msg.message && msg.scheduledDate && msg.scheduledTime && msg.targetGroup).map(msg => ({
             ...msg,
             photo_url: msg.photoUrl,
             photo_caption: msg.photoCaption
@@ -948,8 +950,22 @@ export default function WhatsAppPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4 p-4">
-                    {/* Horário */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Data e Horário */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor={`date-${autoMsg.id}`} className="text-sm font-medium">
+                          Data de Envio
+                        </Label>
+                        <Input
+                          id={`date-${autoMsg.id}`}
+                          type="date"
+                          value={autoMsg.scheduledDate}
+                          onChange={(e) => updateAutoMessage(autoMsg.id, 'scheduledDate', e.target.value)}
+                          className="mt-1"
+                          min={new Date().toISOString().split('T')[0]}
+                        />
+                      </div>
+
                       <div>
                         <Label htmlFor={`time-${autoMsg.id}`} className="text-sm font-medium">
                           Horário de Envio
@@ -1031,7 +1047,7 @@ export default function WhatsAppPage() {
                     </div>
 
                     {/* Preview da configuração */}
-                    {autoMsg.scheduledTime && autoMsg.targetGroup && autoMsg.message && (
+                    {autoMsg.scheduledDate && autoMsg.scheduledTime && autoMsg.targetGroup && autoMsg.message && (
                       <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                         <div className="flex items-start gap-2">
                           <div className="bg-green-100 p-1 rounded">
@@ -1039,7 +1055,7 @@ export default function WhatsAppPage() {
                           </div>
                           <div className="text-sm">
                             <p className="text-green-800 font-medium">
-                              Será enviado às {autoMsg.scheduledTime} para{' '}
+                              Será enviado em {new Date(autoMsg.scheduledDate).toLocaleDateString('pt-BR')} às {autoMsg.scheduledTime} para{' '}
                               {filteredChats.find(c => c.id === autoMsg.targetGroup)?.name || autoMsg.targetGroup}
                             </p>
                             {autoMsg.photoUrl && (
@@ -1070,7 +1086,7 @@ export default function WhatsAppPage() {
               <Button
                 onClick={saveAutoMessages}
                 className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
-                disabled={!autoMessages.some(msg => msg.message && msg.scheduledTime && msg.targetGroup)}
+                disabled={!autoMessages.some(msg => msg.message && msg.scheduledDate && msg.scheduledTime && msg.targetGroup)}
               >
                 Salvar Configurações
               </Button>

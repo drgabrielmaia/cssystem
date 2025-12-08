@@ -1,14 +1,15 @@
 'use client'
 
-import { 
-  Home, 
-  Users, 
-  BarChart3, 
-  FileText, 
-  Settings, 
+import {
+  Home,
+  Users,
+  BarChart3,
+  FileText,
+  Settings,
   Calendar,
   MessageSquare,
-  TrendingUp
+  TrendingUp,
+  DollarSign
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -20,6 +21,7 @@ const menuItems = [
   { icon: BarChart3, href: '/analytics', label: 'Analytics' },
   { icon: MessageSquare, href: '/formularios', label: 'Formulários' },
   { icon: Calendar, href: '/checkins', label: 'Check-ins' },
+  { icon: DollarSign, href: '/pendencias', label: 'Pendências' },
   { icon: TrendingUp, href: '/relatorios', label: 'Relatórios' },
   { icon: Settings, href: '/configuracoes', label: 'Configurações' }
 ]
