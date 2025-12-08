@@ -372,14 +372,44 @@ export default function WhatsAppPage() {
     ));
   };
 
+  const loadAutoMessages = useCallback(async () => {
+    try {
+      const userId = getUserId(userEmail);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/auto-messages?userId=${userId}`);
+      const data = await response.json();
+
+      if (data.success && data.data && data.data.length > 0) {
+        const loadedMessages = data.data.map((msg: any) => ({
+          id: msg.id || Date.now().toString(),
+          message: msg.message || '',
+          scheduledDate: msg.scheduledDate || '',
+          scheduledTime: msg.scheduledTime || '',
+          targetGroup: msg.targetGroup || '',
+          photoUrl: msg.photo_url || '',
+          photoCaption: msg.photo_caption || '',
+          isActive: msg.isActive !== false
+        }));
+        setAutoMessages(loadedMessages);
+        console.log('✅ Mensagens automáticas carregadas:', loadedMessages.length);
+      } else {
+        // Se não há mensagens cadastradas, manter o estado inicial com uma mensagem vazia
+        console.log('📭 Nenhuma mensagem automática encontrada');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar mensagens automáticas:', error);
+    }
+  }, [userEmail]);
+
   const saveAutoMessages = async () => {
     try {
+      const userId = getUserId(userEmail);
       const response = await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/auto-messages/bulk`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          userId,
           autoMessages: autoMessages.filter(msg => msg.message && msg.scheduledDate && msg.scheduledTime && msg.targetGroup).map(msg => ({
             ...msg,
             photo_url: msg.photoUrl,
@@ -393,6 +423,7 @@ export default function WhatsAppPage() {
       if (data.success) {
         alert(data.message || 'Mensagens automáticas configuradas com sucesso!');
         setShowAutoMessageModal(false);
+        loadAutoMessages(); // Recarregar mensagens após salvar
         console.log('✅ Mensagens automáticas salvas:', data.data);
       } else {
         alert('Erro ao salvar mensagens automáticas: ' + data.error);
@@ -481,8 +512,9 @@ export default function WhatsAppPage() {
     if (status?.isReady) {
       loadChats();
       loadContacts();
+      loadAutoMessages();
     }
-  }, [status?.isReady, loadChats, loadContacts]);
+  }, [status?.isReady, loadChats, loadContacts, loadAutoMessages]);
 
   useEffect(() => {
     if (selectedChat) {
@@ -918,6 +950,18 @@ export default function WhatsAppPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Botão para recarregar mensagens */}
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                onClick={loadAutoMessages}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Recarregar Mensagens
+              </Button>
+            </div>
 
             {/* Lista de mensagens configuradas */}
             <div className="space-y-4">
