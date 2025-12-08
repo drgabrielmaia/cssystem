@@ -1096,10 +1096,17 @@ function EditLeadForm({ lead, onSave, onCancel }: {
             className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
           >
             <option value="">Selecione uma origem</option>
+            <option value="eventos-proprios">Eventos Próprios</option>
+            <option value="parcerias">Parcerias</option>
+            <option value="sessao-fechada">Sessão Fechada</option>
+            <option value="whatsapp">WhatsApp</option>
             <option value="instagram">Instagram</option>
+            <option value="tiktok">TikTok</option>
+            <option value="youtube">YouTube</option>
+            <option value="trafego">Tráfego</option>
+            <option value="social-seller">Social Seller</option>
             <option value="facebook">Facebook</option>
             <option value="linkedin">LinkedIn</option>
-            <option value="whatsapp">WhatsApp</option>
             <option value="indicacao">Indicação</option>
             <option value="google">Google</option>
             <option value="site">Site</option>
