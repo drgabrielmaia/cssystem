@@ -382,7 +382,7 @@ export default function WhatsAppPage() {
         const loadedMessages = data.data.map((msg: any) => ({
           id: msg.id || Date.now().toString(),
           message: msg.message || '',
-          scheduledDate: '', // Supabase não tem campo de data, só tempo
+          scheduledDate: msg.scheduled_date || '',
           scheduledTime: msg.scheduled_time || '',
           targetGroup: msg.target_group || '',
           photoUrl: msg.photo_url || '',
@@ -413,8 +413,12 @@ export default function WhatsAppPage() {
           userId,
           autoMessages: autoMessages.filter(msg => msg.message && msg.scheduledDate && msg.scheduledTime && msg.targetGroup).map(msg => ({
             ...msg,
+            scheduled_date: msg.scheduledDate,
+            scheduled_time: msg.scheduledTime,
+            target_group: msg.targetGroup,
             photo_url: msg.photoUrl,
-            photo_caption: msg.photoCaption
+            photo_caption: msg.photoCaption,
+            is_active: msg.isActive
           }))
         }),
       });
