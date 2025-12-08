@@ -64,26 +64,68 @@ export default function MetasPage() {
       setLoading(true)
       setError(null)
 
-      // Chamar função RPC para dados mensais
-      const { data: dadosMensais, error: errorMensais } = await supabase
-        .rpc('get_dashboard_metas_mensais', { p_ano: anoSelecionado })
+      // Dados mock temporários (até configurar o banco)
+      const mockMetasMensais: MetaMensal[] = [
+        {
+          ano: anoSelecionado,
+          mes: 1,
+          mes_nome: 'Janeiro 2026',
+          meta_faturamento_bruto: 500000,
+          meta_vendas: 11,
+          faturamento_real_bruto: 420000,
+          vendas_realizadas: 9,
+          percent_meta_faturamento: 84,
+          percent_meta_vendas: 82,
+          status_meta: 'PRÓXIMA' as const,
+          ticket_medio_real: 46667,
+          margem_liquida_real: 315000
+        },
+        {
+          ano: anoSelecionado,
+          mes: 2,
+          mes_nome: 'Fevereiro 2026',
+          meta_faturamento_bruto: 600000,
+          meta_vendas: 13,
+          faturamento_real_bruto: 650000,
+          vendas_realizadas: 14,
+          percent_meta_faturamento: 108,
+          percent_meta_vendas: 108,
+          status_meta: 'ATINGIDA' as const,
+          ticket_medio_real: 46429,
+          margem_liquida_real: 487500
+        },
+        {
+          ano: anoSelecionado,
+          mes: 3,
+          mes_nome: 'Março 2026',
+          meta_faturamento_bruto: 700000,
+          meta_vendas: 15,
+          faturamento_real_bruto: 0,
+          vendas_realizadas: 0,
+          percent_meta_faturamento: 0,
+          percent_meta_vendas: 0,
+          status_meta: 'DISTANTE' as const,
+          ticket_medio_real: 0,
+          margem_liquida_real: 0
+        }
+      ]
 
-      if (errorMensais) {
-        console.error('Erro ao carregar dados mensais:', errorMensais)
-        throw errorMensais
+      const mockResumoAnual: ResumoAnual = {
+        ano: anoSelecionado,
+        meta_faturamento_anual: 10000000,
+        faturamento_real_anual: 1070000,
+        percent_meta_anual_faturamento: 10.7,
+        status_meta_anual: 'DISTANTE' as const,
+        ticket_medio_anual: 46548,
+        margem_liquida_anual: 802500,
+        total_comissoes_anual: 75000
       }
 
-      // Chamar função RPC para resumo anual
-      const { data: dadosAnuais, error: errorAnuais } = await supabase
-        .rpc('get_dashboard_resumo_anual', { p_ano: anoSelecionado })
+      // Simular delay da API
+      await new Promise(resolve => setTimeout(resolve, 800))
 
-      if (errorAnuais) {
-        console.error('Erro ao carregar resumo anual:', errorAnuais)
-        throw errorAnuais
-      }
-
-      setMetasMensais(dadosMensais || [])
-      setResumoAnual(dadosAnuais?.[0] || null)
+      setMetasMensais(mockMetasMensais)
+      setResumoAnual(mockResumoAnual)
 
     } catch (err) {
       console.error('Erro geral:', err)
