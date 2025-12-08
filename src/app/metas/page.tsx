@@ -64,68 +64,117 @@ export default function MetasPage() {
       setLoading(true)
       setError(null)
 
-      // Dados mock temporários (até configurar o banco)
-      const mockMetasMensais: MetaMensal[] = [
-        {
-          ano: anoSelecionado,
-          mes: 1,
-          mes_nome: 'Janeiro 2026',
-          meta_faturamento_bruto: 500000,
-          meta_vendas: 11,
-          faturamento_real_bruto: 420000,
-          vendas_realizadas: 9,
-          percent_meta_faturamento: 84,
-          percent_meta_vendas: 82,
-          status_meta: 'PRÓXIMA' as const,
-          ticket_medio_real: 46667,
-          margem_liquida_real: 315000
-        },
-        {
-          ano: anoSelecionado,
-          mes: 2,
-          mes_nome: 'Fevereiro 2026',
-          meta_faturamento_bruto: 600000,
-          meta_vendas: 13,
-          faturamento_real_bruto: 650000,
-          vendas_realizadas: 14,
-          percent_meta_faturamento: 108,
-          percent_meta_vendas: 108,
-          status_meta: 'ATINGIDA' as const,
-          ticket_medio_real: 46429,
-          margem_liquida_real: 487500
-        },
-        {
-          ano: anoSelecionado,
-          mes: 3,
-          mes_nome: 'Março 2026',
-          meta_faturamento_bruto: 700000,
-          meta_vendas: 15,
-          faturamento_real_bruto: 0,
-          vendas_realizadas: 0,
-          percent_meta_faturamento: 0,
-          percent_meta_vendas: 0,
-          status_meta: 'DISTANTE' as const,
-          ticket_medio_real: 0,
-          margem_liquida_real: 0
-        }
-      ]
+      // Buscar dados reais de leads do banco
+      const { data: leadsData, error: leadsError } = await supabase
+        .from('leads')
+        .select('*')
+        .not('data_venda', 'is', null)
+        .eq('status', 'vendido')
 
-      const mockResumoAnual: ResumoAnual = {
-        ano: anoSelecionado,
-        meta_faturamento_anual: 10000000,
-        faturamento_real_anual: 1070000,
-        percent_meta_anual_faturamento: 10.7,
-        status_meta_anual: 'DISTANTE' as const,
-        ticket_medio_anual: 46548,
-        margem_liquida_anual: 802500,
-        total_comissoes_anual: 75000
+      if (leadsError) {
+        console.error('Erro ao buscar leads (provável RLS):', leadsError)
+        // Se der erro por RLS, ainda assim continua com dados vazios
+        console.log('Continuando com dados vazios devido ao RLS')
       }
 
-      // Simular delay da API
-      await new Promise(resolve => setTimeout(resolve, 800))
+      // Processar dados por mês
+      const dadosPorMes = new Map()
+      const anoAtual = new Date().getFullYear()
 
-      setMetasMensais(mockMetasMensais)
-      setResumoAnual(mockResumoAnual)
+      // Inicializar meses com metas
+      const metasMensais = [
+        { mes: 1, meta_faturamento: 500000, meta_vendas: 11, nome: 'Janeiro' },
+        { mes: 2, meta_faturamento: 600000, meta_vendas: 13, nome: 'Fevereiro' },
+        { mes: 3, meta_faturamento: 700000, meta_vendas: 15, nome: 'Março' },
+        { mes: 4, meta_faturamento: 800000, meta_vendas: 17, nome: 'Abril' },
+        { mes: 5, meta_faturamento: 900000, meta_vendas: 19, nome: 'Maio' },
+        { mes: 6, meta_faturamento: 1000000, meta_vendas: 21, nome: 'Junho' },
+        { mes: 7, meta_faturamento: 850000, meta_vendas: 18, nome: 'Julho' },
+        { mes: 8, meta_faturamento: 900000, meta_vendas: 19, nome: 'Agosto' },
+        { mes: 9, meta_faturamento: 950000, meta_vendas: 20, nome: 'Setembro' },
+        { mes: 10, meta_faturamento: 1000000, meta_vendas: 21, nome: 'Outubro' },
+        { mes: 11, meta_faturamento: 1100000, meta_vendas: 23, nome: 'Novembro' },
+        { mes: 12, meta_faturamento: 1200000, meta_vendas: 25, nome: 'Dezembro' }
+      ]
+
+      // Processar leads reais (se conseguiu buscar)
+      const leadsValidos = leadsData || []
+      leadsValidos.forEach(lead => {
+        if (!lead.data_venda) return
+
+        const dataVenda = new Date(lead.data_venda)
+        const ano = dataVenda.getFullYear()
+        const mes = dataVenda.getMonth() + 1
+
+        if (ano === anoSelecionado) {
+          const key = `${ano}-${mes}`
+          if (!dadosPorMes.has(key)) {
+            dadosPorMes.set(key, {
+              faturamento: 0,
+              vendas: 0,
+              arrecadado: 0
+            })
+          }
+
+          const dados = dadosPorMes.get(key)
+          dados.faturamento += lead.valor_vendido || 0
+          dados.arrecadado += lead.valor_arrecadado || 0
+          dados.vendas += 1
+        }
+      })
+
+      // Montar dados mensais
+      const metasMensaisProcessadas: MetaMensal[] = metasMensais.map(meta => {
+        const key = `${anoSelecionado}-${meta.mes}`
+        const dadosReais = dadosPorMes.get(key) || { faturamento: 0, vendas: 0, arrecadado: 0 }
+
+        const percentFaturamento = meta.meta_faturamento > 0
+          ? (dadosReais.faturamento / meta.meta_faturamento) * 100
+          : 0
+
+        const percentVendas = meta.meta_vendas > 0
+          ? (dadosReais.vendas / meta.meta_vendas) * 100
+          : 0
+
+        let status: 'ATINGIDA' | 'PRÓXIMA' | 'DISTANTE' = 'DISTANTE'
+        if (percentFaturamento >= 100) status = 'ATINGIDA'
+        else if (percentFaturamento >= 80) status = 'PRÓXIMA'
+
+        return {
+          ano: anoSelecionado,
+          mes: meta.mes,
+          mes_nome: `${meta.nome} ${anoSelecionado}`,
+          meta_faturamento_bruto: meta.meta_faturamento,
+          meta_vendas: meta.meta_vendas,
+          faturamento_real_bruto: dadosReais.faturamento,
+          vendas_realizadas: dadosReais.vendas,
+          percent_meta_faturamento: percentFaturamento,
+          percent_meta_vendas: percentVendas,
+          status_meta: status,
+          ticket_medio_real: dadosReais.vendas > 0 ? dadosReais.faturamento / dadosReais.vendas : 0,
+          margem_liquida_real: dadosReais.arrecadado * 0.75 // 75% de margem
+        }
+      })
+
+      // Calcular resumo anual
+      const metaAnual = metasMensais.reduce((acc, meta) => acc + meta.meta_faturamento, 0)
+      const faturamentoAnual = metasMensaisProcessadas.reduce((acc, mes) => acc + mes.faturamento_real_bruto, 0)
+      const vendasAnual = metasMensaisProcessadas.reduce((acc, mes) => acc + mes.vendas_realizadas, 0)
+      const metaVendasAnual = metasMensais.reduce((acc, meta) => acc + meta.meta_vendas, 0)
+
+      const resumoAnual: ResumoAnual = {
+        ano: anoSelecionado,
+        meta_faturamento_anual: metaAnual,
+        faturamento_real_anual: faturamentoAnual,
+        percent_meta_anual_faturamento: metaAnual > 0 ? (faturamentoAnual / metaAnual) * 100 : 0,
+        status_meta_anual: faturamentoAnual >= metaAnual ? 'ATINGIDA' : faturamentoAnual >= metaAnual * 0.8 ? 'PRÓXIMA' : 'DISTANTE',
+        ticket_medio_anual: vendasAnual > 0 ? faturamentoAnual / vendasAnual : 0,
+        margem_liquida_anual: faturamentoAnual * 0.75,
+        total_comissoes_anual: faturamentoAnual * 0.05 // 5% comissão média
+      }
+
+      setMetasMensais(metasMensaisProcessadas)
+      setResumoAnual(resumoAnual)
 
     } catch (err) {
       console.error('Erro geral:', err)
