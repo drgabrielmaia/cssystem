@@ -9,7 +9,8 @@ import {
   Calendar,
   MessageSquare,
   TrendingUp,
-  DollarSign
+  DollarSign,
+  Target
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -22,6 +23,7 @@ const menuItems = [
   { icon: MessageSquare, href: '/formularios', label: 'Formulários' },
   { icon: Calendar, href: '/checkins', label: 'Check-ins' },
   { icon: DollarSign, href: '/pendencias', label: 'Pendências' },
+  { icon: Target, href: '/metas', label: 'Metas' },
   { icon: TrendingUp, href: '/relatorios', label: 'Relatórios' },
   { icon: Settings, href: '/configuracoes', label: 'Configurações' }
 ]
