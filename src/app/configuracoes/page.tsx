@@ -46,21 +46,29 @@ export default function ConfiguracoesPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Settings className="h-8 w-8 text-blue-600" />
+    <div className="min-h-screen bg-[#F7F9FB]">
+      {/* Header */}
+      <div className="bg-white border-b border-[#E5E7EB] px-8 py-6">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Configurações</h1>
-            <p className="text-gray-500">Gerencie suas preferências e metas</p>
+            <h1 className="text-2xl font-bold text-[#111827] flex items-center gap-3">
+              <div className="bg-gradient-to-r from-[#2563EB] to-[#3B82F6] p-2 rounded-lg">
+                <Settings className="h-6 w-6 text-white" />
+              </div>
+              Configurações
+            </h1>
+            <p className="text-[#6B7280] mt-1">Gerencie suas preferências e metas</p>
+          </div>
+
+          <div className="flex items-center gap-2 text-sm text-green-600">
+            <Save className="h-4 w-4" />
+            <span>Salvo automaticamente</span>
           </div>
         </div>
-
-        <div className="flex items-center gap-2 text-sm text-green-600">
-          <Save className="h-4 w-4" />
-          <span>Salvo automaticamente</span>
-        </div>
       </div>
+
+      <div className="p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
 
       {message && (
         <div className={`p-4 rounded-lg text-center font-medium ${
@@ -72,14 +80,14 @@ export default function ConfiguracoesPage() {
         </div>
       )}
 
-      {/* Metas Mensais */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Target className="h-5 w-5 text-green-600" />
-            <span>Metas Mensais</span>
-          </CardTitle>
-        </CardHeader>
+          {/* Metas Mensais */}
+          <Card className="bg-white shadow-sm border-[#E5E7EB]">
+            <CardHeader>
+              <CardTitle className="text-[#111827] flex items-center gap-2">
+                <Target className="h-5 w-5 text-[#2563EB]" />
+                Metas Mensais
+              </CardTitle>
+            </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="space-y-2">
             <Label htmlFor="meta-leads">Meta de Leads</Label>
@@ -167,14 +175,14 @@ export default function ConfiguracoesPage() {
         </CardContent>
       </Card>
 
-      {/* Notificações */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Bell className="h-5 w-5 text-yellow-600" />
-            <span>Notificações</span>
-          </CardTitle>
-        </CardHeader>
+          {/* Notificações */}
+          <Card className="bg-white shadow-sm border-[#E5E7EB]">
+            <CardHeader>
+              <CardTitle className="text-[#111827] flex items-center gap-2">
+                <Bell className="h-5 w-5 text-[#2563EB]" />
+                Notificações
+              </CardTitle>
+            </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -215,14 +223,14 @@ export default function ConfiguracoesPage() {
         </CardContent>
       </Card>
 
-      {/* Workflow */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Workflow className="h-5 w-5 text-purple-600" />
-            <span>Automação</span>
-          </CardTitle>
-        </CardHeader>
+          {/* Workflow */}
+          <Card className="bg-white shadow-sm border-[#E5E7EB]">
+            <CardHeader>
+              <CardTitle className="text-[#111827] flex items-center gap-2">
+                <Workflow className="h-5 w-5 text-[#2563EB]" />
+                Automação
+              </CardTitle>
+            </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -237,14 +245,14 @@ export default function ConfiguracoesPage() {
         </CardContent>
       </Card>
 
-      {/* Aparência */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Palette className="h-5 w-5 text-pink-600" />
-            <span>Aparência</span>
-          </CardTitle>
-        </CardHeader>
+          {/* Aparência */}
+          <Card className="bg-white shadow-sm border-[#E5E7EB]">
+            <CardHeader>
+              <CardTitle className="text-[#111827] flex items-center gap-2">
+                <Palette className="h-5 w-5 text-[#2563EB]" />
+                Aparência
+              </CardTitle>
+            </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="tema">Tema</Label>
@@ -279,9 +287,12 @@ export default function ConfiguracoesPage() {
                 className="flex-1"
               />
             </div>
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          </CardContent>
+          </Card>
+
+        </div>
+      </div>
     </div>
   )
 }

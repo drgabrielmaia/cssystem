@@ -177,48 +177,59 @@ export default function CadastroPage() {
   }, [])
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Cadastro de Mentorados</h1>
-          <p className="text-gray-600 mt-2">
-            Cadastre mentorados que poderão fazer indicações e acompanhar seus leads
-          </p>
+    <div className="min-h-screen bg-[#F7F9FB]">
+      {/* Header */}
+      <div className="bg-white border-b border-[#E5E7EB] px-8 py-6">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-[#111827] flex items-center gap-3">
+              <div className="bg-gradient-to-r from-[#2563EB] to-[#3B82F6] p-2 rounded-lg">
+                <UserCheck className="h-6 w-6 text-white" />
+              </div>
+              Cadastro de Mentorados
+            </h1>
+            <p className="text-[#6B7280] mt-1">
+              Cadastre mentorados que poderão fazer indicações e acompanhar seus leads
+            </p>
+          </div>
+          <Button
+            onClick={() => {
+              setShowForm(!showForm)
+              setEditingId(null)
+              setFormData({
+                nome_completo: '',
+                email: '',
+                telefone: '',
+                cpf: '',
+                endereco: '',
+                turma: '',
+                observacoes: '',
+                password: '',
+                confirmPassword: '',
+                porcentagem_comissao: 5
+              })
+            }}
+            className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            {showForm ? 'Cancelar' : 'Novo Mentorado'}
+          </Button>
         </div>
-        <Button
-          onClick={() => {
-            setShowForm(!showForm)
-            setEditingId(null)
-            setFormData({
-              nome_completo: '',
-              email: '',
-              telefone: '',
-              cpf: '',
-              endereco: '',
-              turma: '',
-              observacoes: '',
-              password: '',
-              confirmPassword: '',
-              porcentagem_comissao: 5
-            })
-          }}
-          className="bg-green-600 hover:bg-green-700"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          {showForm ? 'Cancelar' : 'Novo Mentorado'}
-        </Button>
       </div>
 
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {editingId ? 'Editar Mentorado' : 'Novo Mentorado'}
-            </CardTitle>
-            <CardDescription>
-              Preencha os dados do mentorado que poderá fazer indicações
-            </CardDescription>
-          </CardHeader>
+      <div className="p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+
+          {showForm && (
+            <Card className="bg-white shadow-sm border-[#E5E7EB]">
+              <CardHeader>
+                <CardTitle className="text-[#111827]">
+                  {editingId ? 'Editar Mentorado' : 'Novo Mentorado'}
+                </CardTitle>
+                <CardDescription className="text-[#6B7280]">
+                  Preencha os dados do mentorado que poderá fazer indicações
+                </CardDescription>
+              </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -389,80 +400,84 @@ export default function CadastroPage() {
                   Cancelar
                 </Button>
                 <Button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {loading ? 'Salvando...' : editingId ? 'Atualizar' : 'Cadastrar'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+                    type="submit"
+                    disabled={loading}
+                    className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                  >
+                    {loading ? 'Salvando...' : editingId ? 'Atualizar' : 'Cadastrar'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+            </Card>
+          )}
 
-      {/* Lista de mentorados */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Mentorados Cadastrados</CardTitle>
-          <CardDescription>
-            Lista de todos os mentorados que podem fazer indicações
-          </CardDescription>
-        </CardHeader>
+          {/* Lista de mentorados */}
+          <Card className="bg-white shadow-sm border-[#E5E7EB]">
+            <CardHeader>
+              <CardTitle className="text-[#111827]">Mentorados Cadastrados</CardTitle>
+              <CardDescription className="text-[#6B7280]">
+                Lista de todos os mentorados que podem fazer indicações
+              </CardDescription>
+            </CardHeader>
         <CardContent>
           {mentorados.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <UserCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhum mentorado cadastrado ainda.</p>
-            </div>
+              <div className="text-center py-8 text-[#6B7280]">
+                <UserCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhum mentorado cadastrado ainda.</p>
+              </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2">Nome</th>
-                    <th className="text-left p-2">Email</th>
-                    <th className="text-left p-2">Telefone</th>
-                    <th className="text-left p-2">Turma</th>
-                    <th className="text-left p-2">Comissão</th>
-                    <th className="text-left p-2">Ações</th>
-                  </tr>
+                    <tr className="border-b border-[#E5E7EB]">
+                      <th className="text-left py-3 px-4 font-medium text-[#6B7280]">Nome</th>
+                      <th className="text-left py-3 px-4 font-medium text-[#6B7280]">Email</th>
+                      <th className="text-left py-3 px-4 font-medium text-[#6B7280]">Telefone</th>
+                      <th className="text-left py-3 px-4 font-medium text-[#6B7280]">Turma</th>
+                      <th className="text-left py-3 px-4 font-medium text-[#6B7280]">Comissão</th>
+                      <th className="text-left py-3 px-4 font-medium text-[#6B7280]">Ações</th>
+                    </tr>
                 </thead>
                 <tbody>
                   {mentorados.map((mentorado) => (
-                    <tr key={mentorado.id} className="border-b hover:bg-gray-50">
-                      <td className="p-2 font-medium">{mentorado.nome_completo}</td>
-                      <td className="p-2">{mentorado.email}</td>
-                      <td className="p-2">{mentorado.telefone}</td>
-                      <td className="p-2">{mentorado.turma}</td>
-                      <td className="p-2">{mentorado.porcentagem_comissao}%</td>
-                      <td className="p-2">
-                        <div className="flex space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEdit(mentorado)}
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDelete(mentorado.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
+                      <tr key={mentorado.id} className="border-b border-[#F3F4F6] hover:bg-[#F9FAFB]">
+                        <td className="py-3 px-4 font-medium text-[#111827]">{mentorado.nome_completo}</td>
+                        <td className="py-3 px-4 text-[#6B7280]">{mentorado.email}</td>
+                        <td className="py-3 px-4 text-[#6B7280]">{mentorado.telefone}</td>
+                        <td className="py-3 px-4 text-[#6B7280]">{mentorado.turma}</td>
+                        <td className="py-3 px-4 text-[#6B7280]">{mentorado.porcentagem_comissao}%</td>
+                        <td className="py-3 px-4">
+                          <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEdit(mentorado)}
+                              className="border-[#E5E7EB] text-[#6B7280] hover:bg-[#F9FAFB]"
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDelete(mentorado.id)}
+                              className="text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+          </Card>
+
+        </div>
+      </div>
     </div>
   )
 }
