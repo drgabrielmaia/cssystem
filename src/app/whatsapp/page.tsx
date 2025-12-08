@@ -411,7 +411,7 @@ export default function WhatsAppPage() {
         },
         body: JSON.stringify({
           userId,
-          autoMessages: autoMessages.filter(msg => msg.message && msg.scheduledDate && msg.scheduledTime && msg.targetGroup).map(msg => ({
+          autoMessages: autoMessages.filter(msg => msg.message && msg.scheduledTime && msg.targetGroup).map(msg => ({
             ...msg,
             scheduled_date: msg.scheduledDate,
             scheduled_time: msg.scheduledTime,
