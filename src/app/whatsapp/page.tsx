@@ -381,13 +381,13 @@ export default function WhatsAppPage() {
       if (data.success && data.data && data.data.length > 0) {
         const loadedMessages = data.data.map((msg: any) => ({
           id: msg.id || Date.now().toString(),
-          message: msg.message || msg.text || '',
-          scheduledDate: msg.scheduledDate || msg.scheduled_date || msg.date || '',
-          scheduledTime: msg.scheduledTime || msg.scheduled_time || msg.time || '',
-          targetGroup: msg.targetGroup || msg.target_group || msg.target || msg.chat_id || '',
-          photoUrl: msg.photoUrl || msg.photo_url || msg.image_url || '',
-          photoCaption: msg.photoCaption || msg.photo_caption || msg.image_caption || msg.caption || '',
-          isActive: msg.isActive !== false && msg.is_active !== false && msg.active !== false
+          message: msg.message || '',
+          scheduledDate: '', // Supabase não tem campo de data, só tempo
+          scheduledTime: msg.scheduled_time || '',
+          targetGroup: msg.target_group || '',
+          photoUrl: msg.photo_url || '',
+          photoCaption: msg.photo_caption || '',
+          isActive: msg.is_active !== false
         }));
         setAutoMessages(loadedMessages);
         console.log('✅ Mensagens automáticas carregadas:', loadedMessages.length);
