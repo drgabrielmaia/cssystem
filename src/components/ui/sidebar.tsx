@@ -19,7 +19,8 @@ import {
   ChevronDown,
   LogOut,
   Menu,
-  X
+  X,
+  Target
 } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
@@ -38,6 +39,7 @@ const menuItems = [
   { icon: FileEdit, label: 'Form Builder', path: '/form-builder', badge: null },
   { icon: FileText, label: 'Respostas Forms', path: '/form-responses', badge: null },
   { icon: MessageCircle, label: 'WhatsApp', path: '/whatsapp', badge: 3 },
+  { icon: Target, label: 'Metas', path: '/metas', badge: null },
 ]
 
 export const Sidebar = () => {

@@ -29,7 +29,8 @@ import {
   Eye,
   Activity,
   Clock,
-  UserCheck
+  UserCheck,
+  Target
 } from 'lucide-react'
 
 const navigation = [
@@ -46,6 +47,7 @@ const navigation = [
   { name: 'Form Builder', href: '/form-builder', icon: Wrench, description: 'Criar formulários' },
   { name: 'Respostas Forms', href: '/form-responses', icon: Eye, description: 'Ver respostas' },
   { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle, description: 'Mensagens' },
+  { name: 'Metas', href: '/metas', icon: Target, description: 'Performance e Metas' },
   { name: 'Pendências', href: '/pendencias', icon: TrendingUp, description: 'Financeiro' },
   { name: 'Configurações', href: '/configuracoes', icon: Settings, description: 'Metas e preferências' },
 ]
