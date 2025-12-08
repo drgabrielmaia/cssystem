@@ -391,7 +391,8 @@ export default function WhatsAppPage() {
         }));
         setAutoMessages(loadedMessages);
         console.log('✅ Mensagens automáticas carregadas:', loadedMessages.length);
-        console.log('📋 Dados das mensagens:', loadedMessages);
+        console.log('📋 Dados brutos do servidor:', data.data);
+        console.log('🔄 Dados mapeados:', loadedMessages);
       } else {
         // Se não há mensagens cadastradas, manter o estado inicial com uma mensagem vazia
         console.log('📭 Nenhuma mensagem automática encontrada');
@@ -404,6 +405,22 @@ export default function WhatsAppPage() {
   const saveAutoMessages = async () => {
     try {
       const userId = getUserId(userEmail);
+
+      // Debug: mostrar dados antes de enviar
+      console.log('🔍 AutoMessages antes de salvar:', autoMessages);
+
+      const messagesToSave = autoMessages.filter(msg => msg.message && msg.scheduledTime && msg.targetGroup).map(msg => ({
+        ...msg,
+        scheduled_date: msg.scheduledDate || null,
+        scheduled_time: msg.scheduledTime,
+        target_group: msg.targetGroup,
+        photo_url: msg.photoUrl || null,
+        photo_caption: msg.photoCaption || null,
+        is_active: msg.isActive
+      }));
+
+      console.log('📤 Mensagens que serão enviadas:', messagesToSave);
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/auto-messages/bulk`, {
         method: 'POST',
         headers: {
@@ -411,15 +428,7 @@ export default function WhatsAppPage() {
         },
         body: JSON.stringify({
           userId,
-          autoMessages: autoMessages.filter(msg => msg.message && msg.scheduledTime && msg.targetGroup).map(msg => ({
-            ...msg,
-            scheduled_date: msg.scheduledDate,
-            scheduled_time: msg.scheduledTime,
-            target_group: msg.targetGroup,
-            photo_url: msg.photoUrl,
-            photo_caption: msg.photoCaption,
-            is_active: msg.isActive
-          }))
+          autoMessages: messagesToSave
         }),
       });
 
