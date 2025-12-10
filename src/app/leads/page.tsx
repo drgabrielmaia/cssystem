@@ -990,7 +990,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
     origem: lead?.origem || '',
     status: lead?.status || 'novo',
     temperatura: lead?.temperatura || 'morno',
-    prioridade: lead?.prioridade || 'media',
+    // prioridade: lead?.prioridade || 'media', // Temporariamente removido - aguardando campo no Supabase
     observacoes: lead?.observacoes || '',
     valor_vendido: lead?.valor_vendido || '',
     valor_arrecadado: lead?.valor_arrecadado || '',
@@ -1217,7 +1217,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
           </select>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           <div className="bg-gradient-to-br from-red-50 to-orange-100 p-4 rounded-xl border border-orange-200">
             <label className="block text-sm font-medium text-orange-700 mb-2 flex items-center gap-2">
               <span className="text-lg">🌡️</span>
@@ -1239,6 +1239,8 @@ function EditLeadForm({ lead, onSave, onCancel }: {
             </div>
           </div>
 
+          {/* Campo Prioridade temporariamente desabilitado - aguardando adição no Supabase */}
+          {/*
           <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
             <label className="block text-sm font-medium text-purple-700 mb-2 flex items-center gap-2">
               <Target className="w-4 h-4" />
@@ -1259,6 +1261,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
               </div>
             </div>
           </div>
+          */}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -145,7 +145,7 @@ export default function SocialSellerPage() {
       const leadsNaoVendidos = leadsParaContar.filter(l => l.status === 'perdido').length
       const leadsNoShow = leadsParaContar.filter(l => l.status === 'no-show').length
       const leadsQualificados = leadsParaContar.filter(l => l.status === 'qualificado').length
-      const leadsAgendados = leadsParaContar.filter(l => l.status === 'agendado').length
+      const leadsAgendados = leadsParaContar.filter(l => l.status === 'call_agendada').length
       const leadsQuentes = leadsParaContar.filter(l => l.status === 'quente').length
 
       // Armazenar todos os dados para uso nos modais
@@ -361,7 +361,7 @@ export default function SocialSellerPage() {
           {/* 2. AGENDADO (segundo) */}
           <Card
             className="cursor-pointer hover:shadow-lg transition-all duration-200"
-            onClick={() => handleShowLeads('agendado', 'Leads Agendados')}
+            onClick={() => handleShowLeads('call_agendada', 'Leads Agendados')}
           >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
