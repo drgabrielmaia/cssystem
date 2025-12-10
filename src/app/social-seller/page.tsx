@@ -188,9 +188,55 @@ export default function SocialSellerPage() {
     loadSocialSellerData(true)
   }
 
+  // Função para verificar se um lead tem eventos dentro do período dos filtros
+  const hasEventInPeriod = async (leadId: string) => {
+    try {
+      const dateFilter = dateFilters.getDateFilter()
+      if (!dateFilter || (!dateFilter.start && !dateFilter.end)) {
+        return true // Se não há filtro de data, considera que está no período
+      }
+
+      const { data: events, error } = await supabase
+        .from('calendar_events')
+        .select('start_datetime')
+        .eq('lead_id', leadId)
+
+      if (error) {
+        console.error('Erro ao buscar eventos do lead:', error)
+        return true // Em caso de erro, assume que está no período
+      }
+
+      if (!events || events.length === 0) {
+        return false // Se não tem eventos agendados, não está no período
+      }
+
+      // Verifica se algum evento está dentro do período
+      return events.some(event => {
+        const eventDate = new Date(event.start_datetime)
+
+        if (dateFilter.start && dateFilter.end) {
+          const startDate = new Date(dateFilter.start)
+          const endDate = new Date(dateFilter.end)
+          return eventDate >= startDate && eventDate <= endDate
+        } else if (dateFilter.start) {
+          const startDate = new Date(dateFilter.start)
+          return eventDate >= startDate
+        } else if (dateFilter.end) {
+          const endDate = new Date(dateFilter.end)
+          return eventDate <= endDate
+        }
+
+        return true
+      })
+    } catch (error) {
+      console.error('Erro ao verificar eventos no período:', error)
+      return true // Em caso de erro, assume que está no período
+    }
+  }
+
   // Funções para abrir modais com detalhes
-  const handleShowLeads = (status: string, title: string) => {
-    const filteredLeads = allLeadsData.filter(lead => {
+  const handleShowLeads = async (status: string, title: string) => {
+    let filteredLeads = allLeadsData.filter(lead => {
       switch(status) {
         case 'vendido':
           return lead.status === 'vendido'
@@ -199,13 +245,27 @@ export default function SocialSellerPage() {
         case 'no-show':
           return lead.status === 'no-show'
         case 'qualificado':
-          return ['agendado', 'call_agendada', 'proposta_enviada'].includes(lead.status)
+          return lead.status === 'qualificado'  // Apenas status 'qualificado'
+        case 'call_agendada':
+          return lead.status === 'call_agendada' // Primeiro filtro por status
         case 'quente':
           return lead.status === 'quente'
         default:
           return false
       }
     })
+
+    // Para call_agendada, aplicar filtro adicional por período de eventos
+    if (status === 'call_agendada') {
+      const leadsWithEventsInPeriod = []
+      for (const lead of filteredLeads) {
+        const hasEvent = await hasEventInPeriod(lead.id)
+        if (hasEvent) {
+          leadsWithEventsInPeriod.push(lead)
+        }
+      }
+      filteredLeads = leadsWithEventsInPeriod
+    }
 
     setModalData({ title, leads: filteredLeads })
     setShowModal(true)
