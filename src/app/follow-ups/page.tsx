@@ -88,7 +88,9 @@ export default function FollowUpsPage() {
   // Estados para modais
   const [showViewModal, setShowViewModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showNewModal, setShowNewModal] = useState(false)
   const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUp | null>(null)
+  const [leads, setLeads] = useState<Array<{id: string, nome_completo: string, email: string}>>([])
 
   // Estados para formulário de edição
   const [editForm, setEditForm] = useState({
@@ -98,6 +100,17 @@ export default function FollowUpsPage() {
     tipo: '',
     prioridade: '',
     status: ''
+  })
+
+  // Estados para formulário de criação
+  const [newForm, setNewForm] = useState({
+    lead_id: '',
+    titulo: '',
+    descricao: '',
+    data_agendada: '',
+    tipo: '',
+    prioridade: '',
+    status: 'pendente'
   })
 
   // Função para obter range de datas
@@ -167,23 +180,14 @@ export default function FollowUpsPage() {
     alta: '#EF4444'
   }
 
-  const weeklyData = [
-    { week: 'Sem 1', criados: 12, concluidos: 8 },
-    { week: 'Sem 2', criados: 15, concluidos: 11 },
-    { week: 'Sem 3', criados: 18, concluidos: 14 },
-    { week: 'Sem 4', criados: 22, concluidos: 18 }
-  ]
-
-  const tipoDistribution = [
-    { name: 'Ligação', value: 45, color: '#059669' },
-    { name: 'Email', value: 25, color: '#3B82F6' },
-    { name: 'WhatsApp', value: 20, color: '#10B981' },
-    { name: 'Reunião', value: 10, color: '#F59E0B' }
-  ]
+  const [weeklyData, setWeeklyData] = useState<Array<{week: string, criados: number, concluidos: number}>>([])
+  const [tipoDistribution, setTipoDistribution] = useState<Array<{name: string, value: number, color: string}>>([])
 
   useEffect(() => {
     loadFollowUps()
     loadStats()
+    loadLeads()
+    loadChartData()
   }, [])
 
   useEffect(() => {
@@ -339,6 +343,127 @@ export default function FollowUpsPage() {
     }
   }
 
+  const loadLeads = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('id, nome_completo, email')
+        .order('nome_completo')
+
+      if (error) throw error
+      setLeads(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar leads:', error)
+    }
+  }
+
+  const handleCreateFollowUp = async () => {
+    if (!newForm.lead_id || !newForm.titulo || !newForm.data_agendada) {
+      alert('Por favor, preencha todos os campos obrigatórios')
+      return
+    }
+
+    try {
+      setIsLoadingData(true)
+      const { error } = await supabase
+        .from('lead_followups')
+        .insert({
+          lead_id: newForm.lead_id,
+          titulo: newForm.titulo,
+          descricao: newForm.descricao,
+          data_agendada: newForm.data_agendada,
+          tipo: newForm.tipo,
+          prioridade: newForm.prioridade,
+          status: newForm.status,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+
+      if (error) throw error
+
+      setShowNewModal(false)
+      setNewForm({
+        lead_id: '',
+        titulo: '',
+        descricao: '',
+        data_agendada: '',
+        tipo: '',
+        prioridade: '',
+        status: 'pendente'
+      })
+
+      await loadFollowUps()
+      await loadStats()
+    } catch (error) {
+      console.error('Erro ao criar follow-up:', error)
+      alert('Erro ao criar follow-up')
+      setIsLoadingData(false)
+    }
+  }
+
+  const loadChartData = async () => {
+    try {
+      // Carregar dados dos últimos 4 semanas
+      const { data: followupsData, error } = await supabase
+        .from('lead_followups')
+        .select('created_at, data_agendada, status, tipo')
+        .gte('created_at', new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString())
+
+      if (error) throw error
+
+      const followups = followupsData || []
+
+      // Calcular dados semanais
+      const weeks = []
+      for (let i = 3; i >= 0; i--) {
+        const startOfWeek = new Date(Date.now() - (i + 1) * 7 * 24 * 60 * 60 * 1000)
+        const endOfWeek = new Date(Date.now() - i * 7 * 24 * 60 * 60 * 1000)
+
+        const weekFollowups = followups.filter(f => {
+          const createdDate = new Date(f.created_at)
+          return createdDate >= startOfWeek && createdDate < endOfWeek
+        })
+
+        const concluidos = weekFollowups.filter(f => f.status === 'concluido').length
+
+        weeks.push({
+          week: `Sem ${4 - i}`,
+          criados: weekFollowups.length,
+          concluidos: concluidos
+        })
+      }
+
+      setWeeklyData(weeks)
+
+      // Calcular distribuição por tipo
+      const tipoCount = followups.reduce((acc, f) => {
+        const tipo = f.tipo || 'outros'
+        acc[tipo] = (acc[tipo] || 0) + 1
+        return acc
+      }, {} as Record<string, number>)
+
+      const tipoColors = {
+        ligacao: '#059669',
+        email: '#3B82F6',
+        whatsapp: '#10B981',
+        reuniao: '#F59E0B',
+        call: '#059669',
+        outros: '#94A3B8'
+      }
+
+      const tipoArray = Object.entries(tipoCount).map(([name, value]) => ({
+        name: name.charAt(0).toUpperCase() + name.slice(1),
+        value,
+        color: (tipoColors as any)[name] || '#94A3B8'
+      })).sort((a, b) => b.value - a.value)
+
+      setTipoDistribution(tipoArray)
+
+    } catch (error) {
+      console.error('Erro ao carregar dados dos gráficos:', error)
+    }
+  }
+
   const filteredFollowUps = followUps.filter(followUp => {
     return searchTerm === '' ||
       followUp.titulo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -362,7 +487,16 @@ export default function FollowUpsPage() {
   }
 
   const handleNewFollowUp = () => {
-    // TODO: Implementar modal de novo follow-up
+    setNewForm({
+      lead_id: '',
+      titulo: '',
+      descricao: '',
+      data_agendada: '',
+      tipo: '',
+      prioridade: '',
+      status: 'pendente'
+    })
+    setShowNewModal(true)
   }
 
   const handleViewFollowUp = (followUp: FollowUp) => {
@@ -389,7 +523,7 @@ export default function FollowUpsPage() {
     try {
       setIsLoadingData(true)
       const { error } = await supabase
-        .from('follow_ups')
+        .from('lead_followups')
         .update({
           titulo: editForm.titulo,
           descricao: editForm.descricao,
@@ -419,7 +553,7 @@ export default function FollowUpsPage() {
       try {
         setIsLoadingData(true)
         const { error } = await supabase
-          .from('follow_ups')
+          .from('lead_followups')
           .delete()
           .eq('id', followUpId)
 
@@ -438,7 +572,7 @@ export default function FollowUpsPage() {
     try {
       setIsLoadingData(true)
       const { error } = await supabase
-        .from('follow_ups')
+        .from('lead_followups')
         .update({ status: 'concluido' })
         .eq('id', followUpId)
 
@@ -1017,6 +1151,146 @@ export default function FollowUpsPage() {
                   <>
                     <CheckCircle className="w-4 h-4" />
                     Salvar Alterações
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Criação */}
+      <Dialog open={showNewModal} onOpenChange={setShowNewModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="p-2 bg-[#059669] rounded-lg">
+                <Plus className="w-5 h-5 text-white" />
+              </div>
+              Criar Novo Follow-up
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label>Lead</Label>
+              <Select value={newForm.lead_id} onValueChange={(value) => setNewForm({ ...newForm, lead_id: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar lead" />
+                </SelectTrigger>
+                <SelectContent>
+                  {leads.map((lead) => (
+                    <SelectItem key={lead.id} value={lead.id}>
+                      {lead.nome_completo} ({lead.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-titulo">Título *</Label>
+                <Input
+                  id="new-titulo"
+                  value={newForm.titulo}
+                  onChange={(e) => setNewForm({ ...newForm, titulo: e.target.value })}
+                  placeholder="Título do follow-up"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="new-data">Data Agendada *</Label>
+                <Input
+                  id="new-data"
+                  type="date"
+                  value={newForm.data_agendada}
+                  onChange={(e) => setNewForm({ ...newForm, data_agendada: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-descricao">Descrição</Label>
+              <Textarea
+                id="new-descricao"
+                value={newForm.descricao}
+                onChange={(e) => setNewForm({ ...newForm, descricao: e.target.value })}
+                placeholder="Descrição do follow-up"
+                className="min-h-[100px]"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <Select value={newForm.tipo} onValueChange={(value) => setNewForm({ ...newForm, tipo: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ligacao">Ligação</SelectItem>
+                    <SelectItem value="email">E-mail</SelectItem>
+                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                    <SelectItem value="reuniao">Reunião</SelectItem>
+                    <SelectItem value="proposta">Proposta</SelectItem>
+                    <SelectItem value="contrato">Contrato</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Prioridade</Label>
+                <Select value={newForm.prioridade} onValueChange={(value) => setNewForm({ ...newForm, prioridade: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar prioridade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="baixa">Baixa</SelectItem>
+                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="alta">Alta</SelectItem>
+                    <SelectItem value="urgente">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={newForm.status} onValueChange={(value) => setNewForm({ ...newForm, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                    <SelectItem value="concluido">Concluído</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button
+                onClick={() => setShowNewModal(false)}
+                className="px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateFollowUp}
+                disabled={isLoadingData}
+                className="flex items-center gap-2 px-6 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+              >
+                {isLoadingData ? (
+                  <>
+                    <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Criando...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Criar Follow-up
                   </>
                 )}
               </button>

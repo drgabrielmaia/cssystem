@@ -20,6 +20,12 @@ import {
   Phone,
   MessageCircle
 } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { supabase } from '@/lib/supabase'
 
 interface CalendarEvent {
   id: string
@@ -50,6 +56,21 @@ export default function CalendarioPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [view, setView] = useState<'month' | 'week' | 'day'>('month')
+  const [showNewEventModal, setShowNewEventModal] = useState(false)
+  const [leads, setLeads] = useState<Array<{id: string, nome_completo: string}>>([])
+  const [isCreating, setIsCreating] = useState(false)
+
+  // Estados para o formulário de novo evento
+  const [newEventForm, setNewEventForm] = useState({
+    title: '',
+    description: '',
+    start_date: '',
+    start_time: '',
+    end_date: '',
+    end_time: '',
+    all_day: false,
+    lead_id: ''
+  })
 
   const today = new Date()
   const todayEvents = Array.isArray(events) ? events.filter(event => {
@@ -64,6 +85,7 @@ export default function CalendarioPage() {
 
   useEffect(() => {
     fetchEvents()
+    loadLeads()
   }, [])
 
   const fetchEvents = async () => {
@@ -144,6 +166,79 @@ export default function CalendarioPage() {
   const goToToday = () => {
     setCurrentDate(new Date())
     setSelectedDate(new Date())
+  }
+
+  const loadLeads = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('id, nome_completo')
+        .order('nome_completo')
+
+      if (error) throw error
+      setLeads(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar leads:', error)
+    }
+  }
+
+  const handleNewEvent = () => {
+    setNewEventForm({
+      title: '',
+      description: '',
+      start_date: selectedDate ? selectedDate.toISOString().split('T')[0] : '',
+      start_time: '',
+      end_date: selectedDate ? selectedDate.toISOString().split('T')[0] : '',
+      end_time: '',
+      all_day: false,
+      lead_id: ''
+    })
+    setShowNewEventModal(true)
+  }
+
+  const handleCreateEvent = async () => {
+    if (!newEventForm.title || !newEventForm.start_date) {
+      alert('Por favor, preencha pelo menos o título e a data de início')
+      return
+    }
+
+    try {
+      setIsCreating(true)
+
+      // Construir datetime strings
+      const startDatetime = newEventForm.all_day
+        ? `${newEventForm.start_date}T00:00:00`
+        : `${newEventForm.start_date}T${newEventForm.start_time || '00:00'}`
+
+      const endDatetime = newEventForm.all_day
+        ? `${newEventForm.end_date || newEventForm.start_date}T23:59:59`
+        : `${newEventForm.end_date || newEventForm.start_date}T${newEventForm.end_time || '23:59'}`
+
+      const eventData = {
+        title: newEventForm.title,
+        description: newEventForm.description || null,
+        start_datetime: startDatetime,
+        end_datetime: endDatetime,
+        all_day: newEventForm.all_day,
+        lead_id: newEventForm.lead_id || null,
+        created_at: new Date().toISOString()
+      }
+
+      const { error } = await supabase
+        .from('calendar_events')
+        .insert([eventData])
+
+      if (error) throw error
+
+      setShowNewEventModal(false)
+      await fetchEvents()
+      alert('Evento criado com sucesso!')
+    } catch (error) {
+      console.error('Erro ao criar evento:', error)
+      alert('Erro ao criar evento')
+    } finally {
+      setIsCreating(false)
+    }
   }
 
   if (loading) {
@@ -305,7 +400,10 @@ export default function CalendarioPage() {
         <div className="space-y-6">
           {/* Ações */}
           <div className="flex gap-2">
-            <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors">
+            <button
+              onClick={handleNewEvent}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+            >
               <Plus className="w-4 h-4" />
               Novo Evento
             </button>
@@ -448,6 +546,146 @@ export default function CalendarioPage() {
           </ChartCard>
         </div>
       </div>
+
+      {/* Modal de Novo Evento */}
+      <Dialog open={showNewEventModal} onOpenChange={setShowNewEventModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="p-2 bg-[#059669] rounded-lg">
+                <Plus className="w-5 h-5 text-white" />
+              </div>
+              Criar Novo Evento
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="event-title">Título *</Label>
+                <Input
+                  id="event-title"
+                  value={newEventForm.title}
+                  onChange={(e) => setNewEventForm({ ...newEventForm, title: e.target.value })}
+                  placeholder="Título do evento"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Lead (Opcional)</Label>
+                <Select value={newEventForm.lead_id} onValueChange={(value) => setNewEventForm({ ...newEventForm, lead_id: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar lead" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Nenhum lead</SelectItem>
+                    {leads.map((lead) => (
+                      <SelectItem key={lead.id} value={lead.id}>
+                        {lead.nome_completo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="event-description">Descrição</Label>
+              <Textarea
+                id="event-description"
+                value={newEventForm.description}
+                onChange={(e) => setNewEventForm({ ...newEventForm, description: e.target.value })}
+                placeholder="Descrição do evento"
+                className="min-h-[80px]"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="all-day"
+                checked={newEventForm.all_day}
+                onChange={(e) => setNewEventForm({ ...newEventForm, all_day: e.target.checked })}
+                className="w-4 h-4 text-[#059669] border-gray-300 rounded focus:ring-[#059669]"
+              />
+              <Label htmlFor="all-day">Evento de dia inteiro</Label>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="start-date">Data de Início *</Label>
+                <Input
+                  id="start-date"
+                  type="date"
+                  value={newEventForm.start_date}
+                  onChange={(e) => setNewEventForm({ ...newEventForm, start_date: e.target.value })}
+                />
+              </div>
+
+              {!newEventForm.all_day && (
+                <div className="space-y-2">
+                  <Label htmlFor="start-time">Hora de Início</Label>
+                  <Input
+                    id="start-time"
+                    type="time"
+                    value={newEventForm.start_time}
+                    onChange={(e) => setNewEventForm({ ...newEventForm, start_time: e.target.value })}
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="end-date">Data de Fim</Label>
+                <Input
+                  id="end-date"
+                  type="date"
+                  value={newEventForm.end_date}
+                  onChange={(e) => setNewEventForm({ ...newEventForm, end_date: e.target.value })}
+                />
+              </div>
+
+              {!newEventForm.all_day && (
+                <div className="space-y-2">
+                  <Label htmlFor="end-time">Hora de Fim</Label>
+                  <Input
+                    id="end-time"
+                    type="time"
+                    value={newEventForm.end_time}
+                    onChange={(e) => setNewEventForm({ ...newEventForm, end_time: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button
+                onClick={() => setShowNewEventModal(false)}
+                className="px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
+                disabled={isCreating}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateEvent}
+                disabled={isCreating}
+                className="flex items-center gap-2 px-6 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+              >
+                {isCreating ? (
+                  <>
+                    <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Criando...
+                  </>
+                ) : (
+                  <>
+                    <CalendarIcon className="w-4 h-4" />
+                    Criar Evento
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageLayout>
   )
 }

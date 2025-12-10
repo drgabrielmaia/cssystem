@@ -1013,13 +1013,21 @@ function EditLeadForm({ lead, onSave, onCancel }: {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSave({
+    const submitData: any = {
       ...formData,
       valor_vendido: formData.valor_vendido ? parseFloat(formData.valor_vendido as string) : null,
       valor_arrecadado: formData.valor_arrecadado ? parseFloat(formData.valor_arrecadado as string) : null,
+      data_venda: formData.data_venda || null,
       mentorado_indicador_id: formData.mentorado_indicador_id || null,
       fonte_referencia: formData.fonte_referencia || null,
-    })
+    }
+
+    // Se for um novo lead (não está editando), adicionar data_primeiro_contato
+    if (!lead) {
+      submitData.data_primeiro_contato = new Date().toISOString()
+    }
+
+    onSave(submitData)
   }
 
   return (
