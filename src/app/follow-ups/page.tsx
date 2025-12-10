@@ -246,7 +246,7 @@ export default function FollowUpsPage() {
           descricao: lead.observacoes || 'Acompanhamento de lead',
           data_agendada: lead.next_followup_date,
           tipo: lead.telefone ? 'call' : 'email',
-          prioridade: lead.status === 'qualificado' ? 'alta' : lead.status === 'contactado' ? 'media' : 'baixa',
+          prioridade: lead.status === 'agendado' ? 'alta' : lead.status === 'contactado' ? 'media' : 'baixa',
           status: 'pendente',
           created_at: lead.created_at,
           updated_at: lead.created_at,

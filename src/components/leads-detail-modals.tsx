@@ -96,7 +96,7 @@ export function LeadsDetailModal({ isOpen, onClose, title, status, leads: allLea
     const colors: Record<string, string> = {
       'novo': 'bg-blue-500',
       'contactado': 'bg-purple-500',
-      'qualificado': 'bg-indigo-500',
+      'agendado': 'bg-indigo-500',
       'call_agendada': 'bg-orange-500',
       'proposta_enviada': 'bg-amber-500',
       'vendido': 'bg-green-600',
@@ -130,7 +130,7 @@ export function LeadsDetailModal({ isOpen, onClose, title, status, leads: allLea
       'vendido': 100,
       'proposta_enviada': 80,
       'call_agendada': 60,
-      'qualificado': 40,
+      'agendado': 40,
       'contactado': 20,
       'novo': 10
     }

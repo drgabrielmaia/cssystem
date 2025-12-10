@@ -136,6 +136,13 @@ export default function DashboardPage() {
       const { data: mentoradosPeriod } = await mentoradosQuery
       const { data: vendasPeriod } = await vendasQuery
 
+      // Buscar eventos agendados futuros
+      const now = new Date().toISOString()
+      const { data: eventosAgendados } = await supabase
+        .from('calendar_events')
+        .select('*')
+        .gte('start_datetime', now)
+
       const totalVendasPeriod = vendasPeriod?.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0) || 0
 
       // Carregar evolução do faturamento dos últimos 6 meses
@@ -153,7 +160,7 @@ export default function DashboardPage() {
         total_leads: leadsPeriod?.length || 0,
         leads_vendidos: vendasPeriod?.length || 0,
         total_mentorados: mentoradosPeriod?.length || 0,
-        checkins_agendados: 39, // TODO: calcular baseado no período
+        checkins_agendados: eventosAgendados?.length || 0,
         pendencias: 16 // TODO: calcular baseado no período
       }
 

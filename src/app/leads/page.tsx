@@ -152,7 +152,7 @@ export default function LeadsPage() {
   const statusMap = {
     novo: 'new',
     contactado: 'contacted',
-    qualificado: 'qualified',
+    agendado: 'scheduled',
     quente: 'hot',
     vendido: 'converted',
     perdido: 'lost'
@@ -1170,7 +1170,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
           >
             <option value="novo">Novo</option>
             <option value="contactado">Contactado</option>
-            <option value="qualificado">Qualificado</option>
+            <option value="agendado">Agendado</option>
             <option value="call_agendada">Call Agendada</option>
             <option value="proposta_enviada">Proposta Enviada</option>
             <option value="vendido">Vendido</option>
