@@ -72,6 +72,16 @@ export default function MentoradosPage() {
   const [turmaFilter, setTurmaFilter] = useState('todas')
   const [nivelFilter, setNivelFilter] = useState('todos')
   const [isLoadingData, setIsLoadingData] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [formData, setFormData] = useState({
+    nome_completo: '',
+    email: '',
+    telefone: '',
+    turma: '',
+    nivel: 'iniciante',
+    estado_atual: 'ativo',
+    observacoes_privadas: ''
+  })
 
   const statusMap = {
     ativo: 'confirmed',
@@ -183,7 +193,58 @@ export default function MentoradosPage() {
   }
 
   const handleNewMentorado = () => {
-    // TODO: Implementar modal de novo mentorado
+    setFormData({
+      nome_completo: '',
+      email: '',
+      telefone: '',
+      turma: '',
+      nivel: 'iniciante',
+      estado_atual: 'ativo',
+      observacoes_privadas: ''
+    })
+    setShowModal(true)
+  }
+
+  const handleCloseModal = () => {
+    setShowModal(false)
+    setFormData({
+      nome_completo: '',
+      email: '',
+      telefone: '',
+      turma: '',
+      nivel: 'iniciante',
+      estado_atual: 'ativo',
+      observacoes_privadas: ''
+    })
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!formData.nome_completo || !formData.email) {
+      alert('Nome completo e email são obrigatórios')
+      return
+    }
+
+    try {
+      setIsLoadingData(true)
+      const { error } = await supabase
+        .from('mentorados')
+        .insert([{
+          ...formData,
+          data_entrada: new Date().toISOString()
+        }])
+
+      if (error) throw error
+
+      await loadMentorados()
+      await loadStats()
+      handleCloseModal()
+    } catch (error) {
+      console.error('Erro ao criar mentorado:', error)
+      alert('Erro ao criar mentorado. Tente novamente.')
+      setIsLoadingData(false)
+    }
   }
 
   const handleEditMentorado = (mentorado: Mentorado) => {
@@ -546,6 +607,141 @@ export default function MentoradosPage() {
         ]}
         data={filteredMentorados}
       />
+
+      {/* Modal Novo Mentorado */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-[#0F172A]">Novo Mentorado</h2>
+                <button
+                  onClick={handleCloseModal}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-xl transition-colors"
+                >
+                  <Plus className="w-5 h-5 text-[#94A3B8] transform rotate-45" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-2">
+                    Nome Completo *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.nome_completo}
+                    onChange={(e) => setFormData(prev => ({ ...prev, nome_completo: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+                    placeholder="Digite o nome completo"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-2">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+                    placeholder="Digite o email"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-2">
+                    Telefone
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.telefone}
+                    onChange={(e) => setFormData(prev => ({ ...prev, telefone: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+                    placeholder="Digite o telefone"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-2">
+                    Turma
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.turma}
+                    onChange={(e) => setFormData(prev => ({ ...prev, turma: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+                    placeholder="Digite a turma"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-2">
+                    Nível
+                  </label>
+                  <select
+                    value={formData.nivel}
+                    onChange={(e) => setFormData(prev => ({ ...prev, nivel: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+                  >
+                    <option value="iniciante">Iniciante</option>
+                    <option value="intermediario">Intermediário</option>
+                    <option value="avancado">Avançado</option>
+                    <option value="expert">Expert</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-2">
+                    Status
+                  </label>
+                  <select
+                    value={formData.estado_atual}
+                    onChange={(e) => setFormData(prev => ({ ...prev, estado_atual: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+                  >
+                    <option value="ativo">Ativo</option>
+                    <option value="inativo">Inativo</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-2">
+                    Observações Privadas
+                  </label>
+                  <textarea
+                    value={formData.observacoes_privadas}
+                    onChange={(e) => setFormData(prev => ({ ...prev, observacoes_privadas: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+                    placeholder="Observações sobre o mentorado"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="flex-1 px-6 py-3 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isLoadingData}
+                    className="flex-1 px-6 py-3 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoadingData ? 'Criando...' : 'Criar Mentorado'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </PageLayout>
   )
 }
