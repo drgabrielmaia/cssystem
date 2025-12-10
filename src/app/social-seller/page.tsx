@@ -39,6 +39,7 @@ interface LeadsMetrics {
   leads_nao_vendidos: number
   leads_no_show: number
   leads_qualificados: number
+  leads_agendados: number
   leads_quentes: number
   valor_vendido: number
   valor_arrecadado: number
@@ -143,7 +144,8 @@ export default function SocialSellerPage() {
       const leadsVendidos = leadsParaContar.filter(l => l.status === 'vendido').length
       const leadsNaoVendidos = leadsParaContar.filter(l => l.status === 'perdido').length
       const leadsNoShow = leadsParaContar.filter(l => l.status === 'no-show').length
-      const leadsQualificados = leadsParaContar.filter(l => ['agendado', 'call_agendada', 'proposta_enviada'].includes(l.status)).length
+      const leadsQualificados = leadsParaContar.filter(l => l.status === 'qualificado').length
+      const leadsAgendados = leadsParaContar.filter(l => l.status === 'agendado').length
       const leadsQuentes = leadsParaContar.filter(l => l.status === 'quente').length
 
       // Armazenar todos os dados para uso nos modais
@@ -162,6 +164,7 @@ export default function SocialSellerPage() {
         leads_nao_vendidos: leadsNaoVendidos,
         leads_no_show: leadsNoShow,
         leads_qualificados: leadsQualificados,
+        leads_agendados: leadsAgendados,
         leads_quentes: leadsQuentes,
         valor_vendido: valorVendido,
         valor_arrecadado: valorArrecadado,
@@ -217,11 +220,12 @@ export default function SocialSellerPage() {
     if (!metrics) return []
 
     return [
-      { name: 'Vendidos', value: metrics.leads_vendidos, color: '#10b981' },
-      { name: 'Não Vendidos', value: metrics.leads_nao_vendidos, color: '#ef4444' },
-      { name: 'No-Show', value: metrics.leads_no_show, color: '#f97316' },
       { name: 'Qualificados', value: metrics.leads_qualificados, color: '#3b82f6' },
+      { name: 'Agendados', value: metrics.leads_agendados, color: '#8b5cf6' },
+      { name: 'No-Show', value: metrics.leads_no_show, color: '#f97316' },
+      { name: 'Vendidos', value: metrics.leads_vendidos, color: '#10b981' },
       { name: 'Quentes', value: metrics.leads_quentes, color: '#f59e0b' },
+      { name: 'Não Vendidos', value: metrics.leads_nao_vendidos, color: '#ef4444' },
     ].filter(item => item.value > 0)
   }
 
@@ -333,26 +337,7 @@ export default function SocialSellerPage() {
 
         {/* Cards de Métricas Principais */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Card
-            className="cursor-pointer hover:shadow-lg transition-all duration-200"
-            onClick={() => handleShowLeads('no-show', 'Leads No-Show')}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">No-Shows</p>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {metrics?.leads_no_show || 0}
-                  </p>
-                  <p className="text-xs text-orange-500 font-medium">
-                    {metrics?.total_leads ? ((metrics.leads_no_show / metrics.total_leads) * 100).toFixed(1) : 0}% do total
-                  </p>
-                </div>
-                <PhoneOff className="h-8 w-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-
+          {/* 1. QUALIFICADO (primeiro) */}
           <Card
             className="cursor-pointer hover:shadow-lg transition-all duration-200"
             onClick={() => handleShowLeads('qualificado', 'Leads Qualificados')}
@@ -373,26 +358,49 @@ export default function SocialSellerPage() {
             </CardContent>
           </Card>
 
+          {/* 2. AGENDADO (segundo) */}
           <Card
             className="cursor-pointer hover:shadow-lg transition-all duration-200"
-            onClick={() => handleShowLeads('quente', 'Leads Quentes')}
+            onClick={() => handleShowLeads('agendado', 'Leads Agendados')}
           >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Quentes</p>
-                  <p className="text-2xl font-bold text-yellow-600">
-                    {metrics?.leads_quentes || 0}
+                  <p className="text-sm font-medium text-gray-600">Agendados</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {metrics?.leads_agendados || 0}
                   </p>
-                  <p className="text-xs text-yellow-500 font-medium">
-                    {metrics?.total_leads ? ((metrics.leads_quentes / metrics.total_leads) * 100).toFixed(1) : 0}% do total
+                  <p className="text-xs text-purple-500 font-medium">
+                    {metrics?.total_leads ? ((metrics.leads_agendados / metrics.total_leads) * 100).toFixed(1) : 0}% do total
                   </p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-yellow-500" />
+                <Calendar className="h-8 w-8 text-purple-500" />
               </div>
             </CardContent>
           </Card>
 
+          {/* 3. NO-SHOW (terceiro) */}
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-all duration-200"
+            onClick={() => handleShowLeads('no-show', 'Leads No-Show')}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">No-Shows</p>
+                  <p className="text-2xl font-bold text-orange-600">
+                    {metrics?.leads_no_show || 0}
+                  </p>
+                  <p className="text-xs text-orange-500 font-medium">
+                    {metrics?.total_leads ? ((metrics.leads_no_show / metrics.total_leads) * 100).toFixed(1) : 0}% do total
+                  </p>
+                </div>
+                <PhoneOff className="h-8 w-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 4. VENDIDO (quarto) */}
           <Card
             className="cursor-pointer hover:shadow-lg transition-all duration-200"
             onClick={() => handleShowLeads('vendido', 'Leads Vendidos')}
@@ -409,6 +417,27 @@ export default function SocialSellerPage() {
                   </p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 5. QUENTE (quinto) */}
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-all duration-200"
+            onClick={() => handleShowLeads('quente', 'Leads Quentes')}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Quentes</p>
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {metrics?.leads_quentes || 0}
+                  </p>
+                  <p className="text-xs text-yellow-500 font-medium">
+                    {metrics?.total_leads ? ((metrics.leads_quentes / metrics.total_leads) * 100).toFixed(1) : 0}% do total
+                  </p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-yellow-500" />
               </div>
             </CardContent>
           </Card>
@@ -575,26 +604,36 @@ export default function SocialSellerPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{metrics?.leads_vendidos || 0}</div>
-                    <div className="text-sm text-gray-600">Vendidos</div>
-                  </div>
-                  <div className="text-center p-4 bg-red-50 rounded-lg">
-                    <div className="text-2xl font-bold text-red-600">{metrics?.leads_nao_vendidos || 0}</div>
-                    <div className="text-sm text-gray-600">Não Vendidos</div>
-                  </div>
+                <div className="grid grid-cols-3 gap-4">
+                  {/* 1. Qualificados */}
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
                     <div className="text-2xl font-bold text-blue-600">{metrics?.leads_qualificados || 0}</div>
                     <div className="text-sm text-gray-600">Qualificados</div>
                   </div>
+                  {/* 2. Agendados */}
+                  <div className="text-center p-4 bg-purple-50 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">{metrics?.leads_agendados || 0}</div>
+                    <div className="text-sm text-gray-600">Agendados</div>
+                  </div>
+                  {/* 3. No-Show */}
                   <div className="text-center p-4 bg-orange-50 rounded-lg">
                     <div className="text-2xl font-bold text-orange-600">{metrics?.leads_no_show || 0}</div>
                     <div className="text-sm text-gray-600">No-Show</div>
                   </div>
+                  {/* 4. Vendidos */}
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{metrics?.leads_vendidos || 0}</div>
+                    <div className="text-sm text-gray-600">Vendidos</div>
+                  </div>
+                  {/* 5. Quentes */}
                   <div className="text-center p-4 bg-yellow-50 rounded-lg">
                     <div className="text-2xl font-bold text-yellow-600">{metrics?.leads_quentes || 0}</div>
                     <div className="text-sm text-gray-600">Quentes</div>
+                  </div>
+                  {/* 6. Não Vendidos */}
+                  <div className="text-center p-4 bg-red-50 rounded-lg">
+                    <div className="text-2xl font-bold text-red-600">{metrics?.leads_nao_vendidos || 0}</div>
+                    <div className="text-sm text-gray-600">Não Vendidos</div>
                   </div>
                 </div>
                 <div className="text-center p-4 bg-purple-50 rounded-lg">
