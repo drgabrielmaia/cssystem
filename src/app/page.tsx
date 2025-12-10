@@ -136,12 +136,23 @@ export default function DashboardPage() {
       const { data: mentoradosPeriod } = await mentoradosQuery
       const { data: vendasPeriod } = await vendasQuery
 
-      // Buscar eventos agendados futuros
-      const now = new Date().toISOString()
-      const { data: eventosAgendados } = await supabase
-        .from('calendar_events')
-        .select('*')
-        .gte('start_datetime', now)
+      // Buscar eventos agendados baseado no período selecionado
+      // Se for período atual, usar apenas eventos futuros
+      // Caso contrário, usar eventos do período específico
+      let eventosQuery = supabase.from('calendar_events').select('*')
+
+      if (dateRange.start && dateRange.end) {
+        // Para períodos específicos, usar eventos daquele período
+        eventosQuery = eventosQuery
+          .gte('start_datetime', dateRange.start)
+          .lte('start_datetime', dateRange.end)
+      } else {
+        // Para "todos os dados" ou período atual, usar apenas eventos futuros
+        const now = new Date().toISOString()
+        eventosQuery = eventosQuery.gte('start_datetime', now)
+      }
+
+      const { data: eventosAgendados } = await eventosQuery
 
       const totalVendasPeriod = vendasPeriod?.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0) || 0
 

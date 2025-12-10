@@ -1206,13 +1206,14 @@ function EditLeadForm({ lead, onSave, onCancel }: {
           >
             <option value="novo">Novo</option>
             <option value="contactado">Contactado</option>
+            <option value="qualificado">Qualificado</option>
             <option value="agendado">Agendado</option>
+            <option value="no-show">No-show</option>
+            <option value="vendido">Vendido</option>
             <option value="quente">Quente</option>
             <option value="call_agendada">Call Agendada</option>
             <option value="proposta_enviada">Proposta Enviada</option>
-            <option value="vendido">Vendido</option>
             <option value="perdido">Perdido</option>
-            <option value="no-show">No-show</option>
           </select>
         </div>
 
