@@ -1026,11 +1026,21 @@ function EditLeadForm({ lead, onSave, onCancel }: {
     e.preventDefault()
     const submitData: any = {
       ...formData,
+      // Converter campos numéricos corretamente
       valor_vendido: formData.valor_vendido ? parseFloat(formData.valor_vendido as string) : null,
       valor_arrecadado: formData.valor_arrecadado ? parseFloat(formData.valor_arrecadado as string) : null,
+      valor_potencial: formData.valor_potencial ? parseFloat(formData.valor_potencial as string) : null,
+      lead_score: formData.lead_score || 0,
+      // Campos de data e relacionamento
       data_venda: formData.data_venda || null,
       mentorado_indicador_id: formData.mentorado_indicador_id || null,
       fonte_referencia: formData.fonte_referencia || null,
+      // Garantir que campos de texto vazios sejam null
+      email: formData.email?.trim() || null,
+      telefone: formData.telefone?.trim() || null,
+      empresa: formData.empresa?.trim() || null,
+      cargo: formData.cargo?.trim() || null,
+      observacoes: formData.observacoes?.trim() || null,
     }
 
     // Se for um novo lead (não está editando), adicionar data_primeiro_contato
