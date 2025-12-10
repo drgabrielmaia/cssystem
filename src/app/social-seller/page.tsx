@@ -145,7 +145,7 @@ export default function SocialSellerPage() {
       const leadsNaoVendidos = leadsParaContar.filter(l => l.status === 'perdido').length
       const leadsNoShow = leadsParaContar.filter(l => l.status === 'no-show').length
       const leadsQualificados = leadsParaContar.filter(l => l.status === 'qualificado').length
-      const leadsAgendados = leadsParaContar.filter(l => l.status === 'call_agendada').length
+      const leadsAgendados = leadsParaContar.filter(l => l.status === 'agendado').length
       const leadsQuentes = leadsParaContar.filter(l => l.status === 'quente').length
 
       // Armazenar todos os dados para uso nos modais
@@ -246,8 +246,8 @@ export default function SocialSellerPage() {
           return lead.status === 'no-show'
         case 'qualificado':
           return lead.status === 'qualificado'  // Apenas status 'qualificado'
-        case 'call_agendada':
-          return lead.status === 'call_agendada' // Primeiro filtro por status
+        case 'agendado':
+          return lead.status === 'agendado' // Primeiro filtro por status
         case 'quente':
           return lead.status === 'quente'
         default:
@@ -255,8 +255,8 @@ export default function SocialSellerPage() {
       }
     })
 
-    // Para call_agendada, aplicar filtro adicional por período de eventos
-    if (status === 'call_agendada') {
+    // Para agendado, aplicar filtro adicional por período de eventos
+    if (status === 'agendado') {
       const leadsWithEventsInPeriod = []
       for (const lead of filteredLeads) {
         const hasEvent = await hasEventInPeriod(lead.id)
@@ -421,7 +421,7 @@ export default function SocialSellerPage() {
           {/* 2. AGENDADO (segundo) */}
           <Card
             className="cursor-pointer hover:shadow-lg transition-all duration-200"
-            onClick={() => handleShowLeads('call_agendada', 'Leads Agendados')}
+            onClick={() => handleShowLeads('agendado', 'Leads Agendados')}
           >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
