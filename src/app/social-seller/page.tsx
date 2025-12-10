@@ -21,7 +21,9 @@ import {
   Target,
   UserPlus,
   RefreshCw,
-  Filter
+  Filter,
+  Plus,
+  X
 } from 'lucide-react'
 import {
   PieChart,
@@ -37,9 +39,25 @@ interface LeadsMetrics {
   leads_nao_vendidos: number
   leads_no_show: number
   leads_qualificados: number
+  leads_quentes: number
   valor_vendido: number
   valor_arrecadado: number
   taxa_conversao: number
+}
+
+interface Lead {
+  id: string
+  status: string
+  valor_vendido?: number
+  valor_arrecadado?: number
+  data_primeiro_contato?: string
+  convertido_em?: string
+  status_updated_at?: string
+  nome_completo?: string
+  email?: string
+  telefone?: string
+  origem?: string
+  observacoes?: string
 }
 
 
@@ -50,6 +68,9 @@ export default function SocialSellerPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
+  const [allLeadsData, setAllLeadsData] = useState<Lead[]>([])
+  const [showModal, setShowModal] = useState(false)
+  const [modalData, setModalData] = useState<{title: string, leads: Lead[]}>({title: '', leads: []})
 
 
   useEffect(() => {
@@ -78,7 +99,7 @@ export default function SocialSellerPage() {
       // Carregar TODOS os leads primeiro, depois filtrar
       const { data: allLeads, error: leadsError } = await supabase
         .from('leads')
-        .select('id, status, valor_vendido, valor_arrecadado, data_primeiro_contato, convertido_em, status_updated_at')
+        .select('id, status, valor_vendido, valor_arrecadado, data_primeiro_contato, convertido_em, status_updated_at, nome_completo, email, telefone, origem, observacoes')
 
       if (leadsError) {
         console.error('Erro ao carregar leads:', leadsError)
@@ -122,7 +143,11 @@ export default function SocialSellerPage() {
       const leadsVendidos = leadsParaContar.filter(l => l.status === 'vendido').length
       const leadsNaoVendidos = leadsParaContar.filter(l => l.status === 'perdido').length
       const leadsNoShow = leadsParaContar.filter(l => l.status === 'no-show').length
-      const leadsQualificados = leadsParaContar.filter(l => ['qualificado', 'call_agendada', 'proposta_enviada'].includes(l.status)).length
+      const leadsQualificados = leadsParaContar.filter(l => ['agendado', 'call_agendada', 'proposta_enviada'].includes(l.status)).length
+      const leadsQuentes = leadsParaContar.filter(l => l.status === 'quente').length
+
+      // Armazenar todos os dados para uso nos modais
+      setAllLeadsData(leadsParaContar)
 
       const valorVendido = leadsParaContar.filter(l => l.status === 'vendido').reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
       const valorArrecadado = leadsParaContar.filter(l => l.status === 'vendido').reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0)
@@ -137,6 +162,7 @@ export default function SocialSellerPage() {
         leads_nao_vendidos: leadsNaoVendidos,
         leads_no_show: leadsNoShow,
         leads_qualificados: leadsQualificados,
+        leads_quentes: leadsQuentes,
         valor_vendido: valorVendido,
         valor_arrecadado: valorArrecadado,
         taxa_conversao: taxaConversao
@@ -159,6 +185,34 @@ export default function SocialSellerPage() {
     loadSocialSellerData(true)
   }
 
+  // Funções para abrir modais com detalhes
+  const handleShowLeads = (status: string, title: string) => {
+    const filteredLeads = allLeadsData.filter(lead => {
+      switch(status) {
+        case 'vendido':
+          return lead.status === 'vendido'
+        case 'nao-vendido':
+          return lead.status === 'perdido'
+        case 'no-show':
+          return lead.status === 'no-show'
+        case 'qualificado':
+          return ['agendado', 'call_agendada', 'proposta_enviada'].includes(lead.status)
+        case 'quente':
+          return lead.status === 'quente'
+        default:
+          return false
+      }
+    })
+
+    setModalData({ title, leads: filteredLeads })
+    setShowModal(true)
+  }
+
+  const handleCloseModal = () => {
+    setShowModal(false)
+    setModalData({ title: '', leads: [] })
+  }
+
   const getPieChartData = () => {
     if (!metrics) return []
 
@@ -167,6 +221,7 @@ export default function SocialSellerPage() {
       { name: 'Não Vendidos', value: metrics.leads_nao_vendidos, color: '#ef4444' },
       { name: 'No-Show', value: metrics.leads_no_show, color: '#f97316' },
       { name: 'Qualificados', value: metrics.leads_qualificados, color: '#3b82f6' },
+      { name: 'Quentes', value: metrics.leads_quentes, color: '#f59e0b' },
     ].filter(item => item.value > 0)
   }
 
@@ -184,7 +239,7 @@ export default function SocialSellerPage() {
   if (loading) {
     return (
       <div className="flex-1 overflow-y-auto">
-        <Header title="Social Seller" subtitle="Carregando métricas..." />
+        <Header title="Performance" subtitle="Carregando métricas..." />
         <main className="flex-1 p-6">
           <div className="animate-pulse space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -202,7 +257,7 @@ export default function SocialSellerPage() {
   if (!metrics) {
     return (
       <div className="flex-1 overflow-y-auto">
-        <Header title="Social Seller" subtitle="Nenhum lead cadastrado ainda" />
+        <Header title="Performance" subtitle="Nenhum lead cadastrado ainda" />
         <main className="flex-1 p-6">
           <Card className="text-center py-12">
             <CardContent>
@@ -244,7 +299,7 @@ export default function SocialSellerPage() {
     <div className="flex-1 overflow-y-auto">
       <div className="flex items-center justify-between p-6 border-b">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Social Seller</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Performance</h1>
           <p className="text-gray-600">
             {`${metrics?.total_leads || 0} leads totais • ${metrics?.leads_vendidos || 0} vendidos • Taxa de conversão: ${metrics?.taxa_conversao || 0}%`}
           </p>
@@ -277,8 +332,11 @@ export default function SocialSellerPage() {
         />
 
         {/* Cards de Métricas Principais */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-all duration-200"
+            onClick={() => handleShowLeads('no-show', 'Leads No-Show')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -295,7 +353,10 @@ export default function SocialSellerPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-all duration-200"
+            onClick={() => handleShowLeads('qualificado', 'Leads Qualificados')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -312,7 +373,30 @@ export default function SocialSellerPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-all duration-200"
+            onClick={() => handleShowLeads('quente', 'Leads Quentes')}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Quentes</p>
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {metrics?.leads_quentes || 0}
+                  </p>
+                  <p className="text-xs text-yellow-500 font-medium">
+                    {metrics?.total_leads ? ((metrics.leads_quentes / metrics.total_leads) * 100).toFixed(1) : 0}% do total
+                  </p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-yellow-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-all duration-200"
+            onClick={() => handleShowLeads('vendido', 'Leads Vendidos')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -329,7 +413,10 @@ export default function SocialSellerPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-all duration-200"
+            onClick={() => handleShowLeads('nao-vendido', 'Leads Não Vendidos')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -505,6 +592,10 @@ export default function SocialSellerPage() {
                     <div className="text-2xl font-bold text-orange-600">{metrics?.leads_no_show || 0}</div>
                     <div className="text-sm text-gray-600">No-Show</div>
                   </div>
+                  <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                    <div className="text-2xl font-bold text-yellow-600">{metrics?.leads_quentes || 0}</div>
+                    <div className="text-sm text-gray-600">Quentes</div>
+                  </div>
                 </div>
                 <div className="text-center p-4 bg-purple-50 rounded-lg">
                   <div className="text-3xl font-bold text-purple-600">{metrics?.taxa_conversao || 0}%</div>
@@ -515,8 +606,89 @@ export default function SocialSellerPage() {
           </Card>
         </div>
 
-
       </main>
+
+      {/* Modal de Detalhes dos Leads */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-[#0F172A]">{modalData.title}</h2>
+                <button
+                  onClick={handleCloseModal}
+                  className="p-2 hover:bg-[#F1F5F9] rounded-xl transition-colors"
+                >
+                  <X className="w-5 h-5 text-[#94A3B8]" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {modalData.leads.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">Nenhum lead encontrado nesta categoria.</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {modalData.leads.map((lead, index) => (
+                      <div
+                        key={lead.id}
+                        className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-[#0F172A]">
+                              {lead.nome_completo || `Lead #${index + 1}`}
+                            </h3>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {lead.email || 'Email não informado'}
+                            </p>
+                            {lead.telefone && (
+                              <p className="text-sm text-gray-600">
+                                {lead.telefone}
+                              </p>
+                            )}
+                            {lead.origem && (
+                              <p className="text-sm text-blue-600 mt-2">
+                                Origem: {lead.origem}
+                              </p>
+                            )}
+                            {lead.observacoes && (
+                              <p className="text-sm text-gray-500 mt-2">
+                                {lead.observacoes}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right ml-4">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              lead.status === 'vendido'
+                                ? 'bg-green-100 text-green-800'
+                                : lead.status === 'perdido'
+                                ? 'bg-red-100 text-red-800'
+                                : lead.status === 'no-show'
+                                ? 'bg-orange-100 text-orange-800'
+                                : lead.status === 'quente'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {lead.status}
+                            </span>
+                            {lead.valor_vendido && (
+                              <p className="text-sm text-green-600 font-medium mt-2">
+                                R$ {lead.valor_vendido.toLocaleString('pt-BR')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

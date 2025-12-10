@@ -41,7 +41,7 @@ const navigation = [
   { name: 'Cadastro', href: '/cadastro', icon: UserCheck, description: 'Mentorados indicadores' },
   { name: 'Mentorados', href: '/mentorados', icon: Users, description: 'Gerenciar pessoas' },
   { name: 'Calendário', href: '/calendario', icon: Calendar, description: 'Agendar eventos' },
-  { name: 'Social Seller', href: '/social-seller', icon: Phone, description: 'Métricas de vendas' },
+  { name: 'Performance', href: '/social-seller', icon: TrendingUp, description: 'Métricas de vendas' },
   { name: 'Check-ins', href: '/checkins', icon: BarChart3, description: 'Acompanhamento' },
   { name: 'Onboarding', href: '/onboarding', icon: Brain, description: 'Mapa mental de metas' },
   { name: 'Form Builder', href: '/form-builder', icon: Wrench, description: 'Criar formulários' },
