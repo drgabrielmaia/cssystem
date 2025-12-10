@@ -33,7 +33,7 @@ export const KPICardVibrant = ({
 
   return (
     <div className={`
-      relative overflow-hidden rounded-2xl p-6
+      relative overflow-hidden rounded-2xl p-4 sm:p-6
       bg-gradient-to-br ${colorClasses[color]}
       shadow-[0_4px_20px_-2px_rgb(0_0_0_/_0.08)] hover:shadow-[0_8px_30px_-4px_rgb(0_0_0_/_0.12)]
       transition-all duration-300 hover:-translate-y-1
@@ -46,15 +46,15 @@ export const KPICardVibrant = ({
       {/* Content */}
       <div className="relative z-10">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <Icon className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="p-2 bg-white/20 rounded-lg flex-shrink-0">
+              <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
-            <span className="text-white/90 font-medium">{title}</span>
+            <span className="text-white/90 font-medium text-sm sm:text-base truncate">{title}</span>
           </div>
           <div className={`
-            px-2 py-1 rounded-full text-xs font-bold
+            px-2 py-1 rounded-full text-xs font-bold flex-shrink-0 ml-2
             ${trend === 'up' ? 'bg-white/20 text-white' : 'bg-red-400/30 text-white'}
           `}>
             {trend === 'up' ? '↑' : '↓'} {percentage}%
@@ -63,15 +63,15 @@ export const KPICardVibrant = ({
 
         {/* Value */}
         <div className="mb-2">
-          <span className="text-4xl font-bold text-white">{value}</span>
+          <span className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white break-all">{value}</span>
         </div>
 
         {/* Subtitle */}
-        <p className="text-white/70 text-sm">{subtitle}</p>
+        <p className="text-white/70 text-xs sm:text-sm leading-snug">{subtitle}</p>
 
         {/* Mini Sparkline */}
         {sparklineData && (
-          <div className="mt-4 h-12">
+          <div className="mt-3 sm:mt-4 h-8 sm:h-12">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={sparklineData}>
                 <Area

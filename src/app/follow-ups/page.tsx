@@ -91,6 +91,7 @@ export default function FollowUpsPage() {
   const [showNewModal, setShowNewModal] = useState(false)
   const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUp | null>(null)
   const [leads, setLeads] = useState<Array<{id: string, nome_completo: string, email: string}>>([])
+  const [newFormErrors, setNewFormErrors] = useState<{[key: string]: string}>({})
 
   // Estados para formulário de edição
   const [editForm, setEditForm] = useState({
@@ -357,9 +358,27 @@ export default function FollowUpsPage() {
     }
   }
 
+  const validateNewForm = () => {
+    const errors: {[key: string]: string} = {}
+
+    if (!newForm.lead_id) {
+      errors.lead_id = 'Lead é obrigatório'
+    }
+
+    if (!newForm.titulo.trim()) {
+      errors.titulo = 'Título é obrigatório'
+    }
+
+    if (!newForm.data_agendada) {
+      errors.data_agendada = 'Data é obrigatória'
+    }
+
+    setNewFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   const handleCreateFollowUp = async () => {
-    if (!newForm.lead_id || !newForm.titulo || !newForm.data_agendada) {
-      alert('Por favor, preencha todos os campos obrigatórios')
+    if (!validateNewForm()) {
       return
     }
 
@@ -496,6 +515,7 @@ export default function FollowUpsPage() {
       prioridade: '',
       status: 'pendente'
     })
+    setNewFormErrors({})
     setShowNewModal(true)
   }
 
@@ -1173,9 +1193,14 @@ export default function FollowUpsPage() {
 
           <div className="space-y-6 py-4">
             <div className="space-y-2">
-              <Label>Lead</Label>
-              <Select value={newForm.lead_id} onValueChange={(value) => setNewForm({ ...newForm, lead_id: value })}>
-                <SelectTrigger>
+              <Label>Lead *</Label>
+              <Select value={newForm.lead_id} onValueChange={(value) => {
+                setNewForm({ ...newForm, lead_id: value })
+                if (newFormErrors.lead_id) {
+                  setNewFormErrors({ ...newFormErrors, lead_id: '' })
+                }
+              }}>
+                <SelectTrigger className={`${newFormErrors.lead_id ? 'border-red-500' : ''}`}>
                   <SelectValue placeholder="Selecionar lead" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1186,6 +1211,9 @@ export default function FollowUpsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {newFormErrors.lead_id && (
+                <p className="text-sm text-red-600">{newFormErrors.lead_id}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1194,9 +1222,18 @@ export default function FollowUpsPage() {
                 <Input
                   id="new-titulo"
                   value={newForm.titulo}
-                  onChange={(e) => setNewForm({ ...newForm, titulo: e.target.value })}
+                  onChange={(e) => {
+                    setNewForm({ ...newForm, titulo: e.target.value })
+                    if (newFormErrors.titulo) {
+                      setNewFormErrors({ ...newFormErrors, titulo: '' })
+                    }
+                  }}
                   placeholder="Título do follow-up"
+                  className={`${newFormErrors.titulo ? 'border-red-500 focus:ring-red-500' : ''}`}
                 />
+                {newFormErrors.titulo && (
+                  <p className="text-sm text-red-600">{newFormErrors.titulo}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -1205,8 +1242,17 @@ export default function FollowUpsPage() {
                   id="new-data"
                   type="date"
                   value={newForm.data_agendada}
-                  onChange={(e) => setNewForm({ ...newForm, data_agendada: e.target.value })}
+                  onChange={(e) => {
+                    setNewForm({ ...newForm, data_agendada: e.target.value })
+                    if (newFormErrors.data_agendada) {
+                      setNewFormErrors({ ...newFormErrors, data_agendada: '' })
+                    }
+                  }}
+                  className={`${newFormErrors.data_agendada ? 'border-red-500 focus:ring-red-500' : ''}`}
                 />
+                {newFormErrors.data_agendada && (
+                  <p className="text-sm text-red-600">{newFormErrors.data_agendada}</p>
+                )}
               </div>
             </div>
 

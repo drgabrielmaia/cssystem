@@ -9,6 +9,7 @@ export function AppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [isMentorado, setIsMentorado] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Check if user is a mentorado
   useEffect(() => {
@@ -54,8 +55,8 @@ export function AppContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen bg-[#F7F9FB]">
-      <Sidebar isOpen={true} setIsOpen={() => {}} />
-      <div className="flex flex-1 flex-col overflow-hidden lg:ml-0">
+      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+      <div className="flex flex-1 flex-col overflow-hidden">
         <main className="flex-1 relative overflow-y-auto focus:outline-none">
           <div className="py-6">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">

@@ -59,6 +59,7 @@ export default function CalendarioPage() {
   const [showNewEventModal, setShowNewEventModal] = useState(false)
   const [leads, setLeads] = useState<Array<{id: string, nome_completo: string}>>([])
   const [isCreating, setIsCreating] = useState(false)
+  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
 
   // Estados para o formulário de novo evento
   const [newEventForm, setNewEventForm] = useState({
@@ -191,14 +192,38 @@ export default function CalendarioPage() {
       end_date: selectedDate ? selectedDate.toISOString().split('T')[0] : '',
       end_time: '',
       all_day: false,
-      lead_id: ''
+      lead_id: 'none'
     })
+    setFormErrors({})
     setShowNewEventModal(true)
   }
 
+  const validateForm = () => {
+    const errors: {[key: string]: string} = {}
+
+    if (!newEventForm.title.trim()) {
+      errors.title = 'Título é obrigatório'
+    }
+
+    if (!newEventForm.start_date) {
+      errors.start_date = 'Data de início é obrigatória'
+    }
+
+    if (!newEventForm.all_day && newEventForm.start_time && newEventForm.end_time) {
+      const startDateTime = new Date(`${newEventForm.start_date}T${newEventForm.start_time}`)
+      const endDateTime = new Date(`${newEventForm.end_date || newEventForm.start_date}T${newEventForm.end_time}`)
+
+      if (endDateTime <= startDateTime) {
+        errors.end_time = 'Hora de fim deve ser posterior à hora de início'
+      }
+    }
+
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   const handleCreateEvent = async () => {
-    if (!newEventForm.title || !newEventForm.start_date) {
-      alert('Por favor, preencha pelo menos o título e a data de início')
+    if (!validateForm()) {
       return
     }
 
@@ -220,7 +245,7 @@ export default function CalendarioPage() {
         start_datetime: startDatetime,
         end_datetime: endDatetime,
         all_day: newEventForm.all_day,
-        lead_id: newEventForm.lead_id || null,
+        lead_id: newEventForm.lead_id === 'none' ? null : newEventForm.lead_id || null,
         created_at: new Date().toISOString()
       }
 
@@ -566,9 +591,18 @@ export default function CalendarioPage() {
                 <Input
                   id="event-title"
                   value={newEventForm.title}
-                  onChange={(e) => setNewEventForm({ ...newEventForm, title: e.target.value })}
+                  onChange={(e) => {
+                    setNewEventForm({ ...newEventForm, title: e.target.value })
+                    if (formErrors.title) {
+                      setFormErrors({ ...formErrors, title: '' })
+                    }
+                  }}
                   placeholder="Título do evento"
+                  className={`${formErrors.title ? 'border-red-500 focus:ring-red-500' : ''}`}
                 />
+                {formErrors.title && (
+                  <p className="text-sm text-red-600">{formErrors.title}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -578,7 +612,7 @@ export default function CalendarioPage() {
                     <SelectValue placeholder="Selecionar lead" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum lead</SelectItem>
+                    <SelectItem value="none">Nenhum lead</SelectItem>
                     {leads.map((lead) => (
                       <SelectItem key={lead.id} value={lead.id}>
                         {lead.nome_completo}
@@ -618,8 +652,17 @@ export default function CalendarioPage() {
                   id="start-date"
                   type="date"
                   value={newEventForm.start_date}
-                  onChange={(e) => setNewEventForm({ ...newEventForm, start_date: e.target.value })}
+                  onChange={(e) => {
+                    setNewEventForm({ ...newEventForm, start_date: e.target.value })
+                    if (formErrors.start_date) {
+                      setFormErrors({ ...formErrors, start_date: '' })
+                    }
+                  }}
+                  className={`${formErrors.start_date ? 'border-red-500 focus:ring-red-500' : ''}`}
                 />
+                {formErrors.start_date && (
+                  <p className="text-sm text-red-600">{formErrors.start_date}</p>
+                )}
               </div>
 
               {!newEventForm.all_day && (

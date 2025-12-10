@@ -92,6 +92,14 @@
   gap: 24px;
 }
 
+@media (max-width: 768px) {
+  .goals-card {
+    padding: 24px 20px;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
 .goal-item {
   background: #FFFFFF;
   border-radius: 18px;
@@ -438,5 +446,26 @@
 
   .metric-value-clean {
     font-size: 1.5rem;
+  }
+
+  .call-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .call-meta {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .status-actions {
+    flex-wrap: wrap;
+  }
+
+  .ultra-clean-card,
+  .stats-clean-white {
+    padding: 1rem;
   }
 }

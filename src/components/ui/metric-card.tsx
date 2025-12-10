@@ -30,20 +30,20 @@ export const MetricCard = ({
   }
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-[0_4px_20px_-2px_rgb(0_0_0_/_0.08)] hover:shadow-[0_8px_30px_-4px_rgb(0_0_0_/_0.12)] transition-all duration-300 hover:-translate-y-1 border border-gray-100">
-      <div className="flex items-start justify-between mb-4">
-        <div className={`p-3 rounded-xl ${iconColorClasses[iconColor]}`}>
-          <Icon className="w-6 h-6" />
+    <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-[0_4px_20px_-2px_rgb(0_0_0_/_0.08)] hover:shadow-[0_8px_30px_-4px_rgb(0_0_0_/_0.12)] transition-all duration-300 hover:-translate-y-1 border border-gray-100">
+      <div className="flex items-start justify-between mb-3 sm:mb-4">
+        <div className={`p-2 sm:p-3 rounded-xl ${iconColorClasses[iconColor]} flex-shrink-0`}>
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
         </div>
         {change && (
           <div className={`
-            flex items-center gap-1 text-sm font-medium
+            flex items-center gap-1 text-xs sm:text-sm font-medium flex-shrink-0 ml-2
             ${changeType === 'increase' ? 'text-[#22C55E]' : 'text-[#EF4444]'}
           `}>
             {changeType === 'increase' ? (
-              <ArrowUpRight className="w-4 h-4" />
+              <ArrowUpRight className="w-3 h-3 sm:w-4 sm:h-4" />
             ) : (
-              <ArrowDownRight className="w-4 h-4" />
+              <ArrowDownRight className="w-3 h-3 sm:w-4 sm:h-4" />
             )}
             {change}%
           </div>
@@ -51,10 +51,10 @@ export const MetricCard = ({
       </div>
 
       <div className="mb-1">
-        <span className="text-3xl font-bold text-[#0F172A]">{value}</span>
+        <span className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#0F172A]">{value}</span>
       </div>
 
-      <p className="text-sm text-[#94A3B8] mb-4">{title}</p>
+      <p className="text-xs sm:text-sm text-[#94A3B8] mb-3 sm:mb-4 leading-snug">{title}</p>
 
       {link && (
         <Link href={link} className="inline-flex items-center gap-1 text-sm font-medium text-[#059669] hover:text-[#047857] transition-colors">
