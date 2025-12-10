@@ -40,11 +40,18 @@ interface Lead {
   cargo: string | null
   origem: string | null
   status: string
+  temperatura?: string | null
+  prioridade?: string | null
   observacoes: string | null
+  valor_potencial?: number | null
   valor_vendido: number | null
   valor_arrecadado: number | null
   data_primeiro_contato: string
   data_venda: string | null
+  lead_score?: number | null
+  convertido_em?: string | null
+  status_updated_at?: string | null
+  next_followup_date?: string | null
   created_at: string
   updated_at: string
   mentorado_indicador_id?: string | null
@@ -982,12 +989,16 @@ function EditLeadForm({ lead, onSave, onCancel }: {
     cargo: lead?.cargo || '',
     origem: lead?.origem || '',
     status: lead?.status || 'novo',
+    temperatura: lead?.temperatura || 'morno',
+    prioridade: lead?.prioridade || 'media',
     observacoes: lead?.observacoes || '',
     valor_vendido: lead?.valor_vendido || '',
     valor_arrecadado: lead?.valor_arrecadado || '',
     data_venda: lead?.data_venda || '',
     mentorado_indicador_id: lead?.mentorado_indicador_id || '',
-    fonte_referencia: lead?.fonte_referencia || ''
+    fonte_referencia: lead?.fonte_referencia || '',
+    valor_potencial: lead?.valor_potencial || '',
+    lead_score: lead?.lead_score || 0
   })
 
   const [mentorados, setMentorados] = useState<Mentorado[]>([])
@@ -1037,49 +1048,73 @@ function EditLeadForm({ lead, onSave, onCancel }: {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Nome Completo *
           </label>
-          <input
-            type="text"
-            required
-            value={formData.nome_completo}
-            onChange={(e) => setFormData(prev => ({ ...prev, nome_completo: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              required
+              value={formData.nome_completo}
+              onChange={(e) => setFormData(prev => ({ ...prev, nome_completo: e.target.value }))}
+              className="w-full px-4 py-3 pr-10 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+              placeholder="Ex: João da Silva"
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+              <Users className="w-4 h-4 text-gray-400" />
+            </div>
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Email
           </label>
-          <input
-            type="email"
-            value={formData.email}
-            onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
-          />
+          <div className="relative">
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              className="w-full px-4 py-3 pr-10 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+              placeholder="Ex: joao@empresa.com"
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+              <Mail className="w-4 h-4 text-gray-400" />
+            </div>
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Telefone
           </label>
-          <input
-            type="tel"
-            value={formData.telefone}
-            onChange={(e) => setFormData(prev => ({ ...prev, telefone: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
-          />
+          <div className="relative">
+            <input
+              type="tel"
+              value={formData.telefone}
+              onChange={(e) => setFormData(prev => ({ ...prev, telefone: e.target.value }))}
+              className="w-full px-4 py-3 pr-10 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+              placeholder="Ex: (11) 99999-9999"
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+              <Phone className="w-4 h-4 text-gray-400" />
+            </div>
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Empresa
           </label>
-          <input
-            type="text"
-            value={formData.empresa}
-            onChange={(e) => setFormData(prev => ({ ...prev, empresa: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={formData.empresa}
+              onChange={(e) => setFormData(prev => ({ ...prev, empresa: e.target.value }))}
+              className="w-full px-4 py-3 pr-10 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+              placeholder="Ex: Tech Solutions Ltda"
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+              <Building className="w-4 h-4 text-gray-400" />
+            </div>
+          </div>
         </div>
 
         <div>
@@ -1090,7 +1125,8 @@ function EditLeadForm({ lead, onSave, onCancel }: {
             type="text"
             value={formData.cargo}
             onChange={(e) => setFormData(prev => ({ ...prev, cargo: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+            placeholder="Ex: CEO, Gerente, Analista"
           />
         </div>
 
@@ -1101,7 +1137,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
           <select
             value={formData.origem}
             onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
           >
             <option value="">Selecione uma origem</option>
             <option value="eventos-proprios">Eventos Próprios</option>
@@ -1132,7 +1168,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
               <select
                 value={formData.mentorado_indicador_id}
                 onChange={(e) => setFormData(prev => ({ ...prev, mentorado_indicador_id: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
                 required
               >
                 <option value="">Selecione quem indicou</option>
@@ -1153,7 +1189,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
                 value={formData.fonte_referencia}
                 onChange={(e) => setFormData(prev => ({ ...prev, fonte_referencia: e.target.value }))}
                 placeholder="Como foi feita a indicação? (ex: WhatsApp, conversa pessoal, etc.)"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
               />
             </div>
           </>
@@ -1166,11 +1202,12 @@ function EditLeadForm({ lead, onSave, onCancel }: {
           <select
             value={formData.status}
             onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
           >
             <option value="novo">Novo</option>
             <option value="contactado">Contactado</option>
             <option value="agendado">Agendado</option>
+            <option value="quente">Quente</option>
             <option value="call_agendada">Call Agendada</option>
             <option value="proposta_enviada">Proposta Enviada</option>
             <option value="vendido">Vendido</option>
@@ -1179,71 +1216,164 @@ function EditLeadForm({ lead, onSave, onCancel }: {
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Valor Vendido (R$)
-          </label>
-          <input
-            type="number"
-            step="0.01"
-            value={formData.valor_vendido}
-            onChange={(e) => setFormData(prev => ({ ...prev, valor_vendido: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-gradient-to-br from-red-50 to-orange-100 p-4 rounded-xl border border-orange-200">
+            <label className="block text-sm font-medium text-orange-700 mb-2 flex items-center gap-2">
+              <span className="text-lg">🌡️</span>
+              Temperatura
+            </label>
+            <div className="relative">
+              <select
+                value={formData.temperatura}
+                onChange={(e) => setFormData(prev => ({ ...prev, temperatura: e.target.value }))}
+                className="w-full px-4 py-3 pr-10 border border-orange-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+              >
+                <option value="quente">🔥 Quente - Alta probabilidade</option>
+                <option value="morno">🌟 Morno - Média probabilidade</option>
+                <option value="frio">❄️ Frio - Baixa probabilidade</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <div className={`w-3 h-3 rounded-full ${formData.temperatura === 'quente' ? 'bg-red-500 animate-pulse' : formData.temperatura === 'morno' ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
+            <label className="block text-sm font-medium text-purple-700 mb-2 flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              Prioridade
+            </label>
+            <div className="relative">
+              <select
+                value={formData.prioridade}
+                onChange={(e) => setFormData(prev => ({ ...prev, prioridade: e.target.value }))}
+                className="w-full px-4 py-3 pr-10 border border-purple-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+              >
+                <option value="alta">🚨 Alta</option>
+                <option value="media">⭐ Média</option>
+                <option value="baixa">📝 Baixa</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <div className={`w-3 h-3 rounded-full ${formData.prioridade === 'alta' ? 'bg-red-500 animate-pulse' : formData.prioridade === 'media' ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Valor Arrecadado (R$)
-          </label>
-          <input
-            type="number"
-            step="0.01"
-            value={formData.valor_arrecadado}
-            onChange={(e) => setFormData(prev => ({ ...prev, valor_arrecadado: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200">
+            <label className="block text-sm font-medium text-green-700 mb-2 flex items-center gap-2">
+              <DollarSign className="w-4 h-4" />
+              💰 Valor Potencial (R$)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.valor_potencial}
+              onChange={(e) => setFormData(prev => ({ ...prev, valor_potencial: e.target.value }))}
+              className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+              placeholder="Valor estimado da venda"
+            />
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
+            <label className="block text-sm font-medium text-blue-700 mb-2 flex items-center gap-2">
+              <DollarSign className="w-4 h-4" />
+              ✅ Valor Vendido (R$)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.valor_vendido}
+              onChange={(e) => setFormData(prev => ({ ...prev, valor_vendido: e.target.value }))}
+              className="w-full px-4 py-3 border border-blue-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+              placeholder="Valor efetivamente vendido"
+            />
+          </div>
+
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
+            <label className="block text-sm font-medium text-purple-700 mb-2 flex items-center gap-2">
+              <DollarSign className="w-4 h-4" />
+              💳 Valor Arrecadado (R$)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.valor_arrecadado}
+              onChange={(e) => setFormData(prev => ({ ...prev, valor_arrecadado: e.target.value }))}
+              className="w-full px-4 py-3 border border-purple-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+              placeholder="Valor já recebido"
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Data de Venda
-          </label>
-          <input
-            type="date"
-            value={formData.data_venda}
-            onChange={(e) => setFormData(prev => ({ ...prev, data_venda: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl border border-orange-200">
+            <label className="block text-sm font-medium text-orange-700 mb-2 flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              📅 Data de Venda
+            </label>
+            <input
+              type="date"
+              value={formData.data_venda}
+              onChange={(e) => setFormData(prev => ({ ...prev, data_venda: e.target.value }))}
+              className="w-full px-4 py-3 border border-orange-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+            />
+          </div>
+
+          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-xl border border-indigo-200">
+            <label className="block text-sm font-medium text-indigo-700 mb-2 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              📊 Lead Score (0-100)
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={formData.lead_score}
+                onChange={(e) => setFormData(prev => ({ ...prev, lead_score: parseInt(e.target.value) || 0 }))}
+                className="w-full px-4 py-3 pr-10 border border-indigo-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+                placeholder="Score do lead (0-100)"
+              />
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                <div className={`w-3 h-3 rounded-full ${
+                  formData.lead_score >= 80 ? 'bg-green-500 animate-pulse' :
+                  formData.lead_score >= 60 ? 'bg-yellow-500' :
+                  formData.lead_score >= 40 ? 'bg-orange-500' : 'bg-red-500'
+                }`}></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Observações
+      <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
+        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+          📝 Observações
         </label>
         <textarea
           rows={4}
           value={formData.observacoes}
           onChange={(e) => setFormData(prev => ({ ...prev, observacoes: e.target.value }))}
-          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-colors resize-none"
-          placeholder="Adicione observações sobre este lead..."
+          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md resize-none bg-white"
+          placeholder="Adicione observações detalhadas sobre este lead... Ex: Demonstrou interesse em pacote premium, tem orçamento aprovado, decisor principal."
         />
       </div>
 
-      <div className="flex justify-end gap-3 pt-6 border-t">
+      <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
         <button
           type="button"
           onClick={onCancel}
-          className="px-6 py-3 border border-gray-300 hover:bg-gray-50 rounded-xl font-medium transition-colors"
+          className="px-8 py-3 border-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50 rounded-xl font-semibold transition-all shadow-sm hover:shadow-md flex items-center gap-2"
         >
-          Cancelar
+          ✖️ Cancelar
         </button>
         <button
           type="submit"
-          className="px-6 py-3 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+          className="px-8 py-3 bg-gradient-to-r from-[#059669] to-[#047857] hover:from-[#047857] hover:to-[#065f46] text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
         >
-          {lead ? 'Salvar Alterações' : 'Criar Lead'}
+          {lead ? '💾 Salvar Alterações' : '✨ Criar Lead'}
         </button>
       </div>
     </form>
