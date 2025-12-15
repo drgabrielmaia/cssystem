@@ -7,6 +7,7 @@ import { MetricCard } from '@/components/ui/metric-card'
 import { DataTable } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { ChartCard } from '@/components/ui/chart-card'
+import { ChurnRateCard } from '@/components/churn-rate-card'
 import { supabase } from '@/lib/supabase'
 import {
   DollarSign,
@@ -26,7 +27,8 @@ import {
   Download,
   RefreshCw,
   BarChart3,
-  Calendar
+  Calendar,
+  UserPlus
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts'
@@ -48,6 +50,7 @@ interface Lead {
   valor_arrecadado: number | null
   data_primeiro_contato: string
   data_venda: string | null
+  desistiu?: boolean | null
   lead_score?: number | null
   convertido_em?: string | null
   status_updated_at?: string | null
@@ -381,6 +384,54 @@ export default function LeadsPage() {
     router.push(`/leads/${lead.id}`)
   }
 
+  const handleConvertToMentorado = async (lead: Lead) => {
+    if (!confirm(`Converter "${lead.nome_completo}" em mentorado?`)) {
+      return
+    }
+
+    try {
+      setIsLoadingData(true)
+
+      // 1. Criar mentorado com dados do lead
+      const mentoradoData = {
+        nome_completo: lead.nome_completo,
+        email: lead.email,
+        telefone: lead.telefone,
+        data_entrada: lead.data_venda || new Date().toISOString().split('T')[0],
+        estado_atual: 'ativo',
+        lead_id: lead.id,
+        excluido: false
+      }
+
+      const { data: mentorado, error: mentoradoError } = await supabase
+        .from('mentorados')
+        .insert(mentoradoData)
+        .select()
+        .single()
+
+      if (mentoradoError) throw mentoradoError
+
+      // 2. Atualizar lead como convertido
+      const { error: leadError } = await supabase
+        .from('leads')
+        .update({
+          convertido_em: new Date().toISOString(),
+          status_updated_at: new Date().toISOString()
+        })
+        .eq('id', lead.id)
+
+      if (leadError) throw leadError
+
+      alert(`Lead convertido em mentorado com sucesso!\nMentorado ID: ${mentorado.id}`)
+      loadLeads()
+    } catch (error) {
+      console.error('Erro ao converter lead:', error)
+      alert('Erro ao converter lead em mentorado')
+    } finally {
+      setIsLoadingData(false)
+    }
+  }
+
   if (loading) {
     return (
       <PageLayout title="Leads" subtitle="Carregando...">
@@ -432,6 +483,7 @@ export default function LeadsPage() {
           icon={TrendingUp}
           iconColor="purple"
         />
+        <ChurnRateCard />
       </div>
 
       {/* Gráficos - Grid responsivo */}
@@ -737,14 +789,38 @@ export default function LeadsPage() {
           },
           {
             header: 'Status',
-            render: (lead) => <StatusBadge status={(statusMap as any)[lead.status] || 'pending'} />
+            render: (lead) => (
+              <div className="flex flex-col gap-1">
+                <StatusBadge status={(statusMap as any)[lead.status] || 'pending'} />
+                {lead.data_venda && (
+                  <div className="flex items-center gap-1">
+                    {lead.desistiu ? (
+                      <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full">
+                        Desistiu
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">
+                        Ativo
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
           },
           {
             header: 'Valor',
             render: (lead) => (
               <div className="text-right">
                 {lead.valor_vendido ? (
-                  <p className="font-semibold text-[#059669]">{formatCurrency(lead.valor_vendido)}</p>
+                  <div>
+                    <p className="font-semibold text-[#059669]">{formatCurrency(lead.valor_vendido)}</p>
+                    {lead.data_venda && (
+                      <p className="text-xs text-[#94A3B8] mt-1">
+                        Vendido em {formatDate(lead.data_venda)}
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <p className="text-[#94A3B8]">-</p>
                 )}
@@ -789,6 +865,15 @@ export default function LeadsPage() {
                 >
                   <Edit className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
                 </button>
+                {lead.status === 'vendido' && !lead.convertido_em && (
+                  <button
+                    onClick={() => handleConvertToMentorado(lead)}
+                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                    title="Converter em Mentorado"
+                  >
+                    <UserPlus className="w-4 h-4 text-[#94A3B8] group-hover:text-[#10B981]" />
+                  </button>
+                )}
                 {lead.telefone && (
                   <button
                     className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"

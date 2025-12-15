@@ -19,8 +19,7 @@ export async function GET(request: NextRequest) {
           id,
           nome_completo,
           email,
-          telefone,
-          turma
+          telefone
         ),
         leads (
           id,

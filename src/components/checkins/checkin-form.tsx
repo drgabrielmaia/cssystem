@@ -118,7 +118,7 @@ export function CheckinForm({ mentorados, onSave, onCancel }: CheckinFormProps) 
                         <SelectContent>
                           {mentorados.map(mentorado => (
                             <SelectItem key={mentorado.id} value={mentorado.id}>
-                              {mentorado.nome_completo} • {mentorado.turma}
+                              {mentorado.nome_completo} • {mentorado.estado_atual}
                             </SelectItem>
                           ))}
                         </SelectContent>

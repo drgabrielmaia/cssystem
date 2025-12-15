@@ -17,7 +17,6 @@ interface MentoradoCadastro {
   telefone: string
   cpf?: string
   endereco?: string
-  turma: string
   observacoes?: string
   password: string
   confirmPassword: string
@@ -37,7 +36,6 @@ export default function CadastroPage() {
     telefone: '',
     cpf: '',
     endereco: '',
-    turma: '',
     observacoes: '',
     password: 'mentoradoindica', // Senha padrão
     confirmPassword: 'mentoradoindica', // Senha padrão
@@ -83,7 +81,6 @@ export default function CadastroPage() {
         telefone: formData.telefone,
         cpf: formData.cpf,
         endereco: formData.endereco,
-        turma: formData.turma,
         observacoes: formData.observacoes,
         password_hash: btoa(formData.password), // Simples encoding por enquanto
         porcentagem_comissao: formData.porcentagem_comissao,
@@ -116,7 +113,6 @@ export default function CadastroPage() {
         telefone: '',
         cpf: '',
         endereco: '',
-        turma: '',
         observacoes: '',
         password: 'mentoradoindica',
         confirmPassword: 'mentoradoindica',
@@ -142,7 +138,6 @@ export default function CadastroPage() {
       telefone: mentorado.telefone,
       cpf: mentorado.cpf || '',
       endereco: mentorado.endereco || '',
-      turma: mentorado.turma,
       observacoes: mentorado.observacoes || '',
       password: '',
       confirmPassword: '',
@@ -202,7 +197,6 @@ export default function CadastroPage() {
                 telefone: '',
                 cpf: '',
                 endereco: '',
-                turma: '',
                 observacoes: '',
                 password: '',
                 confirmPassword: '',
@@ -290,20 +284,6 @@ export default function CadastroPage() {
                   />
                 </div>
 
-                {/* Turma */}
-                <div className="space-y-2">
-                  <Label htmlFor="turma">
-                    <Building className="h-4 w-4 inline mr-2" />
-                    Turma *
-                  </Label>
-                  <Input
-                    id="turma"
-                    value={formData.turma}
-                    onChange={(e) => setFormData(prev => ({...prev, turma: e.target.value}))}
-                    required
-                    placeholder="Ex: Turma 2024.1"
-                  />
-                </div>
 
                 {/* Porcentagem comissão */}
                 <div className="space-y-2">
@@ -434,7 +414,6 @@ export default function CadastroPage() {
                       <th className="text-left py-3 px-4 font-medium text-[#6B7280]">Nome</th>
                       <th className="text-left py-3 px-4 font-medium text-[#6B7280]">Email</th>
                       <th className="text-left py-3 px-4 font-medium text-[#6B7280]">Telefone</th>
-                      <th className="text-left py-3 px-4 font-medium text-[#6B7280]">Turma</th>
                       <th className="text-left py-3 px-4 font-medium text-[#6B7280]">Comissão</th>
                       <th className="text-left py-3 px-4 font-medium text-[#6B7280]">Ações</th>
                     </tr>
@@ -445,7 +424,6 @@ export default function CadastroPage() {
                         <td className="py-3 px-4 font-medium text-[#111827]">{mentorado.nome_completo}</td>
                         <td className="py-3 px-4 text-[#6B7280]">{mentorado.email}</td>
                         <td className="py-3 px-4 text-[#6B7280]">{mentorado.telefone}</td>
-                        <td className="py-3 px-4 text-[#6B7280]">{mentorado.turma}</td>
                         <td className="py-3 px-4 text-[#6B7280]">{mentorado.porcentagem_comissao}%</td>
                         <td className="py-3 px-4">
                           <div className="flex space-x-2">

@@ -687,7 +687,7 @@ const ModernMindMap = ({
                 {mentorado.nome_completo}
               </h2>
               <Badge variant="outline" className="text-gray-600">
-                {mentorado.turma}
+                {mentorado.estado_atual}
               </Badge>
               {!user && (
                 <Badge variant="outline" className="text-yellow-600 border-yellow-300">

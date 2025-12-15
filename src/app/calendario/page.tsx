@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
+import { EditEventModal } from '@/components/edit-event-modal'
 
 interface CalendarEvent {
   id: string
@@ -58,8 +59,13 @@ export default function CalendarioPage() {
   const [view, setView] = useState<'month' | 'week' | 'day'>('month')
   const [showNewEventModal, setShowNewEventModal] = useState(false)
   const [leads, setLeads] = useState<Array<{id: string, nome_completo: string}>>([])
+  const [mentorados, setMentorados] = useState<Array<{id: string, nome_completo: string}>>([])
   const [isCreating, setIsCreating] = useState(false)
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
+
+  // Estados para edição
+  const [showEditEventModal, setShowEditEventModal] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
 
   // Estados para o formulário de novo evento
   const [newEventForm, setNewEventForm] = useState({
@@ -70,7 +76,8 @@ export default function CalendarioPage() {
     end_date: '',
     end_time: '',
     all_day: false,
-    lead_id: ''
+    lead_id: '',
+    mentorado_id: ''
   })
 
   const today = new Date()
@@ -87,23 +94,58 @@ export default function CalendarioPage() {
   useEffect(() => {
     fetchEvents()
     loadLeads()
+    loadMentorados()
   }, [])
+
+  const loadLeads = async () => {
+    try {
+      const response = await fetch('/routes/leads')
+      const data = await response.json()
+      if (data.success) {
+        setLeads(data.leads.map((lead: any) => ({
+          id: lead.id,
+          nome_completo: lead.nome_completo
+        })))
+      }
+    } catch (error) {
+      console.error('Erro ao carregar leads:', error)
+    }
+  }
+
+  const loadMentorados = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('mentorados')
+        .select('id, nome_completo')
+        .order('nome_completo')
+
+      if (error) throw error
+
+      setMentorados(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar mentorados:', error)
+    }
+  }
 
   const fetchEvents = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/routes/calendar/events', {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      })
+      console.log('🔄 Buscando eventos do calendário via Supabase...')
 
-      if (response.ok) {
-        const result = await response.json()
-        setEvents(result.events || [])
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .select('*')
+        .order('start_datetime', { ascending: true })
+
+      if (error) {
+        console.error('❌ Erro do Supabase:', error)
+        throw error
       }
+
+      console.log('✅ Eventos carregados:', data?.length || 0)
+      setEvents(data || [])
     } catch (error) {
-      console.error('Erro ao carregar eventos:', error)
+      console.error('❌ Erro ao carregar eventos:', error)
     } finally {
       setLoading(false)
     }
@@ -143,7 +185,8 @@ export default function CalendarioPage() {
   const formatTime = (dateString: string) => {
     return new Date(dateString).toLocaleTimeString('pt-BR', {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'America/Sao_Paulo'
     })
   }
 
@@ -152,7 +195,8 @@ export default function CalendarioPage() {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: 'America/Sao_Paulo'
     })
   }
 
@@ -169,20 +213,6 @@ export default function CalendarioPage() {
     setSelectedDate(new Date())
   }
 
-  const loadLeads = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('leads')
-        .select('id, nome_completo')
-        .order('nome_completo')
-
-      if (error) throw error
-      setLeads(data || [])
-    } catch (error) {
-      console.error('Erro ao carregar leads:', error)
-    }
-  }
-
   const handleNewEvent = () => {
     setNewEventForm({
       title: '',
@@ -192,7 +222,8 @@ export default function CalendarioPage() {
       end_date: selectedDate ? selectedDate.toISOString().split('T')[0] : '',
       end_time: '',
       all_day: false,
-      lead_id: 'none'
+      lead_id: 'none',
+      mentorado_id: 'none'
     })
     setFormErrors({})
     setShowNewEventModal(true)
@@ -210,8 +241,8 @@ export default function CalendarioPage() {
     }
 
     if (!newEventForm.all_day && newEventForm.start_time && newEventForm.end_time) {
-      const startDateTime = new Date(`${newEventForm.start_date}T${newEventForm.start_time}`)
-      const endDateTime = new Date(`${newEventForm.end_date || newEventForm.start_date}T${newEventForm.end_time}`)
+      const startDateTime = new Date(`${newEventForm.start_date}T${newEventForm.start_time}:00-03:00`)
+      const endDateTime = new Date(`${newEventForm.end_date || newEventForm.start_date}T${newEventForm.end_time}:00-03:00`)
 
       if (endDateTime <= startDateTime) {
         errors.end_time = 'Hora de fim deve ser posterior à hora de início'
@@ -230,14 +261,14 @@ export default function CalendarioPage() {
     try {
       setIsCreating(true)
 
-      // Construir datetime strings
+      // Construir datetime strings com timezone de São Paulo
       const startDatetime = newEventForm.all_day
-        ? `${newEventForm.start_date}T00:00:00`
-        : `${newEventForm.start_date}T${newEventForm.start_time || '00:00'}`
+        ? `${newEventForm.start_date}T00:00:00-03:00`
+        : `${newEventForm.start_date}T${newEventForm.start_time || '00:00'}:00-03:00`
 
       const endDatetime = newEventForm.all_day
-        ? `${newEventForm.end_date || newEventForm.start_date}T23:59:59`
-        : `${newEventForm.end_date || newEventForm.start_date}T${newEventForm.end_time || '23:59'}`
+        ? `${newEventForm.end_date || newEventForm.start_date}T23:59:59-03:00`
+        : `${newEventForm.end_date || newEventForm.start_date}T${newEventForm.end_time || '23:59'}:00-03:00`
 
       const eventData = {
         title: newEventForm.title,
@@ -246,6 +277,7 @@ export default function CalendarioPage() {
         end_datetime: endDatetime,
         all_day: newEventForm.all_day,
         lead_id: newEventForm.lead_id === 'none' ? null : newEventForm.lead_id || null,
+        mentorado_id: newEventForm.mentorado_id === 'none' ? null : newEventForm.mentorado_id || null,
         created_at: new Date().toISOString()
       }
 
@@ -263,6 +295,38 @@ export default function CalendarioPage() {
       alert('Erro ao criar evento')
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const handleEditEvent = (event: CalendarEvent) => {
+    setSelectedEvent(event)
+    setShowEditEventModal(true)
+  }
+
+  const handleEditSuccess = async () => {
+    setShowEditEventModal(false)
+    setSelectedEvent(null)
+    await fetchEvents()
+  }
+
+  const handleDeleteEvent = async (event: CalendarEvent) => {
+    if (!confirm(`Tem certeza que deseja excluir o evento "${event.title}"?`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('calendar_events')
+        .delete()
+        .eq('id', event.id)
+
+      if (error) throw error
+
+      await fetchEvents()
+      alert('Evento excluído com sucesso!')
+    } catch (error) {
+      console.error('Erro ao excluir evento:', error)
+      alert('Erro ao excluir evento')
     }
   }
 
@@ -473,11 +537,26 @@ export default function CalendarioPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-1 ml-2">
-                            <button className="p-1 hover:bg-[#F1F5F9] rounded-lg transition-colors group">
+                            <button
+                              onClick={() => alert(`Evento: ${event.title}\n\nDescrição: ${event.description || 'Sem descrição'}\n\nInício: ${new Date(event.start_datetime).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n\nFim: ${new Date(event.end_datetime).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`)}
+                              className="p-1 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                              title="Ver detalhes"
+                            >
                               <Eye className="w-3 h-3 text-[#94A3B8] group-hover:text-[#475569]" />
                             </button>
-                            <button className="p-1 hover:bg-[#F1F5F9] rounded-lg transition-colors group">
+                            <button
+                              onClick={() => handleEditEvent(event)}
+                              className="p-1 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                              title="Editar evento"
+                            >
                               <Edit className="w-3 h-3 text-[#94A3B8] group-hover:text-[#059669]" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteEvent(event)}
+                              className="p-1 hover:bg-red-50 rounded-lg transition-colors group"
+                              title="Excluir evento"
+                            >
+                              <Trash2 className="w-3 h-3 text-red-500 group-hover:text-red-700" />
                             </button>
                           </div>
                         </div>
@@ -535,7 +614,7 @@ export default function CalendarioPage() {
                       </h4>
                       <div className="flex items-center gap-2 mt-1 text-xs text-[#94A3B8]">
                         <CalendarIcon className="w-3 h-3" />
-                        {new Date(event.start_datetime).toLocaleDateString('pt-BR')}
+                        {new Date(event.start_datetime).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                         {!event.all_day && (
                           <>
                             <Clock className="w-3 h-3 ml-1" />
@@ -616,6 +695,23 @@ export default function CalendarioPage() {
                     {leads.map((lead) => (
                       <SelectItem key={lead.id} value={lead.id}>
                         {lead.nome_completo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Mentorado (Opcional)</Label>
+                <Select value={newEventForm.mentorado_id} onValueChange={(value) => setNewEventForm({ ...newEventForm, mentorado_id: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar mentorado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum mentorado</SelectItem>
+                    {mentorados.map((mentorado) => (
+                      <SelectItem key={mentorado.id} value={mentorado.id}>
+                        {mentorado.nome_completo}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -729,6 +825,14 @@ export default function CalendarioPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Edição de Evento */}
+      <EditEventModal
+        isOpen={showEditEventModal}
+        onClose={() => setShowEditEventModal(false)}
+        onSuccess={handleEditSuccess}
+        event={selectedEvent}
+      />
     </PageLayout>
   )
 }

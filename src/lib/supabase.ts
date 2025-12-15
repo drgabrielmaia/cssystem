@@ -28,7 +28,6 @@ export interface Mentorado {
   crm?: string
   origem_conhecimento?: string
   data_inicio_mentoria?: string
-  turma: string
   estado_entrada: string
   estado_atual: string
   data_entrada: string

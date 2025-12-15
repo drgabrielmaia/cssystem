@@ -8,7 +8,7 @@ export async function GET() {
     // Fetch mentorados from Supabase
     const { data: mentorados, error } = await supabase
       .from('mentorados')
-      .select('id, nome_completo, turma')
+      .select('id, nome_completo, email, telefone, estado_atual')
       .order('nome_completo', { ascending: true })
 
     if (error) {
@@ -24,7 +24,9 @@ export async function GET() {
     const formattedMentorados = mentorados?.map(m => ({
       id: m.id,
       nome_completo: m.nome_completo,
-      turma: m.turma || 'Sem turma'
+      email: m.email,
+      telefone: m.telefone,
+      estado_atual: m.estado_atual
     })) || []
 
     return NextResponse.json({

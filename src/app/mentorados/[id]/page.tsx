@@ -221,7 +221,7 @@ Link: ${formulario.url}`
     <div className="flex-1 overflow-y-auto">
       <Header 
         title={mentorado.nome_completo} 
-        subtitle={`${mentorado.turma} • ${formulariosCompletos}/${formularios.length} formulários completos`}
+        subtitle={`${mentorado.estado_atual} • ${formulariosCompletos}/${formularios.length} formulários completos`}
       />
       
       <main className="flex-1 p-6 space-y-6">
@@ -249,8 +249,8 @@ Link: ${formulario.url}`
                 </div>
 
                 <div>
-                  <span className="text-sm text-gray-500">Turma</span>
-                  <p className="text-sm text-gray-900">{mentorado.turma}</p>
+                  <span className="text-sm text-gray-500">Estado Atual</span>
+                  <p className="text-sm text-gray-900">{mentorado.estado_atual}</p>
                 </div>
 
                 {mentorado.email && (

@@ -286,7 +286,7 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate, selecte
                   <SelectItem value="none">Nenhum mentorado</SelectItem>
                   {mentorados.map((mentorado) => (
                     <SelectItem key={mentorado.id} value={mentorado.id}>
-                      {mentorado.nome_completo || 'Nome não disponível'} {mentorado.turma ? `(${mentorado.turma})` : ''}
+                      {mentorado.nome_completo || 'Nome não disponível'} {mentorado.estado_atual ? `(${mentorado.estado_atual})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>

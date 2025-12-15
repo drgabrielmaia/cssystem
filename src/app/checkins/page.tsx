@@ -214,8 +214,7 @@ export default function CheckInsPage() {
 
     // Filtro por busca
     const matchesSearch = mentorado.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         mentorado.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         mentorado.turma.toLowerCase().includes(searchTerm.toLowerCase())
+                         mentorado.email.toLowerCase().includes(searchTerm.toLowerCase())
 
     if (!matchesSearch) return false
 
@@ -420,7 +419,7 @@ export default function CheckInsPage() {
                                 {mentorado.nome_completo}
                               </h3>
                               <p className="text-sm text-gray-600">{mentorado.email}</p>
-                              <p className="text-xs text-gray-500">Turma: {mentorado.turma}</p>
+                              <p className="text-xs text-gray-500">Estado: {mentorado.estado_atual}</p>
                             </div>
                           </div>
                         </div>

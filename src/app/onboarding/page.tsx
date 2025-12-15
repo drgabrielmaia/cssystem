@@ -149,7 +149,7 @@ export default function OnboardingPage() {
                       <SelectItem key={mentorado.id} value={mentorado.id}>
                         <div className="flex items-center gap-2">
                           <span>{mentorado.nome_completo}</span>
-                          <span className="text-xs text-gray-500">({mentorado.turma})</span>
+                          <span className="text-xs text-gray-500">({mentorado.estado_atual})</span>
                         </div>
                       </SelectItem>
                     ))}
@@ -202,8 +202,8 @@ export default function OnboardingPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div>
-                  <span className="font-medium text-green-700">Turma:</span>
-                  <p className="text-green-600">{selectedMentorado.turma}</p>
+                  <span className="font-medium text-green-700">Estado Atual:</span>
+                  <p className="text-green-600">{selectedMentorado.estado_atual}</p>
                 </div>
                 <div>
                   <span className="font-medium text-green-700">Status:</span>

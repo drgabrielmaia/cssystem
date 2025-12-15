@@ -22,7 +22,6 @@ const editMentoradoSchema = z.object({
   nome_completo: z.string().min(1, 'Nome completo é obrigatório'),
   email: z.string().email('Email inválido'),
   telefone: z.string().optional(),
-  turma: z.string().min(1, 'Turma é obrigatória'),
   estado_entrada: z.string().optional(),
   estado_atual: z.string().optional(),
   data_nascimento: z.string().optional(),
@@ -31,7 +30,8 @@ const editMentoradoSchema = z.object({
   endereco: z.string().optional(),
   crm: z.string().optional(),
   origem_conhecimento: z.string().optional(),
-  data_inicio_mentoria: z.string().optional()
+  data_inicio_mentoria: z.string().optional(),
+  data_entrada: z.string().optional()
 })
 
 type EditMentoradoFormData = z.infer<typeof editMentoradoSchema>
@@ -52,7 +52,6 @@ export function EditMentoradoModal({ isOpen, onClose, onSuccess, mentorado }: Ed
       nome_completo: '',
       email: '',
       telefone: '',
-      turma: '',
       estado_entrada: '',
       estado_atual: '',
       data_nascimento: '',
@@ -61,7 +60,8 @@ export function EditMentoradoModal({ isOpen, onClose, onSuccess, mentorado }: Ed
       endereco: '',
       crm: '',
       origem_conhecimento: '',
-      data_inicio_mentoria: ''
+      data_inicio_mentoria: '',
+      data_entrada: ''
     }
   })
 
@@ -112,7 +112,6 @@ export function EditMentoradoModal({ isOpen, onClose, onSuccess, mentorado }: Ed
           nome_completo: mentorado.nome_completo || '',
           email: mentorado.email || '',
           telefone: mentorado.telefone || '',
-          turma: mentorado.turma || '',
           estado_entrada: mentorado.estado_entrada || '',
           estado_atual: mentorado.estado_atual || '',
           data_nascimento: formatDateForInput(mentorado.data_nascimento),
@@ -121,7 +120,8 @@ export function EditMentoradoModal({ isOpen, onClose, onSuccess, mentorado }: Ed
           endereco: mentorado.endereco || '',
           crm: mentorado.crm || '',
           origem_conhecimento: mentorado.origem_conhecimento || '',
-          data_inicio_mentoria: formatDateForInput(mentorado.data_inicio_mentoria)
+          data_inicio_mentoria: formatDateForInput(mentorado.data_inicio_mentoria),
+          data_entrada: formatDateForInput((mentorado as any).data_entrada)
         })
       }
     }
@@ -254,28 +254,6 @@ export function EditMentoradoModal({ isOpen, onClose, onSuccess, mentorado }: Ed
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="turma"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Turma *</FormLabel>
-                    <FormControl>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a turma" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Turma A">Turma A</SelectItem>
-                          <SelectItem value="Turma B">Turma B</SelectItem>
-                          <SelectItem value="Turma C">Turma C</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <FormField
                 control={form.control}
@@ -418,6 +396,23 @@ export function EditMentoradoModal({ isOpen, onClose, onSuccess, mentorado }: Ed
                   <FormLabel>Endereço</FormLabel>
                   <FormControl>
                     <Input placeholder="Endereço completo" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="data_entrada"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Data de Entrada na Mentoria</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
