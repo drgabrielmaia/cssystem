@@ -32,7 +32,7 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <div className="w-16 bg-white shadow-sm border-r border-[#E5E7EB] flex flex-col items-center py-4 space-y-2">
+    <div className="w-16 bg-card shadow-sm border-r border-border flex flex-col items-center py-4 space-y-2">
       {menuItems.map((item) => {
         const Icon = item.icon
         const isActive = pathname === item.href
@@ -42,17 +42,17 @@ export function Sidebar() {
             key={item.href}
             href={item.href}
             className={`
-              group relative p-3 rounded-md transition-all duration-200 hover:bg-[#EFF6FF]
+              group relative p-3 rounded-md transition-all duration-200 hover:bg-primary/10
               ${isActive 
-                ? 'bg-[#EFF6FF] text-[#2563EB]' 
-                : 'text-[#6B7280] hover:text-[#2563EB]'
+                ? 'bg-primary/10 text-primary' 
+                : 'text-muted-foreground hover:text-primary'
               }
             `}
           >
             <Icon className="h-5 w-5" />
             
             {/* Tooltip */}
-            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+            <div className="absolute left-full ml-2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 border border-border">
               {item.label}
             </div>
           </Link>

@@ -500,13 +500,13 @@ export default function LeadsPage() {
                       <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                  <XAxis dataKey="month" stroke="#94A3B8" fontSize={12} />
-                  <YAxis stroke="#94A3B8" fontSize={12} />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="month" className="stroke-muted-foreground" fontSize={12} />
+                  <YAxis className="stroke-muted-foreground" fontSize={12} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'white',
-                      border: '1px solid #E2E8F0',
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
                       borderRadius: '12px',
                       boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
                     }}
@@ -514,7 +514,7 @@ export default function LeadsPage() {
                   <Area
                     type="monotone"
                     dataKey="taxa"
-                    stroke="#059669"
+stroke="hsl(var(--primary))"
                     fillOpacity={1}
                     fill="url(#colorConversion)"
                     strokeWidth={3}
@@ -554,8 +554,8 @@ export default function LeadsPage() {
                 <Tooltip
                   formatter={(value, name) => [value, 'Leads']}
                   contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #E2E8F0',
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
                     borderRadius: '12px',
                     boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
                   }}
@@ -564,24 +564,24 @@ export default function LeadsPage() {
             </ResponsiveContainer>
             <div className="grid grid-cols-1 gap-1 w-full mt-2 max-h-32 overflow-y-auto">
               {origemData.map((entry, index) => (
-                <div key={index} className="flex items-center justify-between p-2 hover:bg-[#F8FAFC] rounded-lg">
+                <div key={index} className="flex items-center justify-between p-2 hover:bg-muted rounded-lg">
                   <div className="flex items-center gap-2">
                     <div
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: entry.color }}
                     />
-                    <span className="text-xs text-[#475569] font-medium">
+                    <span className="text-xs text-foreground font-medium">
                       {entry.name}
                     </span>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-[#0F172A] font-semibold">
+                    <div className="text-xs text-foreground font-semibold">
                       {entry.value} leads
                     </div>
-                    <div className="text-xs text-[#059669]">
+                    <div className="text-xs text-primary">
                       {formatCurrency(entry.valorPago)}
                     </div>
-                    <div className="text-xs text-[#94A3B8]">
+                    <div className="text-xs text-muted-foreground">
                       {entry.taxaConversao.toFixed(1)}% conv.
                     </div>
                   </div>
@@ -596,13 +596,13 @@ export default function LeadsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#94A3B8] w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <input
               type="text"
               placeholder="Buscar leads..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all w-full sm:w-80"
+              className="pl-10 pr-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all w-full sm:w-80"
             />
           </div>
 
@@ -610,14 +610,14 @@ export default function LeadsPage() {
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-sm font-medium transition-colors ${
               showFilters
-                ? 'bg-[#059669] text-white border-[#059669]'
-                : 'bg-white text-[#475569] border-[#E2E8F0] hover:bg-[#F1F5F9]'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-background text-foreground border-border hover:bg-muted'
             }`}
           >
             <Filter className="w-4 h-4" />
             Filtros
             {(statusFilter !== 'todos' || origemFilter !== 'todas' || dateFilter !== 'mes_atual') && (
-              <span className="ml-1 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
+              <span className="ml-1 px-2 py-0.5 bg-destructive text-destructive-foreground text-xs rounded-full">
                 {[statusFilter !== 'todos', origemFilter !== 'todas', dateFilter !== 'mes_atual'].filter(Boolean).length}
               </span>
             )}
@@ -627,18 +627,18 @@ export default function LeadsPage() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <button
             onClick={loadLeads}
-            className="flex items-center gap-2 px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-foreground hover:bg-muted rounded-xl transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             Atualizar
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2 text-foreground hover:bg-muted rounded-xl transition-colors">
             <Download className="w-4 h-4" />
             Exportar
           </button>
           <button
             onClick={handleNewLead}
-            className="flex items-center gap-2 px-6 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+            className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-medium transition-colors"
           >
             <Plus className="w-4 h-4" />
             Novo Lead
@@ -651,7 +651,7 @@ export default function LeadsPage() {
         <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             <div>
-              <label className="block text-xs font-medium text-[#475569] mb-2">Status</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-2">Status</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -667,7 +667,7 @@ export default function LeadsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[#475569] mb-2">Origem</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-2">Origem</label>
               <select
                 value={origemFilter}
                 onChange={(e) => setOrigemFilter(e.target.value)}
@@ -682,7 +682,7 @@ export default function LeadsPage() {
 
 
             <div>
-              <label className="block text-xs font-medium text-[#475569] mb-2">Período</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-2">Período</label>
               <select
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
@@ -700,7 +700,7 @@ export default function LeadsPage() {
             {dateFilter === 'personalizado' && (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-[#475569] mb-2">Data Início</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">Data Início</label>
                   <input
                     type="date"
                     value={customStartDate}
@@ -709,7 +709,7 @@ export default function LeadsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[#475569] mb-2">Data Fim</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">Data Fim</label>
                   <input
                     type="date"
                     value={customEndDate}
@@ -731,11 +731,11 @@ export default function LeadsPage() {
                 setCustomStartDate('')
                 setCustomEndDate('')
               }}
-              className="text-sm text-[#94A3B8] hover:text-[#475569] transition-colors"
+              className="text-sm text-muted-foreground hover:text-muted-foreground transition-colors"
             >
               Limpar filtros
             </button>
-            <div className="text-xs text-[#94A3B8]">
+            <div className="text-xs text-muted-foreground">
               {filteredLeads.length} resultado{filteredLeads.length !== 1 ? 's' : ''} encontrado{filteredLeads.length !== 1 ? 's' : ''}
             </div>
           </div>
@@ -747,7 +747,7 @@ export default function LeadsPage() {
         <div className="flex items-center justify-center py-4 mb-6">
           <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-xl shadow-sm border border-[#E2E8F0]">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#059669]"></div>
-            <span className="text-sm text-[#475569]">Atualizando filtros...</span>
+            <span className="text-sm text-muted-foreground">Atualizando filtros...</span>
           </div>
         </div>
       )}
@@ -764,8 +764,8 @@ export default function LeadsPage() {
                   {lead.nome_completo.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                 </div>
                 <div>
-                  <p className="font-semibold text-[#0F172A]">{lead.nome_completo}</p>
-                  <p className="text-sm text-[#94A3B8]">{lead.email || 'Sem email'}</p>
+                  <p className="font-semibold text-foreground">{lead.nome_completo}</p>
+                  <p className="text-sm text-muted-foreground">{lead.email || 'Sem email'}</p>
                 </div>
               </div>
             )
@@ -774,15 +774,15 @@ export default function LeadsPage() {
             header: 'Empresa',
             render: (lead) => (
               <div>
-                <p className="font-medium text-[#0F172A]">{lead.empresa || '-'}</p>
-                <p className="text-sm text-[#94A3B8]">{lead.cargo || '-'}</p>
+                <p className="font-medium text-foreground">{lead.empresa || '-'}</p>
+                <p className="text-sm text-muted-foreground">{lead.cargo || '-'}</p>
               </div>
             )
           },
           {
             header: 'Origem',
             render: (lead) => (
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#F1F5F9] text-[#475569]">
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">
                 {lead.origem || 'Não informado'}
               </span>
             )
@@ -814,15 +814,15 @@ export default function LeadsPage() {
               <div className="text-right">
                 {lead.valor_vendido ? (
                   <div>
-                    <p className="font-semibold text-[#059669]">{formatCurrency(lead.valor_vendido)}</p>
+                    <p className="font-semibold text-primary">{formatCurrency(lead.valor_vendido)}</p>
                     {lead.data_venda && (
-                      <p className="text-xs text-[#94A3B8] mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Vendido em {formatDate(lead.data_venda)}
                       </p>
                     )}
                   </div>
                 ) : (
-                  <p className="text-[#94A3B8]">-</p>
+                  <p className="text-muted-foreground">-</p>
                 )}
               </div>
             )
@@ -830,7 +830,7 @@ export default function LeadsPage() {
           {
             header: 'Data',
             render: (lead) => (
-              <span className="text-sm text-[#94A3B8]">{formatDate(lead.created_at)}</span>
+              <span className="text-sm text-muted-foreground">{formatDate(lead.created_at)}</span>
             )
           },
           {
@@ -839,63 +839,63 @@ export default function LeadsPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleViewDetails(lead)}
-                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+className="p-2 hover:bg-muted rounded-lg transition-colors group"
                   title="Ver detalhes"
                 >
-                  <Eye className="w-4 h-4 text-[#94A3B8] group-hover:text-[#475569]" />
+                  <Eye className="w-4 h-4 text-muted-foreground group-hover:text-muted-foreground" />
                 </button>
                 <button
                   onClick={() => handleViewDetails(lead)}
-                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+className="p-2 hover:bg-muted rounded-lg transition-colors group"
                   title="Análise detalhada"
                 >
-                  <BarChart3 className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                  <BarChart3 className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
                 </button>
                 <button
                   onClick={() => router.push(`/agendar/lead/${lead.id}`)}
-                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+className="p-2 hover:bg-muted rounded-lg transition-colors group"
                   title="Agendar call"
                 >
-                  <Calendar className="w-4 h-4 text-[#94A3B8] group-hover:text-[#7C3AED]" />
+                  <Calendar className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
                 </button>
                 <button
                   onClick={() => handleEditLead(lead)}
-                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+className="p-2 hover:bg-muted rounded-lg transition-colors group"
                   title="Editar"
                 >
-                  <Edit className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                  <Edit className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
                 </button>
                 {lead.status === 'vendido' && !lead.convertido_em && (
                   <button
                     onClick={() => handleConvertToMentorado(lead)}
-                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+  className="p-2 hover:bg-muted rounded-lg transition-colors group"
                     title="Converter em Mentorado"
                   >
-                    <UserPlus className="w-4 h-4 text-[#94A3B8] group-hover:text-[#10B981]" />
+                    <UserPlus className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
                   </button>
                 )}
                 {lead.telefone && (
                   <button
-                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+  className="p-2 hover:bg-muted rounded-lg transition-colors group"
                     title="Ligar"
                   >
-                    <Phone className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                    <Phone className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
                   </button>
                 )}
                 {lead.email && (
                   <button
-                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+  className="p-2 hover:bg-muted rounded-lg transition-colors group"
                     title="Enviar email"
                   >
-                    <Mail className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                    <Mail className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
                   </button>
                 )}
                 <button
                   onClick={() => handleDeleteLead(lead.id)}
-                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+className="p-2 hover:bg-muted rounded-lg transition-colors group"
                   title="Excluir"
                 >
-                  <Trash2 className="w-4 h-4 text-[#94A3B8] group-hover:text-[#EF4444]" />
+                  <Trash2 className="w-4 h-4 text-muted-foreground group-hover:text-destructive" />
                 </button>
               </div>
             )
@@ -909,7 +909,7 @@ export default function LeadsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-[#0F172A]">
+              <h2 className="text-2xl font-bold text-foreground">
                 Detalhes da Origem: {selectedOrigem.name}
               </h2>
               <button
@@ -927,18 +927,18 @@ export default function LeadsPage() {
                     className="w-4 h-4 rounded-full"
                     style={{ backgroundColor: selectedOrigem.color }}
                   />
-                  <h3 className="font-semibold text-[#0F172A]">Total de Leads</h3>
+                  <h3 className="font-semibold text-foreground">Total de Leads</h3>
                 </div>
                 <p className="text-3xl font-bold text-blue-600">{selectedOrigem.value}</p>
               </div>
 
               <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6">
-                <h3 className="font-semibold text-[#0F172A] mb-2">Taxa de Conversão</h3>
+                <h3 className="font-semibold text-foreground mb-2">Taxa de Conversão</h3>
                 <p className="text-3xl font-bold text-green-600">{selectedOrigem.taxaConversao.toFixed(1)}%</p>
               </div>
 
               <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl p-6">
-                <h3 className="font-semibold text-[#0F172A] mb-2">Valor Arrecadado</h3>
+                <h3 className="font-semibold text-foreground mb-2">Valor Arrecadado</h3>
                 <p className="text-3xl font-bold text-orange-600">
                   {new Intl.NumberFormat('pt-BR', {
                     style: 'currency',
@@ -949,10 +949,10 @@ export default function LeadsPage() {
             </div>
 
             <div className="bg-gray-50 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#0F172A] mb-4">Performance Detalhada</h3>
+              <h3 className="font-semibold text-foreground mb-4">Performance Detalhada</h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-[#475569]">Ticket Médio</span>
+                  <span className="text-muted-foreground">Ticket Médio</span>
                   <span className="font-semibold">
                     {selectedOrigem.value > 0
                       ? new Intl.NumberFormat('pt-BR', {
@@ -964,13 +964,13 @@ export default function LeadsPage() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#475569]">Leads Convertidos</span>
+                  <span className="text-muted-foreground">Leads Convertidos</span>
                   <span className="font-semibold">
                     {Math.round(selectedOrigem.value * selectedOrigem.taxaConversao / 100)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#475569]">ROI Estimado</span>
+                  <span className="text-muted-foreground">ROI Estimado</span>
                   <span className="font-semibold text-green-600">
                     {selectedOrigem.valorPago > 0 ? '+' : ''}
                     {((selectedOrigem.valorPago / Math.max(selectedOrigem.value * 50, 1) - 1) * 100).toFixed(1)}%
@@ -985,7 +985,7 @@ export default function LeadsPage() {
                   setOrigemFilter(selectedOrigem.name.toLowerCase())
                   setShowOrigemModal(false)
                 }}
-                className="flex-1 bg-[#059669] hover:bg-[#047857] text-white px-6 py-3 rounded-xl font-medium transition-colors"
+className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-xl font-medium transition-colors"
               >
                 Filtrar por esta origem
               </button>
@@ -1005,7 +1005,7 @@ export default function LeadsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-[#0F172A]">
+              <h2 className="text-2xl font-bold text-foreground">
                 {editingLead ? `Editar Lead: ${editingLead.nome_completo}` : 'Criar Novo Lead'}
               </h2>
               <button

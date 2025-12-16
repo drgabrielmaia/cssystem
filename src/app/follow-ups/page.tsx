@@ -610,7 +610,7 @@ export default function FollowUpsPage() {
     return (
       <PageLayout title="Follow-ups" subtitle="Carregando...">
         <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#059669]"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
       </PageLayout>
     )
@@ -744,20 +744,20 @@ export default function FollowUpsPage() {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-0 mb-6">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#94A3B8] w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <input
               type="text"
               placeholder="Buscar follow-ups..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all w-full sm:w-80"
+              className="pl-10 pr-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all w-full sm:w-80"
             />
           </div>
 
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+            className="px-4 py-2 bg-background border border-border rounded-xl text-sm font-medium text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all"
           >
             <option value="todos">Todos os Status</option>
             <option value="pendente">Pendente</option>
@@ -768,7 +768,7 @@ export default function FollowUpsPage() {
           <select
             value={tipoFilter}
             onChange={(e) => setTipoFilter(e.target.value)}
-            className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+            className="px-4 py-2 bg-background border border-border rounded-xl text-sm font-medium text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all"
           >
             <option value="todos">Todos os Tipos</option>
             <option value="ligacao">Ligação</option>
@@ -780,7 +780,7 @@ export default function FollowUpsPage() {
           <select
             value={prioridadeFilter}
             onChange={(e) => setPrioridadeFilter(e.target.value)}
-            className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+            className="px-4 py-2 bg-background border border-border rounded-xl text-sm font-medium text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all"
           >
             <option value="todas">Todas Prioridades</option>
             <option value="baixa">Baixa</option>
@@ -791,7 +791,7 @@ export default function FollowUpsPage() {
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+            className="px-4 py-2 bg-background border border-border rounded-xl text-sm font-medium text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all"
           >
             <option value="todos">Todas as Datas</option>
             <option value="mes_atual">Mês Atual</option>
@@ -807,14 +807,14 @@ export default function FollowUpsPage() {
                 type="date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+                className="px-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all"
                 placeholder="Data inicial"
               />
               <input
                 type="date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+                className="px-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all"
                 placeholder="Data final"
               />
             </>
@@ -824,18 +824,18 @@ export default function FollowUpsPage() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <button
             onClick={loadFollowUps}
-            className="flex items-center gap-2 px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             Atualizar
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors">
             <Download className="w-4 h-4" />
             Exportar
           </button>
           <button
             onClick={handleNewFollowUp}
-            className="flex items-center gap-2 px-6 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+            className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors"
           >
             <Plus className="w-4 h-4" />
             Novo Follow-up
@@ -846,9 +846,9 @@ export default function FollowUpsPage() {
       {/* Loading indicator para filtros */}
       {isLoadingData && (
         <div className="flex items-center justify-center py-4 mb-6">
-          <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-xl shadow-sm border border-[#E2E8F0]">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#059669]"></div>
-            <span className="text-sm text-[#475569]">Atualizando filtros...</span>
+          <div className="flex items-center gap-3 px-4 py-2 bg-background rounded-xl shadow-sm border border-border">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+            <span className="text-sm text-muted-foreground">Atualizando filtros...</span>
           </div>
         </div>
       )}
@@ -861,8 +861,8 @@ export default function FollowUpsPage() {
             header: 'Título',
             render: (followUp) => (
               <div>
-                <p className="font-semibold text-[#0F172A]">{followUp.titulo}</p>
-                <p className="text-sm text-[#94A3B8] truncate max-w-xs">
+                <p className="font-semibold text-foreground">{followUp.titulo}</p>
+                <p className="text-sm text-muted-foreground truncate max-w-xs">
                   {followUp.descricao || 'Sem descrição'}
                 </p>
               </div>
@@ -876,8 +876,8 @@ export default function FollowUpsPage() {
                   {followUp.leads?.nome_completo?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'ND'}
                 </div>
                 <div>
-                  <p className="font-medium text-[#0F172A]">{followUp.leads?.nome_completo || 'Lead não encontrado'}</p>
-                  <p className="text-sm text-[#94A3B8]">{followUp.leads?.empresa || '-'}</p>
+                  <p className="font-medium text-foreground">{followUp.leads?.nome_completo || 'Lead não encontrado'}</p>
+                  <p className="text-sm text-muted-foreground">{followUp.leads?.empresa || '-'}</p>
                 </div>
               </div>
             )
@@ -885,7 +885,7 @@ export default function FollowUpsPage() {
           {
             header: 'Tipo',
             render: (followUp) => (
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#F1F5F9] text-[#475569]">
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#F1F5F9] text-muted-foreground">
                 {followUp.tipo?.charAt(0).toUpperCase() + followUp.tipo?.slice(1) || 'N/A'}
               </span>
             )
@@ -904,7 +904,7 @@ export default function FollowUpsPage() {
           {
             header: 'Data Agendada',
             render: (followUp) => (
-              <div className={`${isOverdue(followUp.data_agendada, followUp.status) ? 'text-red-600' : 'text-[#475569]'}`}>
+              <div className={`${isOverdue(followUp.data_agendada, followUp.status) ? 'text-red-600' : 'text-muted-foreground'}`}>
                 <p className="text-sm font-medium">{formatDate(followUp.data_agendada)}</p>
                 <p className="text-xs">{new Date(followUp.data_agendada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
               </div>
@@ -920,49 +920,49 @@ export default function FollowUpsPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleViewFollowUp(followUp)}
-                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  className="p-2 hover:bg-muted rounded-lg transition-colors group"
                   title="Ver detalhes"
                 >
-                  <Eye className="w-4 h-4 text-[#94A3B8] group-hover:text-[#475569]" />
+                  <Eye className="w-4 h-4 text-muted-foreground group-hover:text-muted-foreground" />
                 </button>
                 <button
                   onClick={() => handleEditFollowUp(followUp)}
-                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  className="p-2 hover:bg-muted rounded-lg transition-colors group"
                   title="Editar"
                 >
-                  <Edit className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                  <Edit className="w-4 h-4 text-muted-foreground group-hover:text-[#059669]" />
                 </button>
                 {followUp.status === 'pendente' && (
                   <button
                     onClick={() => handleMarkAsCompleted(followUp.id)}
-                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                    className="p-2 hover:bg-muted rounded-lg transition-colors group"
                     title="Marcar como concluído"
                   >
-                    <CheckCircle className="w-4 h-4 text-[#94A3B8] group-hover:text-[#10B981]" />
+                    <CheckCircle className="w-4 h-4 text-muted-foreground group-hover:text-[#10B981]" />
                   </button>
                 )}
                 {followUp.leads?.telefone && (
                   <button
-                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                    className="p-2 hover:bg-muted rounded-lg transition-colors group"
                     title="Ligar"
                   >
-                    <Phone className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                    <Phone className="w-4 h-4 text-muted-foreground group-hover:text-[#059669]" />
                   </button>
                 )}
                 {followUp.leads?.email && (
                   <button
-                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                    className="p-2 hover:bg-muted rounded-lg transition-colors group"
                     title="Enviar email"
                   >
-                    <Mail className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                    <Mail className="w-4 h-4 text-muted-foreground group-hover:text-[#059669]" />
                   </button>
                 )}
                 <button
                   onClick={() => handleDeleteFollowUp(followUp.id)}
-                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  className="p-2 hover:bg-muted rounded-lg transition-colors group"
                   title="Excluir"
                 >
-                  <Trash2 className="w-4 h-4 text-[#94A3B8] group-hover:text-[#EF4444]" />
+                  <Trash2 className="w-4 h-4 text-muted-foreground group-hover:text-[#EF4444]" />
                 </button>
               </div>
             )
@@ -987,20 +987,20 @@ export default function FollowUpsPage() {
             <div className="space-y-6 py-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-[#475569]">Lead</Label>
+                  <Label className="text-sm font-medium text-muted-foreground">Lead</Label>
                   <div className="p-3 bg-[#F8FAFC] rounded-lg border">
-                    <p className="font-medium text-[#0F172A]">{selectedFollowUp.leads?.nome_completo}</p>
-                    <p className="text-sm text-[#94A3B8]">{selectedFollowUp.leads?.email}</p>
+                    <p className="font-medium text-foreground">{selectedFollowUp.leads?.nome_completo}</p>
+                    <p className="text-sm text-muted-foreground">{selectedFollowUp.leads?.email}</p>
                     {selectedFollowUp.leads?.telefone && (
-                      <p className="text-sm text-[#94A3B8]">{selectedFollowUp.leads?.telefone}</p>
+                      <p className="text-sm text-muted-foreground">{selectedFollowUp.leads?.telefone}</p>
                     )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-[#475569]">Data Agendada</Label>
+                  <Label className="text-sm font-medium text-muted-foreground">Data Agendada</Label>
                   <div className="p-3 bg-[#F8FAFC] rounded-lg border">
-                    <p className="font-medium text-[#0F172A]">
+                    <p className="font-medium text-foreground">
                       {new Date(selectedFollowUp.data_agendada).toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: '2-digit',
@@ -1012,36 +1012,36 @@ export default function FollowUpsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-[#475569]">Título</Label>
+                <Label className="text-sm font-medium text-muted-foreground">Título</Label>
                 <div className="p-3 bg-[#F8FAFC] rounded-lg border">
-                  <p className="font-medium text-[#0F172A]">{selectedFollowUp.titulo}</p>
+                  <p className="font-medium text-foreground">{selectedFollowUp.titulo}</p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-[#475569]">Descrição</Label>
+                <Label className="text-sm font-medium text-muted-foreground">Descrição</Label>
                 <div className="p-3 bg-[#F8FAFC] rounded-lg border min-h-[100px]">
-                  <p className="text-[#475569]">{selectedFollowUp.descricao}</p>
+                  <p className="text-muted-foreground">{selectedFollowUp.descricao}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-[#475569]">Tipo</Label>
+                  <Label className="text-sm font-medium text-muted-foreground">Tipo</Label>
                   <div className="p-3 bg-[#F8FAFC] rounded-lg border">
-                    <p className="font-medium text-[#0F172A]">{selectedFollowUp.tipo}</p>
+                    <p className="font-medium text-foreground">{selectedFollowUp.tipo}</p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-[#475569]">Prioridade</Label>
+                  <Label className="text-sm font-medium text-muted-foreground">Prioridade</Label>
                   <div className="p-3 bg-[#F8FAFC] rounded-lg border">
-                    <p className="font-medium text-[#0F172A]">{selectedFollowUp.prioridade}</p>
+                    <p className="font-medium text-foreground">{selectedFollowUp.prioridade}</p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-[#475569]">Status</Label>
+                  <Label className="text-sm font-medium text-muted-foreground">Status</Label>
                   <div className="p-3 bg-[#F8FAFC] rounded-lg border">
                     <StatusBadge status={
                       selectedFollowUp.status === 'pendente' ? 'pending' :
@@ -1060,7 +1060,7 @@ export default function FollowUpsPage() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
-              <div className="p-2 bg-[#059669] rounded-lg">
+              <div className="p-2 bg-primary rounded-lg">
                 <Edit className="w-5 h-5 text-white" />
               </div>
               Editar Follow-up
@@ -1153,14 +1153,14 @@ export default function FollowUpsPage() {
             <div className="flex justify-end gap-3 pt-4 border-t">
               <button
                 onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
+                className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleUpdateFollowUp}
                 disabled={isLoadingData}
-                className="flex items-center gap-2 px-6 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
               >
                 {isLoadingData ? (
                   <>
@@ -1184,7 +1184,7 @@ export default function FollowUpsPage() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
-              <div className="p-2 bg-[#059669] rounded-lg">
+              <div className="p-2 bg-primary rounded-lg">
                 <Plus className="w-5 h-5 text-white" />
               </div>
               Criar Novo Follow-up
@@ -1319,14 +1319,14 @@ export default function FollowUpsPage() {
             <div className="flex justify-end gap-3 pt-4 border-t">
               <button
                 onClick={() => setShowNewModal(false)}
-                className="px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
+                className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreateFollowUp}
                 disabled={isLoadingData}
-                className="flex items-center gap-2 px-6 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
               >
                 {isLoadingData ? (
                   <>

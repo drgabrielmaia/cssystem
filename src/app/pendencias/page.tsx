@@ -513,13 +513,13 @@ export default function PendenciasPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto" style={{ background: 'var(--bg-page)' }}>
+    <div className="flex-1 overflow-y-auto bg-background">
       <Header
         title={
           <div className="flex items-center space-x-4">
             <span>💰 Pendências Financeiras</span>
             <Select value={anoSelecionado.toString()} onValueChange={(value) => setAnoSelecionado(parseInt(value))}>
-              <SelectTrigger className="w-24 bg-white border-gray-200">
+              <SelectTrigger className="w-24">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -540,48 +540,48 @@ export default function PendenciasPage() {
       <main className="p-6 space-y-6">
         {/* Métricas Principais */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="ultra-clean-card">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="metric-label-clean">Total Pendente</p>
-                  <p className="metric-value-clean text-red-600">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Pendente</p>
+                  <p className="text-2xl font-semibold text-destructive">
                     {formatCurrency(metricas.totalPendente)}
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {metricas.comPendencias} pessoa(s)
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-red-600" />
+                <div className="w-12 h-12 bg-destructive/10 rounded-xl flex items-center justify-center">
+                  <DollarSign className="h-6 w-6 text-destructive" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="ultra-clean-card">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="metric-label-clean">Em Atraso</p>
-                  <p className="metric-value-clean text-red-700">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Em Atraso</p>
+                  <p className="text-2xl font-semibold text-destructive">
                     {formatCurrency(metricas.valorAtrasado)}
                   </p>
-                  <p className="text-sm text-red-500 mt-1">
+                  <p className="text-sm text-destructive mt-1">
                     {metricas.pessoasEmAtraso} pessoa(s)
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center relative">
-                  <AlertTriangle className="h-6 w-6 text-red-600" />
+                <div className="w-12 h-12 bg-destructive/10 rounded-xl flex items-center justify-center relative">
+                  <AlertTriangle className="h-6 w-6 text-destructive" />
                   {metricas.pessoasEmAtraso > 0 && (
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-600 rounded-full animate-pulse"></div>
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full animate-pulse"></div>
                   )}
                 </div>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full mt-3 text-red-600 border-red-200 hover:bg-red-50"
+                className="w-full mt-3"
                 onClick={() => setMostrarApenasAtrasados(!mostrarApenasAtrasados)}
               >
                 {mostrarApenasAtrasados ? '✅ Mostrando Atrasados' : '🔍 Ver Atrasados'}
@@ -589,37 +589,36 @@ export default function PendenciasPage() {
             </CardContent>
           </Card>
 
-          <Card className="ultra-clean-card">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="metric-label-clean">Vence Hoje</p>
-                  <p className="metric-value-clean text-orange-600">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Vence Hoje</p>
+                  <p className="text-2xl font-semibold text-primary">
                     {formatCurrency(metricas.vencimentosHoje)}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                  <Calendar className="h-6 w-6 text-orange-600" />
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                  <Calendar className="h-6 w-6 text-primary" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="ultra-clean-card">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="metric-label-clean">Comissões Pendentes</p>
-                  <p className="metric-value-clean" style={{ color: 'var(--mint)' }}>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Comissões Pendentes</p>
+                  <p className="text-2xl font-semibold text-secondary-foreground">
                     {formatCurrency(metricas.totalComissoes)}
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {comissoesPendentes.length} pessoa(s)
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center"
-                     style={{ background: 'rgba(167, 245, 208, 0.2)' }}>
-                  <Users className="h-6 w-6" style={{ color: 'var(--mint)' }} />
+                <div className="w-12 h-12 bg-secondary rounded-xl flex items-center justify-center">
+                  <Users className="h-6 w-6 text-secondary-foreground" />
                 </div>
               </div>
             </CardContent>
@@ -627,22 +626,22 @@ export default function PendenciasPage() {
         </div>
 
         {/* Filtros e Ações */}
-        <Card className="ultra-clean-card">
+        <Card>
           <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
               <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
                 <div className="relative w-full sm:w-80">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Buscar por nome ou email..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 input-ultra-clean"
+                    className="pl-9"
                   />
                 </div>
 
                 <Select value={turmaSelecionada} onValueChange={setTurmaSelecionada}>
-                  <SelectTrigger className="w-full sm:w-48 bg-white border-gray-200">
+                  <SelectTrigger className="w-full sm:w-48">
                     <SelectValue placeholder="Filtrar por turma" />
                   </SelectTrigger>
                   <SelectContent>
@@ -658,20 +657,20 @@ export default function PendenciasPage() {
 
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogTrigger asChild>
-                  <Button className="btn-ultra-clean">
+                  <Button>
                     <Plus className="h-4 w-4 mr-2" />
                     Nova Dívida
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-white border border-gray-200 max-w-md">
+                <DialogContent className="max-w-md">
                   <DialogHeader>
-                    <DialogTitle className="title-ultra-clean">Adicionar Nova Dívida</DialogTitle>
+                    <DialogTitle>Adicionar Nova Dívida</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 pt-4">
                     <div>
-                      <Label className="text-gray-700 font-medium">Mentorado</Label>
+                      <Label>Mentorado</Label>
                       <Select value={selectedMentorado} onValueChange={setSelectedMentorado}>
-                        <SelectTrigger className="mt-1 bg-white border-gray-200">
+                        <SelectTrigger className="mt-1">
                           <SelectValue placeholder="Selecione um mentorado" />
                         </SelectTrigger>
                         <SelectContent>
@@ -684,30 +683,30 @@ export default function PendenciasPage() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-gray-700 font-medium">Valor</Label>
+                      <Label>Valor</Label>
                       <Input
                         type="number"
                         step="0.01"
                         placeholder="0,00"
                         value={valorDivida}
                         onChange={(e) => setValorDivida(e.target.value)}
-                        className="mt-1 input-ultra-clean"
+                        className="mt-1"
                       />
                     </div>
                     <div>
-                      <Label className="text-gray-700 font-medium">Data de Vencimento</Label>
+                      <Label>Data de Vencimento</Label>
                       <Input
                         type="date"
                         value={dataVencimento}
                         onChange={(e) => setDataVencimento(e.target.value)}
-                        className="mt-1 input-ultra-clean"
+                        className="mt-1"
                       />
                     </div>
                     <div className="flex justify-end space-x-2 pt-4">
                       <Button variant="outline" onClick={() => setIsModalOpen(false)}>
                         Cancelar
                       </Button>
-                      <Button onClick={handleNovaDivida} className="btn-ultra-clean">
+                      <Button onClick={handleNovaDivida}>
                         Salvar Dívida
                       </Button>
                     </div>
@@ -753,18 +752,18 @@ export default function PendenciasPage() {
             }, {} as { [key: number]: Divida[] })
 
             return (
-              <Card key={mentorado.id} className="ultra-clean-card">
+              <Card key={mentorado.id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                        <User className="h-6 w-6 text-blue-600" />
+                      <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                        <User className="h-6 w-6 text-primary" />
                       </div>
                       <div>
-                        <CardTitle className="title-ultra-clean">
+                        <CardTitle>
                           {mentorado.nome_completo}
                         </CardTitle>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                           <span>{mentorado.turma}</span>
                           <span>•</span>
                           <span>{mentorado.email}</span>
@@ -772,10 +771,10 @@ export default function PendenciasPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-red-600">
+                      <div className="text-2xl font-semibold text-destructive">
                         {formatCurrency(mentorado.totalPendente)}
                       </div>
-                      <Badge className="status-clean-warning">
+                      <Badge variant="secondary">
                         {mentorado.totalDividas} dívida(s)
                       </Badge>
                     </div>
@@ -859,13 +858,13 @@ export default function PendenciasPage() {
         </div>
 
         {filteredMentorados.length === 0 && (
-          <Card className="ultra-clean-card">
+          <Card>
             <CardContent className="p-12 text-center">
-              <DollarSign className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-              <h3 className="title-ultra-clean mb-2">
+              <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">
                 {searchTerm ? 'Nenhum mentorado encontrado' : 'Nenhuma pendência cadastrada'}
               </h3>
-              <p className="subtitle-ultra-clean">
+              <p className="text-sm text-muted-foreground">
                 {searchTerm ? 'Tente buscar por outro termo.' : 'As pendências financeiras aparecerão aqui quando forem cadastradas.'}
               </p>
             </CardContent>
@@ -874,17 +873,17 @@ export default function PendenciasPage() {
 
         {/* Modal de Pagamento */}
         <Dialog open={isModalPagamentoOpen} onOpenChange={setIsModalPagamentoOpen}>
-          <DialogContent className="bg-white border border-gray-200 max-w-md">
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="title-ultra-clean flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-primary" />
                 Confirmar Pagamento
               </DialogTitle>
             </DialogHeader>
             {dividaSelecionada && (
               <div className="space-y-6">
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <h4 className="font-semibold mb-2 text-gray-700">Detalhes da Dívida</h4>
+                <div className="bg-muted p-4 rounded-xl">
+                  <h4 className="font-semibold mb-2">Detalhes da Dívida</h4>
                   <p className="text-sm">
                     <span className="font-medium">Mentorado:</span> {dividaSelecionada.mentorado_nome}
                   </p>
@@ -898,7 +897,7 @@ export default function PendenciasPage() {
 
                 <div className="space-y-4">
                   <div>
-                    <Label className="text-gray-700 font-medium">Valor do Pagamento</Label>
+                    <Label>Valor do Pagamento</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -906,17 +905,17 @@ export default function PendenciasPage() {
                       value={valorPago}
                       onChange={(e) => setValorPago(e.target.value)}
                       placeholder="0.00"
-                      className="mt-1 input-ultra-clean"
+                      className="mt-1"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-gray-700 font-medium">Observações (opcional)</Label>
+                    <Label>Observações (opcional)</Label>
                     <Input
                       value={observacoesPagamento}
                       onChange={(e) => setObservacoesPagamento(e.target.value)}
                       placeholder="Adicionar observações sobre o pagamento..."
-                      className="mt-1 input-ultra-clean"
+                      className="mt-1"
                     />
                   </div>
                 </div>
@@ -932,7 +931,7 @@ export default function PendenciasPage() {
                   </Button>
                   <Button
                     onClick={confirmarPagamento}
-                    className="flex-1 btn-ultra-clean bg-green-600 text-white hover:bg-green-700"
+                    className="flex-1"
                   >
                     <CheckCircle className="w-4 h-4 mr-2" />
                     Confirmar
@@ -945,42 +944,42 @@ export default function PendenciasPage() {
 
         {/* Modal de Edição */}
         <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-          <DialogContent className="bg-white border border-gray-200 max-w-md">
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="title-ultra-clean">Editar Dívida</DialogTitle>
+              <DialogTitle>Editar Dívida</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               {editingDivida && (
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="text-sm text-gray-600">
+                <div className="bg-muted p-3 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
                     Editando dívida de: <strong>{editingDivida.mentorado_nome}</strong>
                   </p>
                 </div>
               )}
               <div>
-                <Label className="text-gray-700 font-medium">Valor</Label>
+                <Label>Valor</Label>
                 <Input
                   type="number"
                   step="0.01"
                   value={novoValor}
                   onChange={(e) => setNovoValor(e.target.value)}
-                  className="mt-1 input-ultra-clean"
+                  className="mt-1"
                 />
               </div>
               <div>
-                <Label className="text-gray-700 font-medium">Data de Vencimento</Label>
+                <Label>Data de Vencimento</Label>
                 <Input
                   type="date"
                   value={novaDataVencimento}
                   onChange={(e) => setNovaDataVencimento(e.target.value)}
-                  className="mt-1 input-ultra-clean"
+                  className="mt-1"
                 />
               </div>
               <div className="flex justify-end space-x-2 pt-4">
                 <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleEditarDivida} className="btn-ultra-clean">
+                <Button onClick={handleEditarDivida}>
                   Atualizar
                 </Button>
               </div>

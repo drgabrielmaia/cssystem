@@ -344,7 +344,7 @@ export default function ComissoesPage() {
     return (
       <PageLayout title="Comissões" subtitle="Carregando...">
         <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#059669]"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
       </PageLayout>
     )
@@ -392,12 +392,12 @@ export default function ComissoesPage() {
 
       {/* Alertas para comissões importantes */}
       {stats.quantidade_pendentes > 0 && (
-        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-2xl p-4 mb-6">
+        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 mb-6">
           <div className="flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-orange-500" />
+            <AlertCircle className="w-5 h-5 text-primary" />
             <div>
-              <p className="font-semibold text-orange-800">Comissões Pendentes</p>
-              <p className="text-sm text-orange-700">
+              <p className="font-semibold text-primary">Comissões Pendentes</p>
+              <p className="text-sm text-primary/80">
                 {stats.quantidade_pendentes} comiss{stats.quantidade_pendentes > 1 ? 'ões' : 'ão'} aguardando pagamento
                 · {formatCurrency(stats.valor_pendente)}
               </p>
@@ -420,13 +420,13 @@ export default function ComissoesPage() {
                       <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                  <XAxis dataKey="month" stroke="#94A3B8" fontSize={12} />
-                  <YAxis stroke="#94A3B8" fontSize={12} />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="month" className="stroke-muted-foreground" fontSize={12} />
+                  <YAxis className="stroke-muted-foreground" fontSize={12} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'white',
-                      border: '1px solid #E2E8F0',
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
                       borderRadius: '12px',
                       boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
                     }}
@@ -434,17 +434,17 @@ export default function ComissoesPage() {
                   <Area
                     type="monotone"
                     dataKey="comissoes"
-                    stroke="#059669"
+stroke="hsl(var(--primary))"
                     fillOpacity={1}
-                    fill="url(#colorComissoes)"
+fill="url(#colorComissoes)"
                     strokeWidth={3}
                   />
                   <Area
                     type="monotone"
                     dataKey="pagas"
-                    stroke="#10B981"
+stroke="hsl(var(--primary))"
                     fillOpacity={0.5}
-                    fill="#10B981"
+fill="hsl(var(--primary))"
                     strokeWidth={2}
                   />
                 </AreaChart>
@@ -473,8 +473,8 @@ export default function ComissoesPage() {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #E2E8F0',
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
                     borderRadius: '12px',
                     boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
                   }}
@@ -488,7 +488,7 @@ export default function ComissoesPage() {
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: entry.color }}
                   />
-                  <span className="text-sm text-[#475569] font-medium">
+                  <span className="text-sm text-muted-foreground font-medium">
                     {entry.name}: {entry.value}%
                   </span>
                 </div>
@@ -502,20 +502,20 @@ export default function ComissoesPage() {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-0 mb-6">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#94A3B8] w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <input
               type="text"
               placeholder="Buscar comissões..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all w-full sm:w-80"
+              className="pl-10 pr-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all w-full sm:w-80"
             />
           </div>
 
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+            className="px-4 py-2 bg-background border border-border rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
           >
             <option value="todos">Todos os Status</option>
             <option value="pendente">Pendente</option>
@@ -527,7 +527,7 @@ export default function ComissoesPage() {
             <select
               value={mentoradoFilter}
               onChange={(e) => setMentoradoFilter(e.target.value)}
-              className="px-4 py-2 bg-white border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+              className="px-4 py-2 bg-background border border-border rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
             >
               <option value="todos">Todos os Mentorados</option>
               {availableMentorados.map(nome => (
@@ -540,17 +540,17 @@ export default function ComissoesPage() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <button
             onClick={loadComissoes}
-            className="flex items-center gap-2 px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-foreground hover:bg-muted rounded-xl transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             Atualizar
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2 text-foreground hover:bg-muted rounded-xl transition-colors">
             <Download className="w-4 h-4" />
             Exportar
           </button>
           <button
-            className="flex items-center gap-2 px-6 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+            className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-medium transition-colors"
           >
             <Plus className="w-4 h-4" />
             Nova Comissão
@@ -561,9 +561,9 @@ export default function ComissoesPage() {
       {/* Loading indicator para filtros */}
       {isLoadingData && (
         <div className="flex items-center justify-center py-4 mb-6">
-          <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-xl shadow-sm border border-[#E2E8F0]">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#059669]"></div>
-            <span className="text-sm text-[#475569]">Atualizando filtros...</span>
+          <div className="flex items-center gap-3 px-4 py-2 bg-card rounded-xl shadow-sm border border-border">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+            <span className="text-sm text-foreground">Atualizando filtros...</span>
           </div>
         </div>
       )}
@@ -576,12 +576,12 @@ export default function ComissoesPage() {
             header: 'Mentorado',
             render: (comissao) => (
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#059669] to-[#10B981] flex items-center justify-center text-white font-semibold text-sm">
+                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-semibold text-sm">
                   {comissao.mentorados?.nome?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'ND'}
                 </div>
                 <div>
-                  <p className="font-semibold text-[#0F172A]">{comissao.mentorados?.nome || 'Nome não encontrado'}</p>
-                  <p className="text-sm text-[#94A3B8]">{comissao.mentorados?.email || 'Email não encontrado'}</p>
+                  <p className="font-semibold text-foreground">{comissao.mentorados?.nome || 'Nome não encontrado'}</p>
+                  <p className="text-sm text-muted-foreground">{comissao.mentorados?.email || 'Email não encontrado'}</p>
                 </div>
               </div>
             )
@@ -590,8 +590,8 @@ export default function ComissoesPage() {
             header: 'Lead/Venda',
             render: (comissao) => (
               <div>
-                <p className="font-medium text-[#0F172A]">{comissao.leads?.nome_completo || 'Lead não encontrado'}</p>
-                <p className="text-sm text-[#94A3B8]">{comissao.leads?.empresa || '-'}</p>
+                <p className="font-medium text-foreground">{comissao.leads?.nome_completo || 'Lead não encontrado'}</p>
+                <p className="text-sm text-muted-foreground">{comissao.leads?.empresa || '-'}</p>
               </div>
             )
           },
@@ -599,8 +599,8 @@ export default function ComissoesPage() {
             header: 'Valor da Venda',
             render: (comissao) => (
               <div className="text-right">
-                <p className="font-semibold text-[#0F172A]">{formatCurrency(comissao.valor_venda)}</p>
-                <p className="text-xs text-[#94A3B8]">{comissao.percentual_comissao}% comissão</p>
+                <p className="font-semibold text-foreground">{formatCurrency(comissao.valor_venda)}</p>
+                <p className="text-xs text-muted-foreground">{comissao.percentual_comissao}% comissão</p>
               </div>
             )
           },
@@ -608,17 +608,17 @@ export default function ComissoesPage() {
             header: 'Valor Comissão',
             render: (comissao) => (
               <div className="text-right">
-                <p className="font-semibold text-[#059669]">{formatCurrency(comissao.valor_comissao)}</p>
+                <p className="font-semibold text-primary">{formatCurrency(comissao.valor_comissao)}</p>
               </div>
             )
           },
           {
             header: 'Vencimento',
             render: (comissao) => (
-              <div className={`${isOverdue(comissao.data_vencimento, comissao.status_pagamento) ? 'text-red-600' : 'text-[#475569]'}`}>
+              <div className={`${isOverdue(comissao.data_vencimento, comissao.status_pagamento) ? 'text-destructive' : 'text-foreground'}`}>
                 <p className="text-sm font-medium">{formatDate(comissao.data_vencimento)}</p>
                 {isOverdue(comissao.data_vencimento, comissao.status_pagamento) && (
-                  <p className="text-xs text-red-500">Atrasado</p>
+                  <p className="text-xs text-destructive">Atrasado</p>
                 )}
               </div>
             )
@@ -632,38 +632,38 @@ export default function ComissoesPage() {
             render: (comissao) => (
               <div className="flex items-center gap-2">
                 <button
-                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  className="p-2 hover:bg-muted rounded-lg transition-colors group"
                   title="Ver detalhes"
                 >
-                  <Eye className="w-4 h-4 text-[#94A3B8] group-hover:text-[#475569]" />
+                  <Eye className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
                 </button>
                 <button
-                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                  className="p-2 hover:bg-muted rounded-lg transition-colors group"
                   title="Editar"
                 >
-                  <Edit className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                  <Edit className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
                 </button>
                 {comissao.status_pagamento === 'pendente' && (
                   <button
                     onClick={() => handleMarkAsPaid(comissao.id)}
-                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                    className="p-2 hover:bg-muted rounded-lg transition-colors group"
                     title="Marcar como pago"
                   >
-                    <Check className="w-4 h-4 text-[#94A3B8] group-hover:text-[#059669]" />
+                    <Check className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
                   </button>
                 )}
                 {comissao.status_pagamento === 'pendente' && (
                   <button
                     onClick={() => handleMarkAsCancelled(comissao.id)}
-                    className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
+                    className="p-2 hover:bg-muted rounded-lg transition-colors group"
                     title="Cancelar comissão"
                   >
-                    <X className="w-4 h-4 text-[#94A3B8] group-hover:text-[#EF4444]" />
+                    <X className="w-4 h-4 text-muted-foreground group-hover:text-destructive" />
                   </button>
                 )}
                 {comissao.status_pagamento === 'pago' && comissao.data_pagamento && (
-                  <div className="px-2 py-1 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-xs text-green-700">
+                  <div className="px-2 py-1 bg-primary/10 border border-primary/20 rounded-lg">
+                    <p className="text-xs text-primary">
                       Pago em {formatDate(comissao.data_pagamento)}
                     </p>
                   </div>
