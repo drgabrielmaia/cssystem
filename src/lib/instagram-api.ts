@@ -1,5 +1,10 @@
+// Usar variáveis de ambiente do servidor
 const INSTAGRAM_ACCESS_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN
 const INSTAGRAM_APP_SECRET = process.env.INSTAGRAM_APP_SECRET
+
+// URL base da API do Instagram
+const GRAPH_API_VERSION = 'v21.0'
+const BASE_URL = `https://graph.facebook.com/${GRAPH_API_VERSION}`
 
 interface InstagramUser {
   id: string
@@ -61,7 +66,7 @@ interface InstagramMessage {
 }
 
 class InstagramAPI {
-  private baseUrl = 'https://graph.instagram.com'
+  private baseUrl = BASE_URL
   private accessToken: string
 
   constructor() {
@@ -72,19 +77,30 @@ class InstagramAPI {
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
-    const url = `${this.baseUrl}${endpoint}`
+    // Adicionar token na URL para Instagram Basic Display API
+    const separator = endpoint.includes('?') ? '&' : '?'
+    const url = `${this.baseUrl}${endpoint}${separator}access_token=${this.accessToken}`
+
     const response = await fetch(url, {
       ...options,
       headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
         'Content-Type': 'application/json',
         ...options.headers,
       },
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Instagram API Error: ${error.error?.message || response.statusText}`)
+      const errorText = await response.text()
+      let errorMessage = `Instagram API Error: ${response.status} ${response.statusText}`
+
+      try {
+        const error = JSON.parse(errorText)
+        errorMessage = `Instagram API Error: ${error.error?.message || error.error_description || errorMessage}`
+      } catch {
+        errorMessage = `Instagram API Error: ${errorText || errorMessage}`
+      }
+
+      throw new Error(errorMessage)
     }
 
     return response.json()

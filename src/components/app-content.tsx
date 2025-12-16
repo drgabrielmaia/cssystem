@@ -58,8 +58,9 @@ export function AppContent({ children }: { children: React.ReactNode }) {
       <ModularSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <main className="flex-1 relative overflow-y-auto focus:outline-none">
-          <div className="py-6">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
+          <div className="h-full">
+            {/* Container que ocupa toda a largura disponível */}
+            <div className="h-full w-full">
               {children}
             </div>
           </div>

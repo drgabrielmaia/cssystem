@@ -33,7 +33,8 @@ import {
   BarChart3,
   Target,
   Globe,
-  Workflow
+  Workflow,
+  Heart
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -144,22 +145,9 @@ export default function InstagramAutomationPage() {
     }
   ])
 
-  const [messages, setMessages] = useState<InstagramMessage[]>([
-    {
-      id: '1',
-      from_username: 'cliente1',
-      message: 'Olá, gostaria de saber mais sobre os produtos',
-      timestamp: new Date(),
-      replied: false
-    },
-    {
-      id: '2',
-      from_username: 'prospect2',
-      message: 'Vocês fazem entrega?',
-      timestamp: new Date(Date.now() - 1000 * 60 * 30),
-      replied: true
-    }
-  ])
+  const [messages, setMessages] = useState<InstagramMessage[]>([])
+  const [posts, setPosts] = useState<any[]>([])
+  const [realInsights, setRealInsights] = useState<any>(null)
 
   const [newRule, setNewRule] = useState({
     name: '',
@@ -173,15 +161,46 @@ export default function InstagramAutomationPage() {
     description: ''
   })
 
-  // Simular carregamento do perfil do Instagram
+  // Carregar dados reais do Instagram
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        // Aqui você faria a chamada real para /api/instagram/profile
-        // const response = await fetch('/api/instagram/profile')
-        // const data = await response.json()
+        // Chamada real para a API do Instagram
+        const response = await fetch('/api/instagram/profile')
+        if (!response.ok) {
+          throw new Error('Failed to fetch profile')
+        }
+        const data = await response.json()
+        setProfile(data)
+        toast.success('Conectado ao Instagram com sucesso!')
 
-        // Por enquanto, dados simulados
+        // Carregar insights da conta
+        try {
+          const insightsResponse = await fetch('/api/instagram/insights')
+          if (insightsResponse.ok) {
+            const insights = await insightsResponse.json()
+            setRealInsights(insights)
+            setProfile(prev => prev ? { ...prev, ...insights } : null)
+          }
+        } catch (insightsError) {
+          console.log('Insights not available:', insightsError)
+        }
+
+        // Carregar posts reais
+        try {
+          const postsResponse = await fetch('/api/instagram/media?limit=10')
+          if (postsResponse.ok) {
+            const postsData = await postsResponse.json()
+            setPosts(postsData.data || [])
+          }
+        } catch (postsError) {
+          console.log('Posts not available:', postsError)
+        }
+
+      } catch (error) {
+        console.error('Error loading Instagram profile:', error)
+        toast.error('Erro ao conectar com Instagram. Verifique os tokens no .env')
+        // Fallback para dados simulados se a API falhar
         setProfile({
           id: 'instagram_user_id',
           username: 'meu_instagram',
@@ -190,9 +209,6 @@ export default function InstagramAutomationPage() {
           followers_count: 5420,
           following_count: 1203
         })
-      } catch (error) {
-        console.error('Error loading profile:', error)
-        toast.error('Erro ao carregar perfil do Instagram')
       } finally {
         setLoading(false)
       }
@@ -267,8 +283,8 @@ export default function InstagramAutomationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      <div className="container mx-auto px-6 py-8">
+    <div className="h-full bg-gray-900 text-white flex flex-col">
+      <div className="flex-1 p-6 overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-3">
@@ -360,6 +376,10 @@ export default function InstagramAutomationPage() {
             <TabsTrigger value="messages" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-gray-900">
               <MessageCircle className="h-4 w-4 mr-2" />
               Mensagens
+            </TabsTrigger>
+            <TabsTrigger value="posts" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-gray-900">
+              <Instagram className="h-4 w-4 mr-2" />
+              Posts Reais
             </TabsTrigger>
             <TabsTrigger value="analytics" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-gray-900">
               <BarChart3 className="h-4 w-4 mr-2" />
@@ -621,6 +641,70 @@ export default function InstagramAutomationPage() {
                 </Card>
               </div>
             </div>
+          </TabsContent>
+
+          {/* Posts Reais Tab */}
+          <TabsContent value="posts">
+            <Card className="bg-gray-800 border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center">
+                  <Instagram className="h-5 w-5 mr-2 text-[#D4AF37]" />
+                  Seus Posts do Instagram
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Posts reais da sua conta conectada
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {posts.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {posts.map((post) => (
+                      <div key={post.id} className="bg-gray-700 rounded-lg border border-gray-600 overflow-hidden">
+                        {post.media_url && (
+                          <img
+                            src={post.media_url}
+                            alt="Instagram post"
+                            className="w-full h-48 object-cover"
+                          />
+                        )}
+                        <div className="p-4">
+                          {post.caption && (
+                            <p className="text-sm text-gray-300 mb-2 line-clamp-3">
+                              {post.caption.length > 100
+                                ? `${post.caption.substring(0, 100)}...`
+                                : post.caption}
+                            </p>
+                          )}
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <div className="flex items-center space-x-3">
+                              {post.like_count && (
+                                <div className="flex items-center">
+                                  <Heart className="h-3 w-3 mr-1 text-red-500" />
+                                  {post.like_count}
+                                </div>
+                              )}
+                              {post.comments_count && (
+                                <div className="flex items-center">
+                                  <MessageCircle className="h-3 w-3 mr-1 text-blue-500" />
+                                  {post.comments_count}
+                                </div>
+                              )}
+                            </div>
+                            <span>{new Date(post.timestamp).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-gray-400">
+                    <Instagram className="h-12 w-12 mx-auto mb-4 text-[#D4AF37]" />
+                    <p>Nenhum post encontrado</p>
+                    <p className="text-sm">Verifique sua conexão com o Instagram</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Messages Tab */}
