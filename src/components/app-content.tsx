@@ -1,6 +1,6 @@
 'use client'
 
-import { Sidebar } from '@/components/sidebar'
+import { ModularSidebar } from '@/components/ModularSidebar'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -54,8 +54,8 @@ export function AppContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen bg-[#F7F9FB]">
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+    <div className="flex h-screen bg-gray-900">
+      <ModularSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <main className="flex-1 relative overflow-y-auto focus:outline-none">
           <div className="py-6">

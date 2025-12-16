@@ -3,39 +3,63 @@
 @tailwind utilities;
 
 @layer base {
-  /* Paleta Oceânica - Azuis e tons frios inspirados no design */
+  /* Paleta Rolex - Dourados e tons escuros luxuosos */
   :root {
-    --ocean-blue: #4A90E2;
-    --ocean-light: #7BB3F0;
-    --ocean-soft: #A8CCF7;
-    --ocean-mist: #D6E8FD;
-    --bg-page: #F7F9FC;
-    --card-bg: #FFFFFF;
-    --text-main: #1E3A5F;
-    --text-muted: #5A7BA3;
-    --border-soft: #E2EAF4;
+    --rolex-gold: #D4AF37;        /* Dourado Rolex principal */
+    --rolex-gold-light: #FFD700;  /* Dourado claro */
+    --rolex-gold-dark: #B8860B;   /* Dourado escuro */
+    --rolex-bronze: #CD853F;      /* Bronze/Champagne */
+    --rolex-accent: #DAA520;      /* Dourado médio */
+    --bg-page: #111827;           /* Fundo escuro principal */
+    --card-bg: #1F2937;           /* Cards escuros */
+    --text-main: #F9FAFB;         /* Texto claro principal */
+    --text-muted: #9CA3AF;        /* Texto secundário */
+    --border-soft: #374151;       /* Bordas sutis */
 
-    /* Tailwind vars usando a paleta oceânica */
-    --background: 215 25% 98%;
-    --foreground: 210 50% 25%;
-    --card: 0 0% 100%;
-    --card-foreground: 210 50% 25%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 210 50% 25%;
-    --primary: 210 70% 58%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 215 25% 96%;
-    --secondary-foreground: 210 50% 25%;
-    --muted: 215 25% 96%;
-    --muted-foreground: 210 30% 60%;
-    --accent: 210 70% 58%;
-    --accent-foreground: 0 0% 100%;
+    /* Tailwind vars usando a paleta Rolex */
+    --background: 220 26% 14%;    /* Fundo escuro */
+    --foreground: 210 20% 98%;    /* Texto claro */
+    --card: 220 13% 18%;          /* Cards */
+    --card-foreground: 210 20% 98%;
+    --popover: 220 13% 18%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 45 75% 52%;        /* Dourado principal */
+    --primary-foreground: 220 26% 14%;
+    --secondary: 220 13% 21%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 220 13% 21%;
+    --muted-foreground: 220 5% 65%;
+    --accent: 45 75% 52%;         /* Dourado accent */
+    --accent-foreground: 220 26% 14%;
     --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 98%;
-    --border: 215 25% 89%;
-    --input: 215 25% 89%;
-    --ring: 210 70% 58%;
+    --border: 220 13% 28%;
+    --input: 220 13% 28%;
+    --ring: 45 75% 52%;           /* Ring dourado */
     --radius: 1rem;
+  }
+
+  /* Dark mode overrides */
+  .dark {
+    --background: 220 26% 14%;
+    --foreground: 210 20% 98%;
+    --card: 220 13% 18%;
+    --card-foreground: 210 20% 98%;
+    --popover: 220 13% 18%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 45 75% 52%;
+    --primary-foreground: 220 26% 14%;
+    --secondary: 220 13% 21%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 220 13% 21%;
+    --muted-foreground: 220 5% 65%;
+    --accent: 45 75% 52%;
+    --accent-foreground: 220 26% 14%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 28%;
+    --input: 220 13% 28%;
+    --ring: 45 75% 52%;
   }
 }
 
@@ -45,14 +69,14 @@
   }
 
   html, body {
-    background: #F7F9FC;
+    background: var(--bg-page);
   }
 
   body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
     font-weight: 400;
     color: var(--text-main);
-    background: #F7F9FC;
+    background: var(--bg-page);
     min-height: 100vh;
   }
 
