@@ -2,9 +2,8 @@
 const INSTAGRAM_ACCESS_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN
 const INSTAGRAM_APP_SECRET = process.env.INSTAGRAM_APP_SECRET
 
-// URL base da API do Instagram
-const GRAPH_API_VERSION = 'v21.0'
-const BASE_URL = `https://graph.facebook.com/${GRAPH_API_VERSION}`
+// URL base da API do Instagram Basic Display API
+const BASE_URL = 'https://graph.instagram.com'
 
 interface InstagramUser {
   id: string
@@ -77,38 +76,56 @@ class InstagramAPI {
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
-    // Adicionar token na URL para Instagram Basic Display API
+    // Para Instagram Graph API, alguns endpoints precisam do token como query parameter
     const separator = endpoint.includes('?') ? '&' : '?'
     const url = `${this.baseUrl}${endpoint}${separator}access_token=${this.accessToken}`
+
+    console.log('🔍 [Instagram API] Fazendo requisição para:', url.replace(this.accessToken, 'TOKEN_OCULTO'))
+    console.log('📝 [Instagram API] Método:', options.method || 'GET')
+    console.log('🔑 [Instagram API] Headers:', {
+      'Authorization': `Bearer ${this.accessToken.substring(0, 20)}...`,
+      'Content-Type': 'application/json'
+    })
 
     const response = await fetch(url, {
       ...options,
       headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
         'Content-Type': 'application/json',
         ...options.headers,
       },
     })
 
+    console.log('📊 [Instagram API] Status da resposta:', response.status, response.statusText)
+
     if (!response.ok) {
       const errorText = await response.text()
+      console.error('❌ [Instagram API] Erro raw da resposta:', errorText)
+
       let errorMessage = `Instagram API Error: ${response.status} ${response.statusText}`
 
       try {
         const error = JSON.parse(errorText)
+        console.error('❌ [Instagram API] Erro parseado:', error)
         errorMessage = `Instagram API Error: ${error.error?.message || error.error_description || errorMessage}`
-      } catch {
+      } catch (parseError) {
+        console.error('❌ [Instagram API] Erro ao parsear JSON:', parseError)
         errorMessage = `Instagram API Error: ${errorText || errorMessage}`
       }
 
       throw new Error(errorMessage)
     }
 
-    return response.json()
+    const responseData = await response.json()
+    console.log('✅ [Instagram API] Resposta de sucesso:', responseData)
+
+    return responseData
   }
 
   // Get user profile info
   async getUserProfile(): Promise<InstagramUser> {
-    return this.request('/me?fields=id,username,account_type,media_count')
+    // Usar Instagram Graph API v24.0 endpoint
+    return this.request('/me?fields=id,username,media_count')
   }
 
   // Get user media
@@ -135,12 +152,97 @@ class InstagramAPI {
   }
 
   // Send direct message (requires messaging permissions)
-  async sendDirectMessage(userId: string, message: string): Promise<any> {
-    return this.request('/me/messages', {
+  async sendDirectMessage(recipientIgsid: string, message: string): Promise<any> {
+    return this.request(`/me/messages`, {
       method: 'POST',
       body: JSON.stringify({
-        recipient: { id: userId },
+        recipient: { id: recipientIgsid },
         message: { text: message },
+      }),
+    })
+  }
+
+  // Send image message
+  async sendImageMessage(recipientIgsid: string, imageUrl: string): Promise<any> {
+    return this.request(`/me/messages`, {
+      method: 'POST',
+      body: JSON.stringify({
+        recipient: { id: recipientIgsid },
+        message: {
+          attachments: {
+            type: "image",
+            payload: {
+              url: imageUrl
+            }
+          }
+        }
+      }),
+    })
+  }
+
+  // Send multiple images
+  async sendMultipleImages(recipientIgsid: string, imageUrls: string[]): Promise<any> {
+    return this.request(`/me/messages`, {
+      method: 'POST',
+      body: JSON.stringify({
+        recipient: { id: recipientIgsid },
+        message: {
+          attachments: imageUrls.map(url => ({
+            type: "image",
+            payload: { url }
+          }))
+        }
+      }),
+    })
+  }
+
+  // Send video message
+  async sendVideoMessage(recipientIgsid: string, videoUrl: string): Promise<any> {
+    return this.request(`/me/messages`, {
+      method: 'POST',
+      body: JSON.stringify({
+        recipient: { id: recipientIgsid },
+        message: {
+          attachment: {
+            type: "video",
+            payload: {
+              url: videoUrl
+            }
+          }
+        }
+      }),
+    })
+  }
+
+  // Send heart sticker
+  async sendHeartSticker(recipientIgsid: string): Promise<any> {
+    return this.request(`/me/messages`, {
+      method: 'POST',
+      body: JSON.stringify({
+        recipient: { id: recipientIgsid },
+        message: {
+          attachment: {
+            type: "like_heart"
+          }
+        }
+      }),
+    })
+  }
+
+  // Send published post
+  async sendPost(recipientIgsid: string, postId: string): Promise<any> {
+    return this.request(`/me/messages`, {
+      method: 'POST',
+      body: JSON.stringify({
+        recipient: { id: recipientIgsid },
+        message: {
+          attachment: {
+            type: "MEDIA_SHARE",
+            payload: {
+              id: postId
+            }
+          }
+        }
       }),
     })
   }
@@ -176,8 +278,8 @@ class InstagramAPI {
     })
   }
 
-  // Get account insights
-  async getAccountInsights(period = 'day', metrics = ['impressions', 'reach', 'profile_views']): Promise<any> {
+  // Get account insights (Instagram Basic Display API has limited insights)
+  async getAccountInsights(period = 'day', metrics = ['reach', 'profile_views', 'website_clicks']): Promise<any> {
     const metricsParam = metrics.join(',')
     return this.request(`/me/insights?metric=${metricsParam}&period=${period}`)
   }

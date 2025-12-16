@@ -472,8 +472,8 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F8FAFC]">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#059669]"></div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-900">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#D4AF37]"></div>
       </div>
     )
   }

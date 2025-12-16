@@ -10,7 +10,7 @@ interface PageLayoutProps {
 
 export const PageLayout = ({ children, title, subtitle }: PageLayoutProps) => {
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="min-h-screen bg-gray-900 text-white">
       {/* Header - Sticky */}
       <Header title={title} subtitle={subtitle} />
 

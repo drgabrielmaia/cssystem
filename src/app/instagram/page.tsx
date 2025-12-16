@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { automationService, funnelService, AutomationRule, Funnel } from '@/lib/supabase'
 import {
   Instagram,
   MessageCircle,
@@ -47,16 +48,6 @@ interface InstagramProfile {
   following_count?: number
 }
 
-interface AutomationRule {
-  id: string
-  name: string
-  trigger: 'comment_keyword' | 'dm_keyword' | 'new_follower' | 'story_mention'
-  keywords: string[]
-  response: string
-  isActive: boolean
-  created: Date
-  responses_sent: number
-}
 
 interface InstagramMessage {
   id: string
@@ -66,16 +57,6 @@ interface InstagramMessage {
   replied: boolean
 }
 
-interface Funnel {
-  id: string
-  name: string
-  description: string
-  steps: FunnelStep[]
-  isActive: boolean
-  leads: number
-  conversions: number
-  created: Date
-}
 
 interface FunnelStep {
   id: string
@@ -90,60 +71,8 @@ interface FunnelStep {
 export default function InstagramAutomationPage() {
   const [profile, setProfile] = useState<InstagramProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [automationRules, setAutomationRules] = useState<AutomationRule[]>([
-    {
-      id: '1',
-      name: 'Resposta Automática - Info',
-      trigger: 'comment_keyword',
-      keywords: ['info', 'informação', 'detalhes', 'mais informações'],
-      response: 'Olá! Te enviei mais informações no seu DM 📩 Confere lá!',
-      isActive: true,
-      created: new Date('2024-01-10'),
-      responses_sent: 45
-    },
-    {
-      id: '2',
-      name: 'Boas-vindas Novos Seguidores',
-      trigger: 'new_follower',
-      keywords: [],
-      response: 'Obrigado por nos seguir! 🙏 Que tal conhecer nossos produtos? Digite CATALOGO e te mando tudo!',
-      isActive: true,
-      created: new Date('2024-01-08'),
-      responses_sent: 128
-    }
-  ])
-
-  const [funnels, setFunnels] = useState<Funnel[]>([
-    {
-      id: '1',
-      name: 'Funil de Vendas Principal',
-      description: 'Conversão de interessados em clientes',
-      isActive: true,
-      leads: 342,
-      conversions: 89,
-      created: new Date('2024-01-05'),
-      steps: [
-        { id: '1', type: 'message', content: 'Olá! Vi que você tem interesse em nossos produtos 😊' },
-        { id: '2', type: 'delay', delay: 5 },
-        { id: '3', type: 'message', content: 'Te envio nosso catálogo completo aqui no DM!' },
-        { id: '4', type: 'action', action: 'send_catalog' }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Recuperação de Carrinho',
-      description: 'Para usuários que não finalizaram compra',
-      isActive: false,
-      leads: 156,
-      conversions: 23,
-      created: new Date('2024-01-12'),
-      steps: [
-        { id: '1', type: 'message', content: 'Oi! Vi que você ficou interessado em nosso produto 🛒' },
-        { id: '2', type: 'delay', delay: 10 },
-        { id: '3', type: 'message', content: 'Que tal finalizar sua compra? Tenho um desconto especial para você!' }
-      ]
-    }
-  ])
+  const [automationRules, setAutomationRules] = useState<AutomationRule[]>([])
+  const [funnels, setFunnels] = useState<Funnel[]>([])
 
   const [messages, setMessages] = useState<InstagramMessage[]>([])
   const [posts, setPosts] = useState<any[]>([])
@@ -151,7 +80,7 @@ export default function InstagramAutomationPage() {
 
   const [newRule, setNewRule] = useState({
     name: '',
-    trigger: 'comment_keyword' as AutomationRule['trigger'],
+    trigger: 'comment_keyword' as 'comment_keyword' | 'dm_keyword' | 'new_follower' | 'story_mention',
     keywords: '',
     response: ''
   })
@@ -215,60 +144,151 @@ export default function InstagramAutomationPage() {
     }
 
     loadProfile()
+    loadAutomations()
+    loadFunnels()
   }, [])
 
-  const createAutomationRule = () => {
+  const loadAutomations = async () => {
+    try {
+      const data = await automationService.getAll()
+      setAutomationRules(data.map(item => ({
+        id: item.id,
+        name: item.name,
+        trigger: item.trigger_type,
+        keywords: item.keywords || [],
+        response: item.response_message,
+        isActive: item.is_active,
+        created: new Date(item.created_at),
+        responses_sent: item.responses_sent
+      })))
+    } catch (error) {
+      console.error('Error loading automations:', error)
+      toast.error('Erro ao carregar automações')
+    }
+  }
+
+  const loadFunnels = async () => {
+    try {
+      const data = await funnelService.getAll()
+      setFunnels(data.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description || '',
+        steps: [],
+        isActive: item.is_active,
+        leads: item.leads_count,
+        conversions: item.conversions_count,
+        created: new Date(item.created_at)
+      })))
+    } catch (error) {
+      console.error('Error loading funnels:', error)
+      toast.error('Erro ao carregar funis')
+    }
+  }
+
+  const createAutomationRule = async () => {
     if (!newRule.name || !newRule.response) return
 
-    const rule: AutomationRule = {
-      id: Date.now().toString(),
-      name: newRule.name,
-      trigger: newRule.trigger,
-      keywords: newRule.keywords.split(',').map(k => k.trim()).filter(Boolean),
-      response: newRule.response,
-      isActive: true,
-      created: new Date(),
-      responses_sent: 0
+    try {
+      const automationData = {
+        name: newRule.name,
+        trigger_type: newRule.trigger,
+        keywords: newRule.keywords.split(',').map(k => k.trim()).filter(Boolean),
+        response_message: newRule.response,
+        is_active: true,
+        responses_sent: 0
+      }
+
+      const created = await automationService.create(automationData)
+
+      const rule: AutomationRule = {
+        id: created.id,
+        name: created.name,
+        trigger: created.trigger_type,
+        keywords: created.keywords || [],
+        response: created.response_message,
+        isActive: created.is_active,
+        created: new Date(created.created_at),
+        responses_sent: created.responses_sent
+      }
+
+      setAutomationRules(prev => [rule, ...prev])
+      setNewRule({ name: '', trigger: 'comment_keyword', keywords: '', response: '' })
+      toast.success('Regra de automação criada!')
+    } catch (error) {
+      console.error('Error creating automation:', error)
+      toast.error('Erro ao criar automação')
     }
-
-    setAutomationRules(prev => [rule, ...prev])
-    setNewRule({ name: '', trigger: 'comment_keyword', keywords: '', response: '' })
-    toast.success('Regra de automação criada!')
   }
 
-  const toggleRuleStatus = (ruleId: string) => {
-    setAutomationRules(prev =>
-      prev.map(rule =>
-        rule.id === ruleId ? { ...rule, isActive: !rule.isActive } : rule
+  const toggleRuleStatus = async (ruleId: string) => {
+    try {
+      const updated = await automationService.toggleActive(ruleId)
+      setAutomationRules(prev =>
+        prev.map(rule =>
+          rule.id === ruleId ? { ...rule, isActive: updated.is_active } : rule
+        )
       )
-    )
+      toast.success('Status da automação atualizado!')
+    } catch (error) {
+      console.error('Error toggling automation status:', error)
+      toast.error('Erro ao atualizar status da automação')
+    }
   }
 
-  const createFunnel = () => {
+  const createFunnel = async () => {
     if (!newFunnel.name) return
 
-    const funnel: Funnel = {
-      id: Date.now().toString(),
-      name: newFunnel.name,
-      description: newFunnel.description,
-      steps: [],
-      isActive: false,
-      leads: 0,
-      conversions: 0,
-      created: new Date()
-    }
+    try {
+      const funnelData = {
+        name: newFunnel.name,
+        description: newFunnel.description,
+        is_active: false,
+        leads_count: 0,
+        conversions_count: 0
+      }
 
-    setFunnels(prev => [funnel, ...prev])
-    setNewFunnel({ name: '', description: '' })
-    toast.success('Funil criado! Configure os passos para ativá-lo.')
+      const created = await funnelService.create(funnelData)
+
+      const funnel: Funnel = {
+        id: created.id,
+        name: created.name,
+        description: created.description || '',
+        steps: [],
+        isActive: created.is_active,
+        leads: created.leads_count,
+        conversions: created.conversions_count,
+        created: new Date(created.created_at)
+      }
+
+      setFunnels(prev => [funnel, ...prev])
+      setNewFunnel({ name: '', description: '' })
+      toast.success('Funil criado! Configure os passos para ativá-lo.')
+    } catch (error) {
+      console.error('Error creating funnel:', error)
+      toast.error('Erro ao criar funil')
+    }
   }
 
-  const toggleFunnelStatus = (funnelId: string) => {
-    setFunnels(prev =>
-      prev.map(funnel =>
-        funnel.id === funnelId ? { ...funnel, isActive: !funnel.isActive } : funnel
+  const toggleFunnelStatus = async (funnelId: string) => {
+    try {
+      const current = funnels.find(f => f.id === funnelId)
+      if (!current) return
+
+      const updated = await funnelService.update(funnelId, {
+        is_active: !current.isActive
+      })
+
+      setFunnels(prev =>
+        prev.map(funnel =>
+          funnel.id === funnelId ? { ...funnel, isActive: updated.is_active } : funnel
+        )
       )
-    )
+      toast.success('Status do funil atualizado!')
+    } catch (error) {
+      console.error('Error toggling funnel status:', error)
+      toast.error('Erro ao atualizar status do funil')
+    }
   }
 
   if (loading) {
@@ -324,12 +344,12 @@ export default function InstagramAutomationPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Mensagens Enviadas</p>
+                  <p className="text-sm text-gray-400">Total de Posts</p>
                   <p className="text-2xl font-bold text-[#D4AF37]">
-                    {automationRules.reduce((acc, rule) => acc + rule.responses_sent, 0)}
+                    {profile?.media_count || 0}
                   </p>
                 </div>
-                <Send className="h-8 w-8 text-[#D4AF37]" />
+                <Instagram className="h-8 w-8 text-[#D4AF37]" />
               </div>
             </CardContent>
           </Card>
@@ -352,12 +372,12 @@ export default function InstagramAutomationPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Taxa de Conversão</p>
+                  <p className="text-sm text-gray-400">Total de Likes</p>
                   <p className="text-2xl font-bold text-[#D4AF37]">
-                    {funnels.length > 0 ? Math.round((funnels.reduce((acc, f) => acc + f.conversions, 0) / funnels.reduce((acc, f) => acc + f.leads, 1)) * 100) : 0}%
+                    {posts.reduce((acc, post) => acc + (post.like_count || 0), 0)}
                   </p>
                 </div>
-                <Target className="h-8 w-8 text-[#D4AF37]" />
+                <Heart className="h-8 w-8 text-[#D4AF37]" />
               </div>
             </CardContent>
           </Card>
@@ -415,7 +435,7 @@ export default function InstagramAutomationPage() {
 
                   <div>
                     <Label htmlFor="trigger" className="text-gray-300">Gatilho</Label>
-                    <Select value={newRule.trigger} onValueChange={(value: AutomationRule['trigger']) => setNewRule(prev => ({ ...prev, trigger: value }))}>
+                    <Select value={newRule.trigger} onValueChange={(value: 'comment_keyword' | 'dm_keyword' | 'new_follower' | 'story_mention') => setNewRule(prev => ({ ...prev, trigger: value }))}>
                       <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
                         <SelectValue />
                       </SelectTrigger>
