@@ -3,38 +3,38 @@
 @tailwind utilities;
 
 @layer base {
-  /* Paleta EXATA - Sem outros roxos ou cores */
+  /* Paleta Oceânica - Azuis e tons frios inspirados no design */
   :root {
-    --mint: #A7F5D0;
-    --lime: #C8FF5A;
-    --mint-soft: #A6E885;
-    --blue-soft: #B9F1FF;
-    --bg-page: #F8FAF7;
+    --ocean-blue: #4A90E2;
+    --ocean-light: #7BB3F0;
+    --ocean-soft: #A8CCF7;
+    --ocean-mist: #D6E8FD;
+    --bg-page: #F7F9FC;
     --card-bg: #FFFFFF;
-    --text-main: #111827;
-    --text-muted: #6B7280;
-    --border-soft: #E5E7EB;
+    --text-main: #1E3A5F;
+    --text-muted: #5A7BA3;
+    --border-soft: #E2EAF4;
 
-    /* Tailwind vars usando a paleta correta */
-    --background: 0 0% 98%;
-    --foreground: 220 9% 9%;
+    /* Tailwind vars usando a paleta oceânica */
+    --background: 215 25% 98%;
+    --foreground: 210 50% 25%;
     --card: 0 0% 100%;
-    --card-foreground: 220 9% 9%;
+    --card-foreground: 210 50% 25%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 9% 9%;
-    --primary: 150 55% 85%;
-    --primary-foreground: 220 9% 9%;
-    --secondary: 220 9% 97%;
-    --secondary-foreground: 220 9% 9%;
-    --muted: 220 9% 97%;
-    --muted-foreground: 220 5% 42%;
-    --accent: 150 55% 85%;
-    --accent-foreground: 220 9% 9%;
+    --popover-foreground: 210 50% 25%;
+    --primary: 210 70% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 25% 96%;
+    --secondary-foreground: 210 50% 25%;
+    --muted: 215 25% 96%;
+    --muted-foreground: 210 30% 60%;
+    --accent: 210 70% 58%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 9% 91%;
-    --input: 220 9% 91%;
-    --ring: 150 55% 85%;
+    --border: 215 25% 89%;
+    --input: 215 25% 89%;
+    --ring: 210 70% 58%;
     --radius: 1rem;
   }
 }
@@ -45,14 +45,14 @@
   }
 
   html, body {
-    background: #F8FAF7;
+    background: #F7F9FC;
   }
 
   body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
     font-weight: 400;
     color: var(--text-main);
-    background: #F8FAF7;
+    background: #F7F9FC;
     min-height: 100vh;
   }
 
@@ -73,7 +73,7 @@
 .goals-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, #B9F1FF, #A7F5D0, #C8FF5A);
+  background: linear-gradient(90deg, #4A90E2, #7BB3F0, #A8CCF7);
   opacity: 0.45;
   filter: blur(28px);
   border-radius: 32px;
@@ -146,7 +146,7 @@
 .goal-progress > div {
   height: 100%;
   width: var(--progress, 50%);
-  background: linear-gradient(90deg, #A7F5D0, #C8FF5A);
+  background: linear-gradient(90deg, #4A90E2, #7BB3F0);
 }
 
 .goal-values {
@@ -329,38 +329,38 @@
 }
 
 .sidebar-item-ultra-clean:hover {
-  background: #F8FAF7;
-  color: #334155;
+  background: #F7F9FC;
+  color: #1E3A5F;
 }
 
 .sidebar-item-ultra-clean.active {
-  background: rgba(167, 245, 208, 0.15);
-  color: #334155;
+  background: rgba(74, 144, 226, 0.15);
+  color: #1E3A5F;
   font-weight: 500;
 }
 
 .sidebar-icon-clean {
   width: 18px;
   height: 18px;
-  color: #A7F5D0;
+  color: #4A90E2;
 }
 
 /* Botões ultra clean */
 .btn-ultra-clean {
   background: white;
-  border: 1px solid rgba(167, 245, 208, 0.5);
+  border: 1px solid rgba(74, 144, 226, 0.5);
   border-radius: 0.75rem;
   padding: 0.625rem 1.25rem;
   font-weight: 500;
   font-size: 0.875rem;
-  color: #334155;
+  color: #1E3A5F;
   transition: all 0.2s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .btn-ultra-clean:hover {
-  background: rgba(167, 245, 208, 0.05);
-  border-color: #A7F5D0;
+  background: rgba(74, 144, 226, 0.05);
+  border-color: #4A90E2;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
 }
@@ -379,15 +379,15 @@
 
 .input-ultra-clean:focus {
   outline: none;
-  border-color: #A7F5D0;
-  box-shadow: 0 0 0 3px rgba(167, 245, 208, 0.1), 0 1px 3px rgba(0, 0, 0, 0.02);
+  border-color: #4A90E2;
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1), 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 /* Status badges ultra clean */
 .status-clean-new {
-  background: rgba(185, 241, 255, 0.2);
-  color: #334155;
-  border: 1px solid #B9F1FF;
+  background: rgba(168, 204, 247, 0.2);
+  color: #1E3A5F;
+  border: 1px solid #A8CCF7;
   border-radius: 0.5rem;
   padding: 0.25rem 0.75rem;
   font-size: 0.75rem;
@@ -395,9 +395,9 @@
 }
 
 .status-clean-success {
-  background: rgba(167, 245, 208, 0.2);
-  color: #334155;
-  border: 1px solid #A7F5D0;
+  background: rgba(74, 144, 226, 0.2);
+  color: #1E3A5F;
+  border: 1px solid #4A90E2;
   border-radius: 0.5rem;
   padding: 0.25rem 0.75rem;
   font-size: 0.75rem;
@@ -405,9 +405,9 @@
 }
 
 .status-clean-warning {
-  background: rgba(200, 255, 90, 0.2);
-  color: #334155;
-  border: 1px solid #C8FF5A;
+  background: rgba(123, 179, 240, 0.2);
+  color: #1E3A5F;
+  border: 1px solid #7BB3F0;
   border-radius: 0.5rem;
   padding: 0.25rem 0.75rem;
   font-size: 0.75rem;
