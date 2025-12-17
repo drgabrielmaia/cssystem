@@ -109,12 +109,12 @@ export default function RespostasPage() {
                 .eq('id', submission.lead_id)
                 .single()
 
-              if (lead?.mentorados) {
+              if (lead?.mentorados && Array.isArray(lead.mentorados) && lead.mentorados.length > 0) {
                 mentoradoInfo = {
-                  id: lead.mentorados.id,
-                  nome_completo: lead.mentorados.nome_completo,
-                  email: lead.mentorados.email,
-                  turma: lead.mentorados.turma
+                  id: lead.mentorados[0].id,
+                  nome_completo: lead.mentorados[0].nome_completo,
+                  email: lead.mentorados[0].email,
+                  turma: lead.mentorados[0].turma
                 }
               }
             }

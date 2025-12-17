@@ -26,6 +26,7 @@ interface FormSubmission {
   template_id: string
   template_slug: string
   lead_id: string | null
+  mentorado_id: string | null
   source_url: string | null
   submission_data: Record<string, any>
   created_at: string
@@ -38,6 +39,11 @@ interface FormSubmission {
     nome_completo: string
     email: string
     telefone: string
+  } | null
+  mentorado: {
+    nome_completo: string
+    email: string
+    turma: string
   } | null
 }
 
@@ -65,7 +71,8 @@ export default function FormResponsesPage() {
         .select(`
           *,
           template:form_templates(name, description, fields),
-          lead:leads(nome_completo, email, telefone)
+          lead:leads(nome_completo, email, telefone),
+          mentorado:mentorados(nome_completo, email, turma)
         `)
         .order('created_at', { ascending: false })
 
@@ -99,11 +106,15 @@ export default function FormResponsesPage() {
         const templateName = submission.template?.name?.toLowerCase() || ''
         const leadName = submission.lead?.nome_completo?.toLowerCase() || ''
         const leadEmail = submission.lead?.email?.toLowerCase() || ''
+        const mentoradoName = submission.mentorado?.nome_completo?.toLowerCase() || ''
+        const mentoradoEmail = submission.mentorado?.email?.toLowerCase() || ''
         const source = submission.source_url?.toLowerCase() || ''
 
         return templateName.includes(searchLower) ||
                leadName.includes(searchLower) ||
                leadEmail.includes(searchLower) ||
+               mentoradoName.includes(searchLower) ||
+               mentoradoEmail.includes(searchLower) ||
                source.includes(searchLower)
       })
     }
@@ -147,6 +158,7 @@ export default function FormResponsesPage() {
         'Nome',
         'Email',
         'Telefone',
+        'Turma',
         'Origem',
         'Dados'
       ].join(','),
@@ -154,9 +166,10 @@ export default function FormResponsesPage() {
       ...filteredSubmissions.map(submission => [
         formatDate(submission.created_at),
         submission.template?.name || submission.template_slug,
-        submission.lead?.nome_completo || '',
-        submission.lead?.email || '',
+        submission.lead?.nome_completo || submission.mentorado?.nome_completo || '',
+        submission.lead?.email || submission.mentorado?.email || '',
         submission.lead?.telefone || '',
+        submission.mentorado?.turma || '',
         submission.source_url || '',
         `"${JSON.stringify(submission.submission_data).replace(/"/g, '""')}"`
       ].join(','))
@@ -191,9 +204,15 @@ export default function FormResponsesPage() {
             </Badge>
           )}
           {submission.lead && (
-            <Badge variant="outline" className="flex items-center space-x-1">
+            <Badge variant="outline" className="flex items-center space-x-1 text-blue-700 border-blue-300">
               <User className="h-3 w-3" />
               <span>Lead criado</span>
+            </Badge>
+          )}
+          {submission.mentorado && (
+            <Badge variant="outline" className="flex items-center space-x-1 text-green-700 border-green-300">
+              <User className="h-3 w-3" />
+              <span>Mentorado</span>
             </Badge>
           )}
         </div>
@@ -207,6 +226,18 @@ export default function FormResponsesPage() {
             <div><strong>Nome:</strong> {submission.lead.nome_completo}</div>
             <div><strong>Email:</strong> {submission.lead.email}</div>
             <div><strong>Telefone:</strong> {submission.lead.telefone}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Mentorado Info */}
+      {submission.mentorado && (
+        <div className="bg-green-50 rounded-lg p-4">
+          <h4 className="font-semibold text-green-900 mb-2">Informações do Mentorado:</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+            <div><strong>Nome:</strong> {submission.mentorado.nome_completo}</div>
+            <div><strong>Email:</strong> {submission.mentorado.email}</div>
+            <div><strong>Turma:</strong> {submission.mentorado.turma}</div>
           </div>
         </div>
       )}
@@ -383,8 +414,13 @@ export default function FormResponsesPage() {
                           </Badge>
                         )}
                         {submission.lead_id && (
-                          <Badge variant="outline" className="text-green-700 border-green-300">
+                          <Badge variant="outline" className="text-blue-700 border-blue-300">
                             Lead criado
+                          </Badge>
+                        )}
+                        {submission.mentorado_id && (
+                          <Badge variant="outline" className="text-green-700 border-green-300">
+                            Mentorado
                           </Badge>
                         )}
                       </div>
@@ -404,6 +440,18 @@ export default function FormResponsesPage() {
                             <div className="flex items-center space-x-2">
                               <span>📧</span>
                               <span>{submission.lead.email}</span>
+                            </div>
+                          </>
+                        )}
+                        {submission.mentorado && (
+                          <>
+                            <div className="flex items-center space-x-2">
+                              <User className="h-4 w-4" />
+                              <span>{submission.mentorado.nome_completo}</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span>📧</span>
+                              <span>{submission.mentorado.email}</span>
                             </div>
                           </>
                         )}
