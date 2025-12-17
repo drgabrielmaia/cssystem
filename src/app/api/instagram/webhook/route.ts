@@ -257,16 +257,48 @@ async function processMention(mentionData: any) {
   }
 }
 
-// Função para enviar mensagem do Instagram
+// Função para enviar mensagem do Instagram (Page Messaging API)
 async function sendInstagramMessage(recipientId: string, text: string) {
   try {
     const PAGE_ACCESS_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN
+    const PAGE_ID = process.env.FACEBOOK_PAGE_ID
 
     if (!PAGE_ACCESS_TOKEN) {
       throw new Error('Instagram access token not found')
     }
 
-    const response = await fetch(`https://graph.facebook.com/v24.0/me/messages`, {
+    console.log('📤 [Instagram Messaging] Tentando enviar via Page API...')
+    console.log('🔑 [Instagram Messaging] Recipient ID:', recipientId)
+
+    // Método 1: Tentar Instagram Messaging API via Page
+    try {
+      const pageResponse = await fetch(`https://graph.facebook.com/v24.0/${PAGE_ID || 'me'}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: { text: text },
+          access_token: PAGE_ACCESS_TOKEN
+        })
+      })
+
+      if (pageResponse.ok) {
+        const result = await pageResponse.json()
+        console.log('✅ [Instagram Messaging] Mensagem enviada via Page API:', result)
+        return
+      } else {
+        const error = await pageResponse.json()
+        console.log('⚠️ [Instagram Messaging] Page API falhou:', error.error?.message)
+      }
+    } catch (error) {
+      console.log('⚠️ [Instagram Messaging] Page API error:', error)
+    }
+
+    // Método 2: Fallback para Instagram Graph API direto
+    console.log('🔄 [Instagram Messaging] Tentando Instagram Graph API...')
+    const response = await fetch(`https://graph.instagram.com/v24.0/me/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -280,14 +312,24 @@ async function sendInstagramMessage(recipientId: string, text: string) {
 
     if (!response.ok) {
       const error = await response.json()
+      console.error('❌ [Instagram Messaging] Ambos métodos falharam')
+      console.error('❌ [Instagram Messaging] Último erro:', error.error?.message)
       throw new Error(`Instagram API Error: ${error.error?.message || response.statusText}`)
     }
 
     const result = await response.json()
-    console.log('✅ [Instagram API] Mensagem enviada:', result)
+    console.log('✅ [Instagram Messaging] Mensagem enviada via Instagram API:', result)
 
   } catch (error) {
-    console.error('❌ [Instagram API] Erro ao enviar mensagem:', error)
+    console.error('❌ [Instagram Messaging] Erro geral:', error)
+
+    // Log detalhado para debug
+    console.error('🔍 [Instagram Messaging] Debug info:', {
+      recipientId,
+      hasToken: !!process.env.INSTAGRAM_ACCESS_TOKEN,
+      tokenPrefix: process.env.INSTAGRAM_ACCESS_TOKEN?.substring(0, 10) + '...'
+    })
+
     throw error
   }
 }
