@@ -244,222 +244,209 @@ export default function MentoradoVideosPage() {
   const overallProgress = getOverallProgress()
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Vídeos & Aulas</h1>
-          <p className="text-gray-600">Seus módulos de aprendizado e progresso</p>
+    <div className="flex h-full">
+      {/* Conteúdo Principal (Centro) */}
+      <div className="flex-1 p-8 overflow-y-auto">
+        {/* Header da Página */}
+        <div className="mb-8">
+          <h1 className="text-[32px] font-semibold text-[#1A1A1A] mb-2">
+            Assistir vídeo aula
+          </h1>
+          <p className="text-[15px] text-[#6B7280]">
+            Continue seu progresso de aprendizado
+          </p>
+        </div>
+
+        {/* Vídeo Player Principal */}
+        <div className="bg-[#1A1A1A] rounded-[24px] aspect-video mb-8 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-4">
+              <Play className="w-10 h-10 text-white ml-1" />
+            </div>
+            <h3 className="text-white text-[18px] font-medium mb-2">
+              Selecione uma aula
+            </h3>
+            <p className="text-white text-opacity-70 text-[14px]">
+              Escolha um módulo na lateral para começar
+            </p>
+          </div>
+        </div>
+
+        {/* Informações da Aula */}
+        <div className="bg-[#F3F3F5] rounded-[20px] p-6 mb-8">
+          <h3 className="text-[18px] font-semibold text-[#1A1A1A] mb-2">
+            Próxima aula recomendada
+          </h3>
+          <p className="text-[15px] text-[#6B7280] mb-4">
+            Continue de onde parou em seu último acesso
+          </p>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center text-[13px] text-[#6B7280]">
+                <Clock className="w-4 h-4 mr-1" />
+                <span>15 min</span>
+              </div>
+              <div className="w-16 h-2 bg-[#E879F9] bg-opacity-30 rounded-full">
+                <div className="w-3/4 h-full bg-[#E879F9] rounded-full"></div>
+              </div>
+              <span className="text-[13px] text-[#6B7280]">75%</span>
+            </div>
+
+            <button className="bg-[#1A1A1A] text-white px-6 py-2 rounded-full text-[14px] font-medium hover:bg-opacity-90 transition-all">
+              Continuar
+            </button>
+          </div>
+        </div>
+
+        {/* Exercícios / Questões */}
+        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
+          <h3 className="text-[18px] font-semibold text-[#1A1A1A] mb-4">
+            Exercícios práticos
+          </h3>
+
+          <div className="space-y-3">
+            <div className="bg-white rounded-[12px] p-4 border border-[#E879F9]">
+              <h4 className="text-[15px] font-medium text-[#1A1A1A] mb-2">
+                Questão sobre o conteúdo
+              </h4>
+              <p className="text-[14px] text-[#6B7280] mb-4">
+                Qual é o principal conceito abordado nesta aula?
+              </p>
+
+              <div className="space-y-2">
+                <label className="flex items-center p-3 bg-[#F3F3F5] rounded-[8px] cursor-pointer hover:bg-opacity-80 transition-colors">
+                  <input type="radio" name="question1" className="mr-3" />
+                  <span className="text-[14px] text-[#1A1A1A]">Opção A</span>
+                </label>
+                <label className="flex items-center p-3 bg-[#F3F3F5] rounded-[8px] cursor-pointer hover:bg-opacity-80 transition-colors">
+                  <input type="radio" name="question1" className="mr-3" />
+                  <span className="text-[14px] text-[#1A1A1A]">Opção B</span>
+                </label>
+                <label className="flex items-center p-3 bg-[#F3F3F5] rounded-[8px] cursor-pointer hover:bg-opacity-80 transition-colors">
+                  <input type="radio" name="question1" className="mr-3" />
+                  <span className="text-[14px] text-[#1A1A1A]">Opção C</span>
+                </label>
+              </div>
+
+              <button className="mt-4 bg-[#1A1A1A] text-white px-4 py-2 rounded-[8px] text-[14px] font-medium hover:bg-opacity-90 transition-all">
+                Responder
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Progress Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-blue-600" />
+      {/* Sidebar Direita - Lista de Módulos */}
+      <aside className="w-80 bg-[#F3F3F5] border-l border-[#E5E7EB] p-6 overflow-y-auto">
+        <div className="mb-6">
+          <h2 className="text-[18px] font-semibold text-[#1A1A1A] mb-2">
+            Módulos do Curso
+          </h2>
+          <div className="flex items-center space-x-2 text-[13px] text-[#6B7280]">
+            <span>{overallProgress.completed}/{overallProgress.total} concluídas</span>
+            <div className="w-16 h-2 bg-[#E879F9] bg-opacity-30 rounded-full">
+              <div
+                className="h-full bg-[#E879F9] rounded-full transition-all duration-500"
+                style={{ width: `${overallProgress.percentage}%` }}
+              />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Módulos Disponíveis</p>
-              <p className="text-2xl font-bold text-gray-900">{modules.length}</p>
-            </div>
+            <span>{overallProgress.percentage.toFixed(0)}%</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Aulas Concluídas</p>
-              <p className="text-2xl font-bold text-gray-900">{overallProgress.completed}/{overallProgress.total}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Progresso Geral</p>
-              <p className="text-2xl font-bold text-gray-900">{overallProgress.percentage.toFixed(1)}%</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Módulos e Aulas */}
-      <div className="space-y-6">
         {modules.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-            <Video className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+          <div className="text-center py-8">
+            <Video className="w-12 h-12 text-[#6B7280] mx-auto mb-3" />
+            <h3 className="text-[15px] font-medium text-[#1A1A1A] mb-2">
               Nenhum módulo disponível
             </h3>
-            <p className="text-gray-600">
-              Você ainda não tem acesso a nenhum módulo. Entre em contato com seu mentor para liberar o acesso aos conteúdos.
+            <p className="text-[13px] text-[#6B7280]">
+              Entre em contato com seu mentor
             </p>
           </div>
         ) : (
-          modules.map((module) => {
-            const moduleProgress = getModuleProgress(module.id)
-            const moduleLessons = lessons.filter(l => l.module_id === module.id).sort((a, b) => a.order_index - b.order_index)
+          <div className="space-y-4">
+            {modules.map((module) => {
+              const moduleProgress = getModuleProgress(module.id)
+              const moduleLessons = lessons.filter(l => l.module_id === module.id).sort((a, b) => a.order_index - b.order_index)
 
-            return (
-              <div key={module.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="p-6 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center mb-2">
-                        <BookOpen className="w-6 h-6 mr-3" />
-                        <h2 className="text-xl font-bold">{module.title}</h2>
-                      </div>
-                      <p className="text-blue-100 mb-4">{module.description}</p>
-                      <div className="flex items-center text-sm">
-                        <span>{moduleProgress.completed}/{moduleProgress.total} aulas concluídas</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-3xl font-bold mb-1">
-                        {moduleProgress.percentage.toFixed(0)}%
-                      </div>
-                      <div className="text-sm text-blue-100">completo</div>
+              return (
+                <div key={module.id} className="bg-white rounded-[16px] p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-[15px] font-medium text-[#1A1A1A]">
+                      {module.title}
+                    </h3>
+                    <div className="text-[12px] text-[#6B7280]">
+                      {moduleProgress.completed}/{moduleProgress.total}
                     </div>
                   </div>
 
-                  {/* Progress bar */}
-                  <div className="mt-4">
-                    <div className="w-full bg-white bg-opacity-20 rounded-full h-2">
-                      <div
-                        className="bg-white rounded-full h-2 transition-all duration-500"
-                        style={{ width: `${moduleProgress.percentage}%` }}
-                      />
-                    </div>
+                  <div className="w-full h-1 bg-[#F3F3F5] rounded-full mb-3">
+                    <div
+                      className="h-full bg-[#E879F9] rounded-full transition-all duration-500"
+                      style={{ width: `${moduleProgress.percentage}%` }}
+                    />
                   </div>
-                </div>
 
-                <div className="p-6">
-                  {moduleLessons.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <Play className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>Nenhuma aula disponível neste módulo ainda.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {moduleLessons.map((lesson, index) => {
-                        const lessonProgress = getLessonProgress(lesson.id)
-                        const isUnlocked = isLessonUnlocked(lesson)
-                        const isCompleted = lessonProgress?.is_completed || false
-                        const hasStarted = !!lessonProgress
+                  <div className="space-y-2">
+                    {moduleLessons.map((lesson, index) => {
+                      const lessonProgress = getLessonProgress(lesson.id)
+                      const isUnlocked = isLessonUnlocked(lesson)
+                      const isCompleted = lessonProgress?.is_completed || false
+                      const hasStarted = !!lessonProgress
 
-                        return (
-                          <div
-                            key={lesson.id}
-                            className={`p-4 rounded-xl border-2 transition-all ${
-                              isCompleted
-                                ? 'bg-green-50 border-green-200'
-                                : hasStarted
-                                ? 'bg-blue-50 border-blue-200'
-                                : isUnlocked
-                                ? 'bg-gray-50 border-gray-200 hover:border-blue-300 hover:bg-blue-50'
-                                : 'bg-gray-50 border-gray-200 opacity-60'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center flex-1">
-                                <div className="mr-4">
-                                  {isCompleted ? (
-                                    <CheckCircle className="w-10 h-10 text-green-600" />
-                                  ) : hasStarted ? (
-                                    <Play className="w-10 h-10 text-blue-600" />
-                                  ) : isUnlocked ? (
-                                    <Play className="w-10 h-10 text-gray-400" />
-                                  ) : (
-                                    <Lock className="w-10 h-10 text-gray-400" />
-                                  )}
-                                </div>
-
-                                <div className="flex-1">
-                                  <h4 className="font-semibold text-gray-900 mb-1">
-                                    Aula {index + 1}: {lesson.title}
-                                  </h4>
-                                  <p className="text-sm text-gray-600 mb-2">
-                                    {lesson.description}
-                                  </p>
-                                  <div className="flex items-center text-sm text-gray-500">
-                                    <Clock className="w-4 h-4 mr-1" />
-                                    <span className="mr-4">{formatDuration(lesson.duration_minutes)}</span>
-                                    {isCompleted && (
-                                      <span className="text-green-600 font-medium">
-                                        ✓ Concluída
-                                      </span>
-                                    )}
-                                    {hasStarted && !isCompleted && (
-                                      <span className="text-blue-600 font-medium">
-                                        📝 Em andamento
-                                      </span>
-                                    )}
-                                    {!isUnlocked && (
-                                      <span className="text-gray-500">
-                                        🔒 Bloqueada
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div>
-                                {isUnlocked ? (
-                                  <button
-                                    onClick={() => handleWatchLesson(lesson)}
-                                    className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center ${
-                                      isCompleted
-                                        ? 'bg-green-600 hover:bg-green-700 text-white'
-                                        : hasStarted
-                                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                    }`}
-                                  >
-                                    <Play className="w-4 h-4 mr-2" />
-                                    {isCompleted ? 'Assistir novamente' : hasStarted ? 'Continuar' : 'Assistir'}
-                                  </button>
-                                ) : (
-                                  <button disabled className="px-6 py-3 rounded-lg font-medium bg-gray-300 text-gray-500 cursor-not-allowed flex items-center">
-                                    <Lock className="w-4 h-4 mr-2" />
-                                    Bloqueada
-                                  </button>
-                                )}
-                              </div>
-                            </div>
+                      return (
+                        <div
+                          key={lesson.id}
+                          className={`flex items-center p-2 rounded-[8px] cursor-pointer transition-all ${
+                            isCompleted
+                              ? 'bg-[#22C55E] bg-opacity-10 text-[#22C55E]'
+                              : hasStarted
+                              ? 'bg-[#E879F9] bg-opacity-10 text-[#E879F9]'
+                              : isUnlocked
+                              ? 'hover:bg-[#F3F3F5] text-[#1A1A1A]'
+                              : 'opacity-50 text-[#6B7280] cursor-not-allowed'
+                          }`}
+                          onClick={() => isUnlocked && handleWatchLesson(lesson)}
+                        >
+                          <div className="w-6 h-6 mr-3 flex items-center justify-center">
+                            {isCompleted ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : hasStarted ? (
+                              <Play className="w-4 h-4" />
+                            ) : isUnlocked ? (
+                              <Play className="w-4 h-4 text-[#6B7280]" />
+                            ) : (
+                              <Lock className="w-4 h-4" />
+                            )}
                           </div>
-                        )
-                      })}
-                    </div>
-                  )}
+
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-medium truncate">
+                              {index + 1}. {lesson.title}
+                            </p>
+                            <p className="text-[12px] opacity-70">
+                              {formatDuration(lesson.duration_minutes)}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            )
-          })
+              )
+            })}
+          </div>
         )}
-      </div>
+      </aside>
 
       {/* Modal de Vídeo */}
       <Dialog open={showVideoModal} onOpenChange={setShowVideoModal}>
-        <DialogContent className="sm:max-w-[90vw] sm:max-h-[90vh] p-6">
-          <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <Play className="h-5 w-5 mr-2 text-blue-600" />
-              {selectedLesson?.title}
-            </DialogTitle>
-          </DialogHeader>
-
+        <DialogContent className="sm:max-w-[95vw] sm:max-h-[95vh] p-0 bg-white rounded-[24px] overflow-hidden">
           {selectedLesson && (
-            <div className="space-y-4">
-              <div className="aspect-video rounded-lg overflow-hidden bg-black">
+            <div className="space-y-0">
+              <div className="aspect-video bg-[#1A1A1A] rounded-t-[24px] overflow-hidden">
                 <iframe
                   src={selectedLesson.panda_video_embed_url}
                   className="w-full h-full"
@@ -469,29 +456,41 @@ export default function MentoradoVideosPage() {
                 />
               </div>
 
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-semibold mb-2">{selectedLesson.title}</h3>
-                <p className="text-sm text-gray-600 mb-4">{selectedLesson.description}</p>
+              <div className="p-6">
+                <h3 className="text-[18px] font-semibold text-[#1A1A1A] mb-2">
+                  {selectedLesson.title}
+                </h3>
+                <p className="text-[15px] text-[#6B7280] mb-4">
+                  {selectedLesson.description}
+                </p>
 
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Clock className="h-4 w-4 mr-1" />
-                    Duração: {formatDuration(selectedLesson.duration_minutes)}
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center text-[13px] text-[#6B7280]">
+                      <Clock className="w-4 h-4 mr-1" />
+                      <span>{formatDuration(selectedLesson.duration_minutes)}</span>
+                    </div>
+
+                    {!getLessonProgress(selectedLesson.id)?.is_completed && (
+                      <div className="flex items-center text-[13px] text-[#E879F9]">
+                        <span>Em andamento</span>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="space-x-3">
+                  <div className="flex items-center space-x-3">
                     <button
                       onClick={() => setShowVideoModal(false)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="px-4 py-2 bg-[#F3F3F5] text-[#6B7280] rounded-[8px] text-[14px] font-medium hover:bg-opacity-80 transition-colors"
                     >
                       Fechar
                     </button>
                     {!getLessonProgress(selectedLesson.id)?.is_completed && (
                       <button
                         onClick={() => handleCompleteLesson(selectedLesson.id)}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                        className="px-4 py-2 bg-[#22C55E] text-white rounded-[8px] text-[14px] font-medium hover:bg-opacity-90 transition-colors flex items-center"
                       >
-                        <Award className="h-4 w-4 mr-2" />
+                        <CheckCircle className="w-4 h-4 mr-2" />
                         Marcar como Concluída
                       </button>
                     )}

@@ -9,12 +9,12 @@ import {
   Video,
   DollarSign,
   User,
-  Menu,
-  X,
-  LogOut,
-  Book,
+  Search,
+  Bell,
   TrendingUp,
-  Award
+  BookOpen,
+  LogOut,
+  Settings
 } from 'lucide-react'
 
 interface MentoradoLayoutProps {
@@ -25,20 +25,22 @@ const navigation = [
   {
     name: 'Dashboard',
     href: '/mentorado',
-    icon: Home,
-    description: 'Visão geral do seu progresso'
+    icon: Home
   },
   {
-    name: 'Vídeos & Aulas',
+    name: 'Aulas',
     href: '/mentorado/videos',
-    icon: Video,
-    description: 'Módulos e aulas de aprendizado'
+    icon: Video
+  },
+  {
+    name: 'Progresso',
+    href: '/mentorado/progress',
+    icon: TrendingUp
   },
   {
     name: 'Comissões',
     href: '/mentorado/comissoes',
-    icon: DollarSign,
-    description: 'Acompanhe suas comissões'
+    icon: DollarSign
   }
 ]
 
@@ -112,123 +114,144 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile menu overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        <div className="flex flex-col h-full">
-          {/* Logo/Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+    <div className="min-h-screen bg-white font-sans">
+      {/* Header Superior */}
+      <header className="bg-white border-b border-[#F3F3F5] px-8 py-4">
+        <div className="flex items-center justify-between">
+          {/* Logo e Navegação Principal */}
+          <div className="flex items-center space-x-8">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <Book className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 bg-[#1A1A1A] rounded-lg flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-white" />
               </div>
-              <span className="ml-3 font-semibold text-gray-900">Portal</span>
+              <span className="ml-3 text-lg font-semibold text-[#1A1A1A]">Portal</span>
             </div>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 rounded-md text-gray-400 hover:text-gray-500"
-            >
-              <X className="w-5 h-5" />
-            </button>
+
+            {/* Navegação Principal */}
+            <nav className="hidden md:flex items-center space-x-6">
+              {navigation.map((item) => {
+                const isActive = pathname === item.href ||
+                  (item.href === '/mentorado' && pathname === '/mentorado') ||
+                  (item.href !== '/mentorado' && pathname.startsWith(item.href))
+
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-[#1A1A1A] text-white'
+                        : 'text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F3F5]'
+                    }`}
+                  >
+                    {item.name}
+                  </Link>
+                )
+              })}
+            </nav>
           </div>
 
-          {/* User info */}
-          <div className="p-6 border-b border-gray-100">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-white" />
-              </div>
-              <div className="ml-3 min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {mentorado.nome_completo}
-                </p>
-                <p className="text-xs text-gray-500 truncate">
-                  {mentorado.turma || 'Mentorado'}
-                </p>
-              </div>
+          {/* Ações do Usuário */}
+          <div className="flex items-center space-x-4">
+            {/* Busca */}
+            <div className="relative hidden sm:block">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
+              <input
+                type="text"
+                placeholder="Buscar..."
+                className="pl-10 pr-4 py-2 bg-[#F3F3F5] border-0 rounded-full text-sm text-[#1A1A1A] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#E879F9] focus:bg-white transition-all"
+              />
             </div>
-          </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href ||
-                (item.href === '/mentorado' && pathname === '/mentorado') ||
-                (item.href !== '/mentorado' && pathname.startsWith(item.href))
-
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`
-                    group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors
-                    ${isActive
-                      ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }
-                  `}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <item.icon className={`
-                    mr-3 h-5 w-5 transition-colors
-                    ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'}
-                  `} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate">{item.name}</div>
-                    <div className={`
-                      text-xs truncate
-                      ${isActive ? 'text-blue-100' : 'text-gray-500'}
-                    `}>
-                      {item.description}
-                    </div>
-                  </div>
-                </Link>
-              )
-            })}
-          </nav>
-
-          {/* Footer */}
-          <div className="p-4 border-t border-gray-200">
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <LogOut className="mr-3 h-5 w-5 text-gray-400" />
-              Sair
+            {/* Notificações */}
+            <button className="p-2 text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F3F5] rounded-lg transition-colors">
+              <Bell className="w-5 h-5" />
             </button>
+
+            {/* Avatar e Menu */}
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-[#E879F9] rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-white" />
+              </div>
+              <div className="hidden sm:block">
+                <p className="text-sm font-medium text-[#1A1A1A]">
+                  {mentorado?.nome_completo?.split(' ')[0]}
+                </p>
+                <p className="text-xs text-[#6B7280]">
+                  {mentorado?.turma || 'Mentorado'}
+                </p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-1 text-[#6B7280] hover:text-[#1A1A1A] transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Main content */}
-      <div className="lg:ml-64 flex flex-col min-h-screen">
-        {/* Mobile header */}
-        <div className="lg:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-md text-gray-400 hover:text-gray-500"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <h1 className="text-lg font-semibold text-gray-900">Portal do Mentorado</h1>
-          <div className="w-10" /> {/* Spacer */}
-        </div>
+      {/* Layout de 3 Colunas */}
+      <div className="flex h-[calc(100vh-73px)]">
+        {/* Sidebar Esquerda - Compacta */}
+        <aside className="w-16 bg-white border-r border-[#F3F3F5] flex flex-col items-center py-6 space-y-6">
+          {navigation.map((item) => {
+            const isActive = pathname === item.href ||
+              (item.href === '/mentorado' && pathname === '/mentorado') ||
+              (item.href !== '/mentorado' && pathname.startsWith(item.href))
 
-        {/* Page content */}
-        <main className="flex-1">
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`p-3 rounded-xl transition-all group relative ${
+                  isActive
+                    ? 'bg-[#1A1A1A] text-white'
+                    : 'text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F3F5]'
+                }`}
+                title={item.name}
+              >
+                <item.icon className="w-5 h-5" />
+                {/* Tooltip */}
+                <div className="absolute left-full ml-2 px-2 py-1 bg-[#1A1A1A] text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                  {item.name}
+                </div>
+              </Link>
+            )
+          })}
+        </aside>
+
+        {/* Conteúdo Principal */}
+        <main className="flex-1 overflow-y-auto">
           {children}
         </main>
+      </div>
+
+      {/* Mobile Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#F3F3F5] px-4 py-2">
+        <div className="flex items-center justify-around">
+          {navigation.map((item) => {
+            const isActive = pathname === item.href ||
+              (item.href === '/mentorado' && pathname === '/mentorado') ||
+              (item.href !== '/mentorado' && pathname.startsWith(item.href))
+
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
+                  isActive
+                    ? 'text-[#1A1A1A]'
+                    : 'text-[#6B7280]'
+                }`}
+              >
+                <item.icon className="w-5 h-5 mb-1" />
+                <span className="text-xs">{item.name}</span>
+              </Link>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

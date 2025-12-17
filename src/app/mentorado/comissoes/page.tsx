@@ -141,108 +141,109 @@ export default function MentoradoComissoesPage() {
   const stats = getStats()
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-8 bg-white">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Minhas Comissões</h1>
-          <p className="text-gray-600">Acompanhe suas vendas e comissões</p>
+          <h1 className="text-[32px] font-semibold text-[#1A1A1A] mb-2">Minhas Comissões</h1>
+          <p className="text-[15px] text-[#6B7280]">Acompanhe suas vendas e ganhos</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          <button className="flex items-center px-4 py-2 bg-[#1A1A1A] text-white rounded-full text-[14px] font-medium hover:bg-opacity-90 transition-colors">
             <Download className="w-4 h-4 mr-2" />
             Exportar
           </button>
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Cards de Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-green-600" />
+        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[13px] text-[#6B7280] font-medium mb-2">Total Comissões</p>
+              <p className="text-[28px] font-bold text-[#1A1A1A]">{formatCurrency(stats.totalComissoes)}</p>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Comissões</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalComissoes)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Comissões Pagas</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.comissoesPagas)}</p>
+            <div className="w-12 h-12 bg-[#22C55E] rounded-[12px] flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-yellow-600" />
+        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[13px] text-[#6B7280] font-medium mb-2">Já Recebidas</p>
+              <p className="text-[28px] font-bold text-[#1A1A1A]">{formatCurrency(stats.comissoesPagas)}</p>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Pendentes</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.comissoesPendentes)}</p>
+            <div className="w-12 h-12 bg-[#1A1A1A] rounded-[12px] flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Target className="w-6 h-6 text-purple-600" />
+        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[13px] text-[#6B7280] font-medium mb-2">Pendentes</p>
+              <p className="text-[28px] font-bold text-[#1A1A1A]">{formatCurrency(stats.comissoesPendentes)}</p>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Vendas</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalVendas}</p>
+            <div className="w-12 h-12 bg-[#E879F9] rounded-[12px] flex items-center justify-center">
+              <Calendar className="w-6 h-6 text-white" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[13px] text-[#6B7280] font-medium mb-2">Total Vendas</p>
+              <p className="text-[28px] font-bold text-[#1A1A1A]">{stats.totalVendas}</p>
+            </div>
+            <div className="w-12 h-12 bg-[#6366F1] rounded-[12px] flex items-center justify-center">
+              <Target className="w-6 h-6 text-white" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Comissões do Mês */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
+      {/* Performance do Mês */}
+      <div className="bg-[#F3F3F5] rounded-[24px] p-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-lg font-semibold mb-2">Performance do Mês</h3>
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <p className="text-blue-100 text-sm">Comissões do Mês</p>
-                <p className="text-2xl font-bold">{formatCurrency(stats.comissoesMesAtual)}</p>
-              </div>
-              <div>
-                <p className="text-blue-100 text-sm">Vendas Realizadas</p>
-                <p className="text-2xl font-bold">{stats.vendasMesAtual}</p>
-              </div>
-            </div>
+            <h3 className="text-[18px] font-semibold text-[#1A1A1A] mb-2">Performance do Mês</h3>
+            <p className="text-[15px] text-[#6B7280]">Seu desempenho financeiro atual</p>
           </div>
-          <div className="text-right">
-            <Award className="w-16 h-16 text-blue-200 mb-2" />
-            <p className="text-sm text-blue-100">Continue assim!</p>
+          <div className="w-16 h-16 bg-[#1A1A1A] rounded-[16px] flex items-center justify-center">
+            <Award className="w-8 h-8 text-white" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-8">
+          <div>
+            <p className="text-[13px] text-[#6B7280] font-medium mb-1">Comissões do Mês</p>
+            <p className="text-[24px] font-bold text-[#1A1A1A]">{formatCurrency(stats.comissoesMesAtual)}</p>
+          </div>
+          <div>
+            <p className="text-[13px] text-[#6B7280] font-medium mb-1">Vendas Realizadas</p>
+            <p className="text-[24px] font-bold text-[#1A1A1A]">{stats.vendasMesAtual}</p>
           </div>
         </div>
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-[#F3F3F5] rounded-[20px] p-6">
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           <div className="flex flex-col sm:flex-row gap-4 flex-1">
             {/* Search */}
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#9CA3AF] w-4 h-4" />
               <input
                 type="text"
                 placeholder="Buscar por cliente..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-3 bg-white border-0 rounded-full text-[14px] text-[#1A1A1A] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#E879F9] transition-all"
               />
             </div>
 
@@ -250,7 +251,7 @@ export default function MentoradoComissoesPage() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-3 bg-white border-0 rounded-full text-[14px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#E879F9] transition-all cursor-pointer"
             >
               <option value="todos">Todos os Status</option>
               <option value="pago">Pago</option>
@@ -262,52 +263,60 @@ export default function MentoradoComissoesPage() {
       </div>
 
       {/* Lista de Comissões */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Histórico de Comissões</h3>
+      <div className="bg-[#F3F3F5] rounded-[24px] overflow-hidden">
+        <div className="px-8 py-6">
+          <h3 className="text-[18px] font-semibold text-[#1A1A1A]">Histórico de Comissões</h3>
         </div>
 
         {filteredComissoes.length === 0 ? (
           <div className="p-12 text-center">
-            <DollarSign className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h4 className="text-lg font-medium text-gray-900 mb-2">Nenhuma comissão encontrada</h4>
-            <p className="text-gray-500">
+            <DollarSign className="w-16 h-16 text-[#6B7280] mx-auto mb-4" />
+            <h4 className="text-[16px] font-medium text-[#1A1A1A] mb-2">Nenhuma comissão encontrada</h4>
+            <p className="text-[14px] text-[#6B7280]">
               {searchTerm || filterStatus !== 'todos'
                 ? 'Tente ajustar os filtros de busca.'
                 : 'Suas comissões aparecerão aqui conforme você realizar vendas.'}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
+          <div className="px-8 pb-8 space-y-4">
             {filteredComissoes.map((comissao) => (
-              <div key={comissao.id} className="p-6 hover:bg-gray-50 transition-colors">
+              <div key={comissao.id} className="bg-white rounded-[16px] p-6 hover:bg-opacity-80 transition-colors">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <DollarSign className="w-5 h-5 text-blue-600" />
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-12 h-12 rounded-[12px] flex items-center justify-center ${
+                      comissao.status === 'pago' ? 'bg-[#22C55E]' :
+                      comissao.status === 'pendente' ? 'bg-[#E879F9]' :
+                      'bg-[#6B7280]'
+                    }`}>
+                      <DollarSign className="w-6 h-6 text-white" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-3">
-                        <h4 className="font-medium text-gray-900">
+                      <div className="flex items-center gap-3 mb-1">
+                        <h4 className="text-[15px] font-medium text-[#1A1A1A]">
                           {comissao.lead_nome || 'Cliente não informado'}
                         </h4>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-md border ${getStatusColor(comissao.status)}`}>
+                        <span className={`px-3 py-1 text-[12px] font-medium rounded-full ${
+                          comissao.status === 'pago' ? 'bg-[#22C55E] bg-opacity-20 text-[#22C55E]' :
+                          comissao.status === 'pendente' ? 'bg-[#E879F9] bg-opacity-20 text-[#E879F9]' :
+                          'bg-[#6B7280] bg-opacity-20 text-[#6B7280]'
+                        }`}>
                           {getStatusText(comissao.status)}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Data da venda: {formatDate(comissao.data_venda)}
+                      <p className="text-[13px] text-[#6B7280]">
+                        {formatDate(comissao.data_venda)}
                       </p>
                       {comissao.observacoes && (
-                        <p className="text-sm text-gray-600 mt-1">{comissao.observacoes}</p>
+                        <p className="text-[13px] text-[#6B7280] mt-1">{comissao.observacoes}</p>
                       )}
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-gray-900">
+                    <p className="text-[18px] font-bold text-[#1A1A1A]">
                       {formatCurrency(comissao.valor)}
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-[12px] text-[#6B7280]">
                       {formatDate(comissao.created_at)}
                     </p>
                   </div>

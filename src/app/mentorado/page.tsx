@@ -54,12 +54,55 @@ export default function MentoradoLoginPage() {
     setLoading(true)
 
     try {
+      // Se a senha tem menos de 6 caracteres, fazer autenticação direta
+      if (password.length < 6) {
+        // Buscar mentorado diretamente no banco
+        const { data: mentoradoData, error: mentoradoError } = await supabase
+          .from('mentorados')
+          .select('*')
+          .eq('email', email)
+          .eq('status_login', 'ativo')
+          .single()
+
+        if (mentoradoError || !mentoradoData) {
+          alert('Email não encontrado ou conta inativa')
+          return
+        }
+
+        // Verificar se a senha bate (simulação básica)
+        if (mentoradoData.senha && mentoradoData.senha === password) {
+          setMentorado(mentoradoData)
+          setIsLoggedIn(true)
+          localStorage.setItem('mentorado', JSON.stringify(mentoradoData))
+          return
+        } else {
+          alert('Senha incorreta')
+          return
+        }
+      }
+
+      // Para senhas >= 6 caracteres, usar autenticação normal do Supabase
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: email,
         password: password,
       })
 
       if (authError) {
+        // Se falhou no Supabase, tentar autenticação direta também
+        const { data: mentoradoData, error: mentoradoError } = await supabase
+          .from('mentorados')
+          .select('*')
+          .eq('email', email)
+          .eq('status_login', 'ativo')
+          .single()
+
+        if (mentoradoData && mentoradoData.senha === password) {
+          setMentorado(mentoradoData)
+          setIsLoggedIn(true)
+          localStorage.setItem('mentorado', JSON.stringify(mentoradoData))
+          return
+        }
+
         alert('Email ou senha incorretos')
         return
       }
@@ -277,176 +320,171 @@ export default function MentoradoLoginPage() {
     : 0
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header de Boas-vindas */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">
-              Olá, {mentorado?.nome_completo?.split(' ')[0]}! 👋
-            </h1>
-            <p className="text-blue-100 mb-4">
-              Bem-vindo ao seu portal de aprendizado
-            </p>
-            <div className="flex items-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                <span>Última atividade: {formatLastActivity(dashboardStats.lastActivity)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4" />
-                <span>Turma: {mentorado?.turma || 'Principal'}</span>
-              </div>
-            </div>
-          </div>
-          <div className="text-right">
-            <Award className="w-16 h-16 text-blue-200 mb-2" />
-            <div className="text-sm text-blue-100">
-              {progressPercentage.toFixed(1)}% de progresso
-            </div>
-          </div>
-        </div>
+    <div className="p-8 space-y-8 bg-white">
+      {/* Título Principal */}
+      <div className="mb-8">
+        <h1 className="text-[32px] font-semibold text-[#1A1A1A] mb-2">
+          Olá, {mentorado?.nome_completo?.split(' ')[0]}!
+        </h1>
+        <p className="text-[15px] text-[#6B7280]">
+          Continue seu aprendizado de onde parou
+        </p>
       </div>
 
-      {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-blue-600" />
+      {/* Cards de Progresso Principais */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Card de Progresso Principal */}
+        <div className="bg-[#F3F3F5] rounded-[20px] p-6 relative overflow-hidden">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-[13px] text-[#6B7280] font-medium mb-1">Progresso Geral</p>
+              <div className="flex items-center">
+                <div className="w-16 h-16 rounded-full border-4 border-[#E879F9] flex items-center justify-center bg-white">
+                  <span className="text-[18px] font-bold text-[#1A1A1A]">
+                    {progressPercentage.toFixed(0)}%
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Módulos Disponíveis</p>
-              <p className="text-2xl font-bold text-gray-900">{dashboardStats.totalModules}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Aulas Concluídas</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="text-right">
+              <p className="text-[14px] font-medium text-[#1A1A1A]">
                 {dashboardStats.completedLessons}/{dashboardStats.totalLessons}
               </p>
+              <p className="text-[12px] text-[#6B7280]">aulas</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-yellow-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Comissões Pendentes</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(dashboardStats.comissoesPendentes)}
+        {/* Módulos Disponíveis */}
+        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[13px] text-[#6B7280] font-medium mb-2">Módulos</p>
+              <p className="text-[28px] font-bold text-[#1A1A1A]">
+                {dashboardStats.totalModules}
               </p>
             </div>
+            <div className="w-12 h-12 bg-[#1A1A1A] rounded-[12px] flex items-center justify-center">
+              <BookOpen className="w-6 h-6 text-white" />
+            </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Comissões</p>
-              <p className="text-2xl font-bold text-gray-900">
+        {/* Comissões */}
+        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[13px] text-[#6B7280] font-medium mb-2">Comissões</p>
+              <p className="text-[18px] font-bold text-[#1A1A1A]">
                 {formatCurrency(dashboardStats.totalComissoes)}
               </p>
+            </div>
+            <div className="w-12 h-12 bg-[#22C55E] rounded-[12px] flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-white" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Ações Rápidas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Progresso de Aprendizado */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Seu Progresso</h3>
-            <Link href="/mentorado/videos" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-              Ver todos →
-            </Link>
-          </div>
-
-          <div className="mb-4">
-            <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-              <span>Progresso geral</span>
-              <span>{progressPercentage.toFixed(1)}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
-              <div
-                className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center text-sm">
-              <Video className="w-4 h-4 text-blue-600 mr-2" />
-              <span className="text-gray-600">{dashboardStats.totalLessons} aulas disponíveis</span>
-            </div>
-            <div className="flex items-center text-sm">
-              <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
-              <span className="text-gray-600">{dashboardStats.completedLessons} aulas concluídas</span>
-            </div>
-          </div>
-
+      {/* Seção Principal - Vídeo Aula */}
+      <div className="bg-[#F3F3F5] rounded-[24px] p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-[18px] font-semibold text-[#1A1A1A]">
+            Continue assistindo
+          </h2>
           <Link
             href="/mentorado/videos"
-            className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+            className="text-[14px] text-[#6B7280] hover:text-[#1A1A1A] transition-colors"
           >
-            <Play className="w-4 h-4 mr-2" />
-            Continuar Estudando
+            Ver todos
           </Link>
         </div>
 
-        {/* Resumo Financeiro */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Resumo Financeiro</h3>
-            <Link href="/mentorado/comissoes" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-              Ver detalhes →
+        {/* Placeholder para Vídeo */}
+        <div className="bg-[#1A1A1A] rounded-[20px] aspect-video mb-6 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-4">
+              <Play className="w-8 h-8 text-white ml-1" />
+            </div>
+            <p className="text-white text-[15px]">
+              Próxima aula disponível
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-[16px] font-medium text-[#1A1A1A] mb-1">
+              Assistir próxima aula
+            </h3>
+            <p className="text-[14px] text-[#6B7280]">
+              Continue seu progresso de aprendizado
+            </p>
+          </div>
+          <Link
+            href="/mentorado/videos"
+            className="bg-[#1A1A1A] text-white px-6 py-3 rounded-full text-[14px] font-medium hover:bg-opacity-90 transition-all"
+          >
+            Assistir agora
+          </Link>
+        </div>
+      </div>
+
+      {/* Resumo de Atividade */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Última Atividade */}
+        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
+          <h3 className="text-[16px] font-medium text-[#1A1A1A] mb-4">
+            Última Atividade
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-[#22C55E] rounded-full mr-3"></div>
+              <span className="text-[14px] text-[#6B7280]">
+                {formatLastActivity(dashboardStats.lastActivity)}
+              </span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-[#E879F9] rounded-full mr-3"></div>
+              <span className="text-[14px] text-[#6B7280]">
+                Turma: {mentorado?.turma || 'Principal'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Ações Rápidas */}
+        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
+          <h3 className="text-[16px] font-medium text-[#1A1A1A] mb-4">
+            Ações Rápidas
+          </h3>
+          <div className="space-y-3">
+            <Link
+              href="/mentorado/comissoes"
+              className="flex items-center justify-between p-3 bg-white rounded-[12px] hover:bg-opacity-80 transition-colors group"
+            >
+              <div className="flex items-center">
+                <DollarSign className="w-5 h-5 text-[#6B7280] mr-3" />
+                <span className="text-[14px] text-[#1A1A1A]">Ver Comissões</span>
+              </div>
+              <span className="text-[12px] text-[#6B7280] group-hover:text-[#1A1A1A] transition-colors">
+                →
+              </span>
+            </Link>
+
+            <Link
+              href="/mentorado/videos"
+              className="flex items-center justify-between p-3 bg-white rounded-[12px] hover:bg-opacity-80 transition-colors group"
+            >
+              <div className="flex items-center">
+                <Video className="w-5 h-5 text-[#6B7280] mr-3" />
+                <span className="text-[14px] text-[#1A1A1A]">Minhas Aulas</span>
+              </div>
+              <span className="text-[12px] text-[#6B7280] group-hover:text-[#1A1A1A] transition-colors">
+                →
+              </span>
             </Link>
           </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-              <div className="flex items-center">
-                <DollarSign className="w-5 h-5 text-green-600 mr-2" />
-                <span className="font-medium text-gray-900">Total Acumulado</span>
-              </div>
-              <span className="font-bold text-green-600">
-                {formatCurrency(dashboardStats.totalComissoes)}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-              <div className="flex items-center">
-                <Clock className="w-5 h-5 text-yellow-600 mr-2" />
-                <span className="font-medium text-gray-900">Aguardando Pagamento</span>
-              </div>
-              <span className="font-bold text-yellow-600">
-                {formatCurrency(dashboardStats.comissoesPendentes)}
-              </span>
-            </div>
-          </div>
-
-          <Link
-            href="/mentorado/comissoes"
-            className="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
-          >
-            <DollarSign className="w-4 h-4 mr-2" />
-            Ver Comissões
-          </Link>
         </div>
       </div>
     </div>
