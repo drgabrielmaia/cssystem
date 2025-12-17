@@ -537,8 +537,7 @@ export default function FormPage() {
       await supabase
         .from('form_submissions')
         .update({
-          submission_data: formData,
-          completed_at: new Date().toISOString()
+          submission_data: formData
         })
         .eq('lead_id', currentLeadId)
         .eq('template_slug', slug)
