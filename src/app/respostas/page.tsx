@@ -62,6 +62,16 @@ export default function RespostasPage() {
         `)
         .order('data_envio', { ascending: false })
 
+      // NOVO: Carregar respostas da tabela form_submissions (formulários novos)
+      const { data: formSubmissions } = await supabase
+        .from('form_submissions')
+        .select(`
+          *,
+          form_templates!inner(name, form_type),
+          mentorados(id, nome_completo, email, turma)
+        `)
+        .order('created_at', { ascending: false })
+
       if (respostasGenericas) {
         const formatadas = respostasGenericas.map(resposta => ({
           ...resposta,
@@ -71,6 +81,65 @@ export default function RespostasPage() {
           analysis: analyzeCompleteResponse(resposta)
         }))
         todasRespostas.push(...formatadas)
+      }
+
+      // Processar form_submissions
+      if (formSubmissions) {
+        for (const submission of formSubmissions) {
+          try {
+            let mentoradoInfo = null
+
+            // Primeiro, verificar se já tem mentorado_id direto (formulários NPS/Survey)
+            if (submission.mentorado_id && submission.mentorados) {
+              mentoradoInfo = {
+                id: submission.mentorados.id,
+                nome_completo: submission.mentorados.nome_completo,
+                email: submission.mentorados.email,
+                turma: submission.mentorados.turma
+              }
+            }
+            // Senão, buscar através do lead_id (formulários de lead)
+            else if (submission.lead_id) {
+              const { data: lead } = await supabase
+                .from('leads')
+                .select(`
+                  id,
+                  mentorados!inner(id, nome_completo, email, turma)
+                `)
+                .eq('id', submission.lead_id)
+                .single()
+
+              if (lead?.mentorados) {
+                mentoradoInfo = {
+                  id: lead.mentorados.id,
+                  nome_completo: lead.mentorados.nome_completo,
+                  email: lead.mentorados.email,
+                  turma: lead.mentorados.turma
+                }
+              }
+            }
+
+            if (mentoradoInfo) {
+              const formatado = {
+                id: submission.id,
+                mentorado_id: mentoradoInfo.id,
+                formulario: submission.template_slug || submission.form_templates?.name || 'formulario_personalizado',
+                resposta_json: submission.submission_data,
+                data_envio: submission.created_at,
+                mentorado_nome: mentoradoInfo.nome_completo,
+                mentorado_email: mentoradoInfo.email,
+                mentorado_turma: mentoradoInfo.turma || 'Sem turma',
+                analysis: analyzeCompleteResponse({
+                  formulario: submission.template_slug || 'custom',
+                  resposta_json: submission.submission_data
+                })
+              }
+              todasRespostas.push(formatado)
+            }
+          } catch (error) {
+            console.warn('Erro ao processar submission:', submission.id, error)
+          }
+        }
       }
 
       // Carregar respostas NPS

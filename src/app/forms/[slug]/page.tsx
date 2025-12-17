@@ -254,10 +254,29 @@ export default function FormPage() {
         template_id: template?.id,
         template_slug: slug,
         lead_id: lead?.id || null,
+        mentorado_id: null, // Será definido se for formulário NPS/survey
         source_url: sourceUrl,
         submission_data: formData,
         ip_address: null, // Pode ser capturado pelo backend se necessário
         user_agent: navigator.userAgent
+      }
+
+      // Se for formulário NPS/Survey, tentar identificar mentorado pelo email
+      if (template?.form_type !== 'lead' && formData.email) {
+        try {
+          const { data: mentorado } = await supabase
+            .from('mentorados')
+            .select('id')
+            .eq('email', formData.email)
+            .eq('excluido', false)
+            .single()
+
+          if (mentorado) {
+            submissionData.mentorado_id = mentorado.id
+          }
+        } catch (error) {
+          console.log('Mentorado não encontrado pelo email:', formData.email)
+        }
       }
 
       const { error } = await supabase
