@@ -344,9 +344,37 @@ export default function InstagramAutomationPage() {
     }
   }
 
-  // Carregar logs na inicialização
+  // Carregar mensagens do Instagram
+  const loadInstagramMessages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('instagram_messages')
+        .select('*')
+        .eq('is_incoming', true)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (error) throw error
+
+      // Mapear para o formato esperado pela interface
+      const formattedMessages = (data || []).map((msg: any) => ({
+        id: msg.id,
+        from_username: msg.sender_id, // Usaremos o ID por enquanto
+        message: msg.content || '(sem texto)',
+        timestamp: new Date(msg.created_at),
+        replied: msg.automation_triggered || false
+      }))
+
+      setMessages(formattedMessages)
+    } catch (error) {
+      console.error('Erro ao carregar mensagens:', error)
+    }
+  }
+
+  // Carregar logs e mensagens na inicialização
   useEffect(() => {
     loadAutomationLogs()
+    loadInstagramMessages()
   }, [])
 
   if (loading) {
@@ -805,7 +833,18 @@ export default function InstagramAutomationPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {messages.map((message) => (
+                  {messages.length === 0 ? (
+                    <div className="text-center py-8">
+                      <MessageCircle className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                      <p className="text-gray-400">
+                        Nenhuma mensagem recebida ainda
+                      </p>
+                      <p className="text-gray-500 text-sm">
+                        As mensagens aparecerão aqui quando alguém enviar um DM
+                      </p>
+                    </div>
+                  ) : (
+                    messages.map((message) => (
                     <div key={message.id} className="p-4 bg-gray-700 rounded-lg border border-gray-600">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -828,7 +867,8 @@ export default function InstagramAutomationPage() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
