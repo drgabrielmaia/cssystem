@@ -30,7 +30,8 @@ import {
   Activity,
   Clock,
   UserCheck,
-  Target
+  Target,
+  PlayCircle
 } from 'lucide-react'
 
 const navigation = [
@@ -44,6 +45,7 @@ const navigation = [
   { name: 'Performance', href: '/social-seller', icon: TrendingUp, description: 'Métricas de vendas' },
   { name: 'Check-ins', href: '/checkins', icon: BarChart3, description: 'Acompanhamento' },
   { name: 'Onboarding', href: '/onboarding', icon: Brain, description: 'Mapa mental de metas' },
+  { name: 'Vídeos Admin', href: '/admin/videos', icon: PlayCircle, description: 'Gerenciar vídeos' },
   { name: 'Form Builder', href: '/form-builder', icon: Wrench, description: 'Criar formulários' },
   { name: 'Respostas Forms', href: '/form-responses', icon: Eye, description: 'Ver respostas' },
   { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle, description: 'Mensagens' },
