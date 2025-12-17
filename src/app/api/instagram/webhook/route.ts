@@ -45,19 +45,53 @@ export async function POST(request: NextRequest) {
     for (const entry of body.entry || []) {
       console.log('🔄 [Instagram Webhook] Processando entrada:', entry.id)
 
-      // Processar comentários
+      // Processar mudanças (comentários, menções, etc.)
       if (entry.changes) {
         for (const change of entry.changes) {
-          if (change.field === 'comments') {
-            await processCommentEvent(change.value)
+          console.log(`🔄 [Instagram Webhook] Processando mudança: ${change.field}`)
+
+          switch (change.field) {
+            case 'comments':
+              await processCommentEvent(change.value)
+              break
+            case 'live_comments':
+              await processLiveCommentEvent(change.value)
+              break
+            case 'mentions':
+              await processMentionEvent(change.value)
+              break
+            case 'story_insights':
+              await processStoryInsightEvent(change.value)
+              break
+            default:
+              console.log(`ℹ️ [Instagram Webhook] Evento não processado: ${change.field}`)
           }
         }
       }
 
-      // Processar mensagens
+      // Processar mensagens diretas
       if (entry.messaging) {
         for (const messaging of entry.messaging) {
-          await processMessageEvent(messaging)
+          console.log('📨 [Instagram Webhook] Processando evento de messaging')
+
+          // Diferentes tipos de eventos de messaging
+          if (messaging.message) {
+            await processMessageEvent(messaging)
+          } else if (messaging.message_edit) {
+            await processMessageEditEvent(messaging)
+          } else if (messaging.message_reactions) {
+            await processMessageReactionEvent(messaging)
+          } else if (messaging.messaging_handover) {
+            await processHandoverEvent(messaging)
+          } else if (messaging.messaging_postbacks) {
+            await processPostbackEvent(messaging)
+          } else if (messaging.messaging_referral) {
+            await processReferralEvent(messaging)
+          } else if (messaging.messaging_seen) {
+            await processSeenEvent(messaging)
+          } else if (messaging.standby) {
+            await processStandbyEvent(messaging)
+          }
         }
       }
     }
@@ -261,5 +295,179 @@ async function processMessageEvent(messagingData: any) {
 
   } catch (error) {
     console.error('❌ [Instagram Webhook] Erro ao processar mensagem:', error)
+  }
+}
+
+// Processar comentários em live
+async function processLiveCommentEvent(commentData: any) {
+  try {
+    console.log('🔴 [Instagram Webhook] Processando comentário ao vivo:', commentData)
+    // Processar da mesma forma que comentários normais
+    await processCommentEvent(commentData)
+  } catch (error) {
+    console.error('❌ [Instagram Webhook] Erro ao processar comentário ao vivo:', error)
+  }
+}
+
+// Processar menções em stories
+async function processMentionEvent(mentionData: any) {
+  try {
+    console.log('🏷️ [Instagram Webhook] Processando menção:', mentionData)
+
+    // Buscar automações para menções
+    const { data: automations, error } = await supabase
+      .from('instagram_automations')
+      .select('*')
+      .eq('trigger_type', 'story_mention')
+      .eq('is_active', true)
+
+    if (error) {
+      console.error('❌ [Instagram Webhook] Erro ao buscar automações de menção:', error)
+      return
+    }
+
+    // Se tiver automação para menções, responder via DM
+    for (const automation of automations || []) {
+      try {
+        await instagramAPI.sendDirectMessage(mentionData.from?.id, automation.response_message)
+
+        // Incrementar contador
+        await supabase
+          .from('instagram_automations')
+          .update({
+            responses_sent: automation.responses_sent + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', automation.id)
+
+        console.log('✅ [Instagram Webhook] Resposta automática enviada para menção')
+        break
+      } catch (sendError) {
+        console.error('❌ [Instagram Webhook] Erro ao responder menção:', sendError)
+      }
+    }
+  } catch (error) {
+    console.error('❌ [Instagram Webhook] Erro ao processar menção:', error)
+  }
+}
+
+// Processar insights de stories
+async function processStoryInsightEvent(insightData: any) {
+  try {
+    console.log('📊 [Instagram Webhook] Processando insight de story:', insightData)
+    // Salvar insights para análise posterior
+    // Implementar conforme necessário
+  } catch (error) {
+    console.error('❌ [Instagram Webhook] Erro ao processar insight:', error)
+  }
+}
+
+// Processar edição de mensagens
+async function processMessageEditEvent(messagingData: any) {
+  try {
+    console.log('✏️ [Instagram Webhook] Processando edição de mensagem:', messagingData)
+
+    const messageEdit = messagingData.message_edit
+    const messageId = messageEdit?.mid
+
+    if (messageId) {
+      // Atualizar mensagem no banco
+      await supabase
+        .from('instagram_messages')
+        .update({
+          content: messageEdit?.text || '',
+          updated_at: new Date().toISOString()
+        })
+        .eq('message_id', messageId)
+    }
+  } catch (error) {
+    console.error('❌ [Instagram Webhook] Erro ao processar edição:', error)
+  }
+}
+
+// Processar reações em mensagens
+async function processMessageReactionEvent(messagingData: any) {
+  try {
+    console.log('😍 [Instagram Webhook] Processando reação:', messagingData)
+
+    const reaction = messagingData.message_reactions
+    console.log('Reação recebida:', reaction?.reaction, 'na mensagem:', reaction?.mid)
+
+    // Implementar lógica conforme necessário
+  } catch (error) {
+    console.error('❌ [Instagram Webhook] Erro ao processar reação:', error)
+  }
+}
+
+// Processar handover de conversa
+async function processHandoverEvent(messagingData: any) {
+  try {
+    console.log('🤝 [Instagram Webhook] Processando handover:', messagingData)
+    // Implementar lógica de transferência de conversa
+  } catch (error) {
+    console.error('❌ [Instagram Webhook] Erro ao processar handover:', error)
+  }
+}
+
+// Processar postbacks (botões)
+async function processPostbackEvent(messagingData: any) {
+  try {
+    console.log('🔘 [Instagram Webhook] Processando postback:', messagingData)
+
+    const postback = messagingData.messaging_postbacks
+    const payload = postback?.payload
+
+    console.log('Postback recebido:', payload)
+
+    // Implementar lógica de botões/ações
+  } catch (error) {
+    console.error('❌ [Instagram Webhook] Erro ao processar postback:', error)
+  }
+}
+
+// Processar referrals
+async function processReferralEvent(messagingData: any) {
+  try {
+    console.log('🔗 [Instagram Webhook] Processando referral:', messagingData)
+
+    const referral = messagingData.messaging_referral
+    console.log('Referral source:', referral?.source)
+
+    // Implementar lógica de referência
+  } catch (error) {
+    console.error('❌ [Instagram Webhook] Erro ao processar referral:', error)
+  }
+}
+
+// Processar mensagens lidas
+async function processSeenEvent(messagingData: any) {
+  try {
+    console.log('👀 [Instagram Webhook] Mensagem visualizada:', messagingData)
+
+    const seen = messagingData.messaging_seen
+    const messageId = seen?.mid
+
+    if (messageId) {
+      // Marcar como lida no banco
+      await supabase
+        .from('instagram_messages')
+        .update({
+          is_read: true,
+          read_at: new Date().toISOString()
+        })
+        .eq('message_id', messageId)
+    }
+  } catch (error) {
+    console.error('❌ [Instagram Webhook] Erro ao processar visualização:', error)
+  }
+}
+
+// Processar standby
+async function processStandbyEvent(messagingData: any) {
+  try {
+    console.log('⏸️ [Instagram Webhook] Processando standby:', messagingData)
+    // Implementar lógica de standby conforme necessário
+  } catch (error) {
+    console.error('❌ [Instagram Webhook] Erro ao processar standby:', error)
   }
 }
