@@ -17,7 +17,11 @@ import {
   Edit,
   Trash2,
   Eye,
-  Clock
+  Clock,
+  ChevronDown,
+  ChevronRight,
+  X,
+  Save
 } from 'lucide-react'
 
 interface VideoModule {
@@ -70,6 +74,9 @@ export default function AdminVideosPage() {
   const [showLessonModal, setShowLessonModal] = useState(false)
   const [selectedModule, setSelectedModule] = useState<VideoModule | null>(null)
   const [selectedLesson, setSelectedLesson] = useState<VideoLesson | null>(null)
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set())
+  const [moduleForm, setModuleForm] = useState({ title: '', description: '', order_index: 1, is_active: true })
+  const [lessonForm, setLessonForm] = useState({ title: '', description: '', panda_video_embed_url: '', duration_minutes: 0, order_index: 1, module_id: '', is_active: true })
 
   useEffect(() => {
     loadData()
@@ -172,23 +179,19 @@ export default function AdminVideosPage() {
   }
 
   const handleNewModule = () => {
-    setSelectedModule(null)
-    setShowModuleModal(true)
+    openModuleModal()
   }
 
   const handleNewLesson = () => {
-    setSelectedLesson(null)
-    setShowLessonModal(true)
+    openLessonModal()
   }
 
   const handleEditModule = (module: VideoModule) => {
-    setSelectedModule(module)
-    setShowModuleModal(true)
+    openModuleModal(module)
   }
 
   const handleEditLesson = (lesson: VideoLesson) => {
-    setSelectedLesson(lesson)
-    setShowLessonModal(true)
+    openLessonModal(lesson)
   }
 
   const handleDeleteModule = async (module: VideoModule) => {
@@ -239,13 +242,144 @@ export default function AdminVideosPage() {
     }
   }
 
+  const toggleModule = (moduleId: string) => {
+    const newExpanded = new Set(expandedModules)
+    if (newExpanded.has(moduleId)) {
+      newExpanded.delete(moduleId)
+    } else {
+      newExpanded.add(moduleId)
+    }
+    setExpandedModules(newExpanded)
+  }
+
+  const handleSaveModule = async () => {
+    try {
+      setIsLoadingData(true)
+
+      if (selectedModule) {
+        // Editando módulo existente
+        const { error } = await supabase
+          .from('video_modules')
+          .update(moduleForm)
+          .eq('id', selectedModule.id)
+
+        if (error) throw error
+        alert('Módulo atualizado com sucesso!')
+      } else {
+        // Criando novo módulo
+        const { error } = await supabase
+          .from('video_modules')
+          .insert([moduleForm])
+
+        if (error) throw error
+        alert('Módulo criado com sucesso!')
+      }
+
+      setShowModuleModal(false)
+      loadData()
+    } catch (error) {
+      console.error('Erro ao salvar módulo:', error)
+      alert('Erro ao salvar módulo')
+    } finally {
+      setIsLoadingData(false)
+    }
+  }
+
+  const handleSaveLesson = async () => {
+    try {
+      setIsLoadingData(true)
+
+      if (selectedLesson) {
+        // Editando aula existente
+        const { error } = await supabase
+          .from('video_lessons')
+          .update(lessonForm)
+          .eq('id', selectedLesson.id)
+
+        if (error) throw error
+        alert('Aula atualizada com sucesso!')
+      } else {
+        // Criando nova aula
+        const { error } = await supabase
+          .from('video_lessons')
+          .insert([lessonForm])
+
+        if (error) throw error
+        alert('Aula criada com sucesso!')
+      }
+
+      setShowLessonModal(false)
+      loadData()
+    } catch (error) {
+      console.error('Erro ao salvar aula:', error)
+      alert('Erro ao salvar aula')
+    } finally {
+      setIsLoadingData(false)
+    }
+  }
+
+  const openModuleModal = (module?: VideoModule) => {
+    if (module) {
+      setSelectedModule(module)
+      setModuleForm({
+        title: module.title,
+        description: module.description || '',
+        order_index: module.order_index,
+        is_active: module.is_active
+      })
+    } else {
+      setSelectedModule(null)
+      setModuleForm({ title: '', description: '', order_index: modules.length + 1, is_active: true })
+    }
+    setShowModuleModal(true)
+  }
+
+  const openLessonModal = (lesson?: VideoLesson) => {
+    if (lesson) {
+      setSelectedLesson(lesson)
+      setLessonForm({
+        title: lesson.title,
+        description: lesson.description || '',
+        panda_video_embed_url: lesson.panda_video_embed_url,
+        duration_minutes: lesson.duration_minutes,
+        order_index: lesson.order_index,
+        module_id: lesson.module_id,
+        is_active: lesson.is_active
+      })
+    } else {
+      setSelectedLesson(null)
+      setLessonForm({
+        title: '',
+        description: '',
+        panda_video_embed_url: '',
+        duration_minutes: 0,
+        order_index: lessons.length + 1,
+        module_id: modules[0]?.id || '',
+        is_active: true
+      })
+    }
+    setShowLessonModal(true)
+  }
+
   const moduleColumns = [
     {
       header: 'Módulo',
       render: (module: VideoModule) => (
-        <div>
-          <p className="font-medium text-[#0F172A]">{module.title}</p>
-          <p className="text-sm text-[#94A3B8]">{module.description}</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => toggleModule(module.id)}
+            className="flex items-center justify-center w-6 h-6 rounded bg-[#F1F5F9] hover:bg-[#E2E8F0] transition-colors"
+          >
+            {expandedModules.has(module.id) ? (
+              <ChevronDown className="w-4 h-4 text-[#475569]" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-[#475569]" />
+            )}
+          </button>
+          <div>
+            <p className="font-medium text-[#0F172A]">{module.title}</p>
+            <p className="text-sm text-[#64748B]">{module.description}</p>
+          </div>
         </div>
       )
     },
@@ -259,7 +393,7 @@ export default function AdminVideosPage() {
       header: 'Aulas',
       render: (module: VideoModule) => (
         <div className="flex items-center gap-2">
-          <Play className="w-4 h-4 text-blue-500" />
+          <Play className="w-4 h-4 text-[#059669]" />
           <span className="font-medium">{module.lessons_count || 0}</span>
         </div>
       )
@@ -327,7 +461,7 @@ export default function AdminVideosPage() {
       header: 'Duração',
       render: (lesson: VideoLesson) => (
         <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-orange-500" />
+          <Clock className="w-4 h-4 text-[#F59E0B]" />
           <span className="text-sm">{lesson.duration_minutes}min</span>
         </div>
       )
@@ -355,7 +489,7 @@ export default function AdminVideosPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => window.open(lesson.panda_video_embed_url, '_blank')}
-            className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+            className="p-2 text-[#059669] hover:bg-[#ECFDF5] rounded-lg transition-colors"
             title="Visualizar vídeo"
           >
             <Eye className="w-4 h-4" />
@@ -487,18 +621,347 @@ export default function AdminVideosPage() {
       </div>
 
       {/* Tabela */}
-      {activeTab === 'modules' ? (
-        <DataTable
-          columns={moduleColumns}
-          data={filteredModules}
-          title="Módulos de Vídeo"
-        />
-      ) : (
-        <DataTable
-          columns={lessonColumns}
-          data={filteredLessons}
-          title="Aulas de Vídeo"
-        />
+      <div className="space-y-4">
+        {activeTab === 'modules' ? (
+          <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#E2E8F0]">
+              <h3 className="text-lg font-semibold text-[#0F172A]">Módulos de Vídeo</h3>
+            </div>
+            <div className="p-6">
+              {filteredModules.length === 0 ? (
+                <div className="text-center py-8 text-[#64748B]">
+                  Nenhum módulo encontrado
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredModules.map((module) => {
+                    const moduleLessons = lessons.filter(l => l.module_id === module.id)
+                    const isExpanded = expandedModules.has(module.id)
+
+                    return (
+                      <div key={module.id} className="border border-[#E2E8F0] rounded-xl overflow-hidden">
+                        <div className="p-4 bg-[#F8FAFC]">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => toggleModule(module.id)}
+                                className="flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-[#E2E8F0] hover:bg-[#F1F5F9] transition-colors"
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="w-4 h-4 text-[#475569]" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4 text-[#475569]" />
+                                )}
+                              </button>
+                              <div>
+                                <h4 className="font-semibold text-[#0F172A]">{module.title}</h4>
+                                <p className="text-sm text-[#64748B]">{module.description}</p>
+                                <div className="flex items-center gap-4 mt-2">
+                                  <span className="text-xs text-[#64748B]">Ordem: {module.order_index}</span>
+                                  <div className="flex items-center gap-1">
+                                    <Play className="w-3 h-3 text-[#059669]" />
+                                    <span className="text-xs text-[#64748B]">{module.lessons_count} aulas</span>
+                                  </div>
+                                  <StatusBadge
+                                    status={module.is_active ? 'confirmed' : 'cancelled'}
+                                    label={module.is_active ? 'Ativo' : 'Inativo'}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleEditModule(module)}
+                                className="p-2 text-[#475569] hover:bg-white rounded-lg transition-colors"
+                                title="Editar módulo"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteModule(module)}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Excluir módulo"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="border-t border-[#E2E8F0]">
+                            {moduleLessons.length === 0 ? (
+                              <div className="p-4 text-center text-[#64748B]">
+                                Nenhuma aula neste módulo
+                              </div>
+                            ) : (
+                              <div className="divide-y divide-[#E2E8F0]">
+                                {moduleLessons.map((lesson) => (
+                                  <div key={lesson.id} className="p-4 flex items-center justify-between hover:bg-[#F8FAFC]">
+                                    <div className="flex-1">
+                                      <h5 className="font-medium text-[#0F172A]">{lesson.title}</h5>
+                                      <p className="text-sm text-[#64748B] mt-1">{lesson.description}</p>
+                                      <div className="flex items-center gap-4 mt-2">
+                                        <span className="text-xs text-[#64748B]">Ordem: {lesson.order_index}</span>
+                                        <div className="flex items-center gap-1">
+                                          <Clock className="w-3 h-3 text-[#F59E0B]" />
+                                          <span className="text-xs text-[#64748B]">{lesson.duration_minutes}min</span>
+                                        </div>
+                                        <StatusBadge
+                                          status={lesson.is_active ? 'confirmed' : 'cancelled'}
+                                          label={lesson.is_active ? 'Ativo' : 'Inativo'}
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 ml-4">
+                                      <button
+                                        onClick={() => window.open(lesson.panda_video_embed_url, '_blank')}
+                                        className="p-2 text-[#059669] hover:bg-[#ECFDF5] rounded-lg transition-colors"
+                                        title="Visualizar vídeo"
+                                      >
+                                        <Eye className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleEditLesson(lesson)}
+                                        className="p-2 text-[#475569] hover:bg-[#F1F5F9] rounded-lg transition-colors"
+                                        title="Editar aula"
+                                      >
+                                        <Edit className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteLesson(lesson)}
+                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="Excluir aula"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <DataTable
+            columns={lessonColumns}
+            data={filteredLessons}
+            title="Aulas de Vídeo"
+          />
+        )}
+      </div>
+
+      {/* Modal para Módulos */}
+      {showModuleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-[#0F172A]">
+                {selectedModule ? 'Editar Módulo' : 'Novo Módulo'}
+              </h3>
+              <button
+                onClick={() => setShowModuleModal(false)}
+                className="p-2 text-[#64748B] hover:bg-[#F1F5F9] rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#374151] mb-2">Título</label>
+                <input
+                  type="text"
+                  value={moduleForm.title}
+                  onChange={(e) => setModuleForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669]"
+                  placeholder="Nome do módulo"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#374151] mb-2">Descrição</label>
+                <textarea
+                  value={moduleForm.description}
+                  onChange={(e) => setModuleForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669]"
+                  placeholder="Descrição do módulo"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-2">Ordem</label>
+                  <input
+                    type="number"
+                    value={moduleForm.order_index}
+                    onChange={(e) => setModuleForm(prev => ({ ...prev, order_index: parseInt(e.target.value) || 1 }))}
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669]"
+                    min="1"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-2">Status</label>
+                  <select
+                    value={moduleForm.is_active.toString()}
+                    onChange={(e) => setModuleForm(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669]"
+                  >
+                    <option value="true">Ativo</option>
+                    <option value="false">Inativo</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowModuleModal(false)}
+                className="flex-1 px-4 py-2 border border-[#E2E8F0] text-[#64748B] rounded-lg hover:bg-[#F8FAFC] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveModule}
+                disabled={isLoadingData || !moduleForm.title.trim()}
+                className="flex-1 px-4 py-2 bg-[#059669] text-white rounded-lg hover:bg-[#047857] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                {isLoadingData ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Aulas */}
+      {showLessonModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-[#0F172A]">
+                {selectedLesson ? 'Editar Aula' : 'Nova Aula'}
+              </h3>
+              <button
+                onClick={() => setShowLessonModal(false)}
+                className="p-2 text-[#64748B] hover:bg-[#F1F5F9] rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#374151] mb-2">Módulo</label>
+                <select
+                  value={lessonForm.module_id}
+                  onChange={(e) => setLessonForm(prev => ({ ...prev, module_id: e.target.value }))}
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669]"
+                >
+                  <option value="">Selecione um módulo</option>
+                  {modules.map(module => (
+                    <option key={module.id} value={module.id}>{module.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#374151] mb-2">Título</label>
+                <input
+                  type="text"
+                  value={lessonForm.title}
+                  onChange={(e) => setLessonForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669]"
+                  placeholder="Nome da aula"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#374151] mb-2">Descrição</label>
+                <textarea
+                  value={lessonForm.description}
+                  onChange={(e) => setLessonForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669]"
+                  placeholder="Descrição da aula"
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#374151] mb-2">URL do Vídeo (Panda)</label>
+                <input
+                  type="url"
+                  value={lessonForm.panda_video_embed_url}
+                  onChange={(e) => setLessonForm(prev => ({ ...prev, panda_video_embed_url: e.target.value }))}
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669]"
+                  placeholder="https://player.pandavideo.com.br/embed/?v=..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-2">Duração (min)</label>
+                  <input
+                    type="number"
+                    value={lessonForm.duration_minutes}
+                    onChange={(e) => setLessonForm(prev => ({ ...prev, duration_minutes: parseInt(e.target.value) || 0 }))}
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669]"
+                    min="0"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-2">Ordem</label>
+                  <input
+                    type="number"
+                    value={lessonForm.order_index}
+                    onChange={(e) => setLessonForm(prev => ({ ...prev, order_index: parseInt(e.target.value) || 1 }))}
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669]"
+                    min="1"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#374151] mb-2">Status</label>
+                <select
+                  value={lessonForm.is_active.toString()}
+                  onChange={(e) => setLessonForm(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669]"
+                >
+                  <option value="true">Ativo</option>
+                  <option value="false">Inativo</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowLessonModal(false)}
+                className="flex-1 px-4 py-2 border border-[#E2E8F0] text-[#64748B] rounded-lg hover:bg-[#F8FAFC] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveLesson}
+                disabled={isLoadingData || !lessonForm.title.trim() || !lessonForm.module_id}
+                className="flex-1 px-4 py-2 bg-[#059669] text-white rounded-lg hover:bg-[#047857] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                {isLoadingData ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </PageLayout>
   )
