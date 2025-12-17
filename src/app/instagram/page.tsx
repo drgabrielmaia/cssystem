@@ -24,7 +24,7 @@ import {
   Clock,
   Filter,
   MessageSquare,
-  AutoFix,
+  Wand2,
   PlayCircle,
   PauseCircle,
   Edit3,
@@ -151,16 +151,7 @@ export default function InstagramAutomationPage() {
   const loadAutomations = async () => {
     try {
       const data = await automationService.getAll()
-      setAutomationRules(data.map(item => ({
-        id: item.id,
-        name: item.name,
-        trigger: item.trigger_type,
-        keywords: item.keywords || [],
-        response: item.response_message,
-        isActive: item.is_active,
-        created: new Date(item.created_at),
-        responses_sent: item.responses_sent
-      })))
+      setAutomationRules(data)
     } catch (error) {
       console.error('Error loading automations:', error)
       toast.error('Erro ao carregar automações')
@@ -170,16 +161,7 @@ export default function InstagramAutomationPage() {
   const loadFunnels = async () => {
     try {
       const data = await funnelService.getAll()
-      setFunnels(data.map(item => ({
-        id: item.id,
-        name: item.name,
-        description: item.description || '',
-        steps: [],
-        isActive: item.is_active,
-        leads: item.leads_count,
-        conversions: item.conversions_count,
-        created: new Date(item.created_at)
-      })))
+      setFunnels(data)
     } catch (error) {
       console.error('Error loading funnels:', error)
       toast.error('Erro ao carregar funis')
@@ -201,18 +183,7 @@ export default function InstagramAutomationPage() {
 
       const created = await automationService.create(automationData)
 
-      const rule: AutomationRule = {
-        id: created.id,
-        name: created.name,
-        trigger: created.trigger_type,
-        keywords: created.keywords || [],
-        response: created.response_message,
-        isActive: created.is_active,
-        created: new Date(created.created_at),
-        responses_sent: created.responses_sent
-      }
-
-      setAutomationRules(prev => [rule, ...prev])
+      setAutomationRules(prev => [created, ...prev])
       setNewRule({ name: '', trigger: 'comment_keyword', keywords: '', response: '' })
       toast.success('Regra de automação criada!')
     } catch (error) {
@@ -250,18 +221,7 @@ export default function InstagramAutomationPage() {
 
       const created = await funnelService.create(funnelData)
 
-      const funnel: Funnel = {
-        id: created.id,
-        name: created.name,
-        description: created.description || '',
-        steps: [],
-        isActive: created.is_active,
-        leads: created.leads_count,
-        conversions: created.conversions_count,
-        created: new Date(created.created_at)
-      }
-
-      setFunnels(prev => [funnel, ...prev])
+      setFunnels(prev => [created, ...prev])
       setNewFunnel({ name: '', description: '' })
       toast.success('Funil criado! Configure os passos para ativá-lo.')
     } catch (error) {
@@ -276,7 +236,7 @@ export default function InstagramAutomationPage() {
       if (!current) return
 
       const updated = await funnelService.update(funnelId, {
-        is_active: !current.isActive
+        is_active: !current.is_active
       })
 
       setFunnels(prev =>
@@ -332,7 +292,7 @@ export default function InstagramAutomationPage() {
                 <div>
                   <p className="text-sm text-gray-400">Automações Ativas</p>
                   <p className="text-2xl font-bold text-[#D4AF37]">
-                    {automationRules.filter(r => r.isActive).length}
+                    {automationRules.filter(r => r.is_active).length}
                   </p>
                 </div>
                 <Bot className="h-8 w-8 text-[#D4AF37]" />
@@ -360,7 +320,7 @@ export default function InstagramAutomationPage() {
                 <div>
                   <p className="text-sm text-gray-400">Funis Ativos</p>
                   <p className="text-2xl font-bold text-[#D4AF37]">
-                    {funnels.filter(f => f.isActive).length}
+                    {funnels.filter(f => f.is_active).length}
                   </p>
                 </div>
                 <Workflow className="h-8 w-8 text-[#D4AF37]" />
@@ -501,9 +461,9 @@ export default function InstagramAutomationPage() {
                               <h3 className="text-white font-semibold">{rule.name}</h3>
                               <p className="text-sm text-gray-400 mt-1">
                                 Gatilho: {
-                                  rule.trigger === 'comment_keyword' ? 'Comentário com palavra-chave' :
-                                  rule.trigger === 'dm_keyword' ? 'DM com palavra-chave' :
-                                  rule.trigger === 'new_follower' ? 'Novo seguidor' : 'Menção em story'
+                                  rule.trigger_type === 'comment_keyword' ? 'Comentário com palavra-chave' :
+                                  rule.trigger_type === 'dm_keyword' ? 'DM com palavra-chave' :
+                                  rule.trigger_type === 'new_follower' ? 'Novo seguidor' : 'Menção em story'
                                 }
                               </p>
                               {rule.keywords.length > 0 && (
@@ -517,8 +477,8 @@ export default function InstagramAutomationPage() {
                               )}
                             </div>
                             <div className="flex items-center space-x-2">
-                              <Badge className={rule.isActive ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}>
-                                {rule.isActive ? 'Ativa' : 'Inativa'}
+                              <Badge className={rule.is_active ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}>
+                                {rule.is_active ? 'Ativa' : 'Inativa'}
                               </Badge>
                               <Button
                                 size="sm"
@@ -526,18 +486,18 @@ export default function InstagramAutomationPage() {
                                 onClick={() => toggleRuleStatus(rule.id)}
                                 className="text-gray-400 hover:text-white"
                               >
-                                {rule.isActive ? <PauseCircle className="h-4 w-4" /> : <PlayCircle className="h-4 w-4" />}
+                                {rule.is_active ? <PauseCircle className="h-4 w-4" /> : <PlayCircle className="h-4 w-4" />}
                               </Button>
                             </div>
                           </div>
 
                           <div className="bg-gray-800 p-3 rounded border-l-4 border-[#D4AF37] mb-3">
-                            <p className="text-gray-300 text-sm">{rule.response}</p>
+                            <p className="text-gray-300 text-sm">{rule.response_message}</p>
                           </div>
 
                           <div className="flex items-center justify-between text-xs text-gray-500">
                             <span>{rule.responses_sent} respostas enviadas</span>
-                            <span>Criada em {rule.created.toLocaleDateString()}</span>
+                            <span>Criada em {new Date(rule.created_at).toLocaleDateString()}</span>
                           </div>
                         </div>
                       ))}
@@ -613,11 +573,13 @@ export default function InstagramAutomationPage() {
                             <div className="flex-1">
                               <h3 className="text-white font-semibold">{funnel.name}</h3>
                               <p className="text-sm text-gray-400 mt-1">{funnel.description}</p>
-                              <p className="text-xs text-gray-500 mt-2">{funnel.steps.length} passos configurados</p>
+                              <p className="text-xs text-gray-500 mt-2">
+                                {funnel.leads_count} leads | {funnel.conversions_count} conversões
+                              </p>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <Badge className={funnel.isActive ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}>
-                                {funnel.isActive ? 'Ativo' : 'Inativo'}
+                              <Badge className={funnel.is_active ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}>
+                                {funnel.is_active ? 'Ativo' : 'Inativo'}
                               </Badge>
                               <Button
                                 size="sm"
@@ -625,30 +587,30 @@ export default function InstagramAutomationPage() {
                                 onClick={() => toggleFunnelStatus(funnel.id)}
                                 className="text-gray-400 hover:text-white"
                               >
-                                {funnel.isActive ? <PauseCircle className="h-4 w-4" /> : <PlayCircle className="h-4 w-4" />}
+                                {funnel.is_active ? <PauseCircle className="h-4 w-4" /> : <PlayCircle className="h-4 w-4" />}
                               </Button>
                             </div>
                           </div>
 
                           <div className="grid grid-cols-3 gap-4 mt-4">
                             <div className="text-center">
-                              <p className="text-lg font-bold text-[#D4AF37]">{funnel.leads}</p>
+                              <p className="text-lg font-bold text-[#D4AF37]">{funnel.leads_count}</p>
                               <p className="text-xs text-gray-400">Leads</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-lg font-bold text-green-400">{funnel.conversions}</p>
+                              <p className="text-lg font-bold text-green-400">{funnel.conversions_count}</p>
                               <p className="text-xs text-gray-400">Conversões</p>
                             </div>
                             <div className="text-center">
                               <p className="text-lg font-bold text-blue-400">
-                                {funnel.leads > 0 ? Math.round((funnel.conversions / funnel.leads) * 100) : 0}%
+                                {funnel.leads_count > 0 ? Math.round((funnel.conversions_count / funnel.leads_count) * 100) : 0}%
                               </p>
                               <p className="text-xs text-gray-400">Taxa</p>
                             </div>
                           </div>
 
                           <div className="flex items-center justify-between text-xs text-gray-500 mt-3">
-                            <span>Criado em {funnel.created.toLocaleDateString()}</span>
+                            <span>Criado em {new Date(funnel.created_at).toLocaleDateString()}</span>
                             <Button size="sm" variant="ghost" className="text-[#D4AF37] hover:text-white">
                               <Edit3 className="h-3 w-3 mr-1" />
                               Editar
@@ -802,9 +764,9 @@ export default function InstagramAutomationPage() {
                       <div key={funnel.id} className="flex items-center justify-between p-3 bg-gray-700 rounded">
                         <span className="text-white">{funnel.name}</span>
                         <div className="flex items-center space-x-3">
-                          <span className="text-[#D4AF37] font-bold">{funnel.conversions}</span>
+                          <span className="text-[#D4AF37] font-bold">{funnel.conversions_count}</span>
                           <span className="text-gray-400 text-sm">
-                            ({funnel.leads > 0 ? Math.round((funnel.conversions / funnel.leads) * 100) : 0}%)
+                            ({funnel.leads_count > 0 ? Math.round((funnel.conversions_count / funnel.leads_count) * 100) : 0}%)
                           </span>
                         </div>
                       </div>

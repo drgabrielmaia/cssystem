@@ -1,9 +1,13 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient as supabaseCreateClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const supabase = supabaseCreateClient(supabaseUrl, supabaseKey)
+export const createClient = () => supabaseCreateClient(supabaseUrl, supabaseKey)
+
+// Re-exportar tipos do arquivo types
+export type { Mentorado, FormularioResposta, KPI, TurmaStats, DespesaMensal } from '@/types'
 
 // Types para as tabelas
 export interface AutomationRule {
