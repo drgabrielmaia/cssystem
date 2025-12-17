@@ -648,14 +648,14 @@ stroke="hsl(var(--primary))"
 
       {/* Filtros Expandíveis */}
       {showFilters && (
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 mb-6">
+        <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-2">Status</label>
+              <label className="block text-xs font-medium text-gray-300 mb-2">Status</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
               >
                 <option value="todos">Todos os Status</option>
                 {availableStatuses.map(status => (
@@ -667,11 +667,11 @@ stroke="hsl(var(--primary))"
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-2">Origem</label>
+              <label className="block text-xs font-medium text-gray-300 mb-2">Origem</label>
               <select
                 value={origemFilter}
                 onChange={(e) => setOrigemFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
               >
                 <option value="todas">Todas as Origens</option>
                 {availableOrigens.map((origem) => (
@@ -682,11 +682,11 @@ stroke="hsl(var(--primary))"
 
 
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-2">Período</label>
+              <label className="block text-xs font-medium text-gray-300 mb-2">Período</label>
               <select
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
               >
                 <option value="mes_atual">Mês Atual</option>
                 <option value="semana_atual">Semana Atual</option>
@@ -700,21 +700,21 @@ stroke="hsl(var(--primary))"
             {dateFilter === 'personalizado' && (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-2">Data Início</label>
+                  <label className="block text-xs font-medium text-gray-300 mb-2">Data Início</label>
                   <input
                     type="date"
                     value={customStartDate}
                     onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-2">Data Fim</label>
+                  <label className="block text-xs font-medium text-gray-300 mb-2">Data Fim</label>
                   <input
                     type="date"
                     value={customEndDate}
                     onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
                   />
                 </div>
               </>
@@ -722,7 +722,7 @@ stroke="hsl(var(--primary))"
           </div>
 
           {/* Botões de ação dos filtros */}
-          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-[#F1F5F9]">
+          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-600">
             <button
               onClick={() => {
                 setStatusFilter('todos')
@@ -731,11 +731,11 @@ stroke="hsl(var(--primary))"
                 setCustomStartDate('')
                 setCustomEndDate('')
               }}
-              className="text-sm text-muted-foreground hover:text-muted-foreground transition-colors"
+              className="text-sm text-gray-400 hover:text-gray-300 transition-colors"
             >
               Limpar filtros
             </button>
-            <div className="text-xs text-muted-foreground">
+            <div className="text-xs text-gray-400">
               {filteredLeads.length} resultado{filteredLeads.length !== 1 ? 's' : ''} encontrado{filteredLeads.length !== 1 ? 's' : ''}
             </div>
           </div>
@@ -745,9 +745,9 @@ stroke="hsl(var(--primary))"
       {/* Loading indicator para filtros */}
       {isLoadingData && (
         <div className="flex items-center justify-center py-4 mb-6">
-          <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-xl shadow-sm border border-[#E2E8F0]">
+          <div className="flex items-center gap-3 px-4 py-2 bg-gray-800 rounded-xl shadow-sm border border-gray-700">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#059669]"></div>
-            <span className="text-sm text-muted-foreground">Atualizando filtros...</span>
+            <span className="text-sm text-gray-400">Atualizando filtros...</span>
           </div>
         </div>
       )}
@@ -907,14 +907,14 @@ className="p-2 hover:bg-muted rounded-lg transition-colors group"
       {/* Modal de Detalhes da Origem */}
       {showOrigemModal && selectedOrigem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-gray-800 rounded-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-foreground">
+              <h2 className="text-2xl font-bold text-white">
                 Detalhes da Origem: {selectedOrigem.name}
               </h2>
               <button
                 onClick={() => setShowOrigemModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-white"
               >
                 ✕
               </button>
@@ -927,18 +927,18 @@ className="p-2 hover:bg-muted rounded-lg transition-colors group"
                     className="w-4 h-4 rounded-full"
                     style={{ backgroundColor: selectedOrigem.color }}
                   />
-                  <h3 className="font-semibold text-foreground">Total de Leads</h3>
+                  <h3 className="font-semibold text-white">Total de Leads</h3>
                 </div>
                 <p className="text-3xl font-bold text-blue-600">{selectedOrigem.value}</p>
               </div>
 
               <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6">
-                <h3 className="font-semibold text-foreground mb-2">Taxa de Conversão</h3>
+                <h3 className="font-semibold text-white mb-2">Taxa de Conversão</h3>
                 <p className="text-3xl font-bold text-green-600">{selectedOrigem.taxaConversao.toFixed(1)}%</p>
               </div>
 
               <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl p-6">
-                <h3 className="font-semibold text-foreground mb-2">Valor Arrecadado</h3>
+                <h3 className="font-semibold text-white mb-2">Valor Arrecadado</h3>
                 <p className="text-3xl font-bold text-orange-600">
                   {new Intl.NumberFormat('pt-BR', {
                     style: 'currency',
@@ -948,11 +948,11 @@ className="p-2 hover:bg-muted rounded-lg transition-colors group"
               </div>
             </div>
 
-            <div className="bg-gray-50 rounded-2xl p-6">
-              <h3 className="font-semibold text-foreground mb-4">Performance Detalhada</h3>
+            <div className="bg-gray-700 rounded-2xl p-6">
+              <h3 className="font-semibold text-white mb-4">Performance Detalhada</h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Ticket Médio</span>
+                  <span className="text-gray-400">Ticket Médio</span>
                   <span className="font-semibold">
                     {selectedOrigem.value > 0
                       ? new Intl.NumberFormat('pt-BR', {
@@ -964,13 +964,13 @@ className="p-2 hover:bg-muted rounded-lg transition-colors group"
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Leads Convertidos</span>
+                  <span className="text-gray-400">Leads Convertidos</span>
                   <span className="font-semibold">
                     {Math.round(selectedOrigem.value * selectedOrigem.taxaConversao / 100)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">ROI Estimado</span>
+                  <span className="text-gray-400">ROI Estimado</span>
                   <span className="font-semibold text-green-600">
                     {selectedOrigem.valorPago > 0 ? '+' : ''}
                     {((selectedOrigem.valorPago / Math.max(selectedOrigem.value * 50, 1) - 1) * 100).toFixed(1)}%
@@ -991,7 +991,7 @@ className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py
               </button>
               <button
                 onClick={() => setShowOrigemModal(false)}
-                className="px-6 py-3 border border-gray-300 hover:bg-gray-50 rounded-xl font-medium transition-colors"
+                className="px-6 py-3 border border-gray-600 hover:bg-gray-700 rounded-xl font-medium text-white transition-colors"
               >
                 Fechar
               </button>
@@ -1003,9 +1003,9 @@ className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py
       {/* Modal de Edição/Criação de Lead */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-gray-800 rounded-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-foreground">
+              <h2 className="text-2xl font-bold text-white">
                 {editingLead ? `Editar Lead: ${editingLead.nome_completo}` : 'Criar Novo Lead'}
               </h2>
               <button
@@ -1013,7 +1013,7 @@ className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py
                   setIsModalOpen(false)
                   setEditingLead(null)
                 }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-white"
               >
                 ✕
               </button>
@@ -1140,7 +1140,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Nome Completo *
           </label>
           <div className="relative">
@@ -1149,7 +1149,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
               required
               value={formData.nome_completo}
               onChange={(e) => setFormData(prev => ({ ...prev, nome_completo: e.target.value }))}
-              className="w-full px-4 py-3 pr-10 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+              className="w-full px-4 py-3 pr-10 border border-gray-600 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white placeholder:text-gray-400"
               placeholder="Ex: João da Silva"
             />
             <div className="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -1159,7 +1159,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Email
           </label>
           <div className="relative">
@@ -1167,7 +1167,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
               type="email"
               value={formData.email}
               onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              className="w-full px-4 py-3 pr-10 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+              className="w-full px-4 py-3 pr-10 border border-gray-600 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white placeholder:text-gray-400"
               placeholder="Ex: joao@empresa.com"
             />
             <div className="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -1177,7 +1177,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Telefone
           </label>
           <div className="relative">
@@ -1185,7 +1185,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
               type="tel"
               value={formData.telefone}
               onChange={(e) => setFormData(prev => ({ ...prev, telefone: e.target.value }))}
-              className="w-full px-4 py-3 pr-10 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+              className="w-full px-4 py-3 pr-10 border border-gray-600 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white placeholder:text-gray-400"
               placeholder="Ex: (11) 99999-9999"
             />
             <div className="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -1195,7 +1195,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Empresa
           </label>
           <div className="relative">
@@ -1203,7 +1203,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
               type="text"
               value={formData.empresa}
               onChange={(e) => setFormData(prev => ({ ...prev, empresa: e.target.value }))}
-              className="w-full px-4 py-3 pr-10 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+              className="w-full px-4 py-3 pr-10 border border-gray-600 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white placeholder:text-gray-400"
               placeholder="Ex: Tech Solutions Ltda"
             />
             <div className="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -1213,26 +1213,26 @@ function EditLeadForm({ lead, onSave, onCancel }: {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Cargo
           </label>
           <input
             type="text"
             value={formData.cargo}
             onChange={(e) => setFormData(prev => ({ ...prev, cargo: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+            className="w-full px-4 py-3 border border-gray-600 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white placeholder:text-gray-400"
             placeholder="Ex: CEO, Gerente, Analista"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Origem
           </label>
           <select
             value={formData.origem}
             onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+            className="w-full px-4 py-3 border border-gray-600 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white placeholder:text-gray-400"
           >
             <option value="">Selecione uma origem</option>
             <option value="eventos-proprios">Eventos Próprios</option>
@@ -1257,13 +1257,13 @@ function EditLeadForm({ lead, onSave, onCancel }: {
         {formData.origem === 'indicacao' && (
           <>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Mentorado que Indicou *
               </label>
               <select
                 value={formData.mentorado_indicador_id}
                 onChange={(e) => setFormData(prev => ({ ...prev, mentorado_indicador_id: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+                className="w-full px-4 py-3 border border-gray-600 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white placeholder:text-gray-400"
                 required
               >
                 <option value="">Selecione quem indicou</option>
@@ -1276,7 +1276,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Detalhes da Indicação
               </label>
               <input
@@ -1284,20 +1284,20 @@ function EditLeadForm({ lead, onSave, onCancel }: {
                 value={formData.fonte_referencia}
                 onChange={(e) => setFormData(prev => ({ ...prev, fonte_referencia: e.target.value }))}
                 placeholder="Como foi feita a indicação? (ex: WhatsApp, conversa pessoal, etc.)"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+                className="w-full px-4 py-3 border border-gray-600 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white placeholder:text-gray-400"
               />
             </div>
           </>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Status
           </label>
           <select
             value={formData.status}
             onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-white to-gray-50"
+            className="w-full px-4 py-3 border border-gray-600 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white placeholder:text-gray-400"
           >
             <option value="novo">Novo</option>
             <option value="contactado">Contactado</option>
@@ -1322,7 +1322,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
               <select
                 value={formData.temperatura}
                 onChange={(e) => setFormData(prev => ({ ...prev, temperatura: e.target.value }))}
-                className="w-full px-4 py-3 pr-10 border border-orange-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+                className="w-full px-4 py-3 pr-10 border border-orange-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white"
               >
                 <option value="quente">🔥 Quente - Alta probabilidade</option>
                 <option value="morno">🌟 Morno - Média probabilidade</option>
@@ -1345,7 +1345,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
               <select
                 value={formData.prioridade}
                 onChange={(e) => setFormData(prev => ({ ...prev, prioridade: e.target.value }))}
-                className="w-full px-4 py-3 pr-10 border border-purple-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+                className="w-full px-4 py-3 pr-10 border border-purple-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white"
               >
                 <option value="alta">🚨 Alta</option>
                 <option value="media">⭐ Média</option>
@@ -1370,7 +1370,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
               step="0.01"
               value={formData.valor_potencial}
               onChange={(e) => setFormData(prev => ({ ...prev, valor_potencial: e.target.value }))}
-              className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+              className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white"
               placeholder="Valor estimado da venda"
             />
           </div>
@@ -1385,7 +1385,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
               step="0.01"
               value={formData.valor_vendido}
               onChange={(e) => setFormData(prev => ({ ...prev, valor_vendido: e.target.value }))}
-              className="w-full px-4 py-3 border border-blue-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+              className="w-full px-4 py-3 border border-blue-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white"
               placeholder="Valor efetivamente vendido"
             />
           </div>
@@ -1400,7 +1400,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
               step="0.01"
               value={formData.valor_arrecadado}
               onChange={(e) => setFormData(prev => ({ ...prev, valor_arrecadado: e.target.value }))}
-              className="w-full px-4 py-3 border border-purple-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+              className="w-full px-4 py-3 border border-purple-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white"
               placeholder="Valor já recebido"
             />
           </div>
@@ -1416,7 +1416,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
               type="date"
               value={formData.data_venda}
               onChange={(e) => setFormData(prev => ({ ...prev, data_venda: e.target.value }))}
-              className="w-full px-4 py-3 border border-orange-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+              className="w-full px-4 py-3 border border-orange-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white"
             />
           </div>
 
@@ -1432,7 +1432,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
                 max="100"
                 value={formData.lead_score}
                 onChange={(e) => setFormData(prev => ({ ...prev, lead_score: parseInt(e.target.value) || 0 }))}
-                className="w-full px-4 py-3 pr-10 border border-indigo-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-white"
+                className="w-full px-4 py-3 pr-10 border border-indigo-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white"
                 placeholder="Score do lead (0-100)"
               />
               <div className="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -1447,24 +1447,24 @@ function EditLeadForm({ lead, onSave, onCancel }: {
         </div>
       </div>
 
-      <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+      <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-600">
+        <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
           📝 Observações
         </label>
         <textarea
           rows={4}
           value={formData.observacoes}
           onChange={(e) => setFormData(prev => ({ ...prev, observacoes: e.target.value }))}
-          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md resize-none bg-white"
+          className="w-full px-4 py-3 border border-gray-600 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md resize-none bg-gray-700 text-white"
           placeholder="Adicione observações detalhadas sobre este lead... Ex: Demonstrou interesse em pacote premium, tem orçamento aprovado, decisor principal."
         />
       </div>
 
-      <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+      <div className="flex justify-end gap-3 pt-6 border-t border-gray-600">
         <button
           type="button"
           onClick={onCancel}
-          className="px-8 py-3 border-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50 rounded-xl font-semibold transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+          className="px-8 py-3 border-2 border-gray-600 hover:border-gray-500 hover:bg-gray-600 text-white rounded-xl font-semibold transition-all shadow-sm hover:shadow-md flex items-center gap-2"
         >
           ✖️ Cancelar
         </button>

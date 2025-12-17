@@ -292,6 +292,33 @@ class InstagramAPI {
     const metricsParam = metrics.join(',')
     return this.request(`/me/insights?metric=${metricsParam}&period=${period}`)
   }
+
+  // Search for user by username (requires Instagram Basic Display API)
+  async searchUser(username: string): Promise<any> {
+    try {
+      // Tentar buscar por username - Note: isso pode não funcionar com tokens limitados
+      return this.request(`/users/search?q=${username}`)
+    } catch (error) {
+      console.error('❌ [Instagram API] Erro ao buscar usuário:', error)
+      throw error
+    }
+  }
+
+  // Get user ID from username (método alternativo usando Instagram Business API)
+  async getUserId(username: string): Promise<string | null> {
+    try {
+      console.log('🔍 [Instagram API] Buscando ID para username:', username)
+
+      // Método 1: Tentar usar Instagram Graph API search
+      const searchResult = await this.request(`/ig_hashtag_search?user_id=me&q=${username}`)
+      console.log('📊 [Instagram API] Resultado da busca:', searchResult)
+
+      return null // Por enquanto retorna null até encontrarmos o método correto
+    } catch (error) {
+      console.error('❌ [Instagram API] Erro ao buscar ID do usuário:', error)
+      return null
+    }
+  }
 }
 
 export const instagramAPI = new InstagramAPI()
