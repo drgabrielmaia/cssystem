@@ -89,18 +89,27 @@ export default function AdminVideosPage() {
     try {
       const { data, error } = await supabase
         .from('video_modules')
-        .select(`
-          *,
-          lessons_count:video_lessons(count)
-        `)
+        .select('*')
         .order('order_index', { ascending: true })
 
       if (error) throw error
 
-      setModules(data?.map(module => ({
-        ...module,
-        lessons_count: module.lessons_count?.[0]?.count || 0
-      })) || [])
+      // Buscar contagem de aulas para cada módulo separadamente
+      const modulesWithCount = await Promise.all(
+        (data || []).map(async (module) => {
+          const { count } = await supabase
+            .from('video_lessons')
+            .select('id', { count: 'exact' })
+            .eq('module_id', module.id)
+
+          return {
+            ...module,
+            lessons_count: count || 0
+          }
+        })
+      )
+
+      setModules(modulesWithCount)
     } catch (error) {
       console.error('Erro ao carregar módulos:', error)
     }
@@ -110,10 +119,7 @@ export default function AdminVideosPage() {
     try {
       const { data, error } = await supabase
         .from('video_lessons')
-        .select(`
-          *,
-          video_modules(title)
-        `)
+        .select('*')
         .order('order_index', { ascending: true })
 
       if (error) throw error
