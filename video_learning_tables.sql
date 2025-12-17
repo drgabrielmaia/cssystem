@@ -96,6 +96,35 @@ FOR UPDATE USING (
   )
 );
 
+-- Tabela para controle de acesso aos módulos
+CREATE TABLE public.video_access_control (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  mentorado_id uuid REFERENCES public.mentorados(id) ON DELETE CASCADE,
+  module_id uuid REFERENCES public.video_modules(id) ON DELETE CASCADE,
+  has_access boolean DEFAULT true,
+  granted_at timestamptz DEFAULT now(),
+  granted_by varchar(255),
+  revoked_at timestamptz,
+  revoked_by varchar(255),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(mentorado_id, module_id)
+);
+
+-- Índices para performance na tabela de controle de acesso
+CREATE INDEX idx_video_access_mentorado ON public.video_access_control(mentorado_id);
+CREATE INDEX idx_video_access_module ON public.video_access_control(module_id);
+CREATE INDEX idx_video_access_active ON public.video_access_control(has_access);
+
+-- Trigger para updated_at na tabela de controle de acesso
+CREATE TRIGGER update_video_access_control_updated_at BEFORE UPDATE ON public.video_access_control FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- RLS para video_access_control (apenas admin pode gerenciar)
+ALTER TABLE public.video_access_control ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Admin can manage video access control" ON public.video_access_control
+FOR ALL USING (auth.role() = 'authenticated');
+
 -- Dados iniciais de exemplo
 INSERT INTO public.video_modules (title, description, order_index) VALUES
 ('Módulo 1: Fundamentos', 'Conceitos básicos e introdução', 1),

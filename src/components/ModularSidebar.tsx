@@ -27,7 +27,9 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  PlayCircle
+  PlayCircle,
+  Video,
+  Shield
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -66,7 +68,6 @@ const modules = [
     items: [
       { name: 'Mentorados', href: '/mentorados', icon: Users, description: 'Gerenciar pessoas' },
       { name: 'Onboarding', href: '/onboarding', icon: Brain, description: 'Mapa mental de metas' },
-      { name: 'Vídeos', href: '/admin/videos', icon: PlayCircle, description: 'Plataforma de vídeos' },
     ]
   },
   {
@@ -77,6 +78,15 @@ const modules = [
       { name: 'Performance', href: '/social-seller', icon: TrendingUp, description: 'Métricas de vendas' },
       { name: 'Check-ins', href: '/checkins', icon: BarChart3, description: 'Acompanhamento' },
       { name: 'Metas', href: '/metas', icon: Target, description: 'Performance e Metas' },
+    ]
+  },
+  {
+    name: 'Plataforma de Vídeos',
+    icon: PlayCircle,
+    color: '#9F7AEA', // Roxo para vídeos
+    items: [
+      { name: 'Gerenciar Módulos', href: '/admin/videos', icon: Video, description: 'Módulos e aulas de vídeo' },
+      { name: 'Controle de Acesso', href: '/admin/videos/access', icon: Shield, description: 'Limitar acesso por mentorado' },
     ]
   },
   {
