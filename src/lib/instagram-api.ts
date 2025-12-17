@@ -152,14 +152,23 @@ class InstagramAPI {
   }
 
   // Send direct message (requires messaging permissions)
-  async sendDirectMessage(recipientIgsid: string, message: string): Promise<any> {
-    return this.request(`/me/messages`, {
-      method: 'POST',
-      body: JSON.stringify({
-        recipient: { id: recipientIgsid },
-        message: { text: message },
-      }),
-    })
+  async sendDirectMessage(recipientIgsid: string, message: string): Promise<{ success: boolean, error?: string, data?: any }> {
+    try {
+      const response = await this.request(`/me/messages`, {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient: { id: recipientIgsid },
+          message: { text: message },
+        }),
+      })
+      return { success: true, data: response }
+    } catch (error) {
+      console.error('❌ [Instagram API] Erro ao enviar DM:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido ao enviar mensagem'
+      }
+    }
   }
 
   // Send image message

@@ -1,171 +1,92 @@
--- Instagram Automation System Database Schema
--- This script creates tables for managing Instagram automations, funnels, and funnel steps
+-- Tabelas para Automação do Instagram
+-- Script de criação das tabelas necessárias para automação
 
--- Enable necessary extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Drop tables if they exist (in reverse order due to foreign key constraints)
-DROP TABLE IF EXISTS instagram_funnel_steps CASCADE;
-DROP TABLE IF EXISTS instagram_funnels CASCADE;
-DROP TABLE IF EXISTS instagram_automations CASCADE;
-
--- 1. Create instagram_automations table
-CREATE TABLE instagram_automations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    trigger_type TEXT NOT NULL CHECK (trigger_type IN ('comment_keyword', 'dm_keyword', 'new_follower', 'story_mention')),
-    keywords TEXT[],
-    response_message TEXT NOT NULL,
-    is_active BOOLEAN DEFAULT true,
-    responses_sent INTEGER DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Add indexes for instagram_automations
-CREATE INDEX idx_instagram_automations_trigger_type ON instagram_automations(trigger_type);
-CREATE INDEX idx_instagram_automations_is_active ON instagram_automations(is_active);
-CREATE INDEX idx_instagram_automations_created_at ON instagram_automations(created_at DESC);
-
--- 2. Create instagram_funnels table
-CREATE TABLE instagram_funnels (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    description TEXT,
-    is_active BOOLEAN DEFAULT true,
-    leads_count INTEGER DEFAULT 0,
-    conversions_count INTEGER DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Add indexes for instagram_funnels
-CREATE INDEX idx_instagram_funnels_is_active ON instagram_funnels(is_active);
-CREATE INDEX idx_instagram_funnels_created_at ON instagram_funnels(created_at DESC);
-
--- 3. Create instagram_funnel_steps table
-CREATE TABLE instagram_funnel_steps (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    funnel_id UUID REFERENCES instagram_funnels(id) ON DELETE CASCADE,
-    step_order INTEGER NOT NULL,
-    step_type TEXT NOT NULL CHECK (step_type IN ('message', 'delay', 'condition', 'action')),
+-- Tabela para armazenar mensagens recebidas/enviadas
+CREATE TABLE IF NOT EXISTS instagram_messages (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    message_id VARCHAR(255) UNIQUE NOT NULL,
+    conversation_id VARCHAR(255) NOT NULL,
+    sender_id VARCHAR(255) NOT NULL,
+    sender_username VARCHAR(255),
+    recipient_id VARCHAR(255) NOT NULL,
+    message_type VARCHAR(50) DEFAULT 'text', -- text, image, video, etc
     content TEXT,
-    delay_minutes INTEGER,
-    condition_rule TEXT,
-    action_type TEXT,
-    next_step_id UUID REFERENCES instagram_funnel_steps(id),
-    created_at TIMESTAMPTZ DEFAULT now()
+    media_url TEXT,
+    is_incoming BOOLEAN DEFAULT true,
+    is_processed BOOLEAN DEFAULT false,
+    automation_triggered BOOLEAN DEFAULT false,
+    automation_rule_id UUID REFERENCES instagram_automations(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Add indexes for instagram_funnel_steps
-CREATE INDEX idx_instagram_funnel_steps_funnel_id ON instagram_funnel_steps(funnel_id);
-CREATE INDEX idx_instagram_funnel_steps_step_order ON instagram_funnel_steps(funnel_id, step_order);
-CREATE INDEX idx_instagram_funnel_steps_next_step_id ON instagram_funnel_steps(next_step_id);
+-- Tabela para tokens e configurações da API
+CREATE TABLE IF NOT EXISTS instagram_api_config (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    instagram_business_id VARCHAR(255) NOT NULL,
+    page_id VARCHAR(255) NOT NULL,
+    access_token TEXT NOT NULL,
+    app_id VARCHAR(255) NOT NULL,
+    app_secret TEXT NOT NULL,
+    webhook_verify_token VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
--- Create trigger function to update updated_at timestamp
+-- Tabela para histórico de automações executadas
+CREATE TABLE IF NOT EXISTS instagram_automation_logs (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    automation_rule_id UUID REFERENCES instagram_automations(id),
+    message_id UUID REFERENCES instagram_messages(id),
+    trigger_keyword VARCHAR(255),
+    response_sent TEXT,
+    status VARCHAR(50) DEFAULT 'pending', -- pending, sent, failed
+    error_message TEXT,
+    executed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Tabela para conversas/threads
+CREATE TABLE IF NOT EXISTS instagram_conversations (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    conversation_id VARCHAR(255) UNIQUE NOT NULL,
+    participant_id VARCHAR(255) NOT NULL,
+    participant_username VARCHAR(255),
+    last_message_at TIMESTAMP WITH TIME ZONE,
+    message_count INTEGER DEFAULT 0,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Índices para performance
+CREATE INDEX IF NOT EXISTS idx_instagram_messages_conversation ON instagram_messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_instagram_messages_sender ON instagram_messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_instagram_messages_created_at ON instagram_messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_instagram_messages_incoming ON instagram_messages(is_incoming);
+CREATE INDEX IF NOT EXISTS idx_instagram_messages_processed ON instagram_messages(is_processed);
+CREATE INDEX IF NOT EXISTS idx_instagram_automation_logs_rule ON instagram_automation_logs(automation_rule_id);
+CREATE INDEX IF NOT EXISTS idx_instagram_conversations_participant ON instagram_conversations(participant_id);
+
+-- Triggers para updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = now();
+    NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ language 'plpgsql';
 
--- Create triggers for updated_at columns
-CREATE TRIGGER update_instagram_automations_updated_at
-    BEFORE UPDATE ON instagram_automations
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_instagram_messages_updated_at BEFORE UPDATE ON instagram_messages FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_instagram_api_config_updated_at BEFORE UPDATE ON instagram_api_config FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_instagram_conversations_updated_at BEFORE UPDATE ON instagram_conversations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_instagram_funnels_updated_at
-    BEFORE UPDATE ON instagram_funnels
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+-- Comentários das tabelas
+COMMENT ON TABLE instagram_messages IS 'Armazena todas as mensagens recebidas e enviadas via Instagram';
+COMMENT ON TABLE instagram_api_config IS 'Configurações e tokens da API do Instagram';
+COMMENT ON TABLE instagram_automation_logs IS 'Log de execução das automações';
+COMMENT ON TABLE instagram_conversations IS 'Conversas/threads do Instagram';
 
--- Enable Row Level Security (RLS) on all tables
-ALTER TABLE instagram_automations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE instagram_funnels ENABLE ROW LEVEL SECURITY;
-ALTER TABLE instagram_funnel_steps ENABLE ROW LEVEL SECURITY;
-
--- Create RLS policies for instagram_automations
--- Allow authenticated users to view all automations
-CREATE POLICY "Enable read access for authenticated users" ON instagram_automations
-    FOR SELECT
-    USING (auth.role() = 'authenticated');
-
--- Allow authenticated users to insert new automations
-CREATE POLICY "Enable insert for authenticated users" ON instagram_automations
-    FOR INSERT
-    WITH CHECK (auth.role() = 'authenticated');
-
--- Allow authenticated users to update their own automations
-CREATE POLICY "Enable update for authenticated users" ON instagram_automations
-    FOR UPDATE
-    USING (auth.role() = 'authenticated')
-    WITH CHECK (auth.role() = 'authenticated');
-
--- Allow authenticated users to delete automations
-CREATE POLICY "Enable delete for authenticated users" ON instagram_automations
-    FOR DELETE
-    USING (auth.role() = 'authenticated');
-
--- Create RLS policies for instagram_funnels
--- Allow authenticated users to view all funnels
-CREATE POLICY "Enable read access for authenticated users" ON instagram_funnels
-    FOR SELECT
-    USING (auth.role() = 'authenticated');
-
--- Allow authenticated users to insert new funnels
-CREATE POLICY "Enable insert for authenticated users" ON instagram_funnels
-    FOR INSERT
-    WITH CHECK (auth.role() = 'authenticated');
-
--- Allow authenticated users to update their own funnels
-CREATE POLICY "Enable update for authenticated users" ON instagram_funnels
-    FOR UPDATE
-    USING (auth.role() = 'authenticated')
-    WITH CHECK (auth.role() = 'authenticated');
-
--- Allow authenticated users to delete funnels
-CREATE POLICY "Enable delete for authenticated users" ON instagram_funnels
-    FOR DELETE
-    USING (auth.role() = 'authenticated');
-
--- Create RLS policies for instagram_funnel_steps
--- Allow authenticated users to view all funnel steps
-CREATE POLICY "Enable read access for authenticated users" ON instagram_funnel_steps
-    FOR SELECT
-    USING (auth.role() = 'authenticated');
-
--- Allow authenticated users to insert new funnel steps
-CREATE POLICY "Enable insert for authenticated users" ON instagram_funnel_steps
-    FOR INSERT
-    WITH CHECK (auth.role() = 'authenticated');
-
--- Allow authenticated users to update funnel steps
-CREATE POLICY "Enable update for authenticated users" ON instagram_funnel_steps
-    FOR UPDATE
-    USING (auth.role() = 'authenticated')
-    WITH CHECK (auth.role() = 'authenticated');
-
--- Allow authenticated users to delete funnel steps
-CREATE POLICY "Enable delete for authenticated users" ON instagram_funnel_steps
-    FOR DELETE
-    USING (auth.role() = 'authenticated');
-
--- Add comments to tables and columns for documentation
-COMMENT ON TABLE instagram_automations IS 'Stores Instagram automation configurations with triggers and responses';
-COMMENT ON COLUMN instagram_automations.trigger_type IS 'Type of trigger: comment_keyword, dm_keyword, new_follower, or story_mention';
-COMMENT ON COLUMN instagram_automations.keywords IS 'Array of keywords that trigger this automation';
-COMMENT ON COLUMN instagram_automations.responses_sent IS 'Counter for tracking number of responses sent';
-
-COMMENT ON TABLE instagram_funnels IS 'Stores Instagram marketing funnels';
-COMMENT ON COLUMN instagram_funnels.leads_count IS 'Number of leads that entered this funnel';
-COMMENT ON COLUMN instagram_funnels.conversions_count IS 'Number of successful conversions from this funnel';
-
-COMMENT ON TABLE instagram_funnel_steps IS 'Stores individual steps within Instagram funnels';
-COMMENT ON COLUMN instagram_funnel_steps.step_type IS 'Type of step: message, delay, condition, or action';
-COMMENT ON COLUMN instagram_funnel_steps.delay_minutes IS 'Delay duration in minutes (for delay type steps)';
-COMMENT ON COLUMN instagram_funnel_steps.condition_rule IS 'Condition logic (for condition type steps)';
-COMMENT ON COLUMN instagram_funnel_steps.action_type IS 'Type of action to perform (for action type steps)';
-COMMENT ON COLUMN instagram_funnel_steps.next_step_id IS 'Reference to the next step in the funnel flow';
+-- Configurações de API serão lidas do .env:
+-- INSTAGRAM_APP_ID, INSTAGRAM_APP_SECRET, INSTAGRAM_ACCESS_TOKEN, etc.

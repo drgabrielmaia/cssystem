@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { automationService, funnelService, AutomationRule, Funnel } from '@/lib/supabase'
+import { automationService, funnelService, AutomationRule, Funnel, supabase } from '@/lib/supabase'
 import {
   Instagram,
   MessageCircle,
@@ -89,6 +89,12 @@ export default function InstagramAutomationPage() {
     name: '',
     description: ''
   })
+
+  // States para teste de automação
+  const [testMessage, setTestMessage] = useState('')
+  const [testUserId, setTestUserId] = useState('')
+  const [testHistory, setTestHistory] = useState<any[]>([])
+  const [automationLogs, setAutomationLogs] = useState<any[]>([])
 
   // Carregar dados reais do Instagram
   useEffect(() => {
@@ -251,6 +257,98 @@ export default function InstagramAutomationPage() {
     }
   }
 
+  // Função para simular mensagem de teste
+  const simulateMessage = async () => {
+    if (!testMessage.trim()) return
+
+    const userId = testUserId || 'test_user_123'
+
+    try {
+      // Simular recebimento de mensagem testando automações localmente
+      const messageText = testMessage.toLowerCase()
+      let automationTriggered = false
+      let triggeredRule: any = null
+      let matchedKeyword = ''
+
+      // Verificar se alguma automação seria ativada
+      for (const rule of automationRules) {
+        if (!rule.is_active || rule.trigger_type !== 'dm_keyword') continue
+
+        const keywords = rule.keywords || []
+        const keyword = keywords.find((k: string) =>
+          messageText.includes(k.toLowerCase())
+        )
+
+        if (keyword) {
+          automationTriggered = true
+          triggeredRule = rule
+          matchedKeyword = keyword
+          break
+        }
+      }
+
+      // Adicionar ao histórico
+      const testResult = {
+        timestamp: Date.now(),
+        message: testMessage,
+        userId: userId,
+        triggered: automationTriggered,
+        rule_name: triggeredRule?.name,
+        response: triggeredRule?.response_message,
+        keyword: matchedKeyword
+      }
+
+      setTestHistory(prev => [testResult, ...prev])
+
+      // Se tiver automação, simular log
+      if (automationTriggered && triggeredRule) {
+        const logEntry = {
+          automation_rule_id: triggeredRule.id,
+          trigger_keyword: matchedKeyword,
+          response_sent: triggeredRule.response_message,
+          status: 'sent', // Simulando sucesso
+          executed_at: new Date().toISOString(),
+          error_message: null
+        }
+        setAutomationLogs(prev => [logEntry, ...prev])
+      }
+
+      // Limpar campo
+      setTestMessage('')
+
+      if (automationTriggered) {
+        toast.success(`Automação "${triggeredRule.name}" seria ativada!`)
+      } else {
+        toast.info('Nenhuma automação seria ativada com esta mensagem')
+      }
+
+    } catch (error) {
+      console.error('Erro ao simular mensagem:', error)
+      toast.error('Erro ao simular mensagem')
+    }
+  }
+
+  // Carregar logs reais
+  const loadAutomationLogs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('instagram_automation_logs')
+        .select('*')
+        .order('executed_at', { ascending: false })
+        .limit(10)
+
+      if (error) throw error
+      setAutomationLogs(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar logs:', error)
+    }
+  }
+
+  // Carregar logs na inicialização
+  useEffect(() => {
+    loadAutomationLogs()
+  }, [])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
@@ -356,6 +454,10 @@ export default function InstagramAutomationPage() {
             <TabsTrigger value="messages" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-gray-900">
               <MessageCircle className="h-4 w-4 mr-2" />
               Mensagens
+            </TabsTrigger>
+            <TabsTrigger value="test-chat" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-gray-900">
+              <Wand2 className="h-4 w-4 mr-2" />
+              Teste Automação
             </TabsTrigger>
             <TabsTrigger value="posts" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-gray-900">
               <Instagram className="h-4 w-4 mr-2" />
@@ -771,6 +873,155 @@ export default function InstagramAutomationPage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Aba de Teste de Automação */}
+          <TabsContent value="test-chat">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+              {/* Simulador de Chat */}
+              <Card className="bg-gray-800 border-gray-700">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center">
+                    <MessageSquare className="h-5 w-5 mr-2 text-[#D4AF37]" />
+                    Simulador de Mensagem
+                  </CardTitle>
+                  <p className="text-gray-400 text-sm">
+                    Teste suas automações enviando mensagens simuladas
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-white">Simular mensagem de usuário:</Label>
+                      <Input
+                        placeholder="Digite uma mensagem para testar..."
+                        value={testMessage}
+                        onChange={(e) => setTestMessage(e.target.value)}
+                        className="bg-gray-700 border-gray-600 text-white mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-white">ID do usuário (opcional):</Label>
+                      <Input
+                        placeholder="Deixe vazio para usar ID padrão"
+                        value={testUserId}
+                        onChange={(e) => setTestUserId(e.target.value)}
+                        className="bg-gray-700 border-gray-600 text-white mt-1"
+                      />
+                    </div>
+                    <Button
+                      onClick={simulateMessage}
+                      disabled={!testMessage.trim()}
+                      className="w-full"
+                    >
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      Simular Mensagem
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Histórico de Testes */}
+              <Card className="bg-gray-800 border-gray-700">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center">
+                    <Clock className="h-5 w-5 mr-2 text-[#D4AF37]" />
+                    Histórico de Testes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {testHistory.length === 0 ? (
+                      <p className="text-gray-400 text-center py-4">
+                        Nenhum teste executado ainda
+                      </p>
+                    ) : (
+                      testHistory.map((test, index) => (
+                        <div key={index} className="bg-gray-700 p-3 rounded space-y-2">
+                          <div className="flex justify-between items-start">
+                            <span className="text-blue-300 text-sm font-medium">
+                              Mensagem #{index + 1}
+                            </span>
+                            <span className="text-gray-400 text-xs">
+                              {new Date(test.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <p className="text-white text-sm">
+                            📤 <strong>Enviada:</strong> "{test.message}"
+                          </p>
+                          {test.triggered ? (
+                            <div className="border-l-4 border-green-500 pl-3">
+                              <p className="text-green-400 text-sm">
+                                ✅ <strong>Automação ativada:</strong> "{test.rule_name}"
+                              </p>
+                              <p className="text-gray-300 text-sm">
+                                📥 <strong>Resposta:</strong> "{test.response}"
+                              </p>
+                              <p className="text-yellow-400 text-xs">
+                                🎯 Palavra-chave: "{test.keyword}"
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-gray-400 text-sm">
+                              ⚪ Nenhuma automação foi ativada
+                            </p>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Logs de Automação */}
+              <Card className="bg-gray-800 border-gray-700 lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center">
+                    <BarChart3 className="h-5 w-5 mr-2 text-[#D4AF37]" />
+                    Logs de Automação Recentes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {automationLogs.length === 0 ? (
+                      <p className="text-gray-400 text-center py-4">
+                        Nenhum log disponível
+                      </p>
+                    ) : (
+                      automationLogs.map((log, index) => (
+                        <div key={index} className={`flex items-center justify-between p-2 rounded ${
+                          log.status === 'sent' ? 'bg-green-900/30 border border-green-700' :
+                          log.status === 'failed' ? 'bg-red-900/30 border border-red-700' :
+                          'bg-yellow-900/30 border border-yellow-700'
+                        }`}>
+                          <div className="flex-1">
+                            <span className="text-white text-sm">
+                              {log.trigger_keyword} → "{log.response_sent?.substring(0, 50)}..."
+                            </span>
+                            {log.error_message && (
+                              <p className="text-red-400 text-xs mt-1">{log.error_message}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              log.status === 'sent' ? 'bg-green-600 text-white' :
+                              log.status === 'failed' ? 'bg-red-600 text-white' :
+                              'bg-yellow-600 text-white'
+                            }`}>
+                              {log.status === 'sent' ? 'Enviado' : log.status === 'failed' ? 'Falhou' : 'Pendente'}
+                            </span>
+                            <span className="text-gray-400 text-xs">
+                              {new Date(log.executed_at).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>

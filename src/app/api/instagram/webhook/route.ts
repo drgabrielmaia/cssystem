@@ -136,13 +136,41 @@ async function processMessageEvent(messagingData: any) {
     console.log('📩 [Instagram Webhook] Processando mensagem:', messagingData)
 
     const message = messagingData.message
+    const senderId = messagingData.sender.id
+    const recipientId = messagingData.recipient.id
+    const messageId = message?.mid || `msg_${Date.now()}`
+    const conversationId = `${senderId}_${recipientId}`
+
+    // Salvar mensagem recebida no banco
+    await supabase.from('instagram_messages').insert({
+      message_id: messageId,
+      conversation_id: conversationId,
+      sender_id: senderId,
+      recipient_id: recipientId,
+      message_type: message?.attachments ? 'media' : 'text',
+      content: message?.text || '',
+      media_url: message?.attachments?.[0]?.payload?.url,
+      is_incoming: true,
+      is_processed: false
+    })
+
+    // Atualizar ou criar conversa
+    await supabase.from('instagram_conversations').upsert({
+      conversation_id: conversationId,
+      participant_id: senderId,
+      last_message_at: new Date().toISOString(),
+      message_count: 1
+    }, {
+      onConflict: 'conversation_id',
+      ignoreDuplicates: false
+    })
+
     if (!message || !message.text) {
       console.log('⚠️ [Instagram Webhook] Mensagem sem texto')
       return
     }
 
     const messageText = message.text.toLowerCase()
-    const senderId = messagingData.sender.id
 
     // Buscar automações ativas para DM
     const { data: automations, error } = await supabase
@@ -168,7 +196,30 @@ async function processMessageEvent(messagingData: any) {
 
         try {
           // Responder à mensagem
-          await instagramAPI.sendDirectMessage(senderId, automation.response_message)
+          const response = await instagramAPI.sendDirectMessage(senderId, automation.response_message)
+
+          // Salvar resposta enviada no banco
+          if (response.success) {
+            await supabase.from('instagram_messages').insert({
+              message_id: `reply_${Date.now()}`,
+              conversation_id: conversationId,
+              sender_id: recipientId,
+              recipient_id: senderId,
+              message_type: 'text',
+              content: automation.response_message,
+              is_incoming: false,
+              automation_rule_id: automation.id
+            })
+          }
+
+          // Log da automação
+          await supabase.from('instagram_automation_logs').insert({
+            automation_rule_id: automation.id,
+            trigger_keyword: matchedKeyword,
+            response_sent: automation.response_message,
+            status: response.success ? 'sent' : 'failed',
+            error_message: response.success ? null : response.error
+          })
 
           console.log('✅ [Instagram Webhook] Resposta DM enviada com sucesso!')
 
@@ -181,8 +232,27 @@ async function processMessageEvent(messagingData: any) {
             })
             .eq('id', automation.id)
 
+          // Marcar mensagem como processada
+          await supabase
+            .from('instagram_messages')
+            .update({
+              is_processed: true,
+              automation_triggered: true,
+              automation_rule_id: automation.id
+            })
+            .eq('message_id', messageId)
+
         } catch (sendError) {
           console.error('❌ [Instagram Webhook] Erro ao enviar resposta DM:', sendError)
+
+          // Log do erro
+          await supabase.from('instagram_automation_logs').insert({
+            automation_rule_id: automation.id,
+            trigger_keyword: matchedKeyword,
+            response_sent: automation.response_message,
+            status: 'failed',
+            error_message: sendError instanceof Error ? sendError.message : String(sendError)
+          })
         }
 
         break
