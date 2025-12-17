@@ -27,66 +27,90 @@ AND mentorado_id IS NULL;
 -- Inserir template de exemplo - NPS Mentoria
 INSERT INTO form_templates (name, description, slug, form_type, fields) VALUES
 (
-  'NPS Mentoria',
-  'Formulário de Net Promoter Score para avaliar a mentoria',
+  'NPS Mentoria Médicos de Resultado',
+  'Pesquisa completa de satisfação da mentoria médica',
   'nps-mentoria',
   'nps',
   '[
     {
       "id": "field_1",
       "type": "email",
-      "label": "Seu email (usado na mentoria)",
+      "label": "Seu email (usado na mentoria) - opcional",
       "name": "email",
-      "required": true,
+      "required": false,
       "placeholder": "seu@email.com"
     },
     {
       "id": "field_2",
       "type": "number",
-      "label": "De 0 a 10, o quanto você indicaria nossa mentoria para outros médicos?",
+      "label": "De 0 a 10, o quanto você recomendaria a Mentoria Médicos de Resultado para outro médico que quer sair do SUS/plantão e construir uma clínica ou negócio médico lucrativo?",
       "name": "nota_nps",
       "required": true,
       "placeholder": "Digite uma nota de 0 a 10"
     },
     {
       "id": "field_3",
-      "type": "textarea",
-      "label": "O que mais surpreendeu você positivamente na mentoria?",
-      "name": "o_que_surpreendeu_positivamente",
-      "required": false,
-      "placeholder": "Conte-nos o que achou mais impressionante..."
+      "type": "radio",
+      "label": "Hoje, olhando para o que você já aplicou, como você avalia o valor da mentoria em relação ao investimento financeiro feito?",
+      "name": "valor_percebido",
+      "required": true,
+      "options": ["Muito abaixo do esperado", "Abaixo do esperado", "Dentro do esperado", "Acima do esperado", "Muito acima do esperado"]
     },
     {
       "id": "field_4",
       "type": "radio",
-      "label": "Autoriza usar seu depoimento em nossos materiais?",
-      "name": "autoriza_depoimento",
+      "label": "Qual foi a principal transformação que você teve até agora após entrar na mentoria?",
+      "name": "principal_transformacao",
       "required": true,
-      "options": ["Sim, autorizo", "Não autorizo"]
+      "options": ["Clareza de direção e estratégia", "Mudança de mentalidade como médico-empresário", "Organização e estrutura do negócio", "Aumento de faturamento", "Saída parcial ou total do SUS/plantão", "Ainda não tive uma transformação clara"]
     },
     {
       "id": "field_5",
-      "type": "textarea",
-      "label": "Se quiser deixar um depoimento, escreva aqui:",
-      "name": "depoimento",
-      "required": false,
-      "placeholder": "Seu depoimento é muito importante para nós..."
+      "type": "radio",
+      "label": "O quanto você consegue aplicar, na prática, o que é ensinado na mentoria?",
+      "name": "nivel_aplicacao",
+      "required": true,
+      "options": ["Aplico tudo de forma consistente", "Aplico boa parte", "Aplico pouco", "Tenho dificuldade de aplicar", "Ainda não comecei a aplicar"]
     },
     {
       "id": "field_6",
-      "type": "textarea",
-      "label": "O que faltou para você dar nota 9 ou 10?",
-      "name": "o_que_faltou_para_9_10",
-      "required": false,
-      "placeholder": "Como podemos melhorar ainda mais..."
+      "type": "radio",
+      "label": "Como você avalia o suporte da mentoria (comunidade, time, acompanhamento, respostas)?",
+      "name": "qualidade_suporte",
+      "required": true,
+      "options": ["Excelente", "Muito bom", "Bom", "Regular", "Ruim"]
     },
     {
       "id": "field_7",
       "type": "radio",
-      "label": "Podemos entrar em contato para uma conversa sobre sua experiência?",
-      "name": "pode_contatar",
+      "label": "O quanto a minha presença, direcionamento e visão estratégica influenciam suas decisões como médico e empreendedor hoje?",
+      "name": "influencia_mentor",
       "required": true,
-      "options": ["Sim, podem contatar", "Prefiro não ser contatado"]
+      "options": ["Influenciam totalmente", "Influenciam bastante", "Influenciam moderadamente", "Influenciam pouco", "Não influenciam"]
+    },
+    {
+      "id": "field_8",
+      "type": "radio",
+      "label": "Você acredita que, mantendo a aplicação do método, seu resultado nos próximos 6–12 meses será significativamente maior do que hoje?",
+      "name": "expectativa_futura",
+      "required": true,
+      "options": ["Sim, com muita clareza", "Sim", "Talvez", "Não tenho certeza", "Não"]
+    },
+    {
+      "id": "field_9",
+      "type": "textarea",
+      "label": "O que hoje mais te impede de avançar mais rápido dentro da mentoria?",
+      "name": "objecoes_ocultas",
+      "required": false,
+      "placeholder": "Falta de tempo, execução, ambiente familiar, priorização..."
+    },
+    {
+      "id": "field_10",
+      "type": "textarea",
+      "label": "Se você tivesse que explicar para outro médico por que essa mentoria é diferente das outras, o que você diria?",
+      "name": "prova_social",
+      "required": false,
+      "placeholder": "Sua resposta pode virar copy de lançamento..."
     }
   ]'::jsonb
 )

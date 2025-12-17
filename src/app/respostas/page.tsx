@@ -119,23 +119,26 @@ export default function RespostasPage() {
               }
             }
 
-            if (mentoradoInfo) {
-              const formatado = {
-                id: submission.id,
-                mentorado_id: mentoradoInfo.id,
-                formulario: submission.template_slug || submission.form_templates?.name || 'formulario_personalizado',
-                resposta_json: submission.submission_data,
-                data_envio: submission.created_at,
-                mentorado_nome: mentoradoInfo.nome_completo,
-                mentorado_email: mentoradoInfo.email,
-                mentorado_turma: mentoradoInfo.turma || 'Sem turma',
-                analysis: analyzeCompleteResponse({
-                  formulario: submission.template_slug || 'custom',
-                  resposta_json: submission.submission_data
-                })
-              }
-              todasRespostas.push(formatado)
+            // Criar formatado mesmo sem mentorado identificado
+            const formatado = {
+              id: submission.id,
+              mentorado_id: mentoradoInfo?.id || null,
+              formulario: submission.template_slug || submission.form_templates?.name || 'formulario_personalizado',
+              resposta_json: submission.submission_data,
+              data_envio: submission.created_at,
+              mentorado_nome: mentoradoInfo?.nome_completo ||
+                               submission.submission_data?.email ||
+                               'Respondente anônimo',
+              mentorado_email: mentoradoInfo?.email ||
+                              submission.submission_data?.email ||
+                              'Email não informado',
+              mentorado_turma: mentoradoInfo?.turma || 'Não identificado',
+              analysis: analyzeCompleteResponse({
+                formulario: submission.template_slug || 'custom',
+                resposta_json: submission.submission_data
+              })
             }
+            todasRespostas.push(formatado)
           } catch (error) {
             console.warn('Erro ao processar submission:', submission.id, error)
           }

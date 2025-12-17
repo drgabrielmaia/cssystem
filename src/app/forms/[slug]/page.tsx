@@ -261,7 +261,7 @@ export default function FormPage() {
         user_agent: navigator.userAgent
       }
 
-      // Se for formulário NPS/Survey, tentar identificar mentorado pelo email
+      // Se for formulário NPS/Survey e tem email, tentar identificar mentorado
       if (template?.form_type !== 'lead' && formData.email) {
         try {
           const { data: mentorado } = await supabase
