@@ -33,48 +33,65 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    console.log('📱 [Instagram Webhook] Evento recebido:', JSON.stringify(body, null, 2))
+    console.log('📱 [Instagram Webhook v24.0] Evento recebido:', JSON.stringify(body, null, 2))
 
-    // Verificar se é um evento válido
-    if (!body.object || body.object !== 'instagram') {
-      console.log('⚠️ [Instagram Webhook] Evento não é do Instagram')
+    // Verificar se é um evento válido do Instagram
+    if (!body.object) {
+      console.log('⚠️ [Instagram Webhook] Objeto não encontrado')
+      return NextResponse.json({ success: false }, { status: 400 })
+    }
+
+    // Instagram v24.0 pode usar 'instagram' ou 'page'
+    if (body.object !== 'instagram' && body.object !== 'page') {
+      console.log('⚠️ [Instagram Webhook] Evento não é do Instagram. Object:', body.object)
       return NextResponse.json({ success: false }, { status: 400 })
     }
 
     // Processar cada entrada
-    const entry = body.entry[0]
-    if (!entry) {
+    if (!body.entry || !Array.isArray(body.entry)) {
+      console.log('⚠️ [Instagram Webhook] Entry não encontrado ou inválido')
       return NextResponse.json({ success: true }, { status: 200 })
     }
 
-    console.log('🔄 [Instagram Webhook] Processando entrada:', entry.id)
+    for (const entry of body.entry) {
+      console.log('🔄 [Instagram Webhook v24.0] Processando entrada:', entry.id || 'sem_id')
 
-    // 1. É uma mensagem no Direct?
-    if (entry.messaging) {
-      const messagingEvent = entry.messaging[0]
+      // 1. Mensagens diretas (DMs)
+      if (entry.messaging && Array.isArray(entry.messaging)) {
+        for (const messagingEvent of entry.messaging) {
+          console.log('📨 [Instagram Webhook] Evento de mensagem:', {
+            sender: messagingEvent.sender?.id,
+            recipient: messagingEvent.recipient?.id,
+            hasMessage: !!messagingEvent.message,
+            hasRead: !!messagingEvent.read
+          })
 
-      if (messagingEvent.message) {
-        console.log('📨 [Instagram Webhook] Mensagem recebida!')
-        await processDirectMessage(messagingEvent)
+          if (messagingEvent.message && messagingEvent.message.text) {
+            console.log('📨 [Instagram Webhook] Mensagem com texto recebida!')
+            await processDirectMessage(messagingEvent)
+          }
+
+          if (messagingEvent.read) {
+            console.log('👀 [Instagram Webhook] Mensagem lida!')
+          }
+        }
       }
 
-      if (messagingEvent.read) {
-        console.log('👀 [Instagram Webhook] Mensagem lida!')
-      }
-    }
+      // 2. Interações no feed (v24.0)
+      if (entry.changes && Array.isArray(entry.changes)) {
+        for (const change of entry.changes) {
+          console.log('🔄 [Instagram Webhook] Change detectado:', change.field)
 
-    // 2. É uma interação no Feed (Comentário/Menção)?
-    if (entry.changes) {
-      const change = entry.changes[0]
+          if (change.field === 'comments' && change.value) {
+            console.log('💬 [Instagram Webhook] Comentário no post!')
+            await processComment(change.value)
+          }
 
-      if (change.field === 'comments') {
-        console.log('💬 [Instagram Webhook] Comentário no post!')
-        await processComment(change.value)
-      }
-
-      if (change.field === 'mentions') {
-        console.log('🏷️ [Instagram Webhook] Menção em story!')
-        await processMention(change.value)
+          if (change.field === 'mentions' && change.value) {
+            console.log('🏷️ [Instagram Webhook] Menção em story!')
+            await processMention(change.value)
+          }
+        }
       }
     }
 
