@@ -26,7 +26,8 @@ import {
   Menu,
   X,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  PlayCircle
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -65,6 +66,7 @@ const modules = [
     items: [
       { name: 'Mentorados', href: '/mentorados', icon: Users, description: 'Gerenciar pessoas' },
       { name: 'Onboarding', href: '/onboarding', icon: Brain, description: 'Mapa mental de metas' },
+      { name: 'Vídeos', href: '/admin/videos', icon: PlayCircle, description: 'Plataforma de vídeos' },
     ]
   },
   {
