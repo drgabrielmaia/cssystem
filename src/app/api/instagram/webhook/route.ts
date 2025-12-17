@@ -249,7 +249,7 @@ async function sendInstagramMessage(recipientId: string, text: string) {
       throw new Error('Instagram access token not found')
     }
 
-    const response = await fetch(`https://graph.facebook.com/v21.0/me/messages`, {
+    const response = await fetch(`https://graph.facebook.com/v24.0/me/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
