@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    console.log('📱 [Instagram Webhook v24.0] Evento recebido:', JSON.stringify(body, null, 2))
+    console.log('📱 [Meta Webhook v24.0] Evento recebido:', JSON.stringify(body, null, 2))
 
     // Verificar se é um evento válido do Instagram
     if (!body.object) {
@@ -41,11 +41,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false }, { status: 400 })
     }
 
-    // Instagram v24.0 pode usar 'instagram' ou 'page'
-    if (body.object !== 'instagram' && body.object !== 'page') {
-      console.log('⚠️ [Instagram Webhook] Evento não é do Instagram. Object:', body.object)
+    // Suporta Instagram, Messenger e Page events
+    if (!['instagram', 'page', 'messaging', 'user'].includes(body.object)) {
+      console.log('⚠️ [Webhook] Objeto não suportado:', body.object)
       return NextResponse.json({ success: false }, { status: 400 })
     }
+
+    console.log('🎯 [Webhook] Processando objeto:', body.object)
 
     // Processar cada entrada
     if (!body.entry || !Array.isArray(body.entry)) {
@@ -54,25 +56,33 @@ export async function POST(request: NextRequest) {
     }
 
     for (const entry of body.entry) {
-      console.log('🔄 [Instagram Webhook v24.0] Processando entrada:', entry.id || 'sem_id')
+      console.log('🔄 [Meta Webhook v24.0] Processando entrada:', entry.id || 'sem_id')
 
-      // 1. Mensagens diretas (DMs)
+      // Identificar origem (Instagram vs Messenger)
+      const source = body.object === 'instagram' ? 'Instagram' :
+                    body.object === 'messaging' ? 'Messenger' :
+                    body.object === 'page' ? 'Facebook Page' : 'Meta'
+
+      console.log('📍 [Meta Webhook] Origem:', source)
+
+      // 1. Mensagens diretas (DMs) - Instagram e Messenger
       if (entry.messaging && Array.isArray(entry.messaging)) {
         for (const messagingEvent of entry.messaging) {
-          console.log('📨 [Instagram Webhook] Evento de mensagem:', {
+          console.log(`📨 [${source} Webhook] Evento de mensagem:`, {
             sender: messagingEvent.sender?.id,
             recipient: messagingEvent.recipient?.id,
             hasMessage: !!messagingEvent.message,
-            hasRead: !!messagingEvent.read
+            hasRead: !!messagingEvent.read,
+            source: source
           })
 
           if (messagingEvent.message && messagingEvent.message.text) {
-            console.log('📨 [Instagram Webhook] Mensagem com texto recebida!')
-            await processDirectMessage(messagingEvent)
+            console.log(`📨 [${source} Webhook] Mensagem com texto recebida!`)
+            await processDirectMessage(messagingEvent, source)
           }
 
           if (messagingEvent.read) {
-            console.log('👀 [Instagram Webhook] Mensagem lida!')
+            console.log(`👀 [${source} Webhook] Mensagem lida!`)
           }
         }
       }
@@ -102,8 +112,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Processar mensagem direta (DM)
-async function processDirectMessage(messagingEvent: any) {
+// Processar mensagem direta (DM) - Instagram e Messenger
+async function processDirectMessage(messagingEvent: any, source: string = 'Instagram') {
   try {
     const message = messagingEvent.message
     const senderId = messagingEvent.sender.id
@@ -115,7 +125,7 @@ async function processDirectMessage(messagingEvent: any) {
     }
 
     const messageText = message.text.toLowerCase()
-    console.log('📝 [Instagram Webhook] Texto:', messageText)
+    console.log(`📝 [${source} Webhook] Texto:`, messageText)
 
     // Buscar automações ativas para DM
     const { data: automations, error } = await supabase
@@ -137,11 +147,11 @@ async function processDirectMessage(messagingEvent: any) {
       )
 
       if (matchedKeyword) {
-        console.log(`🎯 [Instagram Webhook] Palavra-chave encontrada: "${matchedKeyword}"`)
+        console.log(`🎯 [${source} Webhook] Palavra-chave encontrada: "${matchedKeyword}"`)
 
         try {
           // Responder à mensagem
-          await sendInstagramMessage(senderId, automation.response_message)
+          await sendInstagramMessage(senderId, automation.response_message, source)
 
           // Incrementar contador
           await supabase
@@ -151,11 +161,11 @@ async function processDirectMessage(messagingEvent: any) {
             })
             .eq('id', automation.id)
 
-          console.log('✅ [Instagram Webhook] Resposta enviada!')
+          console.log(`✅ [${source} Webhook] Resposta enviada!`)
           break
 
         } catch (sendError) {
-          console.error('❌ [Instagram Webhook] Erro ao enviar resposta:', sendError)
+          console.error(`❌ [${source} Webhook] Erro ao enviar resposta:`, sendError)
         }
       }
     }
@@ -257,8 +267,8 @@ async function processMention(mentionData: any) {
   }
 }
 
-// Função para enviar mensagem do Instagram (Page Messaging API)
-async function sendInstagramMessage(recipientId: string, text: string) {
+// Função para enviar mensagem (Instagram/Messenger Messaging API)
+async function sendInstagramMessage(recipientId: string, text: string, source: string = 'Instagram') {
   try {
     const PAGE_ACCESS_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN
     const PAGE_ID = process.env.FACEBOOK_PAGE_ID
@@ -267,8 +277,8 @@ async function sendInstagramMessage(recipientId: string, text: string) {
       throw new Error('Instagram access token not found')
     }
 
-    console.log('📤 [Instagram Messaging] Tentando enviar via Page API...')
-    console.log('🔑 [Instagram Messaging] Recipient ID:', recipientId)
+    console.log(`📤 [${source} Messaging] Tentando enviar via Page API...`)
+    console.log(`🔑 [${source} Messaging] Recipient ID:`, recipientId)
 
     // Método 1: Tentar Instagram Messaging API via Page
     try {
