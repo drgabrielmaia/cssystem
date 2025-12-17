@@ -75,7 +75,7 @@ class InstagramAPI {
     this.accessToken = INSTAGRAM_ACCESS_TOKEN
   }
 
-  private async request(endpoint: string, options: RequestInit = {}) {
+  async request(endpoint: string, options: RequestInit = {}) {
     // Para Instagram Graph API, alguns endpoints precisam do token como query parameter
     const separator = endpoint.includes('?') ? '&' : '?'
     const url = `${this.baseUrl}${endpoint}${separator}access_token=${this.accessToken}`
