@@ -63,7 +63,7 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
           .from('mentorados')
           .select('*')
           .eq('email', session.user.email)
-          .eq('status_login', 'ativo')
+          .eq('estado_atual', 'ativo')
           .single()
 
         if (mentoradoData && !error) {
@@ -175,7 +175,7 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
               </div>
               <div className="hidden sm:block">
                 <p className="text-sm font-medium text-[#1A1A1A]">
-                  {mentorado?.nome_completo?.split(' ')[0]}
+                  {mentorado?.nome?.split(' ')[0]}
                 </p>
                 <p className="text-xs text-[#6B7280]">
                   {mentorado?.turma || 'Mentorado'}
