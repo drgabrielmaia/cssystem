@@ -22,21 +22,28 @@ export default function LoginPage() {
     setError('')
 
     try {
-      console.log('Tentando login com:', email, password)
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       })
 
-      console.log('Resposta do login:', { data, error })
+      if (error) {
+        // Tratar erros específicos
+        if (error.message.includes('Invalid login credentials')) {
+          setError('Email ou senha incorretos')
+        } else if (error.message.includes('Email not confirmed')) {
+          setError('Email não confirmado. Verifique sua caixa de entrada.')
+        } else {
+          setError(error.message)
+        }
+        return
+      }
 
-      if (error) throw error
-
-      console.log('Login sucesso, redirecionando...')
-      window.location.href = '/'
+      // Login bem-sucedido - redirecionar
+      window.location.href = '/dashboard'
     } catch (error: any) {
       console.error('Erro no login:', error)
-      setError(error.message || 'Erro no login')
+      setError('Erro interno do servidor. Tente novamente.')
     } finally {
       setLoading(false)
     }
