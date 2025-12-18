@@ -249,7 +249,7 @@ export default function VideoAccessControlPage() {
     return (
       <PageLayout title="Controle de Acesso" subtitle="Carregando...">
         <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#059669]"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#D4AF37]"></div>
         </div>
       </PageLayout>
     )
@@ -306,7 +306,7 @@ export default function VideoAccessControlPage() {
               placeholder="Buscar mentorado..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+              className="w-full pl-10 pr-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] transition-all"
             />
           </div>
           <div className="flex gap-3">
@@ -363,7 +363,7 @@ export default function VideoAccessControlPage() {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-[#059669]">{Math.round(mp.completion_rate)}%</div>
+                        <div className="text-2xl font-bold text-[#D4AF37]">{Math.round(mp.completion_rate)}%</div>
                         <div className="text-xs text-[#64748B]">Conclusão</div>
                       </div>
                     </div>
@@ -376,7 +376,7 @@ export default function VideoAccessControlPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="text-center p-3 bg-[#F8FAFC] rounded-lg">
                       <div className="flex items-center justify-center mb-2">
-                        <PlayCircle className="w-5 h-5 text-[#059669]" />
+                        <PlayCircle className="w-5 h-5 text-[#D4AF37]" />
                       </div>
                       <div className="text-lg font-semibold text-[#0F172A]">{mp.completed_lessons}</div>
                       <div className="text-xs text-[#64748B]">Aulas Concluídas</div>
@@ -414,7 +414,7 @@ export default function VideoAccessControlPage() {
                         <div key={lesson.id} className="flex items-center justify-between p-3 bg-[#F8FAFC] rounded-lg">
                           <div className="flex items-center gap-3">
                             {lesson.is_completed ? (
-                              <CheckCircle className="w-4 h-4 text-[#059669]" />
+                              <CheckCircle className="w-4 h-4 text-[#D4AF37]" />
                             ) : (
                               <Play className="w-4 h-4 text-[#F59E0B]" />
                             )}
@@ -451,7 +451,7 @@ export default function VideoAccessControlPage() {
                           </div>
                           <div className="flex items-center gap-3">
                             {hasAccess ? (
-                              <Unlock className="w-4 h-4 text-[#059669]" />
+                              <Unlock className="w-4 h-4 text-[#D4AF37]" />
                             ) : (
                               <Lock className="w-4 h-4 text-[#94A3B8]" />
                             )}
@@ -463,7 +463,7 @@ export default function VideoAccessControlPage() {
                                 disabled={isLoadingData}
                                 className="sr-only peer"
                               />
-                              <div className="relative w-11 h-6 bg-[#E2E8F0] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#059669]/20 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#059669]"></div>
+                              <div className="relative w-11 h-6 bg-[#E2E8F0] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#D4AF37]/20 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#D4AF37]"></div>
                             </label>
                           </div>
                         </div>

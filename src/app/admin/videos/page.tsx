@@ -393,7 +393,7 @@ export default function AdminVideosPage() {
       header: 'Aulas',
       render: (module: VideoModule) => (
         <div className="flex items-center gap-2">
-          <Play className="w-4 h-4 text-[#059669]" />
+          <Play className="w-4 h-4 text-[#D4AF37]" />
           <span className="font-medium">{module.lessons_count || 0}</span>
         </div>
       )
@@ -489,7 +489,7 @@ export default function AdminVideosPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => window.open(lesson.panda_video_embed_url, '_blank')}
-            className="p-2 text-[#059669] hover:bg-[#ECFDF5] rounded-lg transition-colors"
+            className="p-2 text-[#D4AF37] hover:bg-[#FEF3C7] rounded-lg transition-colors"
             title="Visualizar vídeo"
           >
             <Eye className="w-4 h-4" />
@@ -570,8 +570,8 @@ export default function AdminVideosPage() {
               onClick={() => setActiveTab('modules')}
               className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${
                 activeTab === 'modules'
-                  ? 'bg-white text-[#059669] shadow-sm'
-                  : 'text-[#475569] hover:text-[#059669]'
+                  ? 'bg-white text-[#D4AF37] shadow-sm'
+                  : 'text-[#475569] hover:text-[#D4AF37]'
               }`}
             >
               Módulos
@@ -580,8 +580,8 @@ export default function AdminVideosPage() {
               onClick={() => setActiveTab('lessons')}
               className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${
                 activeTab === 'lessons'
-                  ? 'bg-white text-[#059669] shadow-sm'
-                  : 'text-[#475569] hover:text-[#059669]'
+                  ? 'bg-white text-[#D4AF37] shadow-sm'
+                  : 'text-[#475569] hover:text-[#D4AF37]'
               }`}
             >
               Aulas
@@ -610,7 +610,7 @@ export default function AdminVideosPage() {
               </button>
               <button
                 onClick={activeTab === 'modules' ? handleNewModule : handleNewLesson}
-                className="flex items-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-[#D4AF37] hover:bg-[#B8860B] text-white rounded-xl font-medium transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 {activeTab === 'modules' ? 'Novo Módulo' : 'Nova Aula'}
@@ -659,7 +659,7 @@ export default function AdminVideosPage() {
                                 <div className="flex items-center gap-4 mt-2">
                                   <span className="text-xs text-[#64748B]">Ordem: {module.order_index}</span>
                                   <div className="flex items-center gap-1">
-                                    <Play className="w-3 h-3 text-[#059669]" />
+                                    <Play className="w-3 h-3 text-[#D4AF37]" />
                                     <span className="text-xs text-[#64748B]">{module.lessons_count} aulas</span>
                                   </div>
                                   <StatusBadge
@@ -716,7 +716,7 @@ export default function AdminVideosPage() {
                                     <div className="flex items-center gap-2 ml-4">
                                       <button
                                         onClick={() => window.open(lesson.panda_video_embed_url, '_blank')}
-                                        className="p-2 text-[#059669] hover:bg-[#ECFDF5] rounded-lg transition-colors"
+                                        className="p-2 text-[#D4AF37] hover:bg-[#FEF3C7] rounded-lg transition-colors"
                                         title="Visualizar vídeo"
                                       >
                                         <Eye className="w-4 h-4" />
@@ -781,7 +781,7 @@ export default function AdminVideosPage() {
                   type="text"
                   value={moduleForm.title}
                   onChange={(e) => setModuleForm(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669] text-[#0F172A]"
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
                   placeholder="Nome do módulo"
                 />
               </div>
@@ -791,7 +791,7 @@ export default function AdminVideosPage() {
                 <textarea
                   value={moduleForm.description}
                   onChange={(e) => setModuleForm(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669] text-[#0F172A]"
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
                   placeholder="Descrição do módulo"
                   rows={3}
                 />
@@ -804,7 +804,7 @@ export default function AdminVideosPage() {
                     type="number"
                     value={moduleForm.order_index}
                     onChange={(e) => setModuleForm(prev => ({ ...prev, order_index: parseInt(e.target.value) || 1 }))}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669] text-[#0F172A]"
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
                     min="1"
                   />
                 </div>
@@ -814,7 +814,7 @@ export default function AdminVideosPage() {
                   <select
                     value={moduleForm.is_active.toString()}
                     onChange={(e) => setModuleForm(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669] text-[#0F172A]"
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
                   >
                     <option value="true">Ativo</option>
                     <option value="false">Inativo</option>
@@ -833,7 +833,7 @@ export default function AdminVideosPage() {
               <button
                 onClick={handleSaveModule}
                 disabled={isLoadingData || !moduleForm.title.trim()}
-                className="flex-1 px-4 py-2 bg-[#059669] text-white rounded-lg hover:bg-[#047857] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 bg-[#D4AF37] text-white rounded-lg hover:bg-[#B8860B] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <Save className="w-4 h-4" />
                 {isLoadingData ? 'Salvando...' : 'Salvar'}
@@ -865,7 +865,7 @@ export default function AdminVideosPage() {
                 <select
                   value={lessonForm.module_id}
                   onChange={(e) => setLessonForm(prev => ({ ...prev, module_id: e.target.value }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669] text-[#0F172A]"
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
                 >
                   <option value="">Selecione um módulo</option>
                   {modules.map(module => (
@@ -880,7 +880,7 @@ export default function AdminVideosPage() {
                   type="text"
                   value={lessonForm.title}
                   onChange={(e) => setLessonForm(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669] text-[#0F172A]"
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
                   placeholder="Nome da aula"
                 />
               </div>
@@ -890,7 +890,7 @@ export default function AdminVideosPage() {
                 <textarea
                   value={lessonForm.description}
                   onChange={(e) => setLessonForm(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669] text-[#0F172A]"
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
                   placeholder="Descrição da aula"
                   rows={2}
                 />
@@ -902,7 +902,7 @@ export default function AdminVideosPage() {
                   type="url"
                   value={lessonForm.panda_video_embed_url}
                   onChange={(e) => setLessonForm(prev => ({ ...prev, panda_video_embed_url: e.target.value }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669] text-[#0F172A]"
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
                   placeholder="https://player.pandavideo.com.br/embed/?v=..."
                 />
               </div>
@@ -914,7 +914,7 @@ export default function AdminVideosPage() {
                     type="number"
                     value={lessonForm.duration_minutes}
                     onChange={(e) => setLessonForm(prev => ({ ...prev, duration_minutes: parseInt(e.target.value) || 0 }))}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669] text-[#0F172A]"
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
                     min="0"
                   />
                 </div>
@@ -925,7 +925,7 @@ export default function AdminVideosPage() {
                     type="number"
                     value={lessonForm.order_index}
                     onChange={(e) => setLessonForm(prev => ({ ...prev, order_index: parseInt(e.target.value) || 1 }))}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669] text-[#0F172A]"
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
                     min="1"
                   />
                 </div>
@@ -936,7 +936,7 @@ export default function AdminVideosPage() {
                 <select
                   value={lessonForm.is_active.toString()}
                   onChange={(e) => setLessonForm(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669] text-[#0F172A]"
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
                 >
                   <option value="true">Ativo</option>
                   <option value="false">Inativo</option>
@@ -954,7 +954,7 @@ export default function AdminVideosPage() {
               <button
                 onClick={handleSaveLesson}
                 disabled={isLoadingData || !lessonForm.title.trim() || !lessonForm.module_id}
-                className="flex-1 px-4 py-2 bg-[#059669] text-white rounded-lg hover:bg-[#047857] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 bg-[#D4AF37] text-white rounded-lg hover:bg-[#B8860B] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <Save className="w-4 h-4" />
                 {isLoadingData ? 'Salvando...' : 'Salvar'}

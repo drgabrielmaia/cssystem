@@ -159,10 +159,10 @@ export default function FinanceiroAnalise() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-[#D4AF37]/10 rounded-2xl flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-[#D4AF37]" />
               </div>
-              <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">+12.5%</span>
+              <span className="text-xs text-[#B8860B] bg-[#D4AF37]/10 px-2 py-1 rounded-full">+12.5%</span>
             </div>
             <h3 className="text-slate-600 text-sm mb-1">Crescimento Mensal</h3>
             <p className="text-2xl font-bold text-slate-800">8.2%</p>
@@ -170,10 +170,10 @@ export default function FinanceiroAnalise() {
 
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center">
-                <Target className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 bg-[#DAA520]/10 rounded-2xl flex items-center justify-center">
+                <Target className="w-6 h-6 text-[#DAA520]" />
               </div>
-              <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">+5.2%</span>
+              <span className="text-xs text-[#B8860B] bg-[#D4AF37]/10 px-2 py-1 rounded-full">+5.2%</span>
             </div>
             <h3 className="text-slate-600 text-sm mb-1">Margem Líquida</h3>
             <p className="text-2xl font-bold text-slate-800">42.1%</p>
@@ -181,10 +181,10 @@ export default function FinanceiroAnalise() {
 
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center">
-                <Activity className="w-6 h-6 text-orange-600" />
+              <div className="w-12 h-12 bg-[#CD853F]/10 rounded-2xl flex items-center justify-center">
+                <Activity className="w-6 h-6 text-[#CD853F]" />
               </div>
-              <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded-full">-2.1%</span>
+              <span className="text-xs text-[#CD853F] bg-[#CD853F]/10 px-2 py-1 rounded-full">-2.1%</span>
             </div>
             <h3 className="text-slate-600 text-sm mb-1">Burn Rate</h3>
             <p className="text-2xl font-bold text-slate-800">R$ 67k</p>
@@ -192,10 +192,10 @@ export default function FinanceiroAnalise() {
 
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 bg-[#B8860B]/10 rounded-2xl flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-[#B8860B]" />
               </div>
-              <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">+3 meses</span>
+              <span className="text-xs text-[#B8860B] bg-[#D4AF37]/10 px-2 py-1 rounded-full">+3 meses</span>
             </div>
             <h3 className="text-slate-600 text-sm mb-1">Runway</h3>
             <p className="text-2xl font-bold text-slate-800">18 meses</p>
@@ -263,8 +263,8 @@ export default function FinanceiroAnalise() {
                   <YAxis axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
-                  <Bar dataKey="receitas" name="Receitas" fill="#10B981" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="despesas" name="Despesas" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="receitas" name="Receitas" fill="#D4AF37" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="despesas" name="Despesas" fill="#CD853F" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -299,8 +299,8 @@ export default function FinanceiroAnalise() {
                   type="monotone"
                   dataKey="entradas"
                   stackId="1"
-                  stroke="#10B981"
-                  fill="#10B981"
+                  stroke="#D4AF37"
+                  fill="#D4AF37"
                   fillOpacity={0.1}
                   name="Entradas"
                 />
@@ -308,15 +308,15 @@ export default function FinanceiroAnalise() {
                   type="monotone"
                   dataKey="saidas"
                   stackId="2"
-                  stroke="#EF4444"
-                  fill="#EF4444"
+                  stroke="#CD853F"
+                  fill="#CD853F"
                   fillOpacity={0.1}
                   name="Saídas"
                 />
                 <Line
                   type="monotone"
                   dataKey="liquido"
-                  stroke="#3B82F6"
+                  stroke="#DAA520"
                   strokeWidth={3}
                   name="Resultado Líquido"
                 />
@@ -327,47 +327,47 @@ export default function FinanceiroAnalise() {
 
         {/* Cards de Insights */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-3xl p-6 border border-green-100">
+          <div className="bg-gradient-to-r from-[#D4AF37]/5 to-[#FFD700]/5 rounded-3xl p-6 border border-[#D4AF37]/20">
             <div className="flex items-center mb-4">
-              <div className="w-10 h-10 bg-green-100 rounded-2xl flex items-center justify-center mr-3">
-                <ArrowUpRight className="w-5 h-5 text-green-600" />
+              <div className="w-10 h-10 bg-[#D4AF37]/10 rounded-2xl flex items-center justify-center mr-3">
+                <ArrowUpRight className="w-5 h-5 text-[#D4AF37]" />
               </div>
               <h4 className="font-semibold text-slate-800">Oportunidade</h4>
             </div>
             <p className="text-sm text-slate-600 mb-3">
               Marketing está 15% acima do orçado. Considere realocar verba para áreas com melhor ROI.
             </p>
-            <button className="text-sm font-medium text-green-600 hover:text-green-700">
+            <button className="text-sm font-medium text-[#D4AF37] hover:text-[#B8860B] transition-colors">
               Ver detalhes →
             </button>
           </div>
 
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-3xl p-6 border border-blue-100">
+          <div className="bg-gradient-to-r from-[#DAA520]/5 to-[#B8860B]/5 rounded-3xl p-6 border border-[#DAA520]/20">
             <div className="flex items-center mb-4">
-              <div className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center justify-center mr-3">
-                <TrendingUp className="w-5 h-5 text-blue-600" />
+              <div className="w-10 h-10 bg-[#DAA520]/10 rounded-2xl flex items-center justify-center mr-3">
+                <TrendingUp className="w-5 h-5 text-[#DAA520]" />
               </div>
               <h4 className="font-semibold text-slate-800">Crescimento</h4>
             </div>
             <p className="text-sm text-slate-600 mb-3">
               Receitas cresceram 12.5% no último trimestre. Tendência positiva consolidada.
             </p>
-            <button className="text-sm font-medium text-blue-600 hover:text-blue-700">
+            <button className="text-sm font-medium text-[#DAA520] hover:text-[#B8860B] transition-colors">
               Ver projeção →
             </button>
           </div>
 
-          <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-3xl p-6 border border-orange-100">
+          <div className="bg-gradient-to-r from-[#CD853F]/5 to-[#D2691E]/5 rounded-3xl p-6 border border-[#CD853F]/20">
             <div className="flex items-center mb-4">
-              <div className="w-10 h-10 bg-orange-100 rounded-2xl flex items-center justify-center mr-3">
-                <ArrowDownRight className="w-5 h-5 text-orange-600" />
+              <div className="w-10 h-10 bg-[#CD853F]/10 rounded-2xl flex items-center justify-center mr-3">
+                <ArrowDownRight className="w-5 h-5 text-[#CD853F]" />
               </div>
               <h4 className="font-semibold text-slate-800">Atenção</h4>
             </div>
             <p className="text-sm text-slate-600 mb-3">
               Contas a pagar vencendo em 7 dias: R$ 12.400. Verificar fluxo de caixa.
             </p>
-            <button className="text-sm font-medium text-orange-600 hover:text-orange-700">
+            <button className="text-sm font-medium text-[#CD853F] hover:text-[#A0522D] transition-colors">
               Ver pendências →
             </button>
           </div>

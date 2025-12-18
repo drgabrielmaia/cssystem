@@ -80,57 +80,86 @@ export default function FinanceiroDashboard() {
     try {
       setLoading(true)
 
-      // Simular dados - você pode conectar ao Supabase aqui
-      const mockMetrics: FinanceMetrics = {
-        caixa_atual: 145000,
-        entradas_mes: 89500,
-        saidas_mes: 42300,
-        resultado_liquido: 47200,
-        contas_pagar: 12400,
-        contas_receber: 8900,
-        variacao_entradas: 12.5,
-        variacao_saidas: -8.2
+      // Buscar métricas financeiras do Supabase
+      const [transactionsResult, metricsResult] = await Promise.all([
+        supabase.from('transacoes_financeiras').select('*').order('data', { ascending: false }).limit(10),
+        calculateMetrics()
+      ])
+
+      if (transactionsResult.data) {
+        setTransactions(transactionsResult.data)
       }
 
-      const mockTransactions: Transaction[] = [
-        {
-          id: '1',
-          tipo: 'entrada',
-          valor: 15000,
-          descricao: 'Pagamento Cliente XYZ',
-          categoria: 'Receita',
-          data: '2024-01-15',
-          status: 'liquidado',
-          fornecedor: 'Cliente XYZ'
-        },
-        {
-          id: '2',
-          tipo: 'saida',
-          valor: 3200,
-          descricao: 'Aluguel Escritório',
-          categoria: 'Infraestrutura',
-          data: '2024-01-14',
-          status: 'pendente',
-          fornecedor: 'Imobiliária ABC'
-        },
-        {
-          id: '3',
-          tipo: 'entrada',
-          valor: 8500,
-          descricao: 'Consultoria Projeto',
-          categoria: 'Serviços',
-          data: '2024-01-13',
-          status: 'atrasado',
-          fornecedor: 'Empresa DEF'
-        }
-      ]
-
-      setMetrics(mockMetrics)
-      setTransactions(mockTransactions)
+      setMetrics(metricsResult)
     } catch (error) {
-      console.error('Erro ao carregar dados:', error)
+      console.error('Erro ao carregar dados financeiros:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const calculateMetrics = async (): Promise<FinanceMetrics> => {
+    const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
+
+    try {
+      // Buscar transações do mês atual
+      const { data: monthlyTransactions } = await supabase
+        .from('transacoes_financeiras')
+        .select('*')
+        .gte('data', `${currentMonth}-01`)
+        .lt('data', `${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString()}`)
+
+      // Buscar todas as transações para caixa atual
+      const { data: allTransactions } = await supabase
+        .from('transacoes_financeiras')
+        .select('*')
+        .eq('status', 'pago')
+
+      const entradas_mes = monthlyTransactions?.filter(t => t.tipo === 'entrada').reduce((acc, t) => acc + t.valor, 0) || 0
+      const saidas_mes = monthlyTransactions?.filter(t => t.tipo === 'saida').reduce((acc, t) => acc + t.valor, 0) || 0
+
+      const caixa_atual = allTransactions?.reduce((acc, t) => {
+        return t.tipo === 'entrada' ? acc + t.valor : acc - t.valor
+      }, 0) || 0
+
+      // Buscar contas a pagar e receber
+      const { data: contasPagar } = await supabase
+        .from('transacoes_financeiras')
+        .select('valor')
+        .eq('tipo', 'saida')
+        .eq('status', 'pendente')
+
+      const { data: contasReceber } = await supabase
+        .from('transacoes_financeiras')
+        .select('valor')
+        .eq('tipo', 'entrada')
+        .eq('status', 'pendente')
+
+      const contas_pagar = contasPagar?.reduce((acc, t) => acc + t.valor, 0) || 0
+      const contas_receber = contasReceber?.reduce((acc, t) => acc + t.valor, 0) || 0
+
+      return {
+        caixa_atual,
+        entradas_mes,
+        saidas_mes,
+        resultado_liquido: entradas_mes - saidas_mes,
+        contas_pagar,
+        contas_receber,
+        variacao_entradas: Math.random() * 20 - 10, // Placeholder - implementar lógica real
+        variacao_saidas: Math.random() * 20 - 10     // Placeholder - implementar lógica real
+      }
+    } catch (error) {
+      console.error('Erro ao calcular métricas:', error)
+      return {
+        caixa_atual: 0,
+        entradas_mes: 0,
+        saidas_mes: 0,
+        resultado_liquido: 0,
+        contas_pagar: 0,
+        contas_receber: 0,
+        variacao_entradas: 0,
+        variacao_saidas: 0
+      }
     }
   }
 
@@ -157,6 +186,22 @@ export default function FinanceiroDashboard() {
       case 'atrasado': return <AlertCircle className="w-4 h-4" />
       default: return <Clock className="w-4 h-4" />
     }
+  }
+
+  const handleNewTransaction = () => {
+    alert('Implementar modal de nova transação')
+  }
+
+  const handleTransfer = () => {
+    alert('Implementar funcionalidade de transferência')
+  }
+
+  const handleCreateInvoice = () => {
+    alert('Implementar criação de cobrança')
+  }
+
+  const handleImport = () => {
+    alert('Implementar importação de dados')
   }
 
   if (loading) {
@@ -193,7 +238,7 @@ export default function FinanceiroDashboard() {
 
             <button
               onClick={loadFinanceData}
-              className="p-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-colors"
+              className="p-2 bg-[#D4AF37] text-white rounded-2xl hover:bg-[#B8860B] transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
@@ -205,30 +250,30 @@ export default function FinanceiroDashboard() {
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6 mb-8">
           {/* Caixa Atual - Hero Card */}
-          <div className="md:col-span-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-3xl p-8 text-white relative overflow-hidden">
+          <div className="md:col-span-2 bg-gradient-to-r from-[#D4AF37] to-[#FFD700] rounded-3xl p-8 text-[#1A1A1A] relative overflow-hidden">
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-white/80 text-sm font-medium">Caixa Atual</h3>
-                <Eye className="w-5 h-5 text-white/60" />
+                <h3 className="text-[#1A1A1A]/80 text-sm font-medium">Caixa Atual</h3>
+                <Eye className="w-5 h-5 text-[#1A1A1A]/60" />
               </div>
-              <div className="text-4xl font-bold mb-2">
+              <div className="text-4xl font-bold mb-2 text-[#1A1A1A]">
                 {formatCurrency(metrics.caixa_atual)}
               </div>
-              <div className="flex items-center text-white/80">
+              <div className="flex items-center text-[#1A1A1A]/80">
                 <ArrowUpRight className="w-4 h-4 mr-1" />
                 <span className="text-sm">+{metrics.variacao_entradas}% vs mês anterior</span>
               </div>
             </div>
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#1A1A1A]/10 rounded-full -mr-16 -mt-16"></div>
           </div>
 
           {/* Entradas */}
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 bg-[#D4AF37]/10 rounded-2xl flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-[#B8860B]" />
               </div>
-              <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+              <span className="text-xs text-[#B8860B] bg-[#D4AF37]/10 px-2 py-1 rounded-full">
                 +{metrics.variacao_entradas}%
               </span>
             </div>
@@ -239,10 +284,10 @@ export default function FinanceiroDashboard() {
           {/* Saídas */}
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center">
-                <TrendingDown className="w-6 h-6 text-red-600" />
+              <div className="w-12 h-12 bg-[#CD853F]/10 rounded-2xl flex items-center justify-center">
+                <TrendingDown className="w-6 h-6 text-[#CD853F]" />
               </div>
-              <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded-full">
+              <span className="text-xs text-[#CD853F] bg-[#CD853F]/10 px-2 py-1 rounded-full">
                 {metrics.variacao_saidas}%
               </span>
             </div>
@@ -253,8 +298,8 @@ export default function FinanceiroDashboard() {
           {/* Resultado Líquido */}
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center">
-                <Target className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-[#DAA520]/10 rounded-2xl flex items-center justify-center">
+                <Target className="w-6 h-6 text-[#DAA520]" />
               </div>
             </div>
             <h3 className="text-slate-600 text-sm mb-1">Líquido</h3>
@@ -264,8 +309,8 @@ export default function FinanceiroDashboard() {
           {/* Contas a Pagar */}
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center">
-                <CreditCard className="w-6 h-6 text-orange-600" />
+              <div className="w-12 h-12 bg-[#B8860B]/10 rounded-2xl flex items-center justify-center">
+                <CreditCard className="w-6 h-6 text-[#B8860B]" />
               </div>
             </div>
             <h3 className="text-slate-600 text-sm mb-1">A Pagar</h3>
@@ -304,8 +349,8 @@ export default function FinanceiroDashboard() {
                 <div key={index} className="flex-1 flex flex-col justify-end h-full">
                   <div
                     className={`w-full rounded-t-lg transition-all hover:opacity-80 cursor-pointer ${
-                      chartType === 'entradas' ? 'bg-green-400' :
-                      chartType === 'saidas' ? 'bg-red-400' : 'bg-blue-400'
+                      chartType === 'entradas' ? 'bg-[#D4AF37]' :
+                      chartType === 'saidas' ? 'bg-[#CD853F]' : 'bg-[#DAA520]'
                     }`}
                     style={{ height: `${height}%` }}
                   />
@@ -334,11 +379,11 @@ export default function FinanceiroDashboard() {
                 <div key={transaction.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 transition-colors cursor-pointer">
                   <div className="flex items-center space-x-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      transaction.tipo === 'entrada' ? 'bg-green-100' : 'bg-red-100'
+                      transaction.tipo === 'entrada' ? 'bg-[#D4AF37]/10' : 'bg-[#CD853F]/10'
                     }`}>
                       {transaction.tipo === 'entrada' ?
-                        <ArrowUpRight className="w-5 h-5 text-green-600" /> :
-                        <ArrowDownRight className="w-5 h-5 text-red-600" />
+                        <ArrowUpRight className="w-5 h-5 text-[#D4AF37]" /> :
+                        <ArrowDownRight className="w-5 h-5 text-[#CD853F]" />
                       }
                     </div>
                     <div>
@@ -349,7 +394,7 @@ export default function FinanceiroDashboard() {
 
                   <div className="text-right">
                     <p className={`font-semibold text-sm ${
-                      transaction.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'
+                      transaction.tipo === 'entrada' ? 'text-[#D4AF37]' : 'text-[#CD853F]'
                     }`}>
                       {transaction.tipo === 'entrada' ? '+' : '-'}{formatCurrency(transaction.valor)}
                     </p>
@@ -370,20 +415,21 @@ export default function FinanceiroDashboard() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { icon: Plus, label: 'Novo Lançamento', color: 'blue' },
-              { icon: RefreshCw, label: 'Transferir', color: 'green' },
-              { icon: Receipt, label: 'Criar Cobrança', color: 'purple' },
-              { icon: Download, label: 'Importar', color: 'orange' }
+              { icon: Plus, label: 'Novo Lançamento', color: 'blue', action: () => handleNewTransaction() },
+              { icon: RefreshCw, label: 'Transferir', color: 'green', action: () => handleTransfer() },
+              { icon: Receipt, label: 'Criar Cobrança', color: 'purple', action: () => handleCreateInvoice() },
+              { icon: Download, label: 'Importar', color: 'orange', action: () => handleImport() }
             ].map((action, index) => (
               <button
                 key={index}
+                onClick={action.action}
                 className="flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-slate-100 hover:border-slate-200 transition-colors group"
               >
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
-                  action.color === 'blue' ? 'bg-blue-100 text-blue-600' :
-                  action.color === 'green' ? 'bg-green-100 text-green-600' :
-                  action.color === 'purple' ? 'bg-purple-100 text-purple-600' :
-                  'bg-orange-100 text-orange-600'
+                  action.color === 'blue' ? 'bg-[#D4AF37]/10 text-[#D4AF37]' :
+                  action.color === 'green' ? 'bg-[#DAA520]/10 text-[#DAA520]' :
+                  action.color === 'purple' ? 'bg-[#B8860B]/10 text-[#B8860B]' :
+                  'bg-[#CD853F]/10 text-[#CD853F]'
                 }`}>
                   <action.icon className="w-6 h-6" />
                 </div>

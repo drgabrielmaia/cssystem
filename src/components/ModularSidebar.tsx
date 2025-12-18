@@ -92,10 +92,13 @@ const modules = [
   {
     name: 'Financeiro',
     icon: DollarSign,
-    color: '#B8860B',
+    color: '#D4AF37', // Dourado Rolex
     items: [
+      { name: 'Dashboard', href: '/financeiro/dashboard', icon: BarChart3, description: 'Visão geral financeira' },
+      { name: 'Análise Avançada', href: '/financeiro/analise', icon: TrendingUp, description: 'Gráficos e relatórios detalhados' },
       { name: 'Comissões', href: '/comissoes', icon: DollarSign, description: 'Gestão de comissões' },
-      { name: 'Pendências', href: '/pendencias', icon: TrendingUp, description: 'Financeiro' },
+      { name: 'Pendências', href: '/pendencias', icon: Clock, description: 'Contas e pendências' },
+      { name: 'Gestão de Usuários', href: '/financeiro/usuarios', icon: Shield, description: 'Gerenciar acessos do financeiro' },
     ]
   },
   {
@@ -106,16 +109,6 @@ const modules = [
       { name: 'Calendário', href: '/calendario', icon: Calendar, description: 'Agendar eventos' },
       { name: 'Form Builder', href: '/form-builder', icon: Wrench, description: 'Criar formulários' },
       { name: 'Respostas Forms', href: '/form-responses', icon: Eye, description: 'Ver respostas' },
-    ]
-  },
-  {
-    name: 'Financeiro',
-    icon: DollarSign,
-    color: '#10B981', // Verde financeiro
-    items: [
-      { name: 'Dashboard Financeiro', href: '/financeiro/dashboard', icon: BarChart3, description: 'Análise financeira completa' },
-      { name: 'Análise Avançada', href: '/financeiro/analise', icon: TrendingUp, description: 'Gráficos e relatórios detalhados' },
-      { name: 'Login Financeiro', href: '/financeiro/login', icon: Shield, description: 'Acesso separado ao financeiro' },
     ]
   },
   {
