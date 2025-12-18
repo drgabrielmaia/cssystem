@@ -207,8 +207,8 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
 
       {/* Layout de 3 Colunas */}
       <div className="flex h-[calc(100vh-73px)]">
-        {/* Sidebar Esquerda - Compacta - Oculta na tela de vídeos */}
-        {!pathname.startsWith('/mentorado/videos') && (
+        {/* Sidebar Esquerda - Compacta - TOTALMENTE REMOVIDA na tela de vídeos */}
+        {pathname !== '/mentorado/videos' && !pathname.startsWith('/mentorado/videos/') && (
           <aside className="w-16 bg-white border-r border-[#F3F3F5] flex flex-col items-center py-6 space-y-6">
             {navigation.map((item) => {
               const isActive = pathname === item.href ||
