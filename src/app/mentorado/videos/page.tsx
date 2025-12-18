@@ -593,7 +593,6 @@ export default function MentoradoVideosPage() {
                   style={{border: 'none'}}
                   allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture"
                   allowFullScreen={true}
-                  fetchPriority="high"
                   title={selectedLesson.title}
                 />
               </div>
