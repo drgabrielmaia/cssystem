@@ -207,7 +207,51 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
 
       {/* Layout de 3 Colunas */}
       <div className="flex h-[calc(100vh-73px)]">
-{/* MENU LATERAL TOTALMENTE REMOVIDO DE TODA ÁREA DO MENTORADO */}
+        {/* Sidebar Esquerda - Menu do Portal do Mentorado */}
+        <aside className="w-64 bg-white border-r border-[#F3F3F5] flex flex-col">
+          {/* Menu de Navegação */}
+          <nav className="flex-1 p-6">
+            <div className="space-y-2">
+              {navigation.map((item) => {
+                const isActive = pathname === item.href ||
+                  (item.href === '/mentorado' && pathname === '/mentorado') ||
+                  (item.href !== '/mentorado' && pathname.startsWith(item.href))
+
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-[#1A1A1A] text-white'
+                        : 'text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F3F5]'
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5 mr-3" />
+                    {item.name}
+                  </Link>
+                )
+              })}
+            </div>
+          </nav>
+
+          {/* Rodapé do Menu */}
+          <div className="p-6 border-t border-[#F3F3F5]">
+            <div className="flex items-center">
+              <div className="w-10 h-10 bg-[#E879F9] rounded-full flex items-center justify-center">
+                <User className="w-5 h-5 text-white" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-[#1A1A1A]">
+                  {mentorado?.nome_completo?.split(' ')[0]}
+                </p>
+                <p className="text-xs text-[#6B7280]">
+                  {mentorado?.turma || 'Mentorado'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </aside>
 
         {/* Conteúdo Principal */}
         <main className="flex-1 overflow-y-auto">
