@@ -587,10 +587,13 @@ export default function MentoradoVideosPage() {
             <div className="space-y-0">
               <div className="aspect-video bg-[#1A1A1A] rounded-t-[24px] overflow-hidden">
                 <iframe
-                  src={`https://player-vz-3a60cfbb-1e3.tv.pandavideo.com.br/embed/?v=${selectedLesson.panda_video_embed_url}`}
+                  id={`panda-${selectedLesson.panda_video_embed_url}`}
+                  src={`https://player-vz-00efd930-2fc.tv.pandavideo.com.br/embed/?v=${selectedLesson.panda_video_embed_url}`}
                   className="w-full h-full"
-                  frameBorder="0"
-                  allowFullScreen
+                  style={{border: 'none'}}
+                  allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture"
+                  allowFullScreen={true}
+                  fetchPriority="high"
                   title={selectedLesson.title}
                 />
               </div>
