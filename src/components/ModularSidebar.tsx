@@ -66,7 +66,7 @@ const modules = [
     icon: Users,
     color: '#DAA520', // Dourado médio
     items: [
-      { name: 'Mentorados', href: '/mentorados', icon: Users, description: 'Gerenciar pessoas' },
+      { name: 'Mentorados', href: '/lista-mentorados', icon: Users, description: 'Gerenciar pessoas' },
       { name: 'Onboarding', href: '/onboarding', icon: Brain, description: 'Mapa mental de metas' },
     ]
   },
