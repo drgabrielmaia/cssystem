@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
 ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}` : ''}`
 
         // Enviar notificação para Admin
-        await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/default/send`, {
+        await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/kellybsantoss@icloud.com/send`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -219,7 +219,7 @@ ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}` : '
 
 Aguardo você! 🙌`
 
-              await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/default/send`, {
+              await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/kellybsantoss@icloud.com/send`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',

@@ -173,7 +173,7 @@ class WhatsAppCoreService {
 
       console.log(`📤 Enviando mensagem para ${phoneWithSuffix}: ${message}`);
 
-      const response = await fetch(`${this.baseUrl}/users/default/send`, {
+      const response = await fetch(`${this.baseUrl}/users/kellybsantoss@icloud.com/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,7 +199,7 @@ class WhatsAppCoreService {
 
   async getMessages(limit: number = 20): Promise<WhatsAppMessage[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/users/default/messages?limit=${limit}`, {
+      const response = await fetch(`${this.baseUrl}/users/kellybsantoss@icloud.com/messages?limit=${limit}`, {
         headers: {
           'ngrok-skip-browser-warning': 'true'
         }

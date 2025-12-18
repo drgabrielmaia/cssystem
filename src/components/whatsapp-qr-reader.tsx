@@ -9,7 +9,7 @@ import { Loader2, Smartphone, CheckCircle, AlertCircle, RefreshCw } from 'lucide
 
 export function WhatsAppQRReader() {
   const searchParams = useSearchParams();
-  const userId = searchParams.get('userId') || 'default';
+  const userId = searchParams.get('userId') || 'kellybsantoss@icloud.com';
 
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
   const [qrData, setQRData] = useState<QRCodeData | null>(null);
