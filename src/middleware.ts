@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
   const hasCustomAuth = request.cookies.get('admin_auth')?.value === 'true'
 
   // Allow access to public routes without authentication
-  const publicRoutes = ['/login', '/formulario', '/forms', '/api/chat-ai', '/api/analyze-form', '/api/analisar-formulario', '/api/checkout', '/api/pix-qr', '/agendar', '/mentorado', '/api/instagram', '/financeiro/login']
+  const publicRoutes = ['/login', '/formulario', '/forms', '/api/chat-ai', '/api/analyze-form', '/api/analisar-formulario', '/api/checkout', '/api/pix-qr', '/agendar', '/mentorado', '/api/instagram', '/financeiro/login', '/financeiro-plataforma']
   const isPublicRoute = publicRoutes.some(route => request.nextUrl.pathname.startsWith(route))
 
   // If user is not authenticated (either Supabase or custom) and trying to access protected routes, redirect to login
