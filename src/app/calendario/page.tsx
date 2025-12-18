@@ -122,23 +122,30 @@ const notifyAdminAboutNewEvent = async (eventData: any) => {
     message += `\n✅ Evento adicionado ao calendário com sucesso!`
 
     // Enviar mensagem via WhatsApp API
+    const adminPhone = process.env.NEXT_PUBLIC_ADMIN_PHONE || '558396910414'
+    console.log('📱 Enviando mensagem para:', adminPhone)
+    console.log('📝 Mensagem:', message)
+
     const response = await fetch('/api/whatsapp/send-message', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        phoneNumber: process.env.NEXT_PUBLIC_ADMIN_PHONE || '5511999999999', // Número do admin
+        phoneNumber: adminPhone,
         message: message,
         sender: 'kellybsantoss@icloud.com'
       })
     })
 
+    const responseData = await response.json()
+    console.log('📡 Resposta da API:', responseData)
+
     if (!response.ok) {
-      throw new Error('Falha ao enviar notificação WhatsApp')
+      throw new Error(`Falha ao enviar notificação WhatsApp: ${response.status} - ${responseData.error || 'Erro desconhecido'}`)
     }
 
-    console.log('✅ Notificação enviada para o admin com sucesso')
+    console.log('✅ Notificação enviada para o admin com sucesso!')
 
   } catch (error) {
     console.error('❌ Erro ao enviar notificação para admin:', error)
@@ -384,9 +391,12 @@ export default function CalendarioPage() {
 
       // Enviar notificação WhatsApp para o admin
       try {
+        console.log('🔄 Enviando notificação para admin...', eventData.title)
         await notifyAdminAboutNewEvent(eventData)
+        console.log('✅ Notificação enviada com sucesso!')
       } catch (notificationError) {
-        console.warn('Erro ao enviar notificação:', notificationError)
+        console.warn('❌ Erro ao enviar notificação:', notificationError)
+        // Não quebrar o fluxo se a notificação falhar
       }
 
       setShowNewEventModal(false)
