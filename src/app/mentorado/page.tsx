@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { UserCheck, Mail, Eye, EyeOff, LogIn, Play, BookOpen, DollarSign, TrendingUp } from 'lucide-react'
+import { UserCheck, Mail, Eye, EyeOff, LogIn, Play, BookOpen, DollarSign, TrendingUp, Target, Trophy, Brain, Star } from 'lucide-react'
 import Link from 'next/link'
 
 export default function MentoradoLoginPage() {
@@ -304,6 +304,45 @@ export default function MentoradoLoginPage() {
               <div className="flex items-center">
                 <DollarSign className="w-5 h-5 text-[#6B7280] mr-3" />
                 <span className="text-[14px] text-[#1A1A1A]">Ver Comissões</span>
+              </div>
+              <span className="text-[12px] text-[#6B7280] group-hover:text-[#1A1A1A] transition-colors">
+                →
+              </span>
+            </Link>
+
+            <Link
+              href="/mentorado/metas"
+              className="flex items-center justify-between p-3 bg-white rounded-[12px] hover:bg-opacity-80 transition-colors group"
+            >
+              <div className="flex items-center">
+                <Target className="w-5 h-5 text-[#6B7280] mr-3" />
+                <span className="text-[14px] text-[#1A1A1A]">Minhas Metas</span>
+              </div>
+              <span className="text-[12px] text-[#6B7280] group-hover:text-[#1A1A1A] transition-colors">
+                →
+              </span>
+            </Link>
+
+            <Link
+              href="/mentorado/conquistas"
+              className="flex items-center justify-between p-3 bg-white rounded-[12px] hover:bg-opacity-80 transition-colors group"
+            >
+              <div className="flex items-center">
+                <Trophy className="w-5 h-5 text-[#6B7280] mr-3" />
+                <span className="text-[14px] text-[#1A1A1A]">Conquistas</span>
+              </div>
+              <span className="text-[12px] text-[#6B7280] group-hover:text-[#1A1A1A] transition-colors">
+                →
+              </span>
+            </Link>
+
+            <Link
+              href="/mentorado/onboarding"
+              className="flex items-center justify-between p-3 bg-white rounded-[12px] hover:bg-opacity-80 transition-colors group"
+            >
+              <div className="flex items-center">
+                <Brain className="w-5 h-5 text-[#6B7280] mr-3" />
+                <span className="text-[14px] text-[#1A1A1A]">Meu Onboarding</span>
               </div>
               <span className="text-[12px] text-[#6B7280] group-hover:text-[#1A1A1A] transition-colors">
                 →
