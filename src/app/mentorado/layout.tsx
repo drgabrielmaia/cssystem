@@ -63,7 +63,7 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
           .from('mentorados')
           .select('*')
           .eq('email', session.user.email)
-          .eq('estado_atual', 'ativo')
+          .eq('status_login', 'ativo')
           .single()
 
         if (mentoradoData && !error) {
@@ -93,10 +93,12 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
     try {
       await supabase.auth.signOut()
       localStorage.removeItem('mentorado')
+      localStorage.clear() // Limpa todo o localStorage
       window.location.href = '/mentorado'
     } catch (error) {
       console.error('Erro no logout:', error)
       localStorage.removeItem('mentorado')
+      localStorage.clear() // Limpa todo o localStorage
       window.location.href = '/mentorado'
     }
   }
@@ -175,7 +177,7 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
               </div>
               <div className="hidden sm:block">
                 <p className="text-sm font-medium text-[#1A1A1A]">
-                  {mentorado?.nome?.split(' ')[0]}
+                  {mentorado?.nome_completo?.split(' ')[0]}
                 </p>
                 <p className="text-xs text-[#6B7280]">
                   {mentorado?.turma || 'Mentorado'}
