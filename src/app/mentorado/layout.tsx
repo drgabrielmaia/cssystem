@@ -207,35 +207,7 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
 
       {/* Layout de 3 Colunas */}
       <div className="flex h-[calc(100vh-73px)]">
-        {/* Sidebar Esquerda - Compacta - TOTALMENTE REMOVIDA na tela de vídeos */}
-        {pathname !== '/mentorado/videos' && !pathname.startsWith('/mentorado/videos/') && (
-          <aside className="w-16 bg-white border-r border-[#F3F3F5] flex flex-col items-center py-6 space-y-6">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href ||
-                (item.href === '/mentorado' && pathname === '/mentorado') ||
-                (item.href !== '/mentorado' && pathname.startsWith(item.href))
-
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`p-3 rounded-xl transition-all group relative ${
-                    isActive
-                      ? 'bg-[#1A1A1A] text-white'
-                      : 'text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F3F5]'
-                  }`}
-                  title={item.name}
-                >
-                  <item.icon className="w-5 h-5" />
-                  {/* Tooltip */}
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-[#1A1A1A] text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                    {item.name}
-                  </div>
-                </Link>
-              )
-            })}
-          </aside>
-        )}
+{/* MENU LATERAL TOTALMENTE REMOVIDO DE TODA ÁREA DO MENTORADO */}
 
         {/* Conteúdo Principal */}
         <main className="flex-1 overflow-y-auto">
