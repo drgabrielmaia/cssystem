@@ -82,45 +82,45 @@ export default function ProgressPage() {
 
       // Carregar módulos com aulas
       const { data: modulesData, error: modulesError } = await supabase
-        .from('modulos')
+        .from('video_modules')
         .select(`
           *,
-          aulas:aulas(
+          video_lessons(
             *,
-            exercicios:exercicios(*)
+            lesson_exercises(*)
           )
         `)
-        .eq('ativo', true)
-        .order('ordem')
+        .eq('is_active', true)
+        .order('order_index')
 
       if (modulesError) throw modulesError
 
       // Carregar progresso do usuário
       const { data: progressData, error: progressError } = await supabase
-        .from('progresso_mentorados')
+        .from('lesson_progress')
         .select('*')
         .eq('mentorado_id', mentorado.id)
 
       const { data: exerciseProgressData, error: exerciseError } = await supabase
-        .from('respostas_exercicios')
+        .from('exercise_responses')
         .select('*')
         .eq('mentorado_id', mentorado.id)
 
-      const completedLessons = progressData?.map(p => p.aula_id) || []
+      const completedLessons = progressData?.map(p => p.lesson_id) || []
       const exerciseResponses = exerciseProgressData || []
 
       // Processar dados dos módulos
       const processedModules = modulesData?.map(module => ({
         ...module,
-        lessons: module.aulas
-          ?.sort((a: any, b: any) => a.ordem - b.ordem)
+        lessons: module.video_lessons
+          ?.sort((a: any, b: any) => a.order_index - b.order_index)
           .map((lesson: any) => ({
             ...lesson,
             completed: completedLessons.includes(lesson.id),
-            exercises: lesson.exercicios
+            exercises: lesson.lesson_exercises
               ?.sort((a: any, b: any) => a.ordem - b.ordem)
               .map((exercise: any) => {
-                const userResponse = exerciseResponses.find(r => r.exercicio_id === exercise.id)
+                const userResponse = exerciseResponses.find(r => r.exercise_id === exercise.id)
                 return {
                   ...exercise,
                   user_response: userResponse?.resposta,
@@ -128,7 +128,7 @@ export default function ProgressPage() {
                 }
               }) || []
           })) || []
-      })).sort((a, b) => a.ordem - b.ordem) || []
+      })).sort((a, b) => a.order_index - b.order_index) || []
 
       setModules(processedModules)
 
@@ -170,14 +170,14 @@ export default function ProgressPage() {
         : true // Para dissertativas, considerar sempre corretas por enquanto
 
       const { error } = await supabase
-        .from('respostas_exercicios')
+        .from('exercise_responses')
         .upsert({
           mentorado_id: mentorado.id,
-          exercicio_id: exerciseId,
+          exercise_id: exerciseId,
           resposta: response,
           correto: isCorrect
         }, {
-          onConflict: 'mentorado_id,exercicio_id'
+          onConflict: 'mentorado_id,exercise_id'
         })
 
       if (error) throw error
@@ -185,14 +185,15 @@ export default function ProgressPage() {
       // Se respondeu corretamente, marcar aula como completa
       if (isCorrect) {
         const { error: progressError } = await supabase
-          .from('progresso_mentorados')
+          .from('lesson_progress')
           .upsert({
             mentorado_id: mentorado.id,
-            aula_id: lessonId,
-            completa: true,
-            data_conclusao: new Date().toISOString()
+            lesson_id: lessonId,
+            started_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+            is_completed: true
           }, {
-            onConflict: 'mentorado_id,aula_id'
+            onConflict: 'mentorado_id,lesson_id'
           })
 
         if (progressError) throw progressError
