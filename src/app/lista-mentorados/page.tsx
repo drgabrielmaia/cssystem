@@ -247,8 +247,8 @@ export default function MentoradosPage() {
       header: 'Mentorado',
       render: (mentorado: any) => (
         <div>
-          <p className="font-medium text-[#0F172A]">{mentorado.nome_completo}</p>
-          <p className="text-sm text-[#94A3B8]">{mentorado.email}</p>
+          <p className="font-medium text-gray-900">{mentorado.nome_completo}</p>
+          <p className="text-sm text-gray-600">{mentorado.email}</p>
         </div>
       )
     },
@@ -256,7 +256,7 @@ export default function MentoradosPage() {
       header: 'Contato',
       render: (mentorado: any) => (
         <div>
-          <p className="text-sm text-[#475569]">{mentorado.telefone || '-'}</p>
+          <p className="text-sm text-gray-700">{mentorado.telefone || '-'}</p>
         </div>
       )
     },
@@ -281,7 +281,7 @@ export default function MentoradosPage() {
     {
       header: 'Data Entrada',
       render: (mentorado: any) => (
-        <span className="text-sm text-[#475569]">
+        <span className="text-sm text-gray-700">
           {formatDate(mentorado.data_entrada)}
         </span>
       )
@@ -292,7 +292,7 @@ export default function MentoradosPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleEdit(mentorado)}
-            className="p-2 text-[#475569] hover:bg-[#F1F5F9] rounded-lg transition-colors"
+            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             title="Editar mentorado"
           >
             <Edit className="w-4 h-4" />
