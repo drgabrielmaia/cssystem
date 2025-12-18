@@ -52,7 +52,26 @@ export default function LoginPage() {
         return
       }
 
-      // Login bem-sucedido - redirecionar
+      // Login bem-sucedido - verificar se é usuário do financeiro
+      try {
+        const { data: financeUser } = await supabase
+          .from('usuarios_financeiro')
+          .select('*')
+          .eq('email', email)
+          .eq('ativo', true)
+          .single()
+
+        if (financeUser) {
+          // É usuário do financeiro - salvar dados e redirecionar
+          localStorage.setItem('finance_user', JSON.stringify(financeUser))
+          window.location.href = '/financeiro/dashboard'
+          return
+        }
+      } catch (financeError) {
+        // Não é usuário do financeiro, continuar para dashboard normal
+      }
+
+      // Redirecionar para dashboard normal
       window.location.href = '/dashboard'
     } catch (error: any) {
       console.error('Erro no login:', error)
