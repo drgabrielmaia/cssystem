@@ -14,7 +14,8 @@ import {
   TrendingUp,
   BookOpen,
   LogOut,
-  Settings
+  Settings,
+  Target
 } from 'lucide-react'
 
 interface MentoradoLayoutProps {
@@ -31,6 +32,11 @@ const navigation = [
     name: 'Aulas',
     href: '/mentorado/videos',
     icon: Video
+  },
+  {
+    name: 'Metas',
+    href: '/mentorado/metas',
+    icon: Target
   },
   {
     name: 'Progresso',
