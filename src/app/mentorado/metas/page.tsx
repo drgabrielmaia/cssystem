@@ -1,21 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
-// import { useAuth } from '@/contexts/auth' // Não usado - usando localStorage
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
-  Target, Trophy, Plus, CheckCircle, Clock, Star, Heart,
-  BookOpen, Zap, Award, ArrowLeft, Calendar, Filter
+  Target, Trophy, Plus, CheckCircle, Clock, Calendar,
+  Search, Filter, Edit3, Trash2, Star
 } from 'lucide-react'
-import Link from 'next/link'
 
 interface MetaAluno {
   id: string
@@ -36,29 +27,22 @@ export default function MentoradoMetasPage() {
   const [metas, setMetas] = useState<MetaAluno[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('todos')
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [novaMeta, setNovaMeta] = useState({
     title: '',
     description: '',
     goal_type: 'medium_term' as 'short_term' | 'medium_term' | 'long_term' | 'big_term',
-    category_id: '',
     priority_level: 'medium' as 'low' | 'medium' | 'high' | 'critical',
     due_date: ''
   })
 
-  const categoriasMeta = [
-    { value: 'financeira', label: 'Financeira', icon: <Trophy className="h-4 w-4" />, color: 'bg-yellow-100 text-yellow-800' },
-    { value: 'profissional', label: 'Profissional', icon: <Zap className="h-4 w-4" />, color: 'bg-blue-100 text-blue-800' },
-    { value: 'pessoal', label: 'Pessoal', icon: <Heart className="h-4 w-4" />, color: 'bg-pink-100 text-pink-800' },
-    { value: 'saude', label: 'Saúde', icon: <Award className="h-4 w-4" />, color: 'bg-green-100 text-green-800' },
-    { value: 'aprendizado', label: 'Aprendizado', icon: <BookOpen className="h-4 w-4" />, color: 'bg-purple-100 text-purple-800' }
-  ]
-
   const prazosMeta = [
-    { value: 'short_term', label: 'Curto Prazo', sublabel: '1-3 meses', color: 'bg-red-100 text-red-800' },
-    { value: 'medium_term', label: 'Médio Prazo', sublabel: '3-6 meses', color: 'bg-yellow-100 text-yellow-800' },
-    { value: 'long_term', label: 'Longo Prazo', sublabel: '6-12 meses', color: 'bg-blue-100 text-blue-800' },
-    { value: 'big_term', label: 'Grande Meta', sublabel: '1+ anos', color: 'bg-purple-100 text-purple-800' }
+    { value: 'short_term', label: 'Curto Prazo', sublabel: '1-3 meses', color: 'text-red-600' },
+    { value: 'medium_term', label: 'Médio Prazo', sublabel: '3-6 meses', color: 'text-yellow-600' },
+    { value: 'long_term', label: 'Longo Prazo', sublabel: '6-12 meses', color: 'text-blue-600' },
+    { value: 'big_term', label: 'Grande Meta', sublabel: '1+ anos', color: 'text-purple-600' }
   ]
 
   useEffect(() => {
@@ -125,20 +109,25 @@ export default function MentoradoMetasPage() {
           progress_percentage: 0
         }])
 
-      if (error) throw error
+      if (error) {
+        console.error('Erro RLS:', error)
+        alert(`Erro ao criar meta: ${error.message}. Execute fix_video_learning_goals_rls.sql no Supabase Dashboard.`)
+        return
+      }
 
       await carregarMetas(mentorado.id)
       setNovaMeta({
         title: '',
         description: '',
         goal_type: 'medium_term',
-        category_id: '',
         priority_level: 'medium',
         due_date: ''
       })
+      setShowCreateModal(false)
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao criar meta:', error)
+      alert(`Erro: ${error.message}`)
     } finally {
       setSaving(false)
     }
@@ -177,340 +166,443 @@ export default function MentoradoMetasPage() {
     taxaConclusao: metas.length > 0 ? (metas.filter(m => m.status === 'completed').length / metas.length) * 100 : 0
   }
 
+  const getFilteredMetas = () => {
+    let filtered = metas
+
+    // Filtro de busca
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(meta =>
+        meta.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        meta.description.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    // Filtro de status
+    if (filtroStatus !== 'todos') {
+      if (filtroStatus === 'ativo') {
+        filtered = filtered.filter(m => m.status === 'pending' || m.status === 'in_progress')
+      } else if (filtroStatus === 'concluido') {
+        filtered = filtered.filter(m => m.status === 'completed')
+      } else {
+        filtered = filtered.filter(m => m.status === filtroStatus)
+      }
+    }
+
+    return filtered
+  }
+
+  const overallProgress = () => {
+    const total = metas.length
+    const completed = metas.filter(m => m.status === 'completed').length
+    return {
+      total,
+      completed,
+      percentage: total > 0 ? (completed / total) * 100 : 0
+    }
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="p-6 flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E879F9]"></div>
       </div>
     )
   }
 
+  const filteredMetas = getFilteredMetas()
+  const progress = overallProgress()
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#D4AF37] to-[#FFD700] p-6">
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/mentorado" className="p-3 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-colors">
-              <ArrowLeft className="h-5 w-5 text-slate-800" />
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-800">Minhas Metas</h1>
-              <p className="text-slate-700">Defina e acompanhe seus objetivos pessoais</p>
+    <div className="flex h-full">
+      {/* Conteúdo Principal */}
+      <div className="flex-1 p-8 overflow-y-auto">
+        {/* Header da Página */}
+        <div className="mb-8">
+          <h1 className="text-[32px] font-semibold text-[#1A1A1A] mb-2">
+            Minhas Metas
+          </h1>
+          <p className="text-[15px] text-[#6B7280] mb-4">
+            Defina e acompanhe seus objetivos pessoais
+          </p>
+
+          {/* Campo de Busca */}
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
+            <input
+              type="text"
+              placeholder="Buscar metas..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-[#F3F3F5] border-0 rounded-full text-sm text-[#1A1A1A] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#E879F9] focus:bg-white transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Estatísticas de Progresso */}
+        <div className="bg-[#F3F3F5] rounded-[20px] p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-[18px] font-semibold text-[#1A1A1A]">
+              Progresso Geral
+            </h3>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-[#1A1A1A] text-white px-4 py-2 rounded-full text-[14px] font-medium hover:bg-opacity-90 transition-all flex items-center"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Meta
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-6 mb-4">
+            <div className="text-center">
+              <p className="text-[24px] font-bold text-[#1A1A1A]">{progress.total}</p>
+              <p className="text-[13px] text-[#6B7280]">Total</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[24px] font-bold text-[#E879F9]">{metas.filter(m => m.status === 'pending' || m.status === 'in_progress').length}</p>
+              <p className="text-[13px] text-[#6B7280]">Em Progresso</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[24px] font-bold text-[#22C55E]">{progress.completed}</p>
+              <p className="text-[13px] text-[#6B7280]">Concluídas</p>
             </div>
           </div>
-          <Badge className="bg-white/20 text-slate-800 border-slate-800/20">
-            {mentorado?.nome_completo?.split(' ')[0] || 'Mentorado'}
-          </Badge>
+
+          <div className="w-full bg-white rounded-full h-2">
+            <div
+              className="h-full bg-[#E879F9] rounded-full transition-all duration-500"
+              style={{ width: `${progress.percentage}%` }}
+            />
+          </div>
+          <p className="text-[13px] text-[#6B7280] text-center mt-2">
+            {progress.percentage.toFixed(0)}% das metas concluídas
+          </p>
         </div>
 
-        {/* Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="bg-white/90 backdrop-blur-sm border-[#B8860B] shadow-xl">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Total</p>
-                  <p className="text-3xl font-bold text-slate-800">{estatisticas.total}</p>
-                </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-[#D4AF37] to-[#FFD700] rounded-xl flex items-center justify-center">
-                  <Target className="h-6 w-6 text-slate-800" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/90 backdrop-blur-sm border-[#B8860B] shadow-xl">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Ativas</p>
-                  <p className="text-3xl font-bold text-slate-800">{estatisticas.ativas}</p>
-                </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-[#CD853F] to-[#DEB887] rounded-xl flex items-center justify-center">
-                  <Clock className="h-6 w-6 text-slate-800" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/90 backdrop-blur-sm border-[#B8860B] shadow-xl">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Concluídas</p>
-                  <p className="text-3xl font-bold text-slate-800">{estatisticas.concluidas}</p>
-                </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center">
-                  <CheckCircle className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/90 backdrop-blur-sm border-[#B8860B] shadow-xl">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Taxa de Sucesso</p>
-                  <p className="text-3xl font-bold text-slate-800">{estatisticas.taxaConclusao.toFixed(0)}%</p>
-                </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-[#DAA520] to-[#B8860B] rounded-xl flex items-center justify-center">
-                  <Trophy className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Criar Nova Meta */}
-          <Card className="lg:col-span-1 bg-white/90 backdrop-blur-sm border-[#B8860B] shadow-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-3 text-slate-800">
-                <div className="w-10 h-10 bg-gradient-to-br from-[#D4AF37] to-[#FFD700] rounded-xl flex items-center justify-center">
-                  <Plus className="h-5 w-5 text-slate-800" />
-                </div>
-                Nova Meta
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Título da Meta</Label>
-                <Input
-                  value={novaMeta.title}
-                  onChange={(e) => setNovaMeta(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="Ex: Concluir curso de marketing digital"
-                />
-              </div>
-
-              <div>
-                <Label>Tipo de Meta</Label>
-                <Select
-                  value={novaMeta.goal_type}
-                  onValueChange={(value: any) => setNovaMeta(prev => ({ ...prev, goal_type: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {prazosMeta.map(prazo => (
-                      <SelectItem key={prazo.value} value={prazo.value}>
-                        {prazo.label} ({prazo.sublabel})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Data Limite</Label>
-                <Input
-                  type="date"
-                  value={novaMeta.due_date}
-                  onChange={(e) => setNovaMeta(prev => ({ ...prev, due_date: e.target.value }))}
-                />
-              </div>
-
-              <div>
-                <Label>Prioridade</Label>
-                <Select
-                  value={novaMeta.priority_level}
-                  onValueChange={(value: any) => setNovaMeta(prev => ({ ...prev, priority_level: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Baixa</SelectItem>
-                    <SelectItem value="medium">Média</SelectItem>
-                    <SelectItem value="high">Alta</SelectItem>
-                    <SelectItem value="critical">Crítica</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Descrição</Label>
-                <Textarea
-                  value={novaMeta.description}
-                  onChange={(e) => setNovaMeta(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Descreva sua meta..."
-                  rows={3}
-                />
-              </div>
-
-              <Button
-                onClick={criarMeta}
-                disabled={!novaMeta.title || saving}
-                className="w-full bg-green-600 hover:bg-green-700"
+        {/* Filtros */}
+        <div className="flex items-center gap-4 mb-6">
+          <Filter className="w-4 h-4 text-[#6B7280]" />
+          <div className="flex gap-2">
+            {[
+              { value: 'todos', label: 'Todas' },
+              { value: 'ativo', label: 'Em Progresso' },
+              { value: 'concluido', label: 'Concluídas' },
+              { value: 'paused', label: 'Pausadas' }
+            ].map((filtro) => (
+              <button
+                key={filtro.value}
+                onClick={() => setFiltroStatus(filtro.value)}
+                className={`px-3 py-1 rounded-full text-[13px] font-medium transition-all ${
+                  filtroStatus === filtro.value
+                    ? 'bg-[#E879F9] text-white'
+                    : 'bg-[#F3F3F5] text-[#6B7280] hover:bg-[#E879F9] hover:text-white'
+                }`}
               >
-                {saving ? 'Criando...' : 'Criar Meta'}
-              </Button>
-            </CardContent>
-          </Card>
+                {filtro.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-          {/* Lista de Metas */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Filtros */}
-            <Card className="border-gray-200">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                  <Filter className="h-4 w-4 text-gray-500" />
-                  <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todas</SelectItem>
-                      <SelectItem value="ativo">Ativas</SelectItem>
-                      <SelectItem value="concluido">Concluídas</SelectItem>
-                      <SelectItem value="pausado">Pausadas</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <span className="text-sm text-gray-600">
-                    {metasFiltradas.length} meta(s) encontrada(s)
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+        {/* Lista de Metas */}
+        {filteredMetas.length === 0 ? (
+          <div className="bg-[#F3F3F5] rounded-[20px] p-12 text-center">
+            <Target className="w-16 h-16 text-[#6B7280] mx-auto mb-4" />
+            <h3 className="text-[18px] font-semibold text-[#1A1A1A] mb-2">
+              {metas.length === 0 ? 'Crie sua primeira meta' : 'Nenhuma meta encontrada'}
+            </h3>
+            <p className="text-[15px] text-[#6B7280] mb-4">
+              {metas.length === 0
+                ? 'Defina objetivos claros para acompanhar seu progresso'
+                : 'Ajuste os filtros para ver suas metas'
+              }
+            </p>
+            {metas.length === 0 && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-[#1A1A1A] text-white px-6 py-3 rounded-full text-[14px] font-medium hover:bg-opacity-90 transition-all"
+              >
+                Criar Primeira Meta
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredMetas.map((meta) => {
+              const prazo = prazosMeta.find(p => p.value === meta.goal_type)
+              const isCompleted = meta.status === 'completed'
+              const isActive = meta.status === 'pending' || meta.status === 'in_progress'
 
-            {/* Metas */}
-            {metasFiltradas.length === 0 ? (
-              <Card className="border-dashed border-2 border-gray-300">
-                <CardContent className="text-center py-12">
-                  <Target className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-600 mb-2">
-                    {metas.length === 0 ? 'Crie sua primeira meta' : 'Nenhuma meta encontrada'}
-                  </h3>
-                  <p className="text-gray-500">
-                    {metas.length === 0
-                      ? 'Defina objetivos claros para acompanhar seu progresso'
-                      : 'Ajuste os filtros para ver suas metas'
-                    }
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {metasFiltradas.map((meta) => {
-                  const prazo = prazosMeta.find(p => p.value === meta.goal_type)
-                  const isCompleted = meta.status === 'completed'
-                  const isActive = meta.status === 'pending' || meta.status === 'in_progress'
+              return (
+                <div
+                  key={meta.id}
+                  className={`bg-white rounded-[16px] p-6 border transition-all hover:shadow-md ${
+                    isCompleted ? 'border-[#22C55E] bg-green-50' : 'border-[#E5E7EB] hover:border-[#E879F9]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start gap-3 flex-1">
+                      {/* Checkbox para marcar como concluída */}
+                      <button
+                        onClick={() => concluirMeta(meta.id)}
+                        disabled={isCompleted}
+                        className={`mt-1 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                          isCompleted
+                            ? 'bg-[#22C55E] border-[#22C55E] text-white'
+                            : 'border-[#E5E7EB] hover:border-[#E879F9] hover:bg-[#E879F9] hover:bg-opacity-10'
+                        }`}
+                      >
+                        {isCompleted && <CheckCircle className="h-4 w-4" />}
+                      </button>
 
-                  return (
-                    <Card
-                      key={meta.id}
-                      className={`transition-all hover:shadow-md border-2 ${
-                        isCompleted
-                          ? 'border-green-300 bg-gradient-to-r from-green-50 to-green-100'
-                          : 'border-gray-200 bg-white hover:border-blue-300'
-                      }`}
-                    >
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1">
-                            {/* Checkbox para marcar como concluída */}
-                            <div className="flex items-start gap-3">
-                              <button
-                                onClick={() => concluirMeta(meta.id)}
-                                disabled={isCompleted}
-                                className={`mt-1 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                                  isCompleted
-                                    ? 'bg-green-500 border-green-500 text-white'
-                                    : 'border-gray-300 hover:border-green-400 hover:bg-green-50'
-                                }`}
-                              >
-                                {isCompleted && <CheckCircle className="h-4 w-4" />}
-                              </button>
-                              <div className="flex-1">
-                                <h3 className={`text-xl font-semibold mb-2 ${isCompleted ? 'line-through text-gray-500' : ''}`}>
-                                  {meta.title}
-                                </h3>
-                                {meta.description && (
-                                  <p className="text-gray-600 mb-3">{meta.description}</p>
-                                )}
-                              </div>
-                            </div>
+                      <div className="flex-1">
+                        <h3 className={`text-[18px] font-semibold text-[#1A1A1A] mb-2 ${isCompleted ? 'line-through opacity-60' : ''}`}>
+                          {meta.title}
+                        </h3>
+                        {meta.description && (
+                          <p className="text-[15px] text-[#6B7280] mb-3">{meta.description}</p>
+                        )}
 
-                            {/* Progress bar */}
-                            <div className="mb-3">
-                              <div className="flex justify-between text-sm text-gray-600 mb-1">
-                                <span>Progresso</span>
-                                <span>{meta.progress_percentage}%</span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className={`h-2 rounded-full transition-all ${
-                                    isCompleted ? 'bg-green-500' :
-                                    meta.progress_percentage > 70 ? 'bg-blue-500' :
-                                    meta.progress_percentage > 30 ? 'bg-yellow-500' : 'bg-red-500'
-                                  }`}
-                                  style={{ width: `${meta.progress_percentage}%` }}
-                                />
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 mb-3">
-                              {prazo && (
-                                <Badge variant="outline" className={prazo.color}>
-                                  <Calendar className="h-3 w-3 mr-1" />
-                                  {prazo.label}
-                                </Badge>
-                              )}
-                              <Badge
-                                variant="outline"
-                                className={
-                                  meta.priority_level === 'critical' ? 'bg-red-100 text-red-700' :
-                                  meta.priority_level === 'high' ? 'bg-orange-100 text-orange-700' :
-                                  meta.priority_level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                  'bg-gray-100 text-gray-700'
-                                }
-                              >
-                                {meta.priority_level === 'critical' ? 'Crítica' :
-                                 meta.priority_level === 'high' ? 'Alta' :
-                                 meta.priority_level === 'medium' ? 'Média' : 'Baixa'
-                                } Prioridade
-                              </Badge>
-                              <Badge variant={isCompleted ? 'default' : 'secondary'}>
-                                {isCompleted ? '✅ Concluída' :
-                                 meta.status === 'in_progress' ? '🔄 Em Progresso' :
-                                 meta.status === 'paused' ? '⏸️ Pausada' : '⏳ Pendente'}
-                              </Badge>
-                            </div>
-
-                            {meta.due_date && (
-                              <div className="text-sm text-gray-500">
-                                📅 Prazo: {new Date(meta.due_date).toLocaleDateString('pt-BR')}
-                                {new Date(meta.due_date) < new Date() && !isCompleted && (
-                                  <span className="text-red-500 font-medium ml-2">⚠️ Vencida</span>
-                                )}
-                              </div>
-                            )}
+                        {/* Progress bar */}
+                        <div className="mb-4">
+                          <div className="flex justify-between text-[13px] text-[#6B7280] mb-2">
+                            <span>Progresso</span>
+                            <span>{meta.progress_percentage}%</span>
                           </div>
-
-                          {isCompleted && (
-                            <div className="flex items-center gap-2 text-green-600">
-                              <Trophy className="h-8 w-8" />
-                            </div>
-                          )}
+                          <div className="w-full bg-[#F3F3F5] rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full transition-all ${
+                                isCompleted ? 'bg-[#22C55E]' :
+                                meta.progress_percentage > 70 ? 'bg-[#E879F9]' :
+                                meta.progress_percentage > 30 ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}
+                              style={{ width: `${meta.progress_percentage}%` }}
+                            />
+                          </div>
                         </div>
 
-                        <div className="text-xs text-gray-500 pt-3 border-t">
-                          Criada em {new Date(meta.created_at).toLocaleDateString('pt-BR')}
-                          {meta.completed_at && (
-                            <> • Concluída em {new Date(meta.completed_at).toLocaleDateString('pt-BR')}</>
+                        {/* Tags e informações */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {prazo && (
+                            <span className={`text-[12px] font-medium px-2 py-1 rounded-full bg-[#F3F3F5] ${prazo.color}`}>
+                              {prazo.label}
+                            </span>
+                          )}
+                          <span className={`text-[12px] font-medium px-2 py-1 rounded-full ${
+                            meta.priority_level === 'critical' ? 'bg-red-100 text-red-700' :
+                            meta.priority_level === 'high' ? 'bg-orange-100 text-orange-700' :
+                            meta.priority_level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {meta.priority_level === 'critical' ? 'Crítica' :
+                             meta.priority_level === 'high' ? 'Alta' :
+                             meta.priority_level === 'medium' ? 'Média' : 'Baixa'
+                            } Prioridade
+                          </span>
+                          <span className={`text-[12px] font-medium px-2 py-1 rounded-full ${
+                            isCompleted ? 'bg-[#22C55E] text-white' :
+                            isActive ? 'bg-[#E879F9] text-white' : 'bg-[#F3F3F5] text-[#6B7280]'
+                          }`}>
+                            {isCompleted ? '✅ Concluída' :
+                             meta.status === 'in_progress' ? '🔄 Em Progresso' :
+                             meta.status === 'paused' ? '⏸️ Pausada' : '⏳ Pendente'}
+                          </span>
+
+                          {meta.due_date && (
+                            <span className={`text-[12px] font-medium px-2 py-1 rounded-full flex items-center ${
+                              new Date(meta.due_date) < new Date() && !isCompleted
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              <Calendar className="w-3 h-3 mr-1" />
+                              {new Date(meta.due_date).toLocaleDateString('pt-BR')}
+                              {new Date(meta.due_date) < new Date() && !isCompleted && (
+                                <span className="ml-1">⚠️</span>
+                              )}
+                            </span>
                           )}
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
+
+                    {isCompleted && (
+                      <div className="flex items-center">
+                        <Trophy className="w-8 h-8 text-[#22C55E]" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-[12px] text-[#6B7280] pt-3 border-t border-[#F3F3F5]">
+                    Criada em {new Date(meta.created_at).toLocaleDateString('pt-BR')}
+                    {meta.completed_at && (
+                      <> • Concluída em {new Date(meta.completed_at).toLocaleDateString('pt-BR')}</>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Sidebar Direita - Estatísticas e Ações */}
+      <aside className="w-80 bg-[#F3F3F5] border-l border-[#E5E7EB] p-6 overflow-y-auto">
+        <div className="mb-6">
+          <h2 className="text-[18px] font-semibold text-[#1A1A1A] mb-4">
+            Suas Estatísticas
+          </h2>
+
+          <div className="space-y-4">
+            <div className="bg-white rounded-[12px] p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[13px] text-[#6B7280]">Metas Ativas</span>
+                <span className="text-[18px] font-bold text-[#E879F9]">
+                  {metas.filter(m => m.status === 'pending' || m.status === 'in_progress').length}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-[#6B7280]">Concluídas este mês</span>
+                <span className="text-[18px] font-bold text-[#22C55E]">
+                  {metas.filter(m =>
+                    m.status === 'completed' &&
+                    m.completed_at &&
+                    new Date(m.completed_at).getMonth() === new Date().getMonth()
+                  ).length}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[12px] p-4">
+              <h4 className="text-[15px] font-medium text-[#1A1A1A] mb-3">Distribuição por Prazo</h4>
+              <div className="space-y-2">
+                {prazosMeta.map(prazo => {
+                  const count = metas.filter(m => m.goal_type === prazo.value).length
+                  return (
+                    <div key={prazo.value} className="flex items-center justify-between">
+                      <span className={`text-[13px] font-medium ${prazo.color}`}>
+                        {prazo.label}
+                      </span>
+                      <span className="text-[13px] text-[#6B7280]">{count}</span>
+                    </div>
                   )
                 })}
               </div>
-            )}
+            </div>
           </div>
         </div>
-      </div>
+      </aside>
+
+      {/* Modal de Criar Meta */}
+      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <DialogContent className="sm:max-w-[600px] bg-white rounded-[24px] overflow-hidden">
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle className="text-[18px] font-semibold text-[#1A1A1A] mb-4">
+                Criar Nova Meta
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[15px] font-medium text-[#1A1A1A] mb-2 block">
+                  Título da Meta
+                </label>
+                <input
+                  type="text"
+                  value={novaMeta.title}
+                  onChange={(e) => setNovaMeta(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Ex: Concluir curso de marketing digital"
+                  className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#E879F9] focus:border-[#E879F9] text-[#1A1A1A]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[15px] font-medium text-[#1A1A1A] mb-2 block">
+                    Tipo de Meta
+                  </label>
+                  <select
+                    value={novaMeta.goal_type}
+                    onChange={(e) => setNovaMeta(prev => ({ ...prev, goal_type: e.target.value as any }))}
+                    className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#E879F9] focus:border-[#E879F9] text-[#1A1A1A]"
+                  >
+                    {prazosMeta.map(prazo => (
+                      <option key={prazo.value} value={prazo.value}>
+                        {prazo.label} ({prazo.sublabel})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[15px] font-medium text-[#1A1A1A] mb-2 block">
+                    Prioridade
+                  </label>
+                  <select
+                    value={novaMeta.priority_level}
+                    onChange={(e) => setNovaMeta(prev => ({ ...prev, priority_level: e.target.value as any }))}
+                    className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#E879F9] focus:border-[#E879F9] text-[#1A1A1A]"
+                  >
+                    <option value="low">Baixa</option>
+                    <option value="medium">Média</option>
+                    <option value="high">Alta</option>
+                    <option value="critical">Crítica</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[15px] font-medium text-[#1A1A1A] mb-2 block">
+                  Data Limite (Opcional)
+                </label>
+                <input
+                  type="date"
+                  value={novaMeta.due_date}
+                  onChange={(e) => setNovaMeta(prev => ({ ...prev, due_date: e.target.value }))}
+                  className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#E879F9] focus:border-[#E879F9] text-[#1A1A1A]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[15px] font-medium text-[#1A1A1A] mb-2 block">
+                  Descrição (Opcional)
+                </label>
+                <textarea
+                  value={novaMeta.description}
+                  onChange={(e) => setNovaMeta(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Descreva sua meta em detalhes..."
+                  rows={3}
+                  className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#E879F9] focus:border-[#E879F9] text-[#1A1A1A]"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 bg-[#F3F3F5] text-[#6B7280] rounded-[8px] text-[14px] font-medium hover:bg-opacity-80 transition-colors"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  onClick={criarMeta}
+                  disabled={!novaMeta.title || saving}
+                  className="px-6 py-2 bg-[#1A1A1A] text-white rounded-[8px] text-[14px] font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Criando...
+                    </>
+                  ) : (
+                    'Criar Meta'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
