@@ -12,7 +12,9 @@ import {
   Award,
   Users,
   TrendingUp,
-  Video
+  Video,
+  HelpCircle,
+  Search
 } from 'lucide-react'
 
 interface VideoModule {
@@ -22,7 +24,7 @@ interface VideoModule {
   order_index: number
   thumbnail_url?: string
   is_active: boolean
-  lessons_count?: number
+  lessons: VideoLesson[]
 }
 
 interface VideoLesson {
@@ -34,10 +36,33 @@ interface VideoLesson {
   duration_minutes: number
   order_index: number
   is_active: boolean
+  exercises: LessonExercise[]
+  progress?: LessonProgress
+}
+
+interface LessonExercise {
+  id: string
+  lesson_id: string
+  pergunta: string
+  tipo: 'multipla_escolha' | 'dissertativa'
+  opcoes?: string[]
+  resposta_correta?: string
+  ordem: number
+  user_response?: ExerciseResponse
+}
+
+interface ExerciseResponse {
+  id: string
+  mentorado_id: string
+  exercise_id: string
+  resposta: string
+  correto: boolean
+  respondido_em: string
 }
 
 interface LessonProgress {
   id: string
+  mentorado_id: string
   lesson_id: string
   started_at: string
   completed_at?: string
@@ -48,11 +73,13 @@ interface LessonProgress {
 export default function MentoradoVideosPage() {
   const [mentorado, setMentorado] = useState<any>(null)
   const [modules, setModules] = useState<VideoModule[]>([])
-  const [lessons, setLessons] = useState<VideoLesson[]>([])
-  const [progress, setProgress] = useState<LessonProgress[]>([])
   const [selectedLesson, setSelectedLesson] = useState<VideoLesson | null>(null)
+  const [selectedExercise, setSelectedExercise] = useState<LessonExercise | null>(null)
   const [showVideoModal, setShowVideoModal] = useState(false)
+  const [showExerciseModal, setShowExerciseModal] = useState(false)
+  const [exerciseResponse, setExerciseResponse] = useState<string>('')
   const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState<string>('')
 
   useEffect(() => {
     const savedMentorado = localStorage.getItem('mentorado')
@@ -88,24 +115,6 @@ export default function MentoradoVideosPage() {
 
       if (modulesError) throw modulesError
 
-      // Contar aulas para cada módulo
-      const modulesWithCount = await Promise.all(
-        (modulesData || []).map(async (module) => {
-          const { count } = await supabase
-            .from('video_lessons')
-            .select('id', { count: 'exact' })
-            .eq('module_id', module.id)
-            .eq('is_active', true)
-
-          return {
-            ...module,
-            lessons_count: count || 0
-          }
-        })
-      )
-
-      setModules(modulesWithCount)
-
       // Carregar aulas dos módulos com acesso
       const { data: lessonsData, error: lessonsError } = await supabase
         .from('video_lessons')
@@ -115,7 +124,17 @@ export default function MentoradoVideosPage() {
         .order('order_index', { ascending: true })
 
       if (lessonsError) throw lessonsError
-      setLessons(lessonsData || [])
+
+      // Carregar exercícios das aulas
+      const lessonIds = lessonsData?.map(l => l.id) || []
+      const { data: exercisesData, error: exercisesError } = await supabase
+        .from('lesson_exercises')
+        .select('*')
+        .in('lesson_id', lessonIds.length > 0 ? lessonIds : [''])
+        .eq('ativo', true)
+        .order('ordem', { ascending: true })
+
+      if (exercisesError) throw exercisesError
 
       // Carregar progresso do mentorado
       const { data: progressData, error: progressError } = await supabase
@@ -124,7 +143,44 @@ export default function MentoradoVideosPage() {
         .eq('mentorado_id', mentoradoData.id)
 
       if (progressError) throw progressError
-      setProgress(progressData || [])
+
+      // Carregar respostas de exercícios do mentorado
+      const { data: exerciseResponsesData, error: exerciseResponseError } = await supabase
+        .from('exercise_responses')
+        .select('*')
+        .eq('mentorado_id', mentoradoData.id)
+
+      if (exerciseResponseError) throw exerciseResponseError
+
+      // Processar dados dos módulos
+      const processedModules = modulesData?.map(module => {
+        const moduleLessons = lessonsData?.filter(l => l.module_id === module.id) || []
+        const lessonsWithExercises = moduleLessons.map(lesson => {
+          const lessonExercises = exercisesData?.filter(e => e.lesson_id === lesson.id) || []
+          const lesssonProgress = progressData?.find(p => p.lesson_id === lesson.id)
+
+          const exercisesWithResponses = lessonExercises.map(exercise => {
+            const userResponse = exerciseResponsesData?.find(r => r.exercise_id === exercise.id)
+            return {
+              ...exercise,
+              user_response: userResponse
+            }
+          })
+
+          return {
+            ...lesson,
+            exercises: exercisesWithResponses,
+            progress: lesssonProgress
+          }
+        })
+
+        return {
+          ...module,
+          lessons: lessonsWithExercises
+        }
+      }) || []
+
+      setModules(processedModules)
 
     } catch (error) {
       console.error('Erro ao carregar dados de vídeo:', error)
@@ -138,7 +194,7 @@ export default function MentoradoVideosPage() {
     setShowVideoModal(true)
 
     try {
-      const existingProgress = progress.find(p => p.lesson_id === lesson.id)
+      const existingProgress = lesson.progress
 
       if (!existingProgress) {
         const { error } = await supabase
@@ -182,40 +238,69 @@ export default function MentoradoVideosPage() {
     }
   }
 
-  const getLessonProgress = (lessonId: string) => {
-    return progress.find(p => p.lesson_id === lessonId)
+  const handleOpenExercise = (exercise: LessonExercise) => {
+    setSelectedExercise(exercise)
+    setExerciseResponse(exercise.user_response?.resposta || '')
+    setShowExerciseModal(true)
   }
 
-  const isLessonUnlocked = (lesson: VideoLesson) => {
-    const moduleId = lesson.module_id
-    const moduleLessons = lessons.filter(l => l.module_id === moduleId).sort((a, b) => a.order_index - b.order_index)
+  const handleSubmitExercise = async () => {
+    if (!selectedExercise || !exerciseResponse.trim()) return
 
-    if (lesson.id === moduleLessons[0]?.id) return true
+    try {
+      const isCorrect = selectedExercise.tipo === 'multipla_escolha'
+        ? exerciseResponse === selectedExercise.resposta_correta
+        : true // Para dissertativas, considerar sempre corretas por enquanto
 
-    const currentIndex = moduleLessons.findIndex(l => l.id === lesson.id)
-    if (currentIndex > 0) {
-      const previousLesson = moduleLessons[currentIndex - 1]
-      const previousProgress = getLessonProgress(previousLesson.id)
-      return previousProgress?.is_completed || false
+      const { error } = await supabase
+        .from('exercise_responses')
+        .upsert({
+          mentorado_id: mentorado.id,
+          exercise_id: selectedExercise.id,
+          resposta: exerciseResponse,
+          correto: isCorrect
+        }, {
+          onConflict: 'mentorado_id,exercise_id'
+        })
+
+      if (error) throw error
+
+      setShowExerciseModal(false)
+      setExerciseResponse('')
+      loadVideoData(mentorado)
+
+      if (isCorrect) {
+        alert('Resposta correta! 🎉')
+      } else {
+        alert('Resposta incorreta. Tente novamente!')
+      }
+
+    } catch (error) {
+      console.error('Erro ao salvar resposta:', error)
     }
-
-    return true
   }
 
-  const getModuleProgress = (moduleId: string) => {
-    const moduleLessons = lessons.filter(l => l.module_id === moduleId)
-    const completedLessons = moduleLessons.filter(l => getLessonProgress(l.id)?.is_completed)
+  const isLessonUnlocked = (lesson: VideoLesson, moduleLessons: VideoLesson[]) => {
+    if (lesson.order_index === 1) return true
 
+    const previousLesson = moduleLessons.find(l => l.order_index === lesson.order_index - 1)
+    return previousLesson?.progress?.is_completed || false
+  }
+
+  const getModuleProgress = (module: VideoModule) => {
+    const completedLessons = module.lessons.filter(l => l.progress?.is_completed).length
     return {
-      completed: completedLessons.length,
-      total: moduleLessons.length,
-      percentage: moduleLessons.length > 0 ? (completedLessons.length / moduleLessons.length) * 100 : 0
+      completed: completedLessons,
+      total: module.lessons.length,
+      percentage: module.lessons.length > 0 ? (completedLessons / module.lessons.length) * 100 : 0
     }
   }
 
   const getOverallProgress = () => {
-    const totalLessons = lessons.length
-    const completedLessons = progress.filter(p => p.is_completed).length
+    const totalLessons = modules.reduce((acc, module) => acc + module.lessons.length, 0)
+    const completedLessons = modules.reduce((acc, module) =>
+      acc + module.lessons.filter(l => l.progress?.is_completed).length, 0
+    )
 
     return {
       completed: completedLessons,
@@ -233,6 +318,30 @@ export default function MentoradoVideosPage() {
     return `${mins}min`
   }
 
+  const getNextRecommendedLesson = () => {
+    for (const module of modules) {
+      for (const lesson of module.lessons) {
+        if (!lesson.progress?.is_completed && isLessonUnlocked(lesson, module.lessons)) {
+          return lesson
+        }
+      }
+    }
+    return null
+  }
+
+  const getFilteredModules = () => {
+    if (!searchTerm.trim()) return modules
+
+    return modules.map(module => ({
+      ...module,
+      lessons: module.lessons.filter(lesson =>
+        lesson.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lesson.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        module.title.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    })).filter(module => module.lessons.length > 0)
+  }
+
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center h-96">
@@ -242,6 +351,8 @@ export default function MentoradoVideosPage() {
   }
 
   const overallProgress = getOverallProgress()
+  const nextLesson = getNextRecommendedLesson()
+  const filteredModules = getFilteredModules()
 
   return (
     <div className="flex h-full">
@@ -252,9 +363,21 @@ export default function MentoradoVideosPage() {
           <h1 className="text-[32px] font-semibold text-[#1A1A1A] mb-2">
             Assistir vídeo aula
           </h1>
-          <p className="text-[15px] text-[#6B7280]">
+          <p className="text-[15px] text-[#6B7280] mb-4">
             Continue seu progresso de aprendizado
           </p>
+
+          {/* Campo de Busca */}
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
+            <input
+              type="text"
+              placeholder="Buscar aulas, módulos..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-[#F3F3F5] border-0 rounded-full text-sm text-[#1A1A1A] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#E879F9] focus:bg-white transition-all"
+            />
+          </div>
         </div>
 
         {/* Vídeo Player Principal */}
@@ -272,69 +395,80 @@ export default function MentoradoVideosPage() {
           </div>
         </div>
 
-        {/* Informações da Aula */}
-        <div className="bg-[#F3F3F5] rounded-[20px] p-6 mb-8">
-          <h3 className="text-[18px] font-semibold text-[#1A1A1A] mb-2">
-            Próxima aula recomendada
-          </h3>
-          <p className="text-[15px] text-[#6B7280] mb-4">
-            Continue de onde parou em seu último acesso
-          </p>
+        {/* Próxima Aula Recomendada */}
+        {nextLesson && (
+          <div className="bg-[#F3F3F5] rounded-[20px] p-6 mb-8">
+            <h3 className="text-[18px] font-semibold text-[#1A1A1A] mb-2">
+              Próxima aula recomendada
+            </h3>
+            <p className="text-[15px] text-[#6B7280] mb-4">
+              {nextLesson.title}
+            </p>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center text-[13px] text-[#6B7280]">
-                <Clock className="w-4 h-4 mr-1" />
-                <span>15 min</span>
-              </div>
-              <div className="w-16 h-2 bg-[#E879F9] bg-opacity-30 rounded-full">
-                <div className="w-3/4 h-full bg-[#E879F9] rounded-full"></div>
-              </div>
-              <span className="text-[13px] text-[#6B7280]">75%</span>
-            </div>
-
-            <button className="bg-[#1A1A1A] text-white px-6 py-2 rounded-full text-[14px] font-medium hover:bg-opacity-90 transition-all">
-              Continuar
-            </button>
-          </div>
-        </div>
-
-        {/* Exercícios / Questões */}
-        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
-          <h3 className="text-[18px] font-semibold text-[#1A1A1A] mb-4">
-            Exercícios práticos
-          </h3>
-
-          <div className="space-y-3">
-            <div className="bg-white rounded-[12px] p-4 border border-[#E879F9]">
-              <h4 className="text-[15px] font-medium text-[#1A1A1A] mb-2">
-                Questão sobre o conteúdo
-              </h4>
-              <p className="text-[14px] text-[#6B7280] mb-4">
-                Qual é o principal conceito abordado nesta aula?
-              </p>
-
-              <div className="space-y-2">
-                <label className="flex items-center p-3 bg-[#F3F3F5] rounded-[8px] cursor-pointer hover:bg-opacity-80 transition-colors">
-                  <input type="radio" name="question1" className="mr-3" />
-                  <span className="text-[14px] text-[#1A1A1A]">Opção A</span>
-                </label>
-                <label className="flex items-center p-3 bg-[#F3F3F5] rounded-[8px] cursor-pointer hover:bg-opacity-80 transition-colors">
-                  <input type="radio" name="question1" className="mr-3" />
-                  <span className="text-[14px] text-[#1A1A1A]">Opção B</span>
-                </label>
-                <label className="flex items-center p-3 bg-[#F3F3F5] rounded-[8px] cursor-pointer hover:bg-opacity-80 transition-colors">
-                  <input type="radio" name="question1" className="mr-3" />
-                  <span className="text-[14px] text-[#1A1A1A]">Opção C</span>
-                </label>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center text-[13px] text-[#6B7280]">
+                  <Clock className="w-4 h-4 mr-1" />
+                  <span>{formatDuration(nextLesson.duration_minutes)}</span>
+                </div>
+                {nextLesson.exercises.length > 0 && (
+                  <div className="flex items-center text-[13px] text-[#6B7280]">
+                    <HelpCircle className="w-4 h-4 mr-1" />
+                    <span>{nextLesson.exercises.length} exercício(s)</span>
+                  </div>
+                )}
               </div>
 
-              <button className="mt-4 bg-[#1A1A1A] text-white px-4 py-2 rounded-[8px] text-[14px] font-medium hover:bg-opacity-90 transition-all">
-                Responder
+              <button
+                onClick={() => handleWatchLesson(nextLesson)}
+                className="bg-[#1A1A1A] text-white px-6 py-2 rounded-full text-[14px] font-medium hover:bg-opacity-90 transition-all"
+              >
+                Continuar
               </button>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Exercícios da Aula Selecionada */}
+        {selectedLesson && selectedLesson.exercises.length > 0 && (
+          <div className="bg-[#F3F3F5] rounded-[20px] p-6">
+            <h3 className="text-[18px] font-semibold text-[#1A1A1A] mb-4">
+              Exercícios - {selectedLesson.title}
+            </h3>
+
+            <div className="space-y-3">
+              {selectedLesson.exercises.map((exercise, index) => (
+                <div key={exercise.id} className="bg-white rounded-[12px] p-4 border border-[#E879F9]">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-[15px] font-medium text-[#1A1A1A]">
+                      Questão {index + 1}
+                    </h4>
+                    {exercise.user_response && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        exercise.user_response.correto
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {exercise.user_response.correto ? 'Correto' : 'Incorreto'}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[14px] text-[#6B7280] mb-4">
+                    {exercise.pergunta}
+                  </p>
+
+                  <button
+                    onClick={() => handleOpenExercise(exercise)}
+                    className="bg-[#1A1A1A] text-white px-4 py-2 rounded-[8px] text-[14px] font-medium hover:bg-opacity-90 transition-all"
+                  >
+                    {exercise.user_response ? 'Ver Resposta' : 'Responder'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sidebar Direita - Lista de Módulos */}
@@ -355,21 +489,20 @@ export default function MentoradoVideosPage() {
           </div>
         </div>
 
-        {modules.length === 0 ? (
+        {filteredModules.length === 0 ? (
           <div className="text-center py-8">
             <Video className="w-12 h-12 text-[#6B7280] mx-auto mb-3" />
             <h3 className="text-[15px] font-medium text-[#1A1A1A] mb-2">
-              Nenhum módulo disponível
+              {searchTerm ? 'Nenhum resultado encontrado' : 'Nenhum módulo disponível'}
             </h3>
             <p className="text-[13px] text-[#6B7280]">
-              Entre em contato com seu mentor
+              {searchTerm ? 'Tente buscar por outros termos' : 'Entre em contato com seu mentor'}
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            {modules.map((module) => {
-              const moduleProgress = getModuleProgress(module.id)
-              const moduleLessons = lessons.filter(l => l.module_id === module.id).sort((a, b) => a.order_index - b.order_index)
+            {filteredModules.map((module) => {
+              const moduleProgress = getModuleProgress(module)
 
               return (
                 <div key={module.id} className="bg-white rounded-[16px] p-4">
@@ -390,11 +523,11 @@ export default function MentoradoVideosPage() {
                   </div>
 
                   <div className="space-y-2">
-                    {moduleLessons.map((lesson, index) => {
-                      const lessonProgress = getLessonProgress(lesson.id)
-                      const isUnlocked = isLessonUnlocked(lesson)
-                      const isCompleted = lessonProgress?.is_completed || false
-                      const hasStarted = !!lessonProgress
+                    {module.lessons.map((lesson, index) => {
+                      const isUnlocked = isLessonUnlocked(lesson, module.lessons)
+                      const isCompleted = lesson.progress?.is_completed || false
+                      const hasStarted = !!lesson.progress
+                      const hasExercises = lesson.exercises.length > 0
 
                       return (
                         <div
@@ -423,11 +556,17 @@ export default function MentoradoVideosPage() {
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-medium truncate">
-                              {index + 1}. {lesson.title}
-                            </p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-[13px] font-medium truncate">
+                                {lesson.order_index}. {lesson.title}
+                              </p>
+                              {hasExercises && (
+                                <HelpCircle className="w-3 h-3 text-[#E879F9] ml-1" />
+                              )}
+                            </div>
                             <p className="text-[12px] opacity-70">
                               {formatDuration(lesson.duration_minutes)}
+                              {hasExercises && ` • ${lesson.exercises.length} exercício(s)`}
                             </p>
                           </div>
                         </div>
@@ -471,7 +610,14 @@ export default function MentoradoVideosPage() {
                       <span>{formatDuration(selectedLesson.duration_minutes)}</span>
                     </div>
 
-                    {!getLessonProgress(selectedLesson.id)?.is_completed && (
+                    {selectedLesson.exercises.length > 0 && (
+                      <div className="flex items-center text-[13px] text-[#E879F9]">
+                        <HelpCircle className="w-4 h-4 mr-1" />
+                        <span>{selectedLesson.exercises.length} exercício(s)</span>
+                      </div>
+                    )}
+
+                    {!selectedLesson.progress?.is_completed && (
                       <div className="flex items-center text-[13px] text-[#E879F9]">
                         <span>Em andamento</span>
                       </div>
@@ -485,7 +631,7 @@ export default function MentoradoVideosPage() {
                     >
                       Fechar
                     </button>
-                    {!getLessonProgress(selectedLesson.id)?.is_completed && (
+                    {!selectedLesson.progress?.is_completed && (
                       <button
                         onClick={() => handleCompleteLesson(selectedLesson.id)}
                         className="px-4 py-2 bg-[#22C55E] text-white rounded-[8px] text-[14px] font-medium hover:bg-opacity-90 transition-colors flex items-center"
@@ -495,6 +641,108 @@ export default function MentoradoVideosPage() {
                       </button>
                     )}
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Exercício */}
+      <Dialog open={showExerciseModal} onOpenChange={setShowExerciseModal}>
+        <DialogContent className="sm:max-w-[600px] bg-white rounded-[24px] overflow-hidden">
+          {selectedExercise && (
+            <div className="p-6">
+              <DialogHeader>
+                <DialogTitle className="text-[18px] font-semibold text-[#1A1A1A] mb-4">
+                  Exercício
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-[15px] font-medium text-[#1A1A1A] mb-2">
+                    Pergunta:
+                  </h4>
+                  <p className="text-[14px] text-[#6B7280] mb-4">
+                    {selectedExercise.pergunta}
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="text-[15px] font-medium text-[#1A1A1A] mb-2">
+                    Sua resposta:
+                  </h4>
+
+                  {selectedExercise.tipo === 'multipla_escolha' ? (
+                    <div className="space-y-2">
+                      {selectedExercise.opcoes?.map((opcao, index) => (
+                        <label
+                          key={index}
+                          className="flex items-center p-3 bg-[#F3F3F5] rounded-[8px] cursor-pointer hover:bg-opacity-80 transition-colors"
+                        >
+                          <input
+                            type="radio"
+                            name="exercise_option"
+                            value={opcao}
+                            checked={exerciseResponse === opcao}
+                            onChange={(e) => setExerciseResponse(e.target.value)}
+                            className="mr-3"
+                            disabled={!!selectedExercise.user_response}
+                          />
+                          <span className="text-[14px] text-[#1A1A1A]">{opcao}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <textarea
+                      value={exerciseResponse}
+                      onChange={(e) => setExerciseResponse(e.target.value)}
+                      placeholder="Digite sua resposta..."
+                      className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#E879F9] focus:border-[#E879F9] text-[#1A1A1A] min-h-[120px]"
+                      disabled={!!selectedExercise.user_response}
+                    />
+                  )}
+                </div>
+
+                {selectedExercise.user_response && (
+                  <div className={`p-3 rounded-lg ${
+                    selectedExercise.user_response.correto
+                      ? 'bg-green-50 border border-green-200'
+                      : 'bg-red-50 border border-red-200'
+                  }`}>
+                    <div className="flex items-center">
+                      {selectedExercise.user_response.correto ? (
+                        <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                      ) : (
+                        <div className="w-5 h-5 text-red-600 mr-2">✗</div>
+                      )}
+                      <span className={`text-sm font-medium ${
+                        selectedExercise.user_response.correto ? 'text-green-800' : 'text-red-800'
+                      }`}>
+                        {selectedExercise.user_response.correto ? 'Resposta correta!' : 'Resposta incorreta'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    onClick={() => setShowExerciseModal(false)}
+                    className="px-4 py-2 bg-[#F3F3F5] text-[#6B7280] rounded-[8px] text-[14px] font-medium hover:bg-opacity-80 transition-colors"
+                  >
+                    Fechar
+                  </button>
+
+                  {!selectedExercise.user_response && (
+                    <button
+                      onClick={handleSubmitExercise}
+                      disabled={!exerciseResponse.trim()}
+                      className="px-4 py-2 bg-[#1A1A1A] text-white rounded-[8px] text-[14px] font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Enviar Resposta
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
