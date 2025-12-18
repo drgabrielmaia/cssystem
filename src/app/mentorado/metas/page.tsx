@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/contexts/auth'
+// import { useAuth } from '@/contexts/auth' // Não usado - usando localStorage
 import {
   Target, Trophy, Plus, CheckCircle, Clock, Star, Heart,
   BookOpen, Zap, Award, ArrowLeft, Calendar, Filter
@@ -32,7 +32,7 @@ interface MetaAluno {
 }
 
 export default function MentoradoMetasPage() {
-  const { user } = useAuth()
+  const [mentorado, setMentorado] = useState<any>(null)
   const [metas, setMetas] = useState<MetaAluno[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -62,23 +62,45 @@ export default function MentoradoMetasPage() {
   ]
 
   useEffect(() => {
-    if (user?.id) {
-      carregarMetas()
+    console.log('🔐 Verificando mentorado no localStorage...')
+    const mentoradoData = localStorage.getItem('mentorado')
+    if (mentoradoData) {
+      try {
+        const parsed = JSON.parse(mentoradoData)
+        console.log('✅ Mentorado encontrado:', parsed.id, parsed.nome_completo)
+        setMentorado(parsed)
+        carregarMetas(parsed.id)
+      } catch (e) {
+        console.error('❌ Erro ao parsear mentorado:', e)
+        setLoading(false)
+      }
+    } else {
+      console.log('❌ Sem mentorado no localStorage, redirecionando...')
+      window.location.href = '/mentorado'
     }
-  }, [user])
+  }, [])
 
-  const carregarMetas = async () => {
+  const carregarMetas = async (mentoradoId: string) => {
     try {
+      console.log('🎯 Carregando metas para mentorado:', mentoradoId)
+
       const { data, error } = await supabase
         .from('video_learning_goals')
         .select('*')
-        .eq('mentorado_id', user?.id)
+        .eq('mentorado_id', mentoradoId)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      console.log('📊 Resultado query metas:', { data, error })
+
+      if (error) {
+        console.error('❌ Erro na query:', error)
+        throw error
+      }
+
       setMetas(data || [])
+      console.log('✅ Metas carregadas:', data?.length || 0)
     } catch (error) {
-      console.error('Erro ao carregar metas:', error)
+      console.error('💥 Erro ao carregar metas:', error)
       setMetas([])
     } finally {
       setLoading(false)
@@ -86,14 +108,14 @@ export default function MentoradoMetasPage() {
   }
 
   const criarMeta = async () => {
-    if (!user?.id || !novaMeta.title) return
+    if (!mentorado?.id || !novaMeta.title) return
 
     setSaving(true)
     try {
       const { error } = await supabase
         .from('video_learning_goals')
         .insert([{
-          mentorado_id: user.id,
+          mentorado_id: mentorado.id,
           title: novaMeta.title,
           description: novaMeta.description,
           goal_type: novaMeta.goal_type,
@@ -105,7 +127,7 @@ export default function MentoradoMetasPage() {
 
       if (error) throw error
 
-      await carregarMetas()
+      await carregarMetas(mentorado.id)
       setNovaMeta({
         title: '',
         description: '',
@@ -134,7 +156,7 @@ export default function MentoradoMetasPage() {
         .eq('id', metaId)
 
       if (error) throw error
-      await carregarMetas()
+      await carregarMetas(mentorado.id)
     } catch (error) {
       console.error('Erro ao concluir meta:', error)
     }
@@ -178,7 +200,7 @@ export default function MentoradoMetasPage() {
             </div>
           </div>
           <Badge className="bg-white/20 text-slate-800 border-slate-800/20">
-            {user?.email?.split('@')[0]}
+            {mentorado?.nome_completo?.split(' ')[0] || 'Mentorado'}
           </Badge>
         </div>
 

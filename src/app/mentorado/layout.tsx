@@ -96,15 +96,35 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
 
   const handleLogout = async () => {
     try {
+      // 1. Fazer logout no Supabase
       await supabase.auth.signOut()
-      localStorage.removeItem('mentorado')
-      localStorage.clear() // Limpa todo o localStorage
-      window.location.reload() // Recarregar a página para mostrar login
+
+      // 2. Limpar TUDO do localStorage
+      localStorage.clear()
+
+      // 3. Limpar TUDO do sessionStorage
+      sessionStorage.clear()
+
+      // 4. Limpar cookies específicos (se houver)
+      document.cookie.split(";").forEach(function(c) {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+
+      // 5. Forçar redirecionamento para página inicial
+      window.location.href = '/mentorado'
+
     } catch (error) {
       console.error('Erro no logout:', error)
-      localStorage.removeItem('mentorado')
-      localStorage.clear() // Limpa todo o localStorage
-      window.location.reload() // Recarregar a página para mostrar login
+
+      // Fazer limpeza completa mesmo com erro
+      localStorage.clear()
+      sessionStorage.clear()
+      document.cookie.split(";").forEach(function(c) {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+
+      // Forçar redirecionamento
+      window.location.href = '/mentorado'
     }
   }
 
