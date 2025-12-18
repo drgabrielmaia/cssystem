@@ -587,7 +587,7 @@ export default function MentoradoVideosPage() {
             <div className="space-y-0">
               <div className="aspect-video bg-[#1A1A1A] rounded-t-[24px] overflow-hidden">
                 <iframe
-                  src={selectedLesson.panda_video_embed_url}
+                  src={`https://player-vz-3a60cfbb-1e3.tv.pandavideo.com.br/embed/?v=${selectedLesson.panda_video_embed_url}`}
                   className="w-full h-full"
                   frameBorder="0"
                   allowFullScreen
