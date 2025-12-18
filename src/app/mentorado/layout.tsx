@@ -71,19 +71,18 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
           localStorage.setItem('mentorado', JSON.stringify(mentoradoData))
         } else {
           await supabase.auth.signOut()
-          window.location.href = '/mentorado'
+          // Não redirecionar - deixar a página mostrar o login
         }
       } else {
         const savedMentorado = localStorage.getItem('mentorado')
         if (savedMentorado) {
           setMentorado(JSON.parse(savedMentorado))
-        } else {
-          window.location.href = '/mentorado'
         }
+        // Não redirecionar - deixar a página mostrar o login
       }
     } catch (error) {
       console.error('Erro na verificação de auth:', error)
-      window.location.href = '/mentorado'
+      // Não redirecionar - deixar a página mostrar o login
     } finally {
       setIsLoading(false)
     }
@@ -94,12 +93,12 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
       await supabase.auth.signOut()
       localStorage.removeItem('mentorado')
       localStorage.clear() // Limpa todo o localStorage
-      window.location.href = '/mentorado'
+      window.location.reload() // Recarregar a página para mostrar login
     } catch (error) {
       console.error('Erro no logout:', error)
       localStorage.removeItem('mentorado')
       localStorage.clear() // Limpa todo o localStorage
-      window.location.href = '/mentorado'
+      window.location.reload() // Recarregar a página para mostrar login
     }
   }
 
@@ -112,7 +111,11 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
   }
 
   if (!mentorado) {
-    return null
+    return (
+      <div className="min-h-screen bg-white">
+        {children}
+      </div>
+    )
   }
 
   return (
