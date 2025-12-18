@@ -1,6 +1,7 @@
 'use client'
 
 import { Search, Bell, Settings, User, ChevronLeft } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -14,6 +15,24 @@ import {
 import Link from 'next/link'
 
 export function Navbar() {
+  const handleLogout = async () => {
+    try {
+      // Logout do Supabase
+      await supabase.auth.signOut()
+
+      // Limpar cookies customizados
+      document.cookie = 'admin_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
+
+      // Redirecionar para login
+      window.location.href = '/login'
+    } catch (error) {
+      console.error('Erro no logout:', error)
+      // Mesmo com erro, limpar tudo e redirecionar
+      document.cookie = 'admin_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
+      window.location.href = '/login'
+    }
+  }
+
   return (
     <div className="h-16 bg-card border-b border-border flex items-center justify-between px-6">
       {/* Left Side - Back Button & Logo */}
@@ -99,7 +118,7 @@ export function Navbar() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>
               <span>Sair</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
