@@ -41,18 +41,21 @@ export async function middleware(request: NextRequest) {
   // Check if user is authenticated
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Check for custom admin authentication
+  const hasCustomAuth = request.cookies.get('admin_auth')?.value === 'true'
+
   // Allow access to public routes without authentication
   const publicRoutes = ['/login', '/formulario', '/forms', '/api/chat-ai', '/api/analyze-form', '/api/analisar-formulario', '/api/checkout', '/api/pix-qr', '/agendar', '/mentorado', '/api/instagram']
   const isPublicRoute = publicRoutes.some(route => request.nextUrl.pathname.startsWith(route))
 
-  // If user is not authenticated and trying to access protected routes, redirect to login
-  if (!user && !isPublicRoute) {
+  // If user is not authenticated (either Supabase or custom) and trying to access protected routes, redirect to login
+  if (!user && !hasCustomAuth && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // If user is authenticated, check if it's a mentorado
-  if (user) {
-    const isMentorado = user.user_metadata?.role === 'mentorado'
+  // If user is authenticated (either Supabase or custom), check permissions
+  if (user || hasCustomAuth) {
+    const isMentorado = user?.user_metadata?.role === 'mentorado'
 
     // Admin routes that mentorados cannot access
     const adminRoutes = ['/', '/leads', '/configuracoes', '/cadastro']
@@ -67,7 +70,7 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/mentorado', request.url))
       }
     } else {
-      // If admin is trying to access login, redirect to home
+      // If admin is trying to access login and is already authenticated, redirect to home
       if (request.nextUrl.pathname === '/login') {
         return NextResponse.redirect(new URL('/', request.url))
       }

@@ -22,6 +22,19 @@ export default function LoginPage() {
     setError('')
 
     try {
+      // Para admin@admin.com, permitir login customizado
+      if (email === 'admin@admin.com' && password.length < 6) {
+        if (password === 'admin') {
+          // Login customizado para admin
+          document.cookie = 'admin_auth=true; path=/; max-age=86400' // 24 horas
+          window.location.href = '/dashboard'
+          return
+        } else {
+          setError('Email ou senha incorretos')
+          return
+        }
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
