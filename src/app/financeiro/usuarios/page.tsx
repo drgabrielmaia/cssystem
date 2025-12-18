@@ -339,7 +339,7 @@ export default function FinanceiroUsuarios() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               <div className="p-2 bg-[#D4AF37] rounded-2xl">
-                {editingUser ? <Edit className="w-5 h-5 text-white" /> : <UserPlus className="w-5 h-5 text-white" />}
+                {editingUser ? <Edit className="w-5 h-5 text-slate-800" /> : <UserPlus className="w-5 h-5 text-slate-800" />}
               </div>
               {editingUser ? 'Editar Usuário' : 'Novo Usuário'}
             </DialogTitle>

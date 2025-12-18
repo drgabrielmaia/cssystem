@@ -76,8 +76,8 @@ export default function FinanceiroLoginPage() {
             {/* Logo */}
             <div className="mb-12">
               <div className="flex items-center mb-6">
-                <div className="w-14 h-14 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                  <DollarSign className="w-7 h-7 text-white" />
+                <div className="w-14 h-14 bg-gradient-to-r from-[#D4AF37] to-[#FFD700] rounded-2xl flex items-center justify-center shadow-lg">
+                  <DollarSign className="w-7 h-7 text-slate-800" />
                 </div>
                 <div className="ml-4">
                   <h1 className="text-2xl font-bold text-slate-800">Financeiro</h1>
@@ -126,8 +126,8 @@ export default function FinanceiroLoginPage() {
           <div className="w-full max-w-md">
             {/* Mobile Logo */}
             <div className="lg:hidden text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <DollarSign className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 bg-gradient-to-r from-[#D4AF37] to-[#FFD700] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <DollarSign className="w-8 h-8 text-slate-800" />
               </div>
               <h1 className="text-2xl font-bold text-slate-800">Financeiro</h1>
               <p className="text-slate-600">Dashboard Premium</p>
@@ -190,10 +190,10 @@ export default function FinanceiroLoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-2xl font-semibold hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 flex items-center justify-center group disabled:opacity-50"
+                  className="w-full bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-slate-800 py-3 px-4 rounded-2xl font-semibold hover:from-[#B8860B] hover:to-[#DAA520] focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:ring-offset-2 transition-all duration-200 flex items-center justify-center group disabled:opacity-50"
                 >
                   {loading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-slate-800"></div>
                   ) : (
                     <>
                       Entrar no Dashboard
@@ -206,7 +206,7 @@ export default function FinanceiroLoginPage() {
               <div className="mt-6 text-center">
                 <p className="text-sm text-slate-600">
                   Problemas para acessar?
-                  <button className="text-blue-600 hover:text-blue-700 ml-1 font-medium">
+                  <button className="text-[#D4AF37] hover:text-[#B8860B] ml-1 font-medium">
                     Entre em contato
                   </button>
                 </p>

@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS transacoes_financeiras (
     periodicidade VARCHAR(20) CHECK (periodicidade IN ('mensal', 'trimestral', 'semestral', 'anual')),
     anexos JSONB DEFAULT '[]',
     observacoes TEXT,
+    referencia_id UUID, -- Referência para comissões, vendas, etc
+    referencia_tipo VARCHAR(50), -- 'comissao', 'venda', 'manual', etc
     created_by UUID REFERENCES usuarios_financeiro(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
