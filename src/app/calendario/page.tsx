@@ -51,6 +51,101 @@ const MONTHS = [
 
 const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
+// Função para notificar admin sobre novo evento
+const notifyAdminAboutNewEvent = async (eventData: any) => {
+  try {
+    // Buscar o nome do lead ou mentorado se associado
+    let associatedName = ''
+
+    if (eventData.lead_id) {
+      try {
+        const response = await fetch('/routes/leads')
+        const data = await response.json()
+        if (data.success) {
+          const lead = data.leads.find((l: any) => l.id === eventData.lead_id)
+          associatedName = lead?.nome_completo || ''
+        }
+      } catch (error) {
+        console.warn('Erro ao buscar lead:', error)
+      }
+    }
+
+    if (eventData.mentorado_id && !associatedName) {
+      try {
+        const { data, error } = await supabase
+          .from('mentorados')
+          .select('nome_completo')
+          .eq('id', eventData.mentorado_id)
+          .single()
+
+        if (!error && data) {
+          associatedName = data.nome_completo
+        }
+      } catch (error) {
+        console.warn('Erro ao buscar mentorado:', error)
+      }
+    }
+
+    // Formatar data e hora
+    const eventDate = new Date(eventData.start_datetime)
+    const formattedDate = eventDate.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: 'America/Sao_Paulo'
+    })
+
+    const formattedTime = eventData.all_day
+      ? 'Dia todo'
+      : eventDate.toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'America/Sao_Paulo'
+        })
+
+    // Construir mensagem
+    let message = `🗓️ *NOVO EVENTO CRIADO*\n\n`
+    message += `📋 *Título:* ${eventData.title}\n`
+    message += `📅 *Data:* ${formattedDate}\n`
+    message += `⏰ *Horário:* ${formattedTime}\n`
+
+    if (eventData.description) {
+      message += `📝 *Descrição:* ${eventData.description}\n`
+    }
+
+    if (associatedName) {
+      const type = eventData.lead_id ? 'Lead' : 'Mentorado'
+      message += `👤 *${type}:* ${associatedName}\n`
+    }
+
+    message += `\n✅ Evento adicionado ao calendário com sucesso!`
+
+    // Enviar mensagem via WhatsApp API
+    const response = await fetch('/api/whatsapp/send-message', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        phoneNumber: process.env.NEXT_PUBLIC_ADMIN_PHONE || '5511999999999', // Número do admin
+        message: message,
+        sender: 'kellybsantoss@icloud.com'
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error('Falha ao enviar notificação WhatsApp')
+    }
+
+    console.log('✅ Notificação enviada para o admin com sucesso')
+
+  } catch (error) {
+    console.error('❌ Erro ao enviar notificação para admin:', error)
+    throw error
+  }
+}
+
 export default function CalendarioPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -286,6 +381,13 @@ export default function CalendarioPage() {
         .insert([eventData])
 
       if (error) throw error
+
+      // Enviar notificação WhatsApp para o admin
+      try {
+        await notifyAdminAboutNewEvent(eventData)
+      } catch (notificationError) {
+        console.warn('Erro ao enviar notificação:', notificationError)
+      }
 
       setShowNewEventModal(false)
       await fetchEvents()

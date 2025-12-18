@@ -109,6 +109,16 @@ const modules = [
     ]
   },
   {
+    name: 'Financeiro',
+    icon: DollarSign,
+    color: '#10B981', // Verde financeiro
+    items: [
+      { name: 'Dashboard Financeiro', href: '/financeiro/dashboard', icon: BarChart3, description: 'Análise financeira completa' },
+      { name: 'Análise Avançada', href: '/financeiro/analise', icon: TrendingUp, description: 'Gráficos e relatórios detalhados' },
+      { name: 'Login Financeiro', href: '/financeiro/login', icon: Shield, description: 'Acesso separado ao financeiro' },
+    ]
+  },
+  {
     name: 'Configurações',
     icon: Settings,
     color: '#8B7355',
