@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS video_form_responses (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     mentorado_id UUID NOT NULL REFERENCES mentorados(id) ON DELETE CASCADE,
     template_id UUID NOT NULL REFERENCES video_form_templates(id) ON DELETE CASCADE,
-    lesson_id UUID REFERENCES video_lessons(id) ON DELETE SET NULL,
-    module_id UUID REFERENCES video_modules(id) ON DELETE SET NULL,
+    lesson_id UUID, -- FK para video_lessons(id) - adicionar depois que tabela existir
+    module_id UUID, -- FK para video_modules(id) - adicionar depois que tabela existir
     responses JSONB NOT NULL, -- Object with questionId: response pairs
     nps_score INTEGER CHECK (nps_score >= 0 AND nps_score <= 10),
     satisfaction_score INTEGER CHECK (satisfaction_score >= 1 AND satisfaction_score <= 5),
@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS student_mindmap (
 CREATE TABLE IF NOT EXISTS lesson_notes (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     mentorado_id UUID NOT NULL REFERENCES mentorados(id) ON DELETE CASCADE,
-    lesson_id UUID NOT NULL REFERENCES video_lessons(id) ON DELETE CASCADE,
+    lesson_id UUID NOT NULL, -- FK para video_lessons(id) - adicionar depois que tabela existir
     note_text TEXT NOT NULL,
     timestamp_seconds INTEGER NOT NULL, -- Position in video where note was taken
     note_type VARCHAR(20) DEFAULT 'text' CHECK (note_type IN ('text', 'highlight', 'question', 'important', 'bookmark')),
@@ -319,31 +319,49 @@ CREATE INDEX IF NOT EXISTS idx_video_analytics_date ON video_analytics_summary(s
 -- 🔄 TRIGGERS FOR UPDATED_AT
 -- ===================================
 
+-- Create update function if it doesn't exist
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
 -- Update triggers for all tables with updated_at
+DROP TRIGGER IF EXISTS update_video_form_templates_updated_at ON video_form_templates;
 CREATE TRIGGER update_video_form_templates_updated_at BEFORE UPDATE ON video_form_templates
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_video_learning_goals_updated_at ON video_learning_goals;
 CREATE TRIGGER update_video_learning_goals_updated_at BEFORE UPDATE ON video_learning_goals
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_goal_milestones_updated_at ON goal_milestones;
 CREATE TRIGGER update_goal_milestones_updated_at BEFORE UPDATE ON goal_milestones
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_onboarding_steps_updated_at ON onboarding_steps;
 CREATE TRIGGER update_onboarding_steps_updated_at BEFORE UPDATE ON onboarding_steps
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_student_onboarding_updated_at ON student_onboarding;
 CREATE TRIGGER update_student_onboarding_updated_at BEFORE UPDATE ON student_onboarding
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_student_mindmap_updated_at ON student_mindmap;
 CREATE TRIGGER update_student_mindmap_updated_at BEFORE UPDATE ON student_mindmap
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_lesson_notes_updated_at ON lesson_notes;
 CREATE TRIGGER update_lesson_notes_updated_at BEFORE UPDATE ON lesson_notes
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_achievements_updated_at ON achievements;
 CREATE TRIGGER update_achievements_updated_at BEFORE UPDATE ON achievements
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_student_points_updated_at ON student_points;
 CREATE TRIGGER update_student_points_updated_at BEFORE UPDATE ON student_points
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -357,7 +375,6 @@ SELECT
     m.id,
     m.nome_completo,
     m.email,
-    m.turma,
     m.estado_atual,
     m.data_entrada,
     -- Video progress
@@ -389,7 +406,7 @@ LEFT JOIN student_achievements sa ON m.id = sa.mentorado_id
 LEFT JOIN lesson_notes ln ON m.id = ln.mentorado_id
 LEFT JOIN student_onboarding so ON m.id = so.mentorado_id
 LEFT JOIN onboarding_steps os ON os.is_active = true
-GROUP BY m.id, m.nome_completo, m.email, m.turma, m.estado_atual, m.data_entrada, sp.total_points, sp.level_number, sp.streak_days;
+GROUP BY m.id, m.nome_completo, m.email, m.estado_atual, m.data_entrada, sp.total_points, sp.level_number, sp.streak_days;
 
 -- Goals dashboard view
 CREATE OR REPLACE VIEW view_goals_dashboard AS
@@ -577,12 +594,12 @@ ALTER TABLE student_engagement_metrics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE video_analytics_summary ENABLE ROW LEVEL SECURITY;
 
 -- Admin-only policies (forms, achievements, categories, etc.)
-CREATE POLICY "Admin can manage form templates" ON video_form_templates FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Admin can manage goal categories" ON goal_categories FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Admin can manage onboarding steps" ON onboarding_steps FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Admin can manage achievements" ON achievements FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Admin can manage note categories" ON note_categories FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Admin can view analytics" ON video_analytics_summary FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Admin can manage form templates" ON video_form_templates FOR ALL USING (auth.jwt() ->> 'role' = 'admin' OR auth.jwt() ->> 'email' = 'admin@medicosderesultado.com.br');
+CREATE POLICY "Admin can manage goal categories" ON goal_categories FOR ALL USING (auth.jwt() ->> 'role' = 'admin' OR auth.jwt() ->> 'email' = 'admin@medicosderesultado.com.br');
+CREATE POLICY "Admin can manage onboarding steps" ON onboarding_steps FOR ALL USING (auth.jwt() ->> 'role' = 'admin' OR auth.jwt() ->> 'email' = 'admin@medicosderesultado.com.br');
+CREATE POLICY "Admin can manage achievements" ON achievements FOR ALL USING (auth.jwt() ->> 'role' = 'admin' OR auth.jwt() ->> 'email' = 'admin@medicosderesultado.com.br');
+CREATE POLICY "Admin can manage note categories" ON note_categories FOR ALL USING (auth.jwt() ->> 'role' = 'admin' OR auth.jwt() ->> 'email' = 'admin@medicosderesultado.com.br');
+CREATE POLICY "Admin can view analytics" ON video_analytics_summary FOR ALL USING (auth.jwt() ->> 'role' = 'admin' OR auth.jwt() ->> 'email' = 'admin@medicosderesultado.com.br');
 
 -- Student-specific policies
 CREATE POLICY "Students can view own form responses" ON video_form_responses
@@ -732,4 +749,22 @@ COMMENT ON TABLE point_transactions IS 'History of point changes for students';
 COMMENT ON TABLE student_engagement_metrics IS 'Daily engagement metrics per student';
 COMMENT ON TABLE video_analytics_summary IS 'Aggregated analytics for admin dashboard';
 
-SELECT 'VIDEO LEARNING PORTAL ENHANCEMENT SCHEMA COMPLETED! 🎉' as status;
+-- ===================================
+-- 🔗 FOREIGN KEYS A SEREM ADICIONADAS DEPOIS
+-- ===================================
+-- Execute estes comandos DEPOIS que as tabelas video_lessons e video_modules existirem:
+--
+-- ALTER TABLE video_form_responses
+-- ADD CONSTRAINT fk_video_form_responses_lesson
+-- FOREIGN KEY (lesson_id) REFERENCES video_lessons(id) ON DELETE SET NULL;
+--
+-- ALTER TABLE video_form_responses
+-- ADD CONSTRAINT fk_video_form_responses_module
+-- FOREIGN KEY (module_id) REFERENCES video_modules(id) ON DELETE SET NULL;
+--
+-- ALTER TABLE lesson_notes
+-- ADD CONSTRAINT fk_lesson_notes_lesson
+-- FOREIGN KEY (lesson_id) REFERENCES video_lessons(id) ON DELETE CASCADE;
+
+SELECT 'VIDEO LEARNING PORTAL ENHANCEMENT SCHEMA COMPLETED! 🎉' as status,
+       'Lembre-se de adicionar as Foreign Keys depois que video_lessons e video_modules existirem' as important_note;

@@ -9,7 +9,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { metasService, conquistasService } from '@/lib/video-portal-service'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/auth'
 import {
   Target, Trophy, Plus, CheckCircle, Clock, Star, Heart,
   BookOpen, Zap, Award, ArrowLeft, Calendar, Filter
@@ -18,28 +19,31 @@ import Link from 'next/link'
 
 interface MetaAluno {
   id: string
-  titulo: string
-  descricao: string
-  prazo: 'curto' | 'medio' | 'longo' | 'grande'
-  categoria: string
-  prioridade: 'alta' | 'media' | 'baixa'
-  status: 'ativo' | 'concluido' | 'pausado'
+  title: string
+  description: string
+  goal_type: 'short_term' | 'medium_term' | 'long_term' | 'big_term'
+  category_id: string | null
+  priority_level: 'low' | 'medium' | 'high' | 'critical'
+  status: 'pending' | 'in_progress' | 'completed' | 'paused' | 'cancelled'
+  progress_percentage: number
+  due_date: string | null
   created_at: string
-  data_conclusao?: string
+  completed_at: string | null
 }
 
 export default function MentoradoMetasPage() {
-  const [mentorado, setMentorado] = useState<any>(null)
+  const { user } = useAuth()
   const [metas, setMetas] = useState<MetaAluno[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [filtroStatus, setFiltroStatus] = useState('todos')
   const [novaMeta, setNovaMeta] = useState({
-    titulo: '',
-    descricao: '',
-    prazo: 'medio' as 'curto' | 'medio' | 'longo' | 'grande',
-    categoria: '',
-    prioridade: 'media' as 'alta' | 'media' | 'baixa'
+    title: '',
+    description: '',
+    goal_type: 'medium_term' as 'short_term' | 'medium_term' | 'long_term' | 'big_term',
+    category_id: '',
+    priority_level: 'medium' as 'low' | 'medium' | 'high' | 'critical',
+    due_date: ''
   })
 
   const categoriasMeta = [
@@ -51,38 +55,28 @@ export default function MentoradoMetasPage() {
   ]
 
   const prazosMeta = [
-    { value: 'curto', label: 'Curto Prazo', sublabel: '1-3 meses', color: 'bg-red-100 text-red-800' },
-    { value: 'medio', label: 'Médio Prazo', sublabel: '3-6 meses', color: 'bg-yellow-100 text-yellow-800' },
-    { value: 'longo', label: 'Longo Prazo', sublabel: '6-12 meses', color: 'bg-blue-100 text-blue-800' },
-    { value: 'grande', label: 'Grande Meta', sublabel: '1+ anos', color: 'bg-purple-100 text-purple-800' }
+    { value: 'short_term', label: 'Curto Prazo', sublabel: '1-3 meses', color: 'bg-red-100 text-red-800' },
+    { value: 'medium_term', label: 'Médio Prazo', sublabel: '3-6 meses', color: 'bg-yellow-100 text-yellow-800' },
+    { value: 'long_term', label: 'Longo Prazo', sublabel: '6-12 meses', color: 'bg-blue-100 text-blue-800' },
+    { value: 'big_term', label: 'Grande Meta', sublabel: '1+ anos', color: 'bg-purple-100 text-purple-800' }
   ]
 
   useEffect(() => {
-    const mentoradoData = localStorage.getItem('mentorado')
-    if (mentoradoData) {
-      const parsed = JSON.parse(mentoradoData)
-      setMentorado(parsed)
-      carregarMetas(parsed.id)
-    } else {
-      window.location.href = '/mentorado'
+    if (user?.id) {
+      carregarMetas()
     }
-  }, [])
+  }, [user])
 
-  const carregarMetas = async (mentoradoId: string) => {
+  const carregarMetas = async () => {
     try {
-      const metasData = await metasService.buscarMetas(mentoradoId)
-      const metasFormatadas = metasData.map(meta => ({
-        id: meta.id,
-        titulo: meta.resposta_json.titulo,
-        descricao: meta.resposta_json.descricao,
-        prazo: meta.resposta_json.prazo,
-        categoria: meta.resposta_json.categoria || 'pessoal',
-        prioridade: meta.resposta_json.prioridade || 'media',
-        status: meta.resposta_json.status,
-        created_at: meta.data_envio,
-        data_conclusao: meta.resposta_json.data_conclusao
-      }))
-      setMetas(metasFormatadas)
+      const { data, error } = await supabase
+        .from('video_learning_goals')
+        .select('*')
+        .eq('mentorado_id', user?.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setMetas(data || [])
     } catch (error) {
       console.error('Erro ao carregar metas:', error)
       setMetas([])
@@ -92,40 +86,35 @@ export default function MentoradoMetasPage() {
   }
 
   const criarMeta = async () => {
-    if (!mentorado || !novaMeta.titulo) return
+    if (!user?.id || !novaMeta.title) return
 
     setSaving(true)
     try {
-      await metasService.criarMeta({
-        mentorado_id: mentorado.id,
-        titulo: novaMeta.titulo,
-        descricao: novaMeta.descricao,
-        prazo: novaMeta.prazo,
-        status: 'ativo',
-        criado_por: 'aluno',
-        data_meta: new Date().toISOString()
-      })
+      const { error } = await supabase
+        .from('video_learning_goals')
+        .insert([{
+          mentorado_id: user.id,
+          title: novaMeta.title,
+          description: novaMeta.description,
+          goal_type: novaMeta.goal_type,
+          priority_level: novaMeta.priority_level,
+          due_date: novaMeta.due_date || null,
+          status: 'pending',
+          progress_percentage: 0
+        }])
 
-      await carregarMetas(mentorado.id)
+      if (error) throw error
+
+      await carregarMetas()
       setNovaMeta({
-        titulo: '',
-        descricao: '',
-        prazo: 'medio',
-        categoria: '',
-        prioridade: 'media'
+        title: '',
+        description: '',
+        goal_type: 'medium_term',
+        category_id: '',
+        priority_level: 'medium',
+        due_date: ''
       })
 
-      // Registrar conquista se for a primeira meta
-      if (metas.length === 0) {
-        await conquistasService.registrarConquista({
-          mentorado_id: mentorado.id,
-          tipo: 'meta_alcancada',
-          titulo: 'Primeira Meta Criada! 🎯',
-          descricao: 'Parabéns por criar sua primeira meta!',
-          pontos: 15,
-          conquistada_em: new Date().toISOString()
-        })
-      }
     } catch (error) {
       console.error('Erro ao criar meta:', error)
     } finally {
@@ -135,36 +124,35 @@ export default function MentoradoMetasPage() {
 
   const concluirMeta = async (metaId: string) => {
     try {
-      await metasService.atualizarMeta(metaId, {
-        status: 'concluido',
-        data_conclusao: new Date().toISOString()
-      })
+      const { error } = await supabase
+        .from('video_learning_goals')
+        .update({
+          status: 'completed',
+          progress_percentage: 100,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', metaId)
 
-      // Registrar conquista
-      await conquistasService.registrarConquista({
-        mentorado_id: mentorado.id,
-        tipo: 'meta_alcancada',
-        titulo: 'Meta Conquistada! 🏆',
-        descricao: 'Parabéns por concluir uma de suas metas!',
-        pontos: 25,
-        conquistada_em: new Date().toISOString()
-      })
-
-      await carregarMetas(mentorado.id)
+      if (error) throw error
+      await carregarMetas()
     } catch (error) {
       console.error('Erro ao concluir meta:', error)
     }
   }
 
-  const metasFiltradas = metas.filter(meta =>
-    filtroStatus === 'todos' || meta.status === filtroStatus
-  )
+  const metasFiltradas = metas.filter(meta => {
+    if (filtroStatus === 'todos') return true
+    if (filtroStatus === 'ativo') return meta.status === 'pending' || meta.status === 'in_progress'
+    if (filtroStatus === 'concluido') return meta.status === 'completed'
+    if (filtroStatus === 'pausado') return meta.status === 'paused'
+    return meta.status === filtroStatus
+  })
 
   const estatisticas = {
     total: metas.length,
-    ativas: metas.filter(m => m.status === 'ativo').length,
-    concluidas: metas.filter(m => m.status === 'concluido').length,
-    taxaConclusao: metas.length > 0 ? (metas.filter(m => m.status === 'concluido').length / metas.length) * 100 : 0
+    ativas: metas.filter(m => m.status === 'pending' || m.status === 'in_progress').length,
+    concluidas: metas.filter(m => m.status === 'completed').length,
+    taxaConclusao: metas.length > 0 ? (metas.filter(m => m.status === 'completed').length / metas.length) * 100 : 0
   }
 
   if (loading) {
@@ -190,7 +178,7 @@ export default function MentoradoMetasPage() {
             </div>
           </div>
           <Badge className="bg-white/20 text-slate-800 border-slate-800/20">
-            {mentorado?.nome_completo?.split(' ')[0]}
+            {user?.email?.split('@')[0]}
           </Badge>
         </div>
 
@@ -268,38 +256,17 @@ export default function MentoradoMetasPage() {
               <div>
                 <Label>Título da Meta</Label>
                 <Input
-                  value={novaMeta.titulo}
-                  onChange={(e) => setNovaMeta(prev => ({ ...prev, titulo: e.target.value }))}
-                  placeholder="Ex: Ler 2 livros por mês"
+                  value={novaMeta.title}
+                  onChange={(e) => setNovaMeta(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Ex: Concluir curso de marketing digital"
                 />
               </div>
 
               <div>
-                <Label>Categoria</Label>
+                <Label>Tipo de Meta</Label>
                 <Select
-                  value={novaMeta.categoria}
-                  onValueChange={(value) => setNovaMeta(prev => ({ ...prev, categoria: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoriasMeta.map(cat => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        <div className="flex items-center gap-2">
-                          {cat.icon} {cat.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Prazo</Label>
-                <Select
-                  value={novaMeta.prazo}
-                  onValueChange={(value: any) => setNovaMeta(prev => ({ ...prev, prazo: value }))}
+                  value={novaMeta.goal_type}
+                  onValueChange={(value: any) => setNovaMeta(prev => ({ ...prev, goal_type: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -315,10 +282,37 @@ export default function MentoradoMetasPage() {
               </div>
 
               <div>
+                <Label>Data Limite</Label>
+                <Input
+                  type="date"
+                  value={novaMeta.due_date}
+                  onChange={(e) => setNovaMeta(prev => ({ ...prev, due_date: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <Label>Prioridade</Label>
+                <Select
+                  value={novaMeta.priority_level}
+                  onValueChange={(value: any) => setNovaMeta(prev => ({ ...prev, priority_level: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Baixa</SelectItem>
+                    <SelectItem value="medium">Média</SelectItem>
+                    <SelectItem value="high">Alta</SelectItem>
+                    <SelectItem value="critical">Crítica</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
                 <Label>Descrição</Label>
                 <Textarea
-                  value={novaMeta.descricao}
-                  onChange={(e) => setNovaMeta(prev => ({ ...prev, descricao: e.target.value }))}
+                  value={novaMeta.description}
+                  onChange={(e) => setNovaMeta(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Descreva sua meta..."
                   rows={3}
                 />
@@ -326,7 +320,7 @@ export default function MentoradoMetasPage() {
 
               <Button
                 onClick={criarMeta}
-                disabled={!novaMeta.titulo || !novaMeta.categoria || saving}
+                disabled={!novaMeta.title || saving}
                 className="w-full bg-green-600 hover:bg-green-700"
               >
                 {saving ? 'Criando...' : 'Criar Meta'}
@@ -378,64 +372,112 @@ export default function MentoradoMetasPage() {
             ) : (
               <div className="space-y-4">
                 {metasFiltradas.map((meta) => {
-                  const categoria = categoriasMeta.find(c => c.value === meta.categoria)
-                  const prazo = prazosMeta.find(p => p.value === meta.prazo)
+                  const prazo = prazosMeta.find(p => p.value === meta.goal_type)
+                  const isCompleted = meta.status === 'completed'
+                  const isActive = meta.status === 'pending' || meta.status === 'in_progress'
 
                   return (
                     <Card
                       key={meta.id}
-                      className={`transition-all hover:shadow-md ${
-                        meta.status === 'concluido'
+                      className={`transition-all hover:shadow-md border-2 ${
+                        isCompleted
                           ? 'border-green-300 bg-gradient-to-r from-green-50 to-green-100'
-                          : 'border-gray-200 bg-white'
+                          : 'border-gray-200 bg-white hover:border-blue-300'
                       }`}
                     >
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
-                            <h3 className="text-xl font-semibold mb-2">{meta.titulo}</h3>
-                            <p className="text-gray-600 mb-3">{meta.descricao}</p>
+                            {/* Checkbox para marcar como concluída */}
+                            <div className="flex items-start gap-3">
+                              <button
+                                onClick={() => concluirMeta(meta.id)}
+                                disabled={isCompleted}
+                                className={`mt-1 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                  isCompleted
+                                    ? 'bg-green-500 border-green-500 text-white'
+                                    : 'border-gray-300 hover:border-green-400 hover:bg-green-50'
+                                }`}
+                              >
+                                {isCompleted && <CheckCircle className="h-4 w-4" />}
+                              </button>
+                              <div className="flex-1">
+                                <h3 className={`text-xl font-semibold mb-2 ${isCompleted ? 'line-through text-gray-500' : ''}`}>
+                                  {meta.title}
+                                </h3>
+                                {meta.description && (
+                                  <p className="text-gray-600 mb-3">{meta.description}</p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Progress bar */}
+                            <div className="mb-3">
+                              <div className="flex justify-between text-sm text-gray-600 mb-1">
+                                <span>Progresso</span>
+                                <span>{meta.progress_percentage}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full transition-all ${
+                                    isCompleted ? 'bg-green-500' :
+                                    meta.progress_percentage > 70 ? 'bg-blue-500' :
+                                    meta.progress_percentage > 30 ? 'bg-yellow-500' : 'bg-red-500'
+                                  }`}
+                                  style={{ width: `${meta.progress_percentage}%` }}
+                                />
+                              </div>
+                            </div>
 
                             <div className="flex items-center gap-2 mb-3">
-                              {categoria && (
-                                <Badge variant="outline" className={categoria.color}>
-                                  {categoria.icon} {categoria.label}
-                                </Badge>
-                              )}
                               {prazo && (
                                 <Badge variant="outline" className={prazo.color}>
                                   <Calendar className="h-3 w-3 mr-1" />
                                   {prazo.label}
                                 </Badge>
                               )}
-                              <Badge variant={meta.status === 'concluido' ? 'default' : 'secondary'}>
-                                {meta.status === 'concluido' ? 'Concluída' : 'Ativa'}
+                              <Badge
+                                variant="outline"
+                                className={
+                                  meta.priority_level === 'critical' ? 'bg-red-100 text-red-700' :
+                                  meta.priority_level === 'high' ? 'bg-orange-100 text-orange-700' :
+                                  meta.priority_level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-gray-100 text-gray-700'
+                                }
+                              >
+                                {meta.priority_level === 'critical' ? 'Crítica' :
+                                 meta.priority_level === 'high' ? 'Alta' :
+                                 meta.priority_level === 'medium' ? 'Média' : 'Baixa'
+                                } Prioridade
+                              </Badge>
+                              <Badge variant={isCompleted ? 'default' : 'secondary'}>
+                                {isCompleted ? '✅ Concluída' :
+                                 meta.status === 'in_progress' ? '🔄 Em Progresso' :
+                                 meta.status === 'paused' ? '⏸️ Pausada' : '⏳ Pendente'}
                               </Badge>
                             </div>
+
+                            {meta.due_date && (
+                              <div className="text-sm text-gray-500">
+                                📅 Prazo: {new Date(meta.due_date).toLocaleDateString('pt-BR')}
+                                {new Date(meta.due_date) < new Date() && !isCompleted && (
+                                  <span className="text-red-500 font-medium ml-2">⚠️ Vencida</span>
+                                )}
+                              </div>
+                            )}
                           </div>
 
-                          {meta.status === 'ativo' && (
-                            <Button
-                              onClick={() => concluirMeta(meta.id)}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Concluir
-                            </Button>
-                          )}
-
-                          {meta.status === 'concluido' && (
+                          {isCompleted && (
                             <div className="flex items-center gap-2 text-green-600">
-                              <Trophy className="h-5 w-5" />
-                              <span className="text-sm font-medium">Conquistada!</span>
+                              <Trophy className="h-8 w-8" />
                             </div>
                           )}
                         </div>
 
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 pt-3 border-t">
                           Criada em {new Date(meta.created_at).toLocaleDateString('pt-BR')}
-                          {meta.data_conclusao && (
-                            <> • Concluída em {new Date(meta.data_conclusao).toLocaleDateString('pt-BR')}</>
+                          {meta.completed_at && (
+                            <> • Concluída em {new Date(meta.completed_at).toLocaleDateString('pt-BR')}</>
                           )}
                         </div>
                       </CardContent>
