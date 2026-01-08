@@ -43,7 +43,7 @@ interface FormSubmission {
   mentorado: {
     nome_completo: string
     email: string
-    turma: string
+    // turma: string  // Campo não existe na tabela
   } | null
 }
 
@@ -66,14 +66,38 @@ export default function FormResponsesPage() {
 
   const fetchSubmissions = async () => {
     try {
+      // Primeiro, obter a organização do usuário atual
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        console.error('Erro ao obter usuário:', userError)
+        setLoading(false)
+        return
+      }
+
+      // Buscar organization_id do usuário
+      const { data: orgUser, error: orgError } = await supabase
+        .from('organization_users')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (orgError || !orgUser) {
+        console.error('Usuário não pertence a nenhuma organização:', orgError)
+        setLoading(false)
+        return
+      }
+
+      // Buscar respostas apenas da organização do usuário
       const { data, error } = await supabase
         .from('form_submissions')
         .select(`
           *,
           template:form_templates(name, description, fields),
           lead:leads(nome_completo, email, telefone),
-          mentorado:mentorados(nome_completo, email, turma)
+          mentorado:mentorados(nome_completo, email)
         `)
+        .eq('organization_id', orgUser.organization_id)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -169,7 +193,7 @@ export default function FormResponsesPage() {
         submission.lead?.nome_completo || submission.mentorado?.nome_completo || '',
         submission.lead?.email || submission.mentorado?.email || '',
         submission.lead?.telefone || '',
-        submission.mentorado?.turma || '',
+        '',  // Campo turma não existe
         submission.source_url || '',
         `"${JSON.stringify(submission.submission_data).replace(/"/g, '""')}"`
       ].join(','))
@@ -237,7 +261,7 @@ export default function FormResponsesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
             <div><strong>Nome:</strong> {submission.mentorado.nome_completo}</div>
             <div><strong>Email:</strong> {submission.mentorado.email}</div>
-            <div><strong>Turma:</strong> {submission.mentorado.turma}</div>
+            {/* <div><strong>Turma:</strong> Campo turma não existe</div> */}
           </div>
         </div>
       )}

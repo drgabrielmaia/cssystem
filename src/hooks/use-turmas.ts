@@ -16,34 +16,35 @@ export function useTurmas() {
 
       const { data: mentorados, error: mentoradosError } = await supabase
         .from('mentorados')
-        .select('turma, estado_atual, created_at')
+        .select('estado_atual, created_at')  // Campo turma não existe
 
       if (mentoradosError) throw mentoradosError
 
       const { data: formularios, error: formulariosError } = await supabase
         .from('formularios_respostas')
-        .select('data_envio, mentorados!inner(turma)')
+        .select('data_envio, mentorados!inner(nome_completo)')  // Campo turma não existe
         .order('data_envio', { ascending: false })
 
       if (formulariosError) throw formulariosError
 
       const turmasMap = new Map<string, TurmaStats>()
 
-      mentorados?.forEach(mentorado => {
-        const turma = mentorado.turma
-        if (!turmasMap.has(turma)) {
-          turmasMap.set(turma, {
-            turma,
-            total_mentorados: 0,
-            ativos: 0,
-            inativos: 0,
-            ultima_atividade: 'Sem atividade'
-          })
-        }
+      // Campo turma não existe - usando placeholder
+      const defaultTurma = 'Turma Geral'
+      if (!turmasMap.has(defaultTurma)) {
+        turmasMap.set(defaultTurma, {
+          turma: defaultTurma,
+          total_mentorados: 0,
+          ativos: 0,
+          inativos: 0,
+          ultima_atividade: 'Sem atividade'
+        })
+      }
 
-        const stats = turmasMap.get(turma)!
+      mentorados?.forEach(mentorado => {
+        const stats = turmasMap.get(defaultTurma)!
         stats.total_mentorados++
-        
+
         if (mentorado.estado_atual === 'ativo') {
           stats.ativos++
         } else {
@@ -51,9 +52,9 @@ export function useTurmas() {
         }
       })
 
+      // Campo turma não existe - atualizar última atividade geral
       formularios?.forEach(formulario => {
-        const turma = (formulario.mentorados as any).turma
-        const stats = turmasMap.get(turma)
+        const stats = turmasMap.get('Turma Geral')
         if (stats && (!stats.ultima_atividade || stats.ultima_atividade === 'Sem atividade')) {
           const date = new Date(formulario.data_envio)
           stats.ultima_atividade = date.toLocaleDateString('pt-BR')

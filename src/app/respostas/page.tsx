@@ -51,18 +51,41 @@ export default function RespostasPage() {
 
   const loadRespostas = async () => {
     try {
+      // Primeiro, obter a organização do usuário atual
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        console.error('Erro ao obter usuário:', userError)
+        setLoading(false)
+        return
+      }
+
+      // Buscar organization_id do usuário
+      const { data: orgUser, error: orgError } = await supabase
+        .from('organization_users')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (orgError || !orgUser) {
+        console.error('Usuário não pertence a nenhuma organização:', orgError)
+        setLoading(false)
+        return
+      }
+
       const todasRespostas: RespostaComAnalise[] = []
 
-      // Carregar respostas da tabela genérica
+      // Carregar respostas da tabela genérica (filtrada por organização)
       const { data: respostasGenericas } = await supabase
         .from('formularios_respostas')
         .select(`
           *,
-          mentorados!inner(nome_completo, email, turma)
+          mentorados!inner(nome_completo, email)
         `)
+        .eq('organization_id', orgUser.organization_id)
         .order('data_envio', { ascending: false })
 
-      // NOVO: Carregar respostas da tabela form_submissions (formulários novos)
+      // NOVO: Carregar respostas da tabela form_submissions (formulários novos) (filtrada por organização)
       const { data: formSubmissions } = await supabase
         .from('form_submissions')
         .select(`
@@ -70,6 +93,7 @@ export default function RespostasPage() {
           form_templates!inner(name, form_type),
           mentorados(id, nome_completo, email, turma)
         `)
+        .eq('organization_id', orgUser.organization_id)
         .order('created_at', { ascending: false })
 
       if (respostasGenericas) {
@@ -77,7 +101,7 @@ export default function RespostasPage() {
           ...resposta,
           mentorado_nome: resposta.mentorados?.nome_completo || 'Nome não encontrado',
           mentorado_email: resposta.mentorados?.email || '',
-          mentorado_turma: resposta.mentorados?.turma || '',
+          mentorado_turma: '',  // Campo turma não existe na tabela
           analysis: analyzeCompleteResponse(resposta)
         }))
         todasRespostas.push(...formatadas)
@@ -95,7 +119,7 @@ export default function RespostasPage() {
                 id: submission.mentorados.id,
                 nome_completo: submission.mentorados.nome_completo,
                 email: submission.mentorados.email,
-                turma: submission.mentorados.turma
+                turma: ''  // Campo turma não existe
               }
             }
             // Senão, buscar através do lead_id (formulários de lead)
@@ -114,7 +138,7 @@ export default function RespostasPage() {
                   id: lead.mentorados[0].id,
                   nome_completo: lead.mentorados[0].nome_completo,
                   email: lead.mentorados[0].email,
-                  turma: lead.mentorados[0].turma
+                  turma: ''  // Campo turma não existe
                 }
               }
             }
@@ -132,7 +156,7 @@ export default function RespostasPage() {
               mentorado_email: mentoradoInfo?.email ||
                               submission.submission_data?.email ||
                               'Email não informado',
-              mentorado_turma: mentoradoInfo?.turma || 'Não identificado',
+              mentorado_turma: 'Não identificado',  // Campo turma não existe
               analysis: analyzeCompleteResponse({
                 formulario: submission.template_slug || 'custom',
                 resposta_json: submission.submission_data
@@ -145,13 +169,14 @@ export default function RespostasPage() {
         }
       }
 
-      // Carregar respostas NPS
+      // Carregar respostas NPS (filtrada por organização)
       const { data: respostasNPS } = await supabase
         .from('nps_respostas')
         .select(`
           *,
-          mentorados!inner(nome_completo, email, turma)
+          mentorados!inner(nome_completo, email)
         `)
+        .eq('organization_id', orgUser.organization_id)
         .order('data_resposta', { ascending: false })
 
       if (respostasNPS) {
@@ -172,7 +197,7 @@ export default function RespostasPage() {
           data_envio: resposta.data_resposta,
           mentorado_nome: resposta.mentorados?.nome_completo || 'Nome não encontrado',
           mentorado_email: resposta.mentorados?.email || '',
-          mentorado_turma: resposta.mentorados?.turma || '',
+          mentorado_turma: '',  // Campo turma não existe na tabela
           analysis: analyzeCompleteResponse({
             formulario: 'nps_geral',
             resposta_json: { respostas: { nota_nps: resposta.nota_nps } }
@@ -181,13 +206,14 @@ export default function RespostasPage() {
         todasRespostas.push(...formatadas)
       }
 
-      // Carregar respostas do Módulo IV - Vendas
+      // Carregar respostas do Módulo IV - Vendas (filtrada por organização)
       const { data: respostasVendas } = await supabase
         .from('modulo_iv_vendas_respostas')
         .select(`
           *,
-          mentorados!inner(nome_completo, email, turma)
+          mentorados!inner(nome_completo, email)
         `)
+        .eq('organization_id', orgUser.organization_id)
         .order('data_resposta', { ascending: false })
 
       if (respostasVendas) {
@@ -208,7 +234,7 @@ export default function RespostasPage() {
           data_envio: resposta.data_resposta,
           mentorado_nome: resposta.mentorados?.nome_completo || 'Nome não encontrado',
           mentorado_email: resposta.mentorados?.email || '',
-          mentorado_turma: resposta.mentorados?.turma || '',
+          mentorado_turma: '',  // Campo turma não existe na tabela
           analysis: analyzeCompleteResponse({
             formulario: 'modulo_iv_vendas',
             resposta_json: { respostas: { nps: resposta.nps } }
@@ -217,13 +243,14 @@ export default function RespostasPage() {
         todasRespostas.push(...formatadas)
       }
 
-      // Carregar respostas do Módulo III - Marketing
+      // Carregar respostas do Módulo III - Marketing (filtrada por organização)
       const { data: respostasMarketing } = await supabase
         .from('modulo_iii_gestao_marketing_respostas')
         .select(`
           *,
-          mentorados!inner(nome_completo, email, turma)
+          mentorados!inner(nome_completo, email)
         `)
+        .eq('organization_id', orgUser.organization_id)
         .order('data_resposta', { ascending: false })
 
       if (respostasMarketing) {
@@ -245,7 +272,7 @@ export default function RespostasPage() {
           data_envio: resposta.data_resposta,
           mentorado_nome: resposta.mentorados?.nome_completo || 'Nome não encontrado',
           mentorado_email: resposta.mentorados?.email || '',
-          mentorado_turma: resposta.mentorados?.turma || '',
+          mentorado_turma: '',  // Campo turma não existe na tabela
           analysis: analyzeCompleteResponse({
             formulario: 'modulo_iii_gestao_marketing',
             resposta_json: { respostas: { nps: resposta.nps } }

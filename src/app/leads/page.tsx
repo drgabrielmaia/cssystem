@@ -385,6 +385,12 @@ export default function LeadsPage() {
   }
 
   const handleConvertToMentorado = async (lead: Lead) => {
+    // Validar dados obrigatórios antes de converter
+    if (!lead.email) {
+      alert('Não é possível converter lead sem email. Por favor, adicione um email ao lead primeiro.')
+      return
+    }
+
     if (!confirm(`Converter "${lead.nome_completo}" em mentorado?`)) {
       return
     }
@@ -392,15 +398,33 @@ export default function LeadsPage() {
     try {
       setIsLoadingData(true)
 
+      // Obter organização do usuário atual
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        throw new Error('Usuário não autenticado')
+      }
+
+      const { data: orgUser, error: orgError } = await supabase
+        .from('organization_users')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (orgError || !orgUser) {
+        throw new Error('Usuário não pertence a nenhuma organização')
+      }
+
       // 1. Criar mentorado com dados do lead
       const mentoradoData = {
         nome_completo: lead.nome_completo,
-        email: lead.email,
+        email: lead.email, // Já validado acima
         telefone: lead.telefone,
         data_entrada: lead.data_venda || new Date().toISOString().split('T')[0],
         estado_atual: 'ativo',
         lead_id: lead.id,
-        excluido: false
+        excluido: false,
+        organization_id: orgUser.organization_id, // Adicionar organização
+        turma: 'Turma 1' // Valor padrão para turma
       }
 
       const { data: mentorado, error: mentoradoError } = await supabase

@@ -4,7 +4,7 @@ export interface Mentorado {
   nome_completo: string
   email: string
   telefone?: string
-  turma: string
+  // turma: string  // Campo não existe na tabela - precisa ser adicionado
   estado_entrada: string
   estado_atual: string
   data_entrada: string
@@ -34,7 +34,7 @@ export interface KPI {
 }
 
 export interface TurmaStats {
-  turma: string
+  turma: string  // Campo mantido para compatibilidade, mas não existe na tabela
   total_mentorados: number
   ativos: number
   inativos: number

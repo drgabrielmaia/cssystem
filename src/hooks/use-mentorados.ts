@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Mentorado } from '@/types'
 
-export function useMentorados(turma?: string) {
+export function useMentorados(turma?: string) {  // Parâmetro turma mantido para compatibilidade
   const [mentorados, setMentorados] = useState<Mentorado[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -19,9 +19,10 @@ export function useMentorados(turma?: string) {
         .select('*')
         .order('created_at', { ascending: false })
 
-      if (turma) {
-        query = query.eq('turma', turma)
-      }
+      // Campo turma não existe na tabela
+      // if (turma) {
+      //   query = query.eq('turma', turma)
+      // }
 
       const { data, error: fetchError } = await query
 
