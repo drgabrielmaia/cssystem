@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Search, Users, Plus, Edit, Trash2, Mail, Shield, UserPlus, Crown, User2 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth'
 import { useOrganizationUsers } from '@/hooks/use-organization-users'
+import Link from 'next/link'
 
 export default function UsersManagementPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -141,13 +142,20 @@ export default function UsersManagementPage() {
           </div>
 
           {canManageUsers && (
-            <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-              <DialogTrigger asChild>
+            <div className="flex gap-2">
+              <Link href="/admin/create-user">
                 <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Usuário
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Criar Usuário
                 </Button>
-              </DialogTrigger>
+              </Link>
+              <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar Rápido
+                  </Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Adicionar Novo Usuário</DialogTitle>
@@ -190,6 +198,7 @@ export default function UsersManagementPage() {
                 </div>
               </DialogContent>
             </Dialog>
+            </div>
           )}
         </div>
 

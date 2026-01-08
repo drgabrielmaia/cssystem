@@ -29,7 +29,8 @@ import {
   ChevronRight,
   PlayCircle,
   Video,
-  Shield
+  Shield,
+  Building2
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -109,6 +110,16 @@ const modules = [
       { name: 'Calendário', href: '/calendario', icon: Calendar, description: 'Agendar eventos' },
       { name: 'Form Builder', href: '/form-builder', icon: Wrench, description: 'Criar formulários' },
       { name: 'Respostas Forms', href: '/form-responses', icon: Eye, description: 'Ver respostas' },
+    ]
+  },
+  {
+    name: 'Administração',
+    icon: Settings,
+    color: '#6366F1', // Roxo para admin
+    items: [
+      { name: 'Gerenciar Usuários', href: '/admin/users', icon: Users, description: 'Controle de usuários da organização' },
+      { name: 'Criar Usuário', href: '/admin/create-user', icon: UserPlus, description: 'Adicionar novo membro' },
+      { name: 'Configurar Organização', href: '/admin/organization', icon: Building2, description: 'Configurações da organização' },
     ]
   },
   {
