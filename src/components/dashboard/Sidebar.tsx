@@ -10,7 +10,8 @@ import {
   MessageSquare,
   TrendingUp,
   DollarSign,
-  Target
+  Target,
+  Brain
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -18,6 +19,7 @@ import { usePathname } from 'next/navigation'
 const menuItems = [
   { icon: Users, href: '/lista-mentorados', label: 'Visão Geral' },
   { icon: Home, href: '/dashboard', label: 'Dashboard' },
+  { icon: Brain, href: '/admin/mapas-mentais', label: 'Mapas Mentais' },
   { icon: FileText, href: '/cases', label: 'Cases' },
   { icon: BarChart3, href: '/analytics', label: 'Analytics' },
   { icon: MessageSquare, href: '/formularios', label: 'Formulários' },
