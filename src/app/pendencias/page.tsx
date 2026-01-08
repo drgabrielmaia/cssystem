@@ -117,25 +117,60 @@ export default function PendenciasPage() {
 
   const loadComissoesPendentes = async () => {
     try {
-      const { data, error } = await supabase
+      // Obter usuário atual e organização
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Buscar organization_id do usuário
+      const { data: orgUser } = await supabase
+        .from('organization_users')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+      const organizationId = orgUser?.organization_id
+
+      // Buscar apenas as comissões pendentes da organização
+      const { data: comissoes, error } = await supabase
         .from('comissoes')
-        .select(`
-          *,
-          leads!inner(
-            nome_completo,
-            telefone
-          ),
-          mentorados!inner(
-            nome_completo,
-            email,
-            turma
-          )
-        `)
+        .select('*')
         .eq('status_pagamento', 'pendente')
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setComissoesPendentes(data || [])
+
+      // Para cada comissão, buscar os dados do lead e mentorado separadamente
+      const comissoesComDados = []
+      for (const comissao of comissoes || []) {
+        const comissaoCompleta = { ...comissao }
+
+        // Buscar dados do lead se existir lead_id
+        if (comissao.lead_id) {
+          const { data: lead } = await supabase
+            .from('leads')
+            .select('nome_completo, telefone')
+            .eq('id', comissao.lead_id)
+            .single()
+
+          comissaoCompleta.leads = lead
+        }
+
+        // Buscar dados do mentorado se existir mentorado_id
+        if (comissao.mentorado_id) {
+          const { data: mentorado } = await supabase
+            .from('mentorados')
+            .select('nome_completo, email, turma')
+            .eq('id', comissao.mentorado_id)
+            .single()
+
+          comissaoCompleta.mentorados = mentorado
+        }
+
+        comissoesComDados.push(comissaoCompleta)
+      }
+
+      setComissoesPendentes(comissoesComDados)
     } catch (error) {
       console.error('Erro ao carregar comissões pendentes:', error)
     }
@@ -143,9 +178,23 @@ export default function PendenciasPage() {
 
   const loadMentoradosDisponiveis = async () => {
     try {
+      // Obter usuário atual e organização
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Buscar organization_id do usuário
+      const { data: orgUser } = await supabase
+        .from('organization_users')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+      const organizationId = orgUser?.organization_id
+
       const { data } = await supabase
         .from('mentorados')
         .select('id, nome_completo')
+        .eq('organization_id', organizationId)
         .order('nome_completo')
 
       setMentoradosDisponiveis(data || [])
@@ -156,18 +205,33 @@ export default function PendenciasPage() {
 
   const loadDividasData = async () => {
     try {
-      // Buscar dívidas do ano selecionado
+      // Obter usuário atual e organização
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Buscar organization_id do usuário
+      const { data: orgUser } = await supabase
+        .from('organization_users')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+      const organizationId = orgUser?.organization_id
+
+      // Buscar dívidas do ano selecionado filtradas por organização
       const { data: dividasData } = await supabase
         .from('dividas')
         .select('*')
+        .eq('organization_id', organizationId)
         .gte('data_vencimento', `${anoSelecionado}-01-01`)
         .lte('data_vencimento', `${anoSelecionado}-12-31`)
         .order('mentorado_nome, data_vencimento')
 
-      // Buscar todos os mentorados
+      // Buscar todos os mentorados da organização
       const { data: mentoradosData } = await supabase
         .from('mentorados')
         .select('*')
+        .eq('organization_id', organizationId)
         .order('nome_completo')
 
       if (dividasData && mentoradosData) {
@@ -340,6 +404,19 @@ export default function PendenciasPage() {
     }
 
     try {
+      // Obter usuário atual e organização
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Buscar organization_id do usuário
+      const { data: orgUser } = await supabase
+        .from('organization_users')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+      const organizationId = orgUser?.organization_id
+
       const mentoradoSelecionado = mentoradosDisponiveis.find(m => m.id === selectedMentorado)
       const valorNumerico = parseFloat(valorDivida.replace(',', '.'))
 
@@ -350,7 +427,8 @@ export default function PendenciasPage() {
           mentorado_nome: mentoradoSelecionado?.nome_completo,
           valor: valorNumerico,
           data_vencimento: dataVencimento,
-          status: 'pendente'
+          status: 'pendente',
+          organization_id: organizationId
         })
 
       if (error) throw error
