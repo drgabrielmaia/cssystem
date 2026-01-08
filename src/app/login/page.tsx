@@ -27,7 +27,7 @@ export default function LoginPage() {
         if (password === 'admin') {
           // Login customizado para admin
           document.cookie = 'admin_auth=true; path=/; max-age=86400' // 24 horas
-          window.location.href = '/dashboard'
+          router.push('/dashboard')
           return
         } else {
           setError('Email ou senha incorretos')
@@ -65,7 +65,7 @@ export default function LoginPage() {
           // É usuário do financeiro - salvar dados e redirecionar
           localStorage.setItem('finance_user', JSON.stringify(financeUser))
           const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/financeiro/dashboard'
-          window.location.href = redirectTo
+          router.push(redirectTo)
           return
         }
       } catch (financeError) {
@@ -74,7 +74,7 @@ export default function LoginPage() {
 
       // Redirecionar para dashboard normal ou página anterior
       const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
-      window.location.href = redirectTo
+      router.push(redirectTo)
     } catch (error: any) {
       console.error('Erro no login:', error)
       setError('Erro interno do servidor. Tente novamente.')

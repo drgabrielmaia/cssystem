@@ -55,11 +55,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       await supabase.auth.signOut()
+
+      // Limpar cookies customizados
+      document.cookie = 'admin_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
+
+      // Limpar localStorage (se existir algo)
+      localStorage.clear()
+
       // Redirecionar para página de login após logout
       router.push('/login')
     } catch (error) {
       console.error('Erro ao fazer logout:', error)
-      // Mesmo com erro, redirecionar para login
+
+      // Mesmo com erro, limpar cookies e redirecionar
+      document.cookie = 'admin_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
+      localStorage.clear()
       router.push('/login')
     }
   }
