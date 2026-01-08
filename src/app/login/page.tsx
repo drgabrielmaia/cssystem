@@ -64,15 +64,17 @@ export default function LoginPage() {
         if (financeUser) {
           // É usuário do financeiro - salvar dados e redirecionar
           localStorage.setItem('finance_user', JSON.stringify(financeUser))
-          window.location.href = '/financeiro/dashboard'
+          const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/financeiro/dashboard'
+          window.location.href = redirectTo
           return
         }
       } catch (financeError) {
         // Não é usuário do financeiro, continuar para dashboard normal
       }
 
-      // Redirecionar para dashboard normal
-      window.location.href = '/dashboard'
+      // Redirecionar para dashboard normal ou página anterior
+      const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
+      window.location.href = redirectTo
     } catch (error: any) {
       console.error('Erro no login:', error)
       setError('Erro interno do servidor. Tente novamente.')
