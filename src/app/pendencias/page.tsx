@@ -135,21 +135,12 @@ export default function PendenciasPage() {
 
       const organizationId = orgUser?.organization_id
 
-      // Se não conseguir buscar a organização, tentar sem filtro de organização primeiro
-      let query = supabase
+      // Buscar todas as comissões pendentes (tabela não tem organization_id ainda)
+      const { data: comissoes, error } = await supabase
         .from('comissoes')
         .select('*')
         .eq('status_pagamento', 'pendente')
         .order('created_at', { ascending: false })
-
-      // Só aplica filtro de organização se tiver o organization_id
-      if (organizationId) {
-        query = query.eq('organization_id', organizationId)
-      } else {
-        console.log('DEBUG: Buscando comissões sem filtro de organização (organization_id não encontrado)')
-      }
-
-      const { data: comissoes, error } = await query
 
       console.log('DEBUG Comissões:', { comissoes, error, organizationId })
 
@@ -238,21 +229,13 @@ export default function PendenciasPage() {
 
       const organizationId = orgUser?.organization_id
 
-      // Buscar dívidas - se não tiver organization_id, buscar sem filtro
-      let dividasQuery = supabase
+      // Buscar todas as dívidas (tabela não tem organization_id ainda)
+      const { data: dividasData, error: dividasError } = await supabase
         .from('dividas')
         .select('*')
         .gte('data_vencimento', `${anoSelecionado}-01-01`)
         .lte('data_vencimento', `${anoSelecionado}-12-31`)
         .order('mentorado_nome, data_vencimento')
-
-      if (organizationId) {
-        dividasQuery = dividasQuery.eq('organization_id', organizationId)
-      } else {
-        console.log('DEBUG: Buscando dívidas sem filtro de organização')
-      }
-
-      const { data: dividasData, error: dividasError } = await dividasQuery
 
       // Buscar mentorados - se não tiver organization_id, buscar sem filtro
       let mentoradosQuery = supabase
@@ -471,7 +454,7 @@ export default function PendenciasPage() {
           valor: valorNumerico,
           data_vencimento: dataVencimento,
           status: 'pendente',
-          organization_id: organizationId
+          // organization_id: organizationId // Tabela não tem essa coluna ainda
         })
 
       if (error) throw error
