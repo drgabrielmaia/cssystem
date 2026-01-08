@@ -398,9 +398,26 @@ export default function LeadsPage() {
     try {
       setIsLoadingData(true)
 
-      // Obter organização do usuário atual
+      // Verificar sessão de autenticação
+      console.log('Verificando sessão de autenticação...')
+
+      // Primeiro, verificar se há sessão ativa
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      console.log('Sessão atual:', { session, sessionError })
+
+      if (sessionError) {
+        console.error('Erro ao obter sessão:', sessionError)
+        throw new Error(`Erro de sessão: ${sessionError.message}`)
+      }
+
+      if (!session) {
+        console.error('Nenhuma sessão ativa encontrada')
+        throw new Error('Sessão expirada - faça login novamente')
+      }
+
+      // Agora tentar obter o usuário
       const { data: { user }, error: userError } = await supabase.auth.getUser()
-      console.log('Auth user check:', { user, userError }) // Debug
+      console.log('Auth user check:', { user, userError })
 
       if (userError) {
         console.error('Erro de autenticação:', userError)
@@ -414,11 +431,40 @@ export default function LeadsPage() {
 
       console.log('Buscando organização para usuário:', user.id) // Debug
 
-      // Como o RLS pode estar causando problemas, vamos tentar sem filtrar por organização primeiro
-      // Criar o mentorado diretamente sem buscar organization_id
-      console.log('Criando mentorado sem organization_id para evitar problemas de RLS...')
+      // Buscar organization_id do usuário atual
+      let organizationId = null
+      try {
+        const { data: orgData, error: orgError } = await supabase
+          .from('organization_users')
+          .select('organization_id')
+          .eq('user_id', user.id)
+          .single()
 
-      // 1. Criar mentorado com dados do lead (SEM organization_id temporariamente)
+        if (orgError) {
+          console.error('Erro ao buscar organização:', orgError)
+          // Se não conseguir buscar pela tabela organization_users, tentar buscar na tabela organizations
+          const { data: orgDirectData, error: orgDirectError } = await supabase
+            .from('organizations')
+            .select('id')
+            .eq('owner_email', user.email)
+            .single()
+
+          if (orgDirectError) {
+            console.error('Erro ao buscar organização diretamente:', orgDirectError)
+            throw new Error('Usuário não está associado a nenhuma organização')
+          }
+          organizationId = orgDirectData.id
+        } else {
+          organizationId = orgData.organization_id
+        }
+
+        console.log('Organization ID encontrado:', organizationId)
+      } catch (error) {
+        console.error('Erro ao obter organization_id:', error)
+        throw new Error('Erro ao verificar organização do usuário')
+      }
+
+      // 1. Criar mentorado com dados do lead
       const mentoradoData = {
         nome_completo: lead.nome_completo,
         email: lead.email, // Já validado acima
@@ -427,8 +473,8 @@ export default function LeadsPage() {
         estado_atual: 'ativo',
         lead_id: lead.id,
         excluido: false,
-        turma: 'Turma 1' // Valor padrão para turma
-        // organization_id removido temporariamente devido a problemas de RLS
+        turma: 'Turma 1', // Valor padrão para turma
+        organization_id: organizationId // Necessário para RLS
       }
 
       console.log('Dados do mentorado a ser criado:', mentoradoData) // Debug
