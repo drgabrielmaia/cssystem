@@ -119,24 +119,39 @@ export default function PendenciasPage() {
     try {
       // Obter usuário atual e organização
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        console.log('Usuário não encontrado para comissões')
+        return
+      }
 
       // Buscar organization_id do usuário
-      const { data: orgUser } = await supabase
+      const { data: orgUser, error: orgError } = await supabase
         .from('organization_users')
         .select('organization_id')
         .eq('user_id', user.id)
         .single()
 
+      console.log('DEBUG Comissões - orgUser:', { orgUser, orgError })
+
       const organizationId = orgUser?.organization_id
 
-      // Buscar apenas as comissões pendentes da organização
-      const { data: comissoes, error } = await supabase
+      // Se não conseguir buscar a organização, tentar sem filtro de organização primeiro
+      let query = supabase
         .from('comissoes')
         .select('*')
         .eq('status_pagamento', 'pendente')
-        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
+
+      // Só aplica filtro de organização se tiver o organization_id
+      if (organizationId) {
+        query = query.eq('organization_id', organizationId)
+      } else {
+        console.log('DEBUG: Buscando comissões sem filtro de organização (organization_id não encontrado)')
+      }
+
+      const { data: comissoes, error } = await query
+
+      console.log('DEBUG Comissões:', { comissoes, error, organizationId })
 
       if (error) throw error
 
@@ -207,32 +222,60 @@ export default function PendenciasPage() {
     try {
       // Obter usuário atual e organização
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        console.log('Usuário não encontrado para dívidas')
+        return
+      }
 
       // Buscar organization_id do usuário
-      const { data: orgUser } = await supabase
+      const { data: orgUser, error: orgError } = await supabase
         .from('organization_users')
         .select('organization_id')
         .eq('user_id', user.id)
         .single()
 
+      console.log('DEBUG Dívidas - orgUser:', { orgUser, orgError })
+
       const organizationId = orgUser?.organization_id
 
-      // Buscar dívidas do ano selecionado filtradas por organização
-      const { data: dividasData } = await supabase
+      // Buscar dívidas - se não tiver organization_id, buscar sem filtro
+      let dividasQuery = supabase
         .from('dividas')
         .select('*')
-        .eq('organization_id', organizationId)
         .gte('data_vencimento', `${anoSelecionado}-01-01`)
         .lte('data_vencimento', `${anoSelecionado}-12-31`)
         .order('mentorado_nome, data_vencimento')
 
-      // Buscar todos os mentorados da organização
-      const { data: mentoradosData } = await supabase
+      if (organizationId) {
+        dividasQuery = dividasQuery.eq('organization_id', organizationId)
+      } else {
+        console.log('DEBUG: Buscando dívidas sem filtro de organização')
+      }
+
+      const { data: dividasData, error: dividasError } = await dividasQuery
+
+      // Buscar mentorados - se não tiver organization_id, buscar sem filtro
+      let mentoradosQuery = supabase
         .from('mentorados')
         .select('*')
-        .eq('organization_id', organizationId)
         .order('nome_completo')
+
+      if (organizationId) {
+        mentoradosQuery = mentoradosQuery.eq('organization_id', organizationId)
+      } else {
+        console.log('DEBUG: Buscando mentorados sem filtro de organização')
+      }
+
+      const { data: mentoradosData, error: mentoradosError } = await mentoradosQuery
+
+      console.log('DEBUG Dívidas:', {
+        dividasData,
+        dividasError,
+        mentoradosData,
+        mentoradosError,
+        organizationId,
+        anoSelecionado
+      })
 
       if (dividasData && mentoradosData) {
         // Agrupar dívidas por mentorado
