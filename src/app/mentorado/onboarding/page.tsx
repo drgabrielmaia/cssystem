@@ -1,63 +1,23 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useAuth } from '@/contexts/auth'
-import { supabase, type Mentorado } from '@/lib/supabase'
+import { MentoradoAuthProvider, useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { ModernMindMap } from '@/components/modern-mind-map'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Brain, User } from 'lucide-react'
+import { ArrowLeft, Brain, User, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
-export default function MentoradoOnboardingPage() {
-  const { user, loading: authLoading } = useAuth()
-  const [mentorado, setMentorado] = useState<Mentorado | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!authLoading && user) {
-      fetchMentoradoData()
-    } else if (!authLoading && !user) {
-      setError('Usuário não autenticado')
-      setLoading(false)
-    }
-  }, [user, authLoading])
-
-  const fetchMentoradoData = async () => {
-    if (!user?.email) return
-
-    try {
-      setLoading(true)
-
-      // Buscar dados do mentorado pelo email do usuário
-      const { data, error } = await supabase
-        .from('mentorados')
-        .select('*')
-        .eq('email', user.email)
-        .single()
-
-      if (error) {
-        console.error('Erro ao buscar mentorado:', error)
-        setError('Dados do mentorado não encontrados')
-        return
-      }
-
-      setMentorado(data)
-    } catch (error) {
-      console.error('Erro ao buscar dados:', error)
-      setError('Erro ao carregar dados do mentorado')
-    } finally {
-      setLoading(false)
-    }
-  }
+function MentoradoOnboardingContent() {
+  const { mentorado, loading: authLoading, error } = useMentoradoAuth()
+  const [loading, setLoading] = useState(false)
 
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+          <Loader2 className="w-16 h-16 animate-spin mx-auto mb-4 text-white" />
           <div className="text-white text-lg">Carregando seu mapa mental...</div>
         </div>
       </div>
@@ -70,17 +30,19 @@ export default function MentoradoOnboardingPage() {
         <Card className="p-8 bg-white/10 backdrop-blur-md border-white/20 max-w-md mx-4">
           <div className="text-center text-white">
             <User className="h-16 w-16 mx-auto mb-4 text-white/60" />
-            <h2 className="text-2xl font-bold mb-4">Dados não encontrados</h2>
+            <h2 className="text-2xl font-bold mb-4">
+              {!mentorado ? 'Faça login para acessar' : 'Dados não encontrados'}
+            </h2>
             <p className="text-white/70 mb-6">
-              {error || 'Não foi possível encontrar seus dados de mentorado.'}
-            </p>
-            <p className="text-white/60 text-sm mb-6">
-              Entre em contato com seu mentor para verificar seu cadastro.
+              {!mentorado
+                ? 'Você precisa estar logado como mentorado para acessar o onboarding.'
+                : (error || 'Não foi possível encontrar seus dados de mentorado.')
+              }
             </p>
             <Link href="/mentorado">
               <Button variant="outline" className="text-white border-white/30 hover:bg-white/10">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar ao Portal
+                {!mentorado ? 'Ir para Login' : 'Voltar ao Portal'}
               </Button>
             </Link>
           </div>
@@ -149,5 +111,13 @@ export default function MentoradoOnboardingPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function MentoradoOnboardingPage() {
+  return (
+    <MentoradoAuthProvider>
+      <MentoradoOnboardingContent />
+    </MentoradoAuthProvider>
   )
 }

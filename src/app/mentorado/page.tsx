@@ -1,96 +1,41 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { UserCheck, Mail, Eye, EyeOff, LogIn, Play, BookOpen, DollarSign, TrendingUp, Target, Trophy, Brain, Star } from 'lucide-react'
+import { MentoradoAuthProvider, useMentoradoAuth } from '@/contexts/mentorado-auth'
 import Link from 'next/link'
 
-export default function MentoradoLoginPage() {
+function MentoradoPageContent() {
+  const { mentorado, loading: authLoading, error, signIn, signOut } = useMentoradoAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [mentorado, setMentorado] = useState<any>(null)
-  const [initialLoading, setInitialLoading] = useState(true)
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const savedMentorado = localStorage.getItem('mentorado')
-        if (savedMentorado) {
-          const mentoradoData = JSON.parse(savedMentorado)
-          setMentorado(mentoradoData)
-          setIsLoggedIn(true)
-        }
-      } catch (error) {
-        console.error('Erro ao verificar autenticação:', error)
-        localStorage.removeItem('mentorado')
-      } finally {
-        setInitialLoading(false)
-      }
-    }
-
-    checkAuth()
-  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
-    try {
-      // Buscar mentorado diretamente no banco
-      const { data: mentoradoData, error: mentoradoError } = await supabase
-        .from('mentorados')
-        .select('*')
-        .eq('email', email)
-        .eq('status_login', 'ativo')
-        .single()
+    const success = await signIn(email, password)
 
-      if (mentoradoError || !mentoradoData) {
-        alert('Email não encontrado ou conta inativa')
-        return
-      }
-
-      // Verificar senha (aceita qualquer senha se password_hash for null, senão verifica)
-      if (!mentoradoData.password_hash || mentoradoData.password_hash === password) {
-        setMentorado(mentoradoData)
-        setIsLoggedIn(true)
-        localStorage.setItem('mentorado', JSON.stringify(mentoradoData))
-        return
-      } else {
-        alert('Senha incorreta')
-        return
-      }
-    } catch (error) {
-      console.error('Erro no login:', error)
-      alert('Erro ao fazer login')
-    } finally {
-      setLoading(false)
+    if (!success && error) {
+      alert(error)
     }
+
+    setLoading(false)
   }
 
   const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut()
-      localStorage.removeItem('mentorado')
-      setIsLoggedIn(false)
-      setMentorado(null)
-      setEmail('')
-      setPassword('')
-    } catch (error) {
-      console.error('Erro no logout:', error)
-      localStorage.removeItem('mentorado')
-      setIsLoggedIn(false)
-      window.location.reload()
-    }
+    await signOut()
+    setEmail('')
+    setPassword('')
   }
 
-  if (initialLoading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -98,7 +43,7 @@ export default function MentoradoLoginPage() {
     )
   }
 
-  if (!isLoggedIn) {
+  if (!mentorado) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -150,6 +95,12 @@ export default function MentoradoLoginPage() {
                   </Button>
                 </div>
               </div>
+
+              {error && (
+                <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+                  {error}
+                </div>
+              )}
 
               <Button
                 type="submit"
@@ -365,12 +316,20 @@ export default function MentoradoLoginPage() {
             <div className="flex items-center">
               <div className="w-2 h-2 bg-[#E879F9] rounded-full mr-3"></div>
               <span className="text-[14px] text-[#6B7280]">
-                Turma: {mentorado?.turma || 'Principal'}
+                Estado: {mentorado?.estado_atual || 'Em progresso'}
               </span>
             </div>
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function MentoradoLoginPage() {
+  return (
+    <MentoradoAuthProvider>
+      <MentoradoPageContent />
+    </MentoradoAuthProvider>
   )
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Bell, User, LogOut, Zap } from 'lucide-react'
+import { Search, Bell, User, LogOut, Zap, Mail } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +14,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/contexts/auth'
+import { usePendingInvites } from '@/hooks/use-pending-invites'
+import { PendingInvitesPopup } from './pending-invites-popup'
+import { OrganizationSelector } from './organization-selector'
 
 interface HeaderProps {
   title: string | React.ReactNode
@@ -22,7 +25,9 @@ interface HeaderProps {
 
 export function Header({ title, subtitle }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [showInvitesPopup, setShowInvitesPopup] = useState(false)
   const { user, signOut } = useAuth()
+  const { pendingInvites, loading: invitesLoading } = usePendingInvites(user?.email || null)
 
   return (
     <header className="cyber-header sticky top-0 z-40 flex h-20 items-center gap-4 sm:gap-6 px-4 sm:px-6">
@@ -37,12 +42,18 @@ export function Header({ title, subtitle }: HeaderProps) {
           <Zap className="h-6 w-6 text-white" />
         </div>
 
-        {/* Page Title */}
-        <div className="flex flex-col min-w-0 flex-1 lg:flex-initial">
-          <h1 className="text-lg sm:text-xl font-bold text-white truncate">{title}</h1>
-          {subtitle && (
-            <div className="text-xs sm:text-sm text-cyan-300">{subtitle}</div>
-          )}
+        {/* Organization Selector & Page Title */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 min-w-0 flex-1 lg:flex-initial">
+          {/* Organization Selector */}
+          <OrganizationSelector />
+
+          {/* Page Title - Hidden on mobile when org selector is present */}
+          <div className="flex flex-col min-w-0 lg:ml-4">
+            <h1 className="text-lg sm:text-xl font-bold text-white truncate">{title}</h1>
+            {subtitle && (
+              <div className="text-xs sm:text-sm text-cyan-300">{subtitle}</div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -67,6 +78,22 @@ export function Header({ title, subtitle }: HeaderProps) {
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
           <span className="text-green-300 text-xs font-semibold uppercase tracking-wider">SISTEMA ATIVO</span>
         </div>
+
+        {/* Pending Invites Notification */}
+        {user && (
+          <button
+            onClick={() => setShowInvitesPopup(true)}
+            className="relative w-10 h-10 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-xl border border-orange-400/30 flex items-center justify-center group hover:scale-110 transition-transform duration-300"
+          >
+            <Mail className="w-4 h-4 text-orange-400" />
+            {pendingInvites.length > 0 && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                <span className="text-xs font-bold text-white">{pendingInvites.length}</span>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-orange-400/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          </button>
+        )}
 
         {/* Neural Grid Toggle */}
         <button className="relative w-10 h-10 bg-gradient-to-br from-purple-400/20 to-cyan-400/20 rounded-xl border border-purple-400/30 flex items-center justify-center group hover:scale-110 transition-transform duration-300">
@@ -131,6 +158,12 @@ export function Header({ title, subtitle }: HeaderProps) {
 
       {/* Scanning Line Effect */}
       <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-50"></div>
+
+      {/* Pending Invites Popup */}
+      <PendingInvitesPopup
+        isOpen={showInvitesPopup}
+        onOpenChange={setShowInvitesPopup}
+      />
     </header>
   )
 }
