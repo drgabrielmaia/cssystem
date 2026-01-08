@@ -93,18 +93,40 @@ const MindMapNode = ({
     const currentTime = Date.now()
     const timeDiff = currentTime - dragStartTime
 
-    // Se moveu muito rápido, é provável que seja drag (não click/edit)
-    if (timeDiff > 100) {
-      setIsDragging(true)
+    // Só considera drag após um movimento significativo E tempo suficiente
+    if (timeDiff > 150) {
+      // Calcular distância do movimento
+      const container = document.getElementById('mindmap-container')
+      if (container) {
+        const containerRect = container.getBoundingClientRect()
+        let clientX, clientY
 
-      // Clear long press se começou a arrastar
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current)
-        longPressTimerRef.current = null
+        if ('touches' in e) {
+          clientX = e.touches[0].clientX
+          clientY = e.touches[0].clientY
+        } else {
+          clientX = e.clientX
+          clientY = e.clientY
+        }
+
+        const currentX = clientX - containerRect.left - dragOffset.x
+        const currentY = clientY - containerRect.top - dragOffset.y
+        const distance = Math.sqrt(Math.pow(currentX - node.x, 2) + Math.pow(currentY - node.y, 2))
+
+        // Só ativa drag se moveu pelo menos 5px
+        if (distance > 5) {
+          setIsDragging(true)
+
+          // Clear long press se começou a arrastar
+          if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current)
+            longPressTimerRef.current = null
+          }
+        }
       }
     }
 
-    if (!isDragging && timeDiff <= 100) return
+    if (!isDragging) return
 
     const container = document.getElementById('mindmap-container')
     if (!container) return
@@ -140,9 +162,10 @@ const MindMapNode = ({
       if (confirm('Deletar este nó e todos os filhos?')) {
         onDelete(node.id)
       }
-    } else if (!isDragging && timeDiff < 300 && !isLongPress) {
-      // Click/tap rápido - editar ou selecionar
+    } else if (!isDragging && timeDiff < 500 && !isLongPress) {
+      // Click/tap - editar ou selecionar (aumentei o tempo para 500ms)
       if (onEdit) {
+        console.log('Editando nó:', node.id)
         onEdit(node.id)
       } else if (onSelect) {
         onSelect(node.id)
@@ -200,7 +223,7 @@ const MindMapNode = ({
     >
       {/* Hit area invisível maior - CRÍTICO para mobile */}
       <div
-        className="absolute inset-0 cursor-pointer"
+        className={`absolute inset-0 ${onEdit ? 'cursor-pointer' : 'cursor-move'} ${isDragging ? 'cursor-grabbing' : ''}`}
         style={{
           padding: '16px', // Hit area 32px maior em todas as direções
           margin: '-16px'
@@ -227,13 +250,14 @@ const MindMapNode = ({
       <div
         className={`
           font-sans text-gray-800 whitespace-nowrap relative z-10
-          transition-all duration-200 rounded-md
+          transition-all duration-200 rounded-md border
           ${isRoot ? 'text-xl font-semibold px-4 py-3 bg-white shadow-md border-2' :
             isLevel1 ? 'text-base font-medium px-3 py-2' :
             'text-sm font-normal px-3 py-2'}
-          ${isSelected ? 'bg-blue-50 shadow-md ring-2 ring-blue-200' : 'bg-white shadow-sm'}
+          ${isSelected ? 'bg-blue-50 shadow-md ring-2 ring-blue-200 border-blue-300' : 'bg-white shadow-sm border-gray-200'}
           ${isDragging ? 'opacity-70 scale-95' : ''}
-          ${isLongPress ? 'bg-red-50 ring-2 ring-red-200' : ''}
+          ${isLongPress ? 'bg-red-50 ring-2 ring-red-200 border-red-300' : ''}
+          ${onEdit ? 'hover:bg-blue-25 hover:border-blue-300 hover:shadow-md' : ''}
         `}
         style={{
           borderColor: isRoot ? (node.color || BRANCH_COLORS[0]) : 'transparent'
@@ -498,9 +522,14 @@ const ModernMindMap = ({
 
   // Função para entrar em modo de edição in-line
   const handleNodeEdit = useCallback((nodeId: string) => {
+    console.log('🖊️ handleNodeEdit chamado para nó:', nodeId)
     const currentNode = nodes.find(n => n.id === nodeId)
-    if (!currentNode) return
+    if (!currentNode) {
+      console.log('❌ Nó não encontrado:', nodeId)
+      return
+    }
 
+    console.log('✅ Iniciando edição do nó:', currentNode.text)
     setEditingNodeId(nodeId)
     setEditingText(currentNode.text)
     setSelectedNodeId(nodeId)
@@ -830,6 +859,19 @@ const ModernMindMap = ({
           ))}
         </div>
       </div>
+
+      {/* Instruções de uso */}
+      {!isSharedView && (
+        <div className="absolute top-4 right-4 z-20 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border max-w-xs">
+          <h4 className="text-sm font-semibold text-gray-800 mb-2">Como usar:</h4>
+          <ul className="text-xs text-gray-600 space-y-1">
+            <li>• <strong>Clique</strong> em um nó para editar o texto</li>
+            <li>• <strong>Arraste</strong> para mover os nós</li>
+            <li>• <strong>+</strong> para adicionar nós filhos</li>
+            <li>• <strong>Toque longo</strong> para excluir</li>
+          </ul>
+        </div>
+      )}
 
       {/* Controles de zoom - mobile-friendly */}
       <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-3">

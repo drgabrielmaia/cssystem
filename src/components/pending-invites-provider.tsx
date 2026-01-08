@@ -24,13 +24,21 @@ export function PendingInvitesProvider({ children }: { children: React.ReactNode
       pendingInvites.length > 0 &&
       !hasShownPopup
     ) {
-      // Aguardar um pequeno delay para garantir que a página carregou completamente
-      const timeout = setTimeout(() => {
-        setShowPopup(true)
-        setHasShownPopup(true)
-      }, 1000)
+      // Verificar se já mostrou nesta sessão
+      const sessionKey = `invites_shown_${user.id}`
+      const hasShownInSession = sessionStorage.getItem(sessionKey)
 
-      return () => clearTimeout(timeout)
+      if (!hasShownInSession) {
+        // Aguardar um pequeno delay para garantir que a página carregou completamente
+        const timeout = setTimeout(() => {
+          setShowPopup(true)
+          setHasShownPopup(true)
+          // Marcar que já mostrou nesta sessão
+          sessionStorage.setItem(sessionKey, 'true')
+        }, 1000)
+
+        return () => clearTimeout(timeout)
+      }
     }
   }, [authLoading, invitesLoading, user, pendingInvites.length, hasShownPopup])
 
@@ -39,6 +47,23 @@ export function PendingInvitesProvider({ children }: { children: React.ReactNode
     setHasShownPopup(false)
     setShowPopup(false)
   }, [user?.id])
+
+  // Limpar marcação de sessão se novos convites chegarem
+  useEffect(() => {
+    if (user && pendingInvites.length > 0) {
+      const sessionKey = `invites_shown_${user.id}`
+      const lastCount = sessionStorage.getItem(`invites_count_${user.id}`)
+
+      // Se o número de convites mudou, permitir mostrar popup novamente
+      if (lastCount && parseInt(lastCount) !== pendingInvites.length) {
+        sessionStorage.removeItem(sessionKey)
+        setHasShownPopup(false)
+      }
+
+      // Salvar contagem atual
+      sessionStorage.setItem(`invites_count_${user.id}`, pendingInvites.length.toString())
+    }
+  }, [user, pendingInvites.length])
 
   return (
     <>

@@ -27,7 +27,7 @@ export default function LoginPage() {
         if (password === 'admin') {
           // Login customizado para admin
           document.cookie = 'admin_auth=true; path=/; max-age=86400' // 24 horas
-          router.push('/dashboard')
+          router.push('/lista-mentorados')
           return
         } else {
           setError('Email ou senha incorretos')
@@ -72,8 +72,8 @@ export default function LoginPage() {
         // Não é usuário do financeiro, continuar para dashboard normal
       }
 
-      // Redirecionar para dashboard normal ou página anterior
-      const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
+      // Redirecionar para visão geral ou página anterior
+      const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/lista-mentorados'
       router.push(redirectTo)
     } catch (error: any) {
       console.error('Erro no login:', error)

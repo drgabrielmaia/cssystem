@@ -42,17 +42,18 @@ export function Header({ title, subtitle }: HeaderProps) {
           <Zap className="h-6 w-6 text-white" />
         </div>
 
-        {/* Organization Selector & Page Title */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3 min-w-0 flex-1 lg:flex-initial">
-          {/* Organization Selector */}
-          <OrganizationSelector />
-
-          {/* Page Title - Hidden on mobile when org selector is present */}
-          <div className="flex flex-col min-w-0 lg:ml-4">
+        {/* Page Title & Organization */}
+        <div className="flex items-center gap-4 min-w-0 flex-1 lg:flex-initial">
+          <div className="flex flex-col min-w-0">
             <h1 className="text-lg sm:text-xl font-bold text-white truncate">{title}</h1>
             {subtitle && (
               <div className="text-xs sm:text-sm text-cyan-300">{subtitle}</div>
             )}
+          </div>
+
+          {/* Organization Selector */}
+          <div className="hidden md:block">
+            <OrganizationSelector />
           </div>
         </div>
       </div>

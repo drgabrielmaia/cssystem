@@ -83,7 +83,7 @@ export function OrganizationSelector() {
           <Building2 className="w-3 h-3 text-white" />
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="text-sm font-semibold text-white truncate">
+          <span className="text-sm font-semibold text-white truncate max-w-32">
             {activeOrganization.organization.name}
           </span>
           <div className="flex items-center gap-1">
