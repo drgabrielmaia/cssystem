@@ -1,0 +1,18 @@
+{
+  "date": "2026-01-08T14:19:27.559Z",
+  "url": "https://udzmlnnztzzwrphhizol.supabase.co",
+  "statistics": {
+    "total": 0,
+    "accessible": 0,
+    "restricted": 0,
+    "multiTenant": 0,
+    "global": 0,
+    "percentMultiTenant": 0
+  },
+  "tables": {
+    "accessible": [],
+    "restricted": [],
+    "multiTenant": [],
+    "global": []
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-01-08T14:27:29.257Z",
+  "supabaseUrl": "https://udzmlnnztzzwrphhizol.supabase.co",
+  "organizations": [
+    {
+      "name": "Admin Organization",
+      "email": "admin@admin.com"
+    },
+    {
+      "name": "Kelly Organization",
+      "email": "kellybsantoss@icloud.com"
+    }
+  ],
+  "tablesToModify": [
+    "mentorados",
+    "video_modules",
+    "video_lessons",
+    "lesson_progress",
+    "form_submissions",
+    "formularios_respostas",
+    "whatsapp_conversations",
+    "comissoes"
+  ],
+  "financialTables": [
+    "vendas",
+    "despesas",
+    "metas",
+    "faturas",
+    "pix_payments",
+    "contas_bancarias",
+    "categorias_financeiras",
+    "transacoes"
+  ],
+  "dataCounts": {
+    "mentorados": 114,
+    "video_modules": 3,
+    "video_lessons": 6,
+    "lesson_progress": 4,
+    "form_submissions": 9,
+    "formularios_respostas": 0,
+    "whatsapp_conversations": 0,
+    "comissoes": 0
+  },
+  "operations": [
+    "vendas table verified",
+    "despesas table verified",
+    "metas table verified",
+    "faturas table verified",
+    "pix_payments table verified",
+    "contas_bancarias table verified",
+    "categorias_financeiras table verified",
+    "transacoes table verified"
+  ],
+  "errors": [
+    "Admin org: Could not find the table 'public.organizations' in the schema cache",
+    "Kelly org: Could not find the table 'public.organizations' in the schema cache"
+  ]
+}

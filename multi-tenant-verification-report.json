@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-01-08T14:28:23.366Z",
+  "supabaseUrl": "https://udzmlnnztzzwrphhizol.supabase.co",
+  "results": {
+    "passed": [
+      "vendas: exists with organization_id",
+      "despesas: exists with organization_id",
+      "metas: exists with organization_id",
+      "faturas: exists with organization_id",
+      "pix_payments: exists with organization_id",
+      "contas_bancarias: exists with organization_id",
+      "categorias_financeiras: exists with organization_id",
+      "transacoes: exists with organization_id"
+    ],
+    "failed": [
+      "Organizations table: Could not find the table 'public.organizations' in the schema cache",
+      "Organization Users table: Could not find the table 'public.organization_users' in the schema cache",
+      "mentorados: missing organization_id column",
+      "video_modules: missing organization_id column",
+      "video_lessons: missing organization_id column",
+      "lesson_progress: missing organization_id column",
+      "form_submissions: missing organization_id column",
+      "formularios_respostas: missing organization_id column",
+      "whatsapp_conversations: missing organization_id column",
+      "comissoes: missing organization_id column"
+    ],
+    "warnings": []
+  },
+  "summary": {
+    "totalChecks": 18,
+    "passed": 8,
+    "warnings": 0,
+    "failed": 10
+  }
+}

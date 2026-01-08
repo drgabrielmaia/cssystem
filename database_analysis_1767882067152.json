@@ -1,0 +1,191 @@
+{
+  "metadata": {
+    "date": "2026-01-08T14:21:07.151Z",
+    "url": "https://udzmlnnztzzwrphhizol.supabase.co",
+    "totalTables": 25,
+    "tablesWithData": 5,
+    "percentMultiTenant": 40
+  },
+  "analysis": {
+    "multiTenant": [
+      {
+        "table": "lesson_progress",
+        "records": 4,
+        "isolationColumns": [
+          "mentorado_id"
+        ],
+        "allColumns": [
+          "id",
+          "mentorado_id",
+          "lesson_id",
+          "started_at",
+          "completed_at",
+          "watch_time_minutes",
+          "is_completed",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      {
+        "table": "form_submissions",
+        "records": 9,
+        "isolationColumns": [
+          "mentorado_id"
+        ],
+        "allColumns": [
+          "id",
+          "template_id",
+          "template_slug",
+          "lead_id",
+          "source_url",
+          "submission_data",
+          "ip_address",
+          "user_agent",
+          "created_at",
+          "mentorado_id"
+        ]
+      }
+    ],
+    "global": [
+      {
+        "table": "mentorados",
+        "records": 114,
+        "columns": [
+          "id",
+          "nome_completo",
+          "data_nascimento",
+          "telefone",
+          "email",
+          "cpf",
+          "rg",
+          "endereco",
+          "crm",
+          "data_inicio_mentoria",
+          "estado_entrada",
+          "estado_atual",
+          "data_entrada",
+          "created_at",
+          "origem_conhecimento",
+          "password_hash",
+          "porcentagem_comissao",
+          "status_login",
+          "motivo_exclusao",
+          "data_exclusao",
+          "excluido",
+          "lead_id"
+        ],
+        "needsIsolation": true
+      },
+      {
+        "table": "video_modules",
+        "records": 3,
+        "columns": [
+          "id",
+          "title",
+          "description",
+          "order_index",
+          "thumbnail_url",
+          "is_active",
+          "created_at",
+          "updated_at"
+        ],
+        "needsIsolation": true
+      },
+      {
+        "table": "video_lessons",
+        "records": 6,
+        "columns": [
+          "id",
+          "module_id",
+          "title",
+          "description",
+          "panda_video_embed_url",
+          "panda_video_id",
+          "duration_minutes",
+          "order_index",
+          "is_active",
+          "created_at",
+          "updated_at"
+        ],
+        "needsIsolation": true
+      }
+    ],
+    "empty": [
+      "formularios_respostas",
+      "whatsapp_conversations",
+      "comissoes"
+    ],
+    "errors": [
+      {
+        "table": "vendas",
+        "error": "Could not find the table 'public.vendas' in the schema cache"
+      },
+      {
+        "table": "despesas",
+        "error": "Could not find the table 'public.despesas' in the schema cache"
+      },
+      {
+        "table": "whatsapp_messages",
+        "error": "Could not find the table 'public.whatsapp_messages' in the schema cache"
+      },
+      {
+        "table": "instagram_messages",
+        "error": "Could not find the table 'public.instagram_messages' in the schema cache"
+      },
+      {
+        "table": "vendas_mentorados",
+        "error": "Could not find the table 'public.vendas_mentorados' in the schema cache"
+      },
+      {
+        "table": "metas",
+        "error": "Could not find the table 'public.metas' in the schema cache"
+      },
+      {
+        "table": "metas_vendedores",
+        "error": "Could not find the table 'public.metas_vendedores' in the schema cache"
+      },
+      {
+        "table": "followup_records",
+        "error": "Could not find the table 'public.followup_records' in the schema cache"
+      },
+      {
+        "table": "followup_configurations",
+        "error": "Could not find the table 'public.followup_configurations' in the schema cache"
+      },
+      {
+        "table": "faturas",
+        "error": "Could not find the table 'public.faturas' in the schema cache"
+      },
+      {
+        "table": "pix_payments",
+        "error": "Could not find the table 'public.pix_payments' in the schema cache"
+      },
+      {
+        "table": "financeiro",
+        "error": "Could not find the table 'public.financeiro' in the schema cache"
+      },
+      {
+        "table": "contas_bancarias",
+        "error": "Could not find the table 'public.contas_bancarias' in the schema cache"
+      },
+      {
+        "table": "categorias_financeiras",
+        "error": "Could not find the table 'public.categorias_financeiras' in the schema cache"
+      },
+      {
+        "table": "transacoes",
+        "error": "Could not find the table 'public.transacoes' in the schema cache"
+      },
+      {
+        "table": "recebimentos",
+        "error": "Could not find the table 'public.recebimentos' in the schema cache"
+      },
+      {
+        "table": "pagamentos",
+        "error": "Could not find the table 'public.pagamentos' in the schema cache"
+      }
+    ]
+  },
+  "criticalIssues": [],
+  "recommendation": "RECOMMENDED: Complete multi-tenancy"
+}
