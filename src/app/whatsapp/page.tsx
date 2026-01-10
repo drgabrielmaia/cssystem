@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MessageCircle, Phone, QrCode, Send, Users, Wifi, WifiOff, ExternalLink, Search, RefreshCw, Settings, Clock, X, CalendarDays, Plus, Trash2 } from 'lucide-react';
 import { whatsappCoreAPI, type WhatsAppStatus, type Contact, type Chat, type Message } from '@/lib/whatsapp-core-api';
 import { useAuth } from '@/contexts/auth';
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
 export default function WhatsAppPage() {

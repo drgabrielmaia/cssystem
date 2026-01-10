@@ -18,7 +18,7 @@ export function WhatsAppQRReader() {
 
   const fetchStatus = async () => {
     try {
-      const response = await whatsappCoreAPI.getStatus(userId);
+      const response = await whatsappCoreAPI.getStatus();
       if (response.success && response.data) {
         setStatus(response.data);
         setError(null);
@@ -39,7 +39,7 @@ export function WhatsAppQRReader() {
   const registerUser = async () => {
     try {
       console.log('Registrando usuário:', userId);
-      const response = await whatsappCoreAPI.registerUser(userId);
+      const response = await whatsappCoreAPI.registerUser();
       if (response.success) {
         console.log('Usuário registrado com sucesso');
         // Aguardar um pouco antes de buscar status novamente
@@ -61,7 +61,7 @@ export function WhatsAppQRReader() {
         return;
       }
 
-      const response = await whatsappCoreAPI.getQRCode(userId);
+      const response = await whatsappCoreAPI.getQRCode();
       if (response.success && response.data) {
         setQRData(response.data);
         setError(null);

@@ -471,16 +471,21 @@ export const analyticsService = {
   },
 
   async getModuleStats(moduleId: string) {
+    // Get lesson IDs for this module first
+    const { data: lessons, error: lessonsError } = await supabase
+      .from('video_lessons')
+      .select('id')
+      .eq('module_id', moduleId)
+
+    if (lessonsError) throw lessonsError
+
+    const lessonIds = lessons?.map(lesson => lesson.id) || []
+
     // Get various statistics for a module
     const { data: progress, error: progressError } = await supabase
       .from('video_progress')
       .select('mentorado_id, completed, progress_percentage')
-      .in('lesson_id',
-        supabase
-          .from('video_lessons')
-          .select('id')
-          .eq('module_id', moduleId)
-      )
+      .in('lesson_id', lessonIds)
 
     if (progressError) throw progressError
 
@@ -519,7 +524,7 @@ export const analyticsService = {
 
     if (error) throw error
 
-    const moduleIds = [...new Set(progress.map(p => p.video_lessons?.module_id).filter(Boolean))]
+    const moduleIds = Array.from(new Set(progress.map(p => p.video_lessons?.module_id).filter(Boolean)))
     const completedModules = moduleIds.filter(moduleId => {
       const moduleLessons = progress.filter(p => p.video_lessons?.module_id === moduleId)
       return moduleLessons.every(l => l.completed)

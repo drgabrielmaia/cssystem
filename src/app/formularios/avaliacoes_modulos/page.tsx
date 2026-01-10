@@ -193,7 +193,7 @@ export default function AvaliacoesModulosPage() {
       (ratingFilter === 'passives' && rating.rating >= 7 && rating.rating <= 8) ||
       (ratingFilter === 'detractors' && rating.rating >= 0 && rating.rating <= 6)
 
-    const matchesModule = moduleFilter === 'todos' || rating.module === moduleFilter
+    const matchesModule = moduleFilter === 'todos' || rating.module.id === moduleFilter
 
     return matchesSearch && matchesRating && matchesModule
   })

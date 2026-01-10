@@ -32,7 +32,7 @@ export default function WhatsAppAdminPage() {
 
   const loadUserStatus = async (userId: string): Promise<WhatsAppStatus | null> => {
     try {
-      const response = await whatsappCoreAPI.getStatus(userId);
+      const response = await whatsappCoreAPI.getStatus();
       return response.success ? response.data || null : null;
     } catch (error) {
       console.error(`Erro ao carregar status do usuário ${userId}:`, error);
@@ -53,7 +53,7 @@ export default function WhatsAppAdminPage() {
   const registerUser = async (userId: string) => {
     setIsRegistering(true);
     try {
-      const response = await whatsappCoreAPI.registerUser(userId);
+      const response = await whatsappCoreAPI.registerUser();
       if (response.success) {
         setMessage({ type: 'success', text: `Usuário ${userId} registrado com sucesso!` });
         await loadAllConnections();
@@ -73,7 +73,7 @@ export default function WhatsAppAdminPage() {
     if (!isVisible) {
       // Mostrar QR - buscar da API
       try {
-        const response = await whatsappCoreAPI.getQRCode(userId);
+        const response = await whatsappCoreAPI.getQRCode();
         if (response.success && response.data) {
           setQrCodes(prev => ({ ...prev, [userId]: response.data!.qrImage }));
         }
