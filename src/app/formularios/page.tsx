@@ -34,7 +34,8 @@ export default function FormulariosPage() {
     try {
       console.log('🔍 Buscando formulários...')
 
-      const { data, error } = await supabase
+      // Buscar formulários regulares
+      const { data: formData, error: formError } = await supabase
         .from('formularios_respostas')
         .select(`
           formulario,
@@ -43,13 +44,27 @@ export default function FormulariosPage() {
         `)
         .order('data_envio', { ascending: false })
 
-      if (error) {
-        console.error('Erro ao buscar formulários:', error)
+      if (formError) {
+        console.error('Erro ao buscar formulários:', formError)
         return
       }
 
-      // Agrupar por tipo de formulário
-      const grouped = data?.reduce((acc, item) => {
+      // Buscar avaliações de módulos (NPS)
+      const { data: ratingsData, error: ratingsError } = await supabase
+        .from('module_ratings')
+        .select(`
+          *,
+          module:video_modules!module_id (title),
+          mentorado:mentorados!mentorado_id (nome_completo)
+        `)
+        .order('created_at', { ascending: false })
+
+      if (ratingsError) {
+        console.error('Erro ao buscar avaliações de módulos:', ratingsError)
+      }
+
+      // Agrupar formulários regulares por tipo
+      const grouped = formData?.reduce((acc, item) => {
         const tipo = item.formulario
 
         if (!acc[tipo]) {
@@ -65,6 +80,16 @@ export default function FormulariosPage() {
 
         return acc
       }, {} as Record<string, any>) || {}
+
+      // Adicionar avaliações de módulos como um tipo de formulário especial
+      if (ratingsData && ratingsData.length > 0) {
+        const moduleRatingsGroup = {
+          tipo: 'avaliacoes_modulos',
+          respostas: ratingsData.map(r => r.created_at),
+          mentorados: new Set(ratingsData.map(r => r.mentorado_id))
+        }
+        grouped['avaliacoes_modulos'] = moduleRatingsGroup
+      }
 
       // Transformar em array com estatísticas
       const formulariosInfo = Object.values(grouped).map((group: any) => ({
@@ -87,6 +112,7 @@ export default function FormulariosPage() {
 
   const getFormularioIcon = (tipo: string) => {
     if (tipo.includes('nps')) return '📊'
+    if (tipo.includes('avaliacoes_modulos')) return '⭐'
     if (tipo.includes('vendas')) return '💰'
     if (tipo.includes('marketing')) return '📢'
     return '📋'
@@ -95,6 +121,7 @@ export default function FormulariosPage() {
   const getFormularioNome = (tipo: string) => {
     const nomes: Record<string, string> = {
       'nps_geral': 'NPS Geral',
+      'avaliacoes_modulos': 'Avaliações de Módulos (NPS)',
       'modulo_iv_vendas': 'Módulo IV - Vendas',
       'modulo_iii_gestao_marketing': 'Módulo III - Gestão e Marketing',
       'formularios_respostas': 'Formulários Gerais'
@@ -105,6 +132,7 @@ export default function FormulariosPage() {
   const getFormularioDescricao = (tipo: string) => {
     const descricoes: Record<string, string> = {
       'nps_geral': 'Pesquisa de satisfação e Net Promoter Score',
+      'avaliacoes_modulos': 'Avaliações e feedback dos módulos de vídeo pelos mentorados',
       'modulo_iv_vendas': 'Avaliação do módulo de vendas e estratégias comerciais',
       'modulo_iii_gestao_marketing': 'Feedback sobre gestão e marketing digital',
       'formularios_respostas': 'Formulários diversos e feedback geral'

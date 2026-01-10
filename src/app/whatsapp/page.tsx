@@ -21,20 +21,6 @@ import Link from 'next/link';
 
 export default function WhatsAppPage() {
   const { user } = useAuth();
-  const userEmail = user?.email;
-
-  // Função para determinar userId (igual ao backend)
-  const getUserId = (email?: string): string => {
-    if (!email) return 'default';
-
-    // Admin sempre usa 'default'
-    if (email === 'admin@admin.com') {
-      return 'default';
-    }
-
-    // Outros usuários usam seu email
-    return email;
-  };
 
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
@@ -47,6 +33,8 @@ export default function WhatsAppPage() {
   const [isSyncingChat, setIsSyncingChat] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAutoMessageModal, setShowAutoMessageModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [adminPhone, setAdminPhone] = useState('+5583996910414'); // Número padrão
   const [autoMessages, setAutoMessages] = useState([
     {
       id: '1',
@@ -72,7 +60,7 @@ export default function WhatsAppPage() {
   const fetchQRCode = useCallback(async () => {
     try {
       console.log('📱 Buscando QR code...');
-      const response = await whatsappCoreAPI.getQRCode(userEmail);
+      const response = await whatsappCoreAPI.getQRCode();
       if (response.success && response.data?.qr) {
         setQrCode(response.data.qr);
         console.log('✅ QR Code obtido com sucesso');
@@ -84,11 +72,11 @@ export default function WhatsAppPage() {
       console.error('Erro ao buscar QR code:', error);
       setQrCode(null);
     }
-  }, [userEmail]);
+  }, []);
 
   const checkStatus = useCallback(async () => {
     try {
-      const response = await whatsappCoreAPI.getStatus(userEmail);
+      const response = await whatsappCoreAPI.getStatus();
       if (response.success && response.data) {
         setStatus(response.data);
 
@@ -96,7 +84,7 @@ export default function WhatsAppPage() {
         if (!response.data.isReady && !response.data.isConnecting && !response.data.hasQR) {
           console.log('🔄 Usuário não registrado, iniciando registro automático...');
           try {
-            const registerResponse = await whatsappCoreAPI.registerUser(userEmail);
+            const registerResponse = await whatsappCoreAPI.registerUser();
             if (registerResponse.success) {
               console.log('✅ Registro iniciado:', registerResponse.data?.message || 'Registro iniciado com sucesso');
               // Aguardar um momento e verificar status novamente
@@ -117,7 +105,7 @@ export default function WhatsAppPage() {
     } catch (error) {
       console.error('Erro ao verificar status:', error);
     }
-  }, [userEmail, fetchQRCode]);
+  }, [fetchQRCode]);
 
   const loadChats = useCallback(async () => {
     try {
@@ -125,8 +113,8 @@ export default function WhatsAppPage() {
 
       // Buscar chats existentes e contatos em paralelo
       const [chatsResponse, contactsResponse] = await Promise.all([
-        whatsappCoreAPI.getChats(userEmail),
-        whatsappCoreAPI.getContacts(userEmail)
+        whatsappCoreAPI.getChats(),
+        whatsappCoreAPI.getContacts()
       ]);
 
       let allChats: Chat[] = [];
@@ -203,18 +191,18 @@ export default function WhatsAppPage() {
     } catch (error) {
       console.error('❌ Erro ao carregar chats:', error);
     }
-  }, [userEmail]);
+  }, []);
 
   const loadContacts = useCallback(async () => {
     try {
-      const response = await whatsappCoreAPI.getContacts(userEmail);
+      const response = await whatsappCoreAPI.getContacts();
       if (response.success && response.data) {
         setContacts(response.data.filter(contact => contact.isMyContact));
       }
     } catch (error) {
       console.error('Erro ao carregar contatos:', error);
     }
-  }, [userEmail]);
+  }, []);
 
   const loadChatMessages = useCallback(async (chatId: string) => {
     // Debounce: cancelar carregamento anterior se ainda não executou
@@ -225,7 +213,7 @@ export default function WhatsAppPage() {
     loadingTimeoutRef.current = setTimeout(async () => {
       try {
         console.log(`📨 Carregando mensagens para: ${chatId}`);
-        const response = await whatsappCoreAPI.getChatMessages(chatId, 50, userEmail);
+        const response = await whatsappCoreAPI.getChatMessages(chatId, 50);
         if (response.success && response.data) {
           // Ordenar mensagens da mais antiga para mais nova
           const sortedMessages = response.data.sort((a, b) => a.timestamp - b.timestamp);
@@ -246,7 +234,7 @@ export default function WhatsAppPage() {
         setChatMessages([]);
       }
     }, 300); // Debounce de 300ms
-  }, [userEmail]);
+  }, []);
 
   const sendMessage = async () => {
     if (!selectedChat || !newMessage.trim() || isLoading) return;
@@ -255,7 +243,7 @@ export default function WhatsAppPage() {
     try {
       console.log(`📤 Enviando mensagem para ${selectedChat.id}: ${newMessage}`);
 
-      const response = await whatsappCoreAPI.sendMessage(selectedChat.id, newMessage, userEmail);
+      const response = await whatsappCoreAPI.sendMessage(selectedChat.id, newMessage);
 
       if (response.success) {
         setNewMessage('');
@@ -284,7 +272,7 @@ export default function WhatsAppPage() {
     try {
       console.log(`🔄 Sincronizando conversa: ${selectedChat.id}`);
 
-      const response = await whatsappCoreAPI.syncChat(selectedChat.id, userEmail);
+      const response = await whatsappCoreAPI.syncChat(selectedChat.id);
 
       if (response.success && response.data) {
         console.log(`✅ Conversa sincronizada: ${response.data.messageCount} mensagens`);
@@ -374,8 +362,8 @@ export default function WhatsAppPage() {
 
   const loadAutoMessages = useCallback(async () => {
     try {
-      const userId = getUserId(userEmail);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/auto-messages?userId=${userId}`);
+      // Para mensagens automáticas, ainda usar 'default' por enquanto
+      const response = await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/auto-messages?userId=default`);
       const data = await response.json();
 
       if (data.success && data.data && data.data.length > 0) {
@@ -400,11 +388,167 @@ export default function WhatsAppPage() {
     } catch (error) {
       console.error('❌ Erro ao carregar mensagens automáticas:', error);
     }
-  }, [userEmail]);
+  }, []);
+
+  const loadSettings = useCallback(async () => {
+    try {
+      console.log('📋 Carregando configurações da organização...');
+
+      // Buscar organização do usuário atual
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('⚠️ Usuário não autenticado, usando configurações padrão');
+        return;
+      }
+
+      // Buscar organização por email
+      const { data: orgData, error: orgError } = await supabase
+        .from('organization_users')
+        .select('organization_id')
+        .eq('email', user.email)
+        .single();
+
+      let organizationId = null;
+
+      if (orgError) {
+        console.log('🔍 Organização não encontrada via organization_users, tentando organizations...');
+        // Fallback: buscar diretamente na tabela organizations
+        const { data: orgDirectData, error: orgDirectError } = await supabase
+          .from('organizations')
+          .select('id, admin_phone')
+          .eq('owner_email', user.email)
+          .single();
+
+        if (!orgDirectError && orgDirectData) {
+          organizationId = orgDirectData.id;
+          if (orgDirectData.admin_phone) {
+            setAdminPhone(orgDirectData.admin_phone);
+            console.log('✅ Admin phone carregado da organização:', orgDirectData.admin_phone);
+            return;
+          }
+        }
+      } else {
+        organizationId = orgData.organization_id;
+      }
+
+      if (organizationId) {
+        // Buscar configurações da organização
+        const { data: orgSettings, error: settingsError } = await supabase
+          .from('organizations')
+          .select('admin_phone')
+          .eq('id', organizationId)
+          .single();
+
+        if (!settingsError && orgSettings?.admin_phone) {
+          setAdminPhone(orgSettings.admin_phone);
+          console.log('✅ Admin phone carregado:', orgSettings.admin_phone);
+        } else {
+          console.log('ℹ️ Sem configurações salvas, usando padrão');
+        }
+      } else {
+        console.log('ℹ️ Organização não encontrada, usando configurações padrão');
+      }
+
+    } catch (error) {
+      console.error('❌ Erro ao carregar configurações:', error);
+      // Fallback para localStorage se Supabase falhar
+      const savedSettings = localStorage.getItem('whatsapp_settings');
+      if (savedSettings) {
+        const settings = JSON.parse(savedSettings);
+        setAdminPhone(settings.adminPhone || '+5583996910414');
+      }
+    }
+  }, []);
+
+  const saveSettings = async () => {
+    try {
+      console.log('💾 Salvando configurações no banco de dados...');
+
+      // Buscar organização do usuário atual
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert('Erro: Usuário não autenticado');
+        return;
+      }
+
+      // Buscar organização por email
+      const { data: orgData, error: orgError } = await supabase
+        .from('organization_users')
+        .select('organization_id')
+        .eq('email', user.email)
+        .single();
+
+      let organizationId = null;
+
+      if (orgError) {
+        // Fallback: buscar diretamente na tabela organizations
+        const { data: orgDirectData, error: orgDirectError } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('owner_email', user.email)
+          .single();
+
+        if (orgDirectError || !orgDirectData) {
+          console.error('❌ Organização não encontrada');
+          alert('Erro: Organização não encontrada');
+          return;
+        }
+        organizationId = orgDirectData.id;
+      } else {
+        organizationId = orgData.organization_id;
+      }
+
+      console.log('🏢 Salvando para organização:', organizationId);
+
+      // Atualizar admin_phone na organização
+      const { data: updateData, error: updateError } = await supabase
+        .from('organizations')
+        .update({
+          admin_phone: adminPhone,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', organizationId)
+        .select();
+
+      if (updateError) {
+        console.error('❌ Erro ao salvar no banco:', updateError);
+
+        // Se falhar, salvar no localStorage como fallback
+        const settings = {
+          adminPhone,
+          whatsappNotifications: true,
+          updatedAt: new Date().toISOString()
+        };
+        localStorage.setItem('whatsapp_settings', JSON.stringify(settings));
+
+        alert('Configurações salvas localmente (erro no banco de dados)');
+        setShowSettingsModal(false);
+        return;
+      }
+
+      console.log('✅ Configurações salvas no banco:', updateData);
+      alert('Configurações salvas com sucesso!');
+      setShowSettingsModal(false);
+
+    } catch (error) {
+      console.error('❌ Erro ao salvar configurações:', error);
+
+      // Fallback para localStorage
+      const settings = {
+        adminPhone,
+        whatsappNotifications: true,
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem('whatsapp_settings', JSON.stringify(settings));
+
+      alert('Configurações salvas localmente (erro no sistema)');
+      setShowSettingsModal(false);
+    }
+  };
 
   const saveAutoMessages = async () => {
     try {
-      const userId = getUserId(userEmail);
+      // Para mensagens automáticas, ainda usar 'default' por enquanto
 
       // Debug: mostrar dados antes de enviar
       console.log('🔍 AutoMessages antes de salvar:', autoMessages);
@@ -427,7 +571,7 @@ export default function WhatsAppPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId,
+          userId: 'default',
           autoMessages: messagesToSave
         }),
       });
@@ -454,8 +598,8 @@ export default function WhatsAppPage() {
     if (!status?.isReady) return;
 
     console.log('📡 Conectando SSE para atualizações...');
-    const userId = getUserId(userEmail);
-    const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/${userId}/events`);
+    // Por enquanto usar 'default' para SSE, será atualizado para organizationId depois
+    const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/default/events`);
 
     eventSource.onmessage = (event) => {
       try {
@@ -514,7 +658,7 @@ export default function WhatsAppPage() {
       console.log('🔌 Desconectando SSE');
       eventSource.close();
     };
-  }, [status?.isReady, selectedChat, loadChats, loadContacts, loadChatMessages, userEmail]);
+  }, [status?.isReady, selectedChat, loadChats, loadContacts, loadChatMessages]);
 
   useEffect(() => {
     checkStatus();
@@ -528,7 +672,9 @@ export default function WhatsAppPage() {
       loadContacts();
       loadAutoMessages();
     }
-  }, [status?.isReady, loadChats, loadContacts, loadAutoMessages]);
+    // Carregar configurações sempre que o componente montar
+    loadSettings();
+  }, [status?.isReady, loadChats, loadContacts, loadAutoMessages, loadSettings]);
 
   useEffect(() => {
     if (selectedChat) {
@@ -550,6 +696,13 @@ export default function WhatsAppPage() {
           >
             <Clock className="w-4 h-4" />
             Mensagens Automáticas
+          </button>
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-xl font-medium transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+            Configurações
           </button>
           <div className="hidden lg:flex items-center gap-2 bg-green-50 px-3 py-2 rounded-xl border border-green-200">
             <div className="w-2 h-2 bg-[#059669] rounded-full animate-pulse" />
@@ -602,7 +755,7 @@ export default function WhatsAppPage() {
                 </p>
               </div>
               {!qrCode && (
-                <Link href={`/whatsapp/connect?userId=${getUserId(userEmail)}`}>
+                <Link href={`/whatsapp/connect?userId=default`}>
                   <button className="flex items-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors">
                     <QrCode className="w-4 h-4" />
                     Conectar WhatsApp
@@ -1145,6 +1298,77 @@ export default function WhatsAppPage() {
                 onClick={saveAutoMessages}
                 className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
                 disabled={!autoMessages.some(msg => msg.message && msg.scheduledDate && msg.scheduledTime && msg.targetGroup)}
+              >
+                Salvar Configurações
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Configurações */}
+      <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="w-5 h-5" />
+              Configurações do WhatsApp
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <div>
+              <Label htmlFor="admin-phone" className="text-sm font-medium">
+                Número do Administrador
+              </Label>
+              <p className="text-xs text-gray-500 mb-2">
+                Número que receberá notificações de agendamentos e calendário diário
+              </p>
+              <Input
+                id="admin-phone"
+                type="tel"
+                placeholder="+5583996910414"
+                value={adminPhone}
+                onChange={(e) => setAdminPhone(e.target.value)}
+                className="mt-1"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Formato: +55DDNNNNNNNNN (Ex: +5583996910414)
+              </p>
+            </div>
+
+            {adminPhone && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <div className="bg-blue-100 p-1 rounded">
+                    <Phone className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="text-sm">
+                    <p className="text-blue-800 font-medium">
+                      Administrador configurado: {adminPhone}
+                    </p>
+                    <p className="text-blue-600 mt-1">
+                      ✅ Receberá notificações de agendamentos<br/>
+                      ✅ Receberá calendário diário<br/>
+                      ✅ Receberá confirmações de calls
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Botões de ação */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setShowSettingsModal(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={saveSettings}
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                disabled={!adminPhone || adminPhone.length < 10}
               >
                 Salvar Configurações
               </Button>

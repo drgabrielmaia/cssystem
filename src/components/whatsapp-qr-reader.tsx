@@ -22,6 +22,12 @@ export function WhatsAppQRReader() {
       if (response.success && response.data) {
         setStatus(response.data);
         setError(null);
+
+        // Se usuário não está registrado, registrar automaticamente
+        if (!response.data.registered) {
+          console.log('Usuário não registrado. Registrando automaticamente...');
+          await registerUser();
+        }
       } else {
         setError(response.error || 'Erro ao buscar status');
       }
@@ -30,8 +36,31 @@ export function WhatsAppQRReader() {
     }
   };
 
+  const registerUser = async () => {
+    try {
+      console.log('Registrando usuário:', userId);
+      const response = await whatsappCoreAPI.registerUser(userId);
+      if (response.success) {
+        console.log('Usuário registrado com sucesso');
+        // Aguardar um pouco antes de buscar status novamente
+        setTimeout(() => {
+          fetchStatus();
+        }, 1000);
+      } else {
+        setError(response.error || 'Erro ao registrar usuário');
+      }
+    } catch (err) {
+      setError('Erro ao registrar usuário');
+    }
+  };
+
   const fetchQRCode = async () => {
     try {
+      // Só buscar QR se o usuário estiver registrado e não conectado
+      if (!status?.registered || status?.isReady) {
+        return;
+      }
+
       const response = await whatsappCoreAPI.getQRCode(userId);
       if (response.success && response.data) {
         setQRData(response.data);
@@ -60,13 +89,13 @@ export function WhatsAppQRReader() {
     // Atualizar a cada 3 segundos
     const interval = setInterval(() => {
       fetchStatus();
-      if (!status?.isReady) {
+      if (!status?.isReady && status?.registered) {
         fetchQRCode();
       }
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [status?.isReady]);
+  }, [status?.isReady, status?.registered]);
 
   const getStatusIcon = () => {
     if (loading) return <Loader2 className="h-5 w-5 animate-spin" />;
@@ -81,6 +110,7 @@ export function WhatsAppQRReader() {
     if (status?.isReady) return 'WhatsApp Conectado ✅';
     if (status?.isConnecting) return 'Conectando... Escaneie o QR Code';
     if (status?.hasQR) return 'QR Code disponível - Escaneie com WhatsApp';
+    if (status && !status.registered) return 'Registrando usuário... Aguarde';
     if (error) return `Erro: ${error}`;
     return 'Aguardando conexão...';
   };
@@ -112,6 +142,7 @@ export function WhatsAppQRReader() {
             </p>
             {status && (
               <div className="text-sm text-gray-500 mt-2">
+                <p>Registrado: {status.registered ? 'Sim' : 'Não'}</p>
                 <p>Contatos: {status.contactsCount}</p>
                 <p>Mensagens: {status.messagesCount}</p>
               </div>

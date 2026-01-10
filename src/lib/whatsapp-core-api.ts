@@ -7,6 +7,7 @@ export interface WhatsAppStatus {
   hasQR: boolean;
   contactsCount: number;
   messagesCount: number;
+  registered: boolean;
 }
 
 export interface QRCodeData {
@@ -67,17 +68,53 @@ class WhatsAppCoreAPI {
     console.log('🔍 WhatsApp API - baseUrl final:', this.baseUrl);
   }
 
-  // Função para determinar userId baseado no usuário logado
-  private getUserId(userEmail?: string): string {
-    if (!userEmail) return 'default';
+  // Função para determinar userId baseado na organização
+  private async getOrganizationId(): Promise<string> {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    // Admin sempre usa 'default'
-    if (userEmail === 'admin@admin.com') {
+      if (userError || !user) {
+        console.warn('Usuário não autenticado, usando organização padrão');
+        return 'default';
+      }
+
+      // Admin sempre usa 'default'
+      if (user.email === 'admin@admin.com') {
+        return 'default';
+      }
+
+      console.log('🔍 Buscando organização para usuário:', user.email, 'ID:', user.id);
+
+      // Tentar buscar por email primeiro (mais confiável)
+      const { data: orgByEmail, error: emailError } = await supabase
+        .from('organization_users')
+        .select('organization_id')
+        .eq('email', user.email)
+        .single();
+
+      if (!emailError && orgByEmail) {
+        console.log('✅ Organização encontrada por email:', orgByEmail.organization_id);
+        return orgByEmail.organization_id;
+      }
+
+      // Fallback: tentar buscar pela tabela organizations usando owner_email
+      const { data: orgDirectData, error: orgDirectError } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('owner_email', user.email)
+        .single();
+
+      if (!orgDirectError && orgDirectData) {
+        console.log('✅ Organização encontrada como owner:', orgDirectData.id);
+        return orgDirectData.id;
+      }
+
+      console.warn('⚠️ Organização não encontrada, usando padrão');
+      return 'default';
+    } catch (error) {
+      console.error('❌ Erro ao obter organization_id:', error);
       return 'default';
     }
-
-    // Outros usuários usam seu email
-    return userEmail;
   }
 
   private async request<T>(endpoint: string, options?: RequestInit, requireAuth = false): Promise<ApiResponse<T>> {
@@ -125,44 +162,44 @@ class WhatsAppCoreAPI {
     }
   }
 
-  async getStatus(userEmail?: string): Promise<ApiResponse<WhatsAppStatus>> {
-    const userId = this.getUserId(userEmail);
-    return this.request<WhatsAppStatus>(`/users/${userId}/status`);
+  async getStatus(): Promise<ApiResponse<WhatsAppStatus>> {
+    const organizationId = await this.getOrganizationId();
+    return this.request<WhatsAppStatus>(`/users/${organizationId}/status`);
   }
 
-  async getQRCode(userEmail?: string): Promise<ApiResponse<QRCodeData>> {
-    const userId = this.getUserId(userEmail);
-    return this.request<QRCodeData>(`/users/${userId}/qr`);
+  async getQRCode(): Promise<ApiResponse<QRCodeData>> {
+    const organizationId = await this.getOrganizationId();
+    return this.request<QRCodeData>(`/users/${organizationId}/qr`);
   }
 
-  async getContacts(userEmail?: string): Promise<ApiResponse<Contact[]>> {
-    const userId = this.getUserId(userEmail);
-    return this.request<Contact[]>(`/users/${userId}/contacts`);
+  async getContacts(): Promise<ApiResponse<Contact[]>> {
+    const organizationId = await this.getOrganizationId();
+    return this.request<Contact[]>(`/users/${organizationId}/contacts`);
   }
 
-  async getChats(userEmail?: string): Promise<ApiResponse<Chat[]>> {
-    const userId = this.getUserId(userEmail);
-    return this.request<Chat[]>(`/users/${userId}/chats`);
+  async getChats(): Promise<ApiResponse<Chat[]>> {
+    const organizationId = await this.getOrganizationId();
+    return this.request<Chat[]>(`/users/${organizationId}/chats`);
   }
 
-  async getMessages(limit = 50, userEmail?: string): Promise<ApiResponse<Message[]>> {
-    const userId = this.getUserId(userEmail);
-    return this.request<Message[]>(`/users/${userId}/messages?limit=${limit}`);
+  async getMessages(limit = 50): Promise<ApiResponse<Message[]>> {
+    const organizationId = await this.getOrganizationId();
+    return this.request<Message[]>(`/users/${organizationId}/messages?limit=${limit}`);
   }
 
-  async getChatMessages(chatId: string, limit = 50, userEmail?: string): Promise<ApiResponse<Message[]>> {
-    const userId = this.getUserId(userEmail);
-    return this.request<Message[]>(`/users/${userId}/messages/${encodeURIComponent(chatId)}?limit=${limit}`);
+  async getChatMessages(chatId: string, limit = 50): Promise<ApiResponse<Message[]>> {
+    const organizationId = await this.getOrganizationId();
+    return this.request<Message[]>(`/users/${organizationId}/messages/${encodeURIComponent(chatId)}?limit=${limit}`);
   }
 
-  async getChatHistory(chatId: string, limit = 5, userEmail?: string): Promise<ApiResponse<Message[]>> {
-    const userId = this.getUserId(userEmail);
-    return this.request<Message[]>(`/users/${userId}/chats/${encodeURIComponent(chatId)}/history?limit=${limit}`);
+  async getChatHistory(chatId: string, limit = 5): Promise<ApiResponse<Message[]>> {
+    const organizationId = await this.getOrganizationId();
+    return this.request<Message[]>(`/users/${organizationId}/chats/${encodeURIComponent(chatId)}/history?limit=${limit}`);
   }
 
-  async sendMessage(to: string, message: string, userEmail?: string): Promise<ApiResponse<{ messageId: string; timestamp: number }>> {
-    const userId = this.getUserId(userEmail);
-    return this.request(`/users/${userId}/send`, {
+  async sendMessage(to: string, message: string): Promise<ApiResponse<{ messageId: string; timestamp: number }>> {
+    const organizationId = await this.getOrganizationId();
+    return this.request(`/users/${organizationId}/send`, {
       method: 'POST',
       body: JSON.stringify({ to, message }),
     }, true); // Exigir autenticação
@@ -172,16 +209,16 @@ class WhatsAppCoreAPI {
     return this.request('/health');
   }
 
-  async registerUser(userEmail?: string): Promise<ApiResponse<{ message: string; userId: string }>> {
-    const userId = this.getUserId(userEmail);
-    return this.request(`/users/${userId}/register`, {
+  async registerUser(): Promise<ApiResponse<{ message: string; userId: string }>> {
+    const organizationId = await this.getOrganizationId();
+    return this.request(`/users/${organizationId}/register`, {
       method: 'POST',
     });
   }
 
-  async syncChat(chatId: string, userEmail?: string): Promise<ApiResponse<{ chatId: string; messageCount: number; messages: Message[] }>> {
-    const userId = this.getUserId(userEmail);
-    return this.request(`/users/${userId}/chats/${encodeURIComponent(chatId)}/sync`, {
+  async syncChat(chatId: string): Promise<ApiResponse<{ chatId: string; messageCount: number; messages: Message[] }>> {
+    const organizationId = await this.getOrganizationId();
+    return this.request(`/users/${organizationId}/chats/${encodeURIComponent(chatId)}/sync`, {
       method: 'POST',
     });
   }

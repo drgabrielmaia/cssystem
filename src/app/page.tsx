@@ -128,7 +128,8 @@ export default function DashboardPage() {
       if (dateRange.start && dateRange.end) {
         leadsQuery = leadsQuery.gte('created_at', dateRange.start).lte('created_at', dateRange.end)
         mentoradosQuery = mentoradosQuery.gte('created_at', dateRange.start).lte('created_at', dateRange.end)
-        vendasQuery = vendasQuery.gte('created_at', dateRange.start).lte('created_at', dateRange.end)
+        // Para vendas, usar data_venda ao invés de created_at
+        vendasQuery = vendasQuery.gte('data_venda', dateRange.start).lte('data_venda', dateRange.end)
       }
 
       // Executar queries
@@ -238,7 +239,7 @@ export default function DashboardPage() {
         const year = date.getFullYear()
         const month = date.getMonth() + 1
 
-        // Filtrar vendas deste mês
+        // Filtrar vendas deste mês baseado na data da venda efetiva
         const monthSales = vendas.filter(venda => {
           if (!venda.data_venda) return false
           try {
@@ -442,8 +443,8 @@ export default function DashboardPage() {
       }
 
       const { data: previousData } = await query
-        .gte('created_at', previousRange.start)
-        .lte('created_at', previousRange.end)
+        .gte(tableName === 'leads' && field === 'valor_vendido' ? 'data_venda' : 'created_at', previousRange.start)
+        .lte(tableName === 'leads' && field === 'valor_vendido' ? 'data_venda' : 'created_at', previousRange.end)
 
       let previousValue = 0
       if (field === 'valor_vendido') {

@@ -2,607 +2,532 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
-  Target, Trophy, Plus, CheckCircle, Clock, Calendar,
-  Search, Filter, Edit3, Trash2, Star
+  Target,
+  TrendingUp,
+  CheckCircle,
+  Circle,
+  Calendar,
+  DollarSign,
+  Plus,
+  Star,
+  Trophy,
+  Zap,
+  ArrowUp,
+  BarChart3
 } from 'lucide-react'
 
-interface MetaAluno {
+interface Goal {
   id: string
   title: string
   description: string
-  goal_type: 'short_term' | 'medium_term' | 'long_term' | 'big_term'
-  category_id: string | null
-  priority_level: 'low' | 'medium' | 'high' | 'critical'
-  status: 'pending' | 'in_progress' | 'completed' | 'paused' | 'cancelled'
+  goal_type: string
+  category_id?: string
+  priority_level: 'low' | 'medium' | 'high'
+  status: 'active' | 'completed' | 'paused'
   progress_percentage: number
-  due_date: string | null
+  due_date?: string
   created_at: string
-  completed_at: string | null
+  completed_at?: string
+  initial_value?: number
+  target_value?: number
+  current_value?: number
+  checkpoints: Checkpoint[]
+}
+
+interface Checkpoint {
+  id: string
+  goal_id: string
+  title: string
+  description: string
+  target_value: number
+  current_value: number
+  target_date?: string
+  completed_date?: string
+  is_completed: boolean
+  progress: number
+  order_index: number
+  created_at: string
 }
 
 export default function MentoradoMetasPage() {
   const [mentorado, setMentorado] = useState<any>(null)
-  const [metas, setMetas] = useState<MetaAluno[]>([])
+  const [goals, setGoals] = useState<Goal[]>([])
+  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filtroStatus, setFiltroStatus] = useState('todos')
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [novaMeta, setNovaMeta] = useState({
-    title: '',
-    description: '',
-    goal_type: 'medium_term' as 'short_term' | 'medium_term' | 'long_term' | 'big_term',
-    priority_level: 'medium' as 'low' | 'medium' | 'high' | 'critical',
-    due_date: ''
-  })
-
-  const prazosMeta = [
-    { value: 'short_term', label: 'Curto Prazo', sublabel: '1-3 meses', color: 'text-red-600' },
-    { value: 'medium_term', label: 'Médio Prazo', sublabel: '3-6 meses', color: 'text-yellow-600' },
-    { value: 'long_term', label: 'Longo Prazo', sublabel: '6-12 meses', color: 'text-blue-600' },
-    { value: 'big_term', label: 'Grande Meta', sublabel: '1+ anos', color: 'text-purple-600' }
-  ]
+  const [showAddCheckpoint, setShowAddCheckpoint] = useState(false)
+  const [newCheckpointValue, setNewCheckpointValue] = useState('')
 
   useEffect(() => {
-    console.log('🔐 Verificando mentorado no localStorage...')
-    const mentoradoData = localStorage.getItem('mentorado')
-    if (mentoradoData) {
-      try {
-        const parsed = JSON.parse(mentoradoData)
-        console.log('✅ Mentorado encontrado:', parsed.id, parsed.nome_completo)
-        setMentorado(parsed)
-        carregarMetas(parsed.id)
-      } catch (e) {
-        console.error('❌ Erro ao parsear mentorado:', e)
-        setLoading(false)
-      }
-    } else {
-      console.log('❌ Sem mentorado no localStorage, redirecionando...')
-      window.location.href = '/mentorado'
+    const savedMentorado = localStorage.getItem('mentorado')
+    if (savedMentorado) {
+      const mentoradoData = JSON.parse(savedMentorado)
+      setMentorado(mentoradoData)
+      loadGoalsData(mentoradoData.id)
     }
   }, [])
 
-  const carregarMetas = async (mentoradoId: string) => {
+  const loadGoalsData = async (mentoradoId: string) => {
     try {
-      console.log('🎯 Carregando metas para mentorado:', mentoradoId)
+      setLoading(true)
 
-      const { data, error } = await supabase
+      // Carregar metas do mentorado
+      const { data: goalsData, error: goalsError } = await supabase
         .from('video_learning_goals')
         .select('*')
         .eq('mentorado_id', mentoradoId)
         .order('created_at', { ascending: false })
 
-      console.log('📊 Resultado query metas:', { data, error })
+      if (goalsError) throw goalsError
 
-      if (error) {
-        console.error('❌ Erro na query:', error)
-        throw error
+      if (!goalsData || goalsData.length === 0) {
+        setGoals([])
+        return
       }
 
-      setMetas(data || [])
-      console.log('✅ Metas carregadas:', data?.length || 0)
+      // Carregar checkpoints das metas
+      const goalIds = goalsData.map(g => g.id)
+      const { data: checkpointsData, error: checkpointsError } = await supabase
+        .from('goal_checkpoints')
+        .select('*')
+        .in('goal_id', goalIds)
+        .order('order_index', { ascending: true })
+
+      if (checkpointsError) throw checkpointsError
+
+      // Combinar dados
+      const goalsWithCheckpoints = goalsData.map(goal => ({
+        ...goal,
+        checkpoints: checkpointsData?.filter(c => c.goal_id === goal.id) || []
+      }))
+
+      setGoals(goalsWithCheckpoints)
+
+      // Selecionar primeira meta por padrão
+      if (goalsWithCheckpoints.length > 0) {
+        setSelectedGoal(goalsWithCheckpoints[0])
+      }
+
     } catch (error) {
-      console.error('💥 Erro ao carregar metas:', error)
-      setMetas([])
+      console.error('Erro ao carregar metas:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const criarMeta = async () => {
-    if (!mentorado?.id || !novaMeta.title) return
+  const updateCheckpointProgress = async (checkpointId: string, newValue: number) => {
+    if (!selectedGoal) return
 
-    setSaving(true)
     try {
-      const { error } = await supabase
-        .from('video_learning_goals')
-        .insert([{
-          mentorado_id: mentorado.id,
-          title: novaMeta.title,
-          description: novaMeta.description,
-          goal_type: novaMeta.goal_type,
-          priority_level: novaMeta.priority_level,
-          due_date: novaMeta.due_date || null,
-          status: 'pending',
-          progress_percentage: 0
-        }])
+      const checkpoint = selectedGoal.checkpoints.find(c => c.id === checkpointId)
+      if (!checkpoint) return
 
-      if (error) {
-        console.error('Erro RLS:', error)
-        alert(`Erro ao criar meta: ${error.message}. Execute fix_video_learning_goals_rls.sql no Supabase Dashboard.`)
+      const progress = Math.min(100, Math.round((newValue / checkpoint.target_value) * 100))
+      const isCompleted = newValue >= checkpoint.target_value
+
+      const { error } = await supabase
+        .from('goal_checkpoints')
+        .update({
+          current_value: newValue,
+          progress,
+          is_completed: isCompleted,
+          completed_date: isCompleted ? new Date().toISOString() : null
+        })
+        .eq('id', checkpointId)
+
+      if (error) throw error
+
+      // Recalcular progresso da meta principal
+      const updatedCheckpoints = selectedGoal.checkpoints.map(c =>
+        c.id === checkpointId ? { ...c, current_value: newValue, progress, is_completed: isCompleted } : c
+      )
+
+      const completedCheckpoints = updatedCheckpoints.filter(c => c.is_completed).length
+      const totalCheckpoints = updatedCheckpoints.length
+      const goalProgress = totalCheckpoints > 0 ? Math.round((completedCheckpoints / totalCheckpoints) * 100) : 0
+
+      // Atualizar meta principal
+      const { error: goalError } = await supabase
+        .from('video_learning_goals')
+        .update({
+          progress_percentage: goalProgress,
+          current_value: newValue,
+          status: goalProgress >= 100 ? 'completed' : 'active',
+          completed_at: goalProgress >= 100 ? new Date().toISOString() : null
+        })
+        .eq('id', selectedGoal.id)
+
+      if (goalError) throw goalError
+
+      // Recarregar dados
+      loadGoalsData(mentorado.id)
+
+    } catch (error) {
+      console.error('Erro ao atualizar checkpoint:', error)
+      alert('Erro ao atualizar progresso. Tente novamente.')
+    }
+  }
+
+  const addCheckpoint = async () => {
+    if (!selectedGoal || !newCheckpointValue) return
+
+    try {
+      const targetValue = parseFloat(newCheckpointValue)
+      if (isNaN(targetValue)) {
+        alert('Por favor, digite um valor válido.')
         return
       }
 
-      await carregarMetas(mentorado.id)
-      setNovaMeta({
-        title: '',
-        description: '',
-        goal_type: 'medium_term',
-        priority_level: 'medium',
-        due_date: ''
-      })
-      setShowCreateModal(false)
+      const nextOrder = selectedGoal.checkpoints.length + 1
+      const checkpointTitle = `Checkpoint ${nextOrder}: R$ ${targetValue.toLocaleString('pt-BR')}`
 
-    } catch (error: any) {
-      console.error('Erro ao criar meta:', error)
-      alert(`Erro: ${error.message}`)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const concluirMeta = async (metaId: string) => {
-    try {
       const { error } = await supabase
-        .from('video_learning_goals')
-        .update({
-          status: 'completed',
-          progress_percentage: 100,
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', metaId)
+        .from('goal_checkpoints')
+        .insert([{
+          goal_id: selectedGoal.id,
+          title: checkpointTitle,
+          description: `Meta de alcançar R$ ${targetValue.toLocaleString('pt-BR')}`,
+          target_value: targetValue,
+          current_value: selectedGoal.current_value || 0,
+          order_index: nextOrder,
+          organization_id: mentorado.organization_id
+        }])
 
       if (error) throw error
-      await carregarMetas(mentorado.id)
+
+      setNewCheckpointValue('')
+      setShowAddCheckpoint(false)
+      loadGoalsData(mentorado.id)
+
     } catch (error) {
-      console.error('Erro ao concluir meta:', error)
+      console.error('Erro ao adicionar checkpoint:', error)
+      alert('Erro ao adicionar checkpoint. Tente novamente.')
     }
   }
 
-  const metasFiltradas = metas.filter(meta => {
-    if (filtroStatus === 'todos') return true
-    if (filtroStatus === 'ativo') return meta.status === 'pending' || meta.status === 'in_progress'
-    if (filtroStatus === 'concluido') return meta.status === 'completed'
-    if (filtroStatus === 'pausado') return meta.status === 'paused'
-    return meta.status === filtroStatus
-  })
-
-  const estatisticas = {
-    total: metas.length,
-    ativas: metas.filter(m => m.status === 'pending' || m.status === 'in_progress').length,
-    concluidas: metas.filter(m => m.status === 'completed').length,
-    taxaConclusao: metas.length > 0 ? (metas.filter(m => m.status === 'completed').length / metas.length) * 100 : 0
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'text-red-500 bg-red-500/10'
+      case 'medium': return 'text-yellow-500 bg-yellow-500/10'
+      case 'low': return 'text-green-500 bg-green-500/10'
+      default: return 'text-gray-500 bg-gray-500/10'
+    }
   }
 
-  const getFilteredMetas = () => {
-    let filtered = metas
-
-    // Filtro de busca
-    if (searchTerm.trim()) {
-      filtered = filtered.filter(meta =>
-        meta.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        meta.description.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+  const getPriorityLabel = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'Alta'
+      case 'medium': return 'Média'
+      case 'low': return 'Baixa'
+      default: return 'Normal'
     }
-
-    // Filtro de status
-    if (filtroStatus !== 'todos') {
-      if (filtroStatus === 'ativo') {
-        filtered = filtered.filter(m => m.status === 'pending' || m.status === 'in_progress')
-      } else if (filtroStatus === 'concluido') {
-        filtered = filtered.filter(m => m.status === 'completed')
-      } else {
-        filtered = filtered.filter(m => m.status === filtroStatus)
-      }
-    }
-
-    return filtered
   }
 
-  const overallProgress = () => {
-    const total = metas.length
-    const completed = metas.filter(m => m.status === 'completed').length
-    return {
-      total,
-      completed,
-      percentage: total > 0 ? (completed / total) * 100 : 0
-    }
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value)
+  }
+
+  const calculateProgress = (current: number, target: number) => {
+    return Math.min(100, Math.round((current / target) * 100))
   }
 
   if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E879F9]"></div>
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
       </div>
     )
   }
 
-  const filteredMetas = getFilteredMetas()
-  const progress = overallProgress()
-
   return (
-    <div className="flex h-full">
-      {/* Conteúdo Principal */}
-      <div className="flex-1 p-8 overflow-y-auto">
-        {/* Header da Página */}
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
+      <div className="container mx-auto px-6 py-8">
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-[32px] font-semibold text-[#1A1A1A] mb-2">
-            Minhas Metas
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
+            🎯 Minhas Metas
           </h1>
-          <p className="text-[15px] text-[#6B7280] mb-4">
-            Defina e acompanhe seus objetivos pessoais
-          </p>
-
-          {/* Campo de Busca */}
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
-            <input
-              type="text"
-              placeholder="Buscar metas..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-[#F3F3F5] border-0 rounded-full text-sm text-[#1A1A1A] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#E879F9] focus:bg-white transition-all"
-            />
-          </div>
-        </div>
-
-        {/* Estatísticas de Progresso */}
-        <div className="bg-[#F3F3F5] rounded-[20px] p-6 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[18px] font-semibold text-[#1A1A1A]">
-              Progresso Geral
-            </h3>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-[#1A1A1A] text-white px-4 py-2 rounded-full text-[14px] font-medium hover:bg-opacity-90 transition-all flex items-center"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Meta
-            </button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-6 mb-4">
-            <div className="text-center">
-              <p className="text-[24px] font-bold text-[#1A1A1A]">{progress.total}</p>
-              <p className="text-[13px] text-[#6B7280]">Total</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[24px] font-bold text-[#E879F9]">{metas.filter(m => m.status === 'pending' || m.status === 'in_progress').length}</p>
-              <p className="text-[13px] text-[#6B7280]">Em Progresso</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[24px] font-bold text-[#22C55E]">{progress.completed}</p>
-              <p className="text-[13px] text-[#6B7280]">Concluídas</p>
-            </div>
-          </div>
-
-          <div className="w-full bg-white rounded-full h-2">
-            <div
-              className="h-full bg-[#E879F9] rounded-full transition-all duration-500"
-              style={{ width: `${progress.percentage}%` }}
-            />
-          </div>
-          <p className="text-[13px] text-[#6B7280] text-center mt-2">
-            {progress.percentage.toFixed(0)}% das metas concluídas
+          <p className="text-purple-200">
+            Acompanhe seu progresso e conquiste seus objetivos
           </p>
         </div>
 
-        {/* Filtros */}
-        <div className="flex items-center gap-4 mb-6">
-          <Filter className="w-4 h-4 text-[#6B7280]" />
-          <div className="flex gap-2">
-            {[
-              { value: 'todos', label: 'Todas' },
-              { value: 'ativo', label: 'Em Progresso' },
-              { value: 'concluido', label: 'Concluídas' },
-              { value: 'paused', label: 'Pausadas' }
-            ].map((filtro) => (
-              <button
-                key={filtro.value}
-                onClick={() => setFiltroStatus(filtro.value)}
-                className={`px-3 py-1 rounded-full text-[13px] font-medium transition-all ${
-                  filtroStatus === filtro.value
-                    ? 'bg-[#E879F9] text-white'
-                    : 'bg-[#F3F3F5] text-[#6B7280] hover:bg-[#E879F9] hover:text-white'
-                }`}
-              >
-                {filtro.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Lista de Metas */}
-        {filteredMetas.length === 0 ? (
-          <div className="bg-[#F3F3F5] rounded-[20px] p-12 text-center">
-            <Target className="w-16 h-16 text-[#6B7280] mx-auto mb-4" />
-            <h3 className="text-[18px] font-semibold text-[#1A1A1A] mb-2">
-              {metas.length === 0 ? 'Crie sua primeira meta' : 'Nenhuma meta encontrada'}
-            </h3>
-            <p className="text-[15px] text-[#6B7280] mb-4">
-              {metas.length === 0
-                ? 'Defina objetivos claros para acompanhar seu progresso'
-                : 'Ajuste os filtros para ver suas metas'
-              }
+        {goals.length === 0 ? (
+          <div className="text-center py-16">
+            <Target className="w-16 h-16 text-purple-300 mx-auto mb-4" />
+            <h3 className="text-2xl font-semibold mb-2">Nenhuma meta encontrada</h3>
+            <p className="text-purple-200">
+              Suas metas serão criadas pelo seu mentor e aparecerão aqui.
             </p>
-            {metas.length === 0 && (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="bg-[#1A1A1A] text-white px-6 py-3 rounded-full text-[14px] font-medium hover:bg-opacity-90 transition-all"
-              >
-                Criar Primeira Meta
-              </button>
-            )}
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredMetas.map((meta) => {
-              const prazo = prazosMeta.find(p => p.value === meta.goal_type)
-              const isCompleted = meta.status === 'completed'
-              const isActive = meta.status === 'pending' || meta.status === 'in_progress'
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Lista de Metas */}
+            <div className="lg:col-span-1 space-y-4">
+              <h2 className="text-xl font-semibold mb-4 flex items-center">
+                <Trophy className="w-5 h-5 mr-2 text-yellow-400" />
+                Suas Metas
+              </h2>
 
-              return (
+              {goals.map((goal) => (
                 <div
-                  key={meta.id}
-                  className={`bg-white rounded-[16px] p-6 border transition-all hover:shadow-md ${
-                    isCompleted ? 'border-[#22C55E] bg-green-50' : 'border-[#E5E7EB] hover:border-[#E879F9]'
+                  key={goal.id}
+                  className={`bg-white/10 backdrop-blur-lg rounded-2xl p-6 cursor-pointer transition-all duration-300 border-2 ${
+                    selectedGoal?.id === goal.id
+                      ? 'border-purple-400 bg-white/20 shadow-2xl transform scale-105'
+                      : 'border-white/20 hover:border-purple-300 hover:bg-white/15'
                   }`}
+                  onClick={() => setSelectedGoal(goal)}
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-start gap-3 flex-1">
-                      {/* Checkbox para marcar como concluída */}
-                      <button
-                        onClick={() => concluirMeta(meta.id)}
-                        disabled={isCompleted}
-                        className={`mt-1 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          isCompleted
-                            ? 'bg-[#22C55E] border-[#22C55E] text-white'
-                            : 'border-[#E5E7EB] hover:border-[#E879F9] hover:bg-[#E879F9] hover:bg-opacity-10'
-                        }`}
-                      >
-                        {isCompleted && <CheckCircle className="h-4 w-4" />}
-                      </button>
-
-                      <div className="flex-1">
-                        <h3 className={`text-[18px] font-semibold text-[#1A1A1A] mb-2 ${isCompleted ? 'line-through opacity-60' : ''}`}>
-                          {meta.title}
-                        </h3>
-                        {meta.description && (
-                          <p className="text-[15px] text-[#6B7280] mb-3">{meta.description}</p>
-                        )}
-
-                        {/* Progress bar */}
-                        <div className="mb-4">
-                          <div className="flex justify-between text-[13px] text-[#6B7280] mb-2">
-                            <span>Progresso</span>
-                            <span>{meta.progress_percentage}%</span>
-                          </div>
-                          <div className="w-full bg-[#F3F3F5] rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full transition-all ${
-                                isCompleted ? 'bg-[#22C55E]' :
-                                meta.progress_percentage > 70 ? 'bg-[#E879F9]' :
-                                meta.progress_percentage > 30 ? 'bg-yellow-500' : 'bg-red-500'
-                              }`}
-                              style={{ width: `${meta.progress_percentage}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Tags e informações */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {prazo && (
-                            <span className={`text-[12px] font-medium px-2 py-1 rounded-full bg-[#F3F3F5] ${prazo.color}`}>
-                              {prazo.label}
-                            </span>
-                          )}
-                          <span className={`text-[12px] font-medium px-2 py-1 rounded-full ${
-                            meta.priority_level === 'critical' ? 'bg-red-100 text-red-700' :
-                            meta.priority_level === 'high' ? 'bg-orange-100 text-orange-700' :
-                            meta.priority_level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
-                            {meta.priority_level === 'critical' ? 'Crítica' :
-                             meta.priority_level === 'high' ? 'Alta' :
-                             meta.priority_level === 'medium' ? 'Média' : 'Baixa'
-                            } Prioridade
-                          </span>
-                          <span className={`text-[12px] font-medium px-2 py-1 rounded-full ${
-                            isCompleted ? 'bg-[#22C55E] text-white' :
-                            isActive ? 'bg-[#E879F9] text-white' : 'bg-[#F3F3F5] text-[#6B7280]'
-                          }`}>
-                            {isCompleted ? '✅ Concluída' :
-                             meta.status === 'in_progress' ? '🔄 Em Progresso' :
-                             meta.status === 'paused' ? '⏸️ Pausada' : '⏳ Pendente'}
-                          </span>
-
-                          {meta.due_date && (
-                            <span className={`text-[12px] font-medium px-2 py-1 rounded-full flex items-center ${
-                              new Date(meta.due_date) < new Date() && !isCompleted
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-blue-100 text-blue-700'
-                            }`}>
-                              <Calendar className="w-3 h-3 mr-1" />
-                              {new Date(meta.due_date).toLocaleDateString('pt-BR')}
-                              {new Date(meta.due_date) < new Date() && !isCompleted && (
-                                <span className="ml-1">⚠️</span>
-                              )}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {isCompleted && (
-                      <div className="flex items-center">
-                        <Trophy className="w-8 h-8 text-[#22C55E]" />
-                      </div>
-                    )}
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-semibold text-lg leading-tight">
+                      {goal.title}
+                    </h3>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(goal.priority_level)}`}>
+                      {getPriorityLabel(goal.priority_level)}
+                    </span>
                   </div>
 
-                  <div className="text-[12px] text-[#6B7280] pt-3 border-t border-[#F3F3F5]">
-                    Criada em {new Date(meta.created_at).toLocaleDateString('pt-BR')}
-                    {meta.completed_at && (
-                      <> • Concluída em {new Date(meta.completed_at).toLocaleDateString('pt-BR')}</>
+                  <p className="text-purple-200 text-sm mb-4 line-clamp-2">
+                    {goal.description}
+                  </p>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-purple-300">Progresso</span>
+                      <span className="font-semibold">{goal.progress_percentage}%</span>
+                    </div>
+
+                    <div className="w-full bg-white/20 rounded-full h-2">
+                      <div
+                        className="bg-gradient-to-r from-purple-400 to-pink-400 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${goal.progress_percentage}%` }}
+                      />
+                    </div>
+
+                    {goal.current_value !== undefined && goal.target_value && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-purple-300">Atual</span>
+                        <span className="font-semibold">{formatCurrency(goal.current_value)}</span>
+                      </div>
                     )}
                   </div>
                 </div>
-              )
-            })}
+              ))}
+            </div>
+
+            {/* Detalhes da Meta Selecionada */}
+            {selectedGoal && (
+              <div className="lg:col-span-2">
+                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+                  {/* Header da Meta */}
+                  <div className="flex items-start justify-between mb-6">
+                    <div>
+                      <h2 className="text-3xl font-bold mb-2">{selectedGoal.title}</h2>
+                      <p className="text-purple-200 text-lg">{selectedGoal.description}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-4xl font-bold text-purple-300 mb-1">
+                        {selectedGoal.progress_percentage}%
+                      </div>
+                      <div className="text-sm text-purple-200">Concluído</div>
+                    </div>
+                  </div>
+
+                  {/* Progress Overview */}
+                  {selectedGoal.current_value !== undefined && selectedGoal.target_value && (
+                    <div className="grid grid-cols-3 gap-6 mb-8">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-400 mb-1">
+                          {formatCurrency(selectedGoal.initial_value || 0)}
+                        </div>
+                        <div className="text-sm text-purple-200">Valor Inicial</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-400 mb-1">
+                          {formatCurrency(selectedGoal.current_value)}
+                        </div>
+                        <div className="text-sm text-purple-200">Atual</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-400 mb-1">
+                          {formatCurrency(selectedGoal.target_value)}
+                        </div>
+                        <div className="text-sm text-purple-200">Meta</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Checkpoints */}
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-xl font-semibold flex items-center">
+                        <CheckCircle className="w-5 h-5 mr-2 text-green-400" />
+                        Checkpoints ({selectedGoal.checkpoints.filter(c => c.is_completed).length}/{selectedGoal.checkpoints.length})
+                      </h3>
+                      <button
+                        onClick={() => setShowAddCheckpoint(!showAddCheckpoint)}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Adicionar
+                      </button>
+                    </div>
+
+                    {/* Add Checkpoint Form */}
+                    {showAddCheckpoint && (
+                      <div className="bg-white/10 rounded-lg p-4 mb-6">
+                        <h4 className="font-semibold mb-3">Novo Checkpoint</h4>
+                        <div className="flex space-x-3">
+                          <input
+                            type="number"
+                            placeholder="Valor da meta (R$)"
+                            value={newCheckpointValue}
+                            onChange={(e) => setNewCheckpointValue(e.target.value)}
+                            className="flex-1 bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-purple-200"
+                          />
+                          <button
+                            onClick={addCheckpoint}
+                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                          >
+                            Adicionar
+                          </button>
+                          <button
+                            onClick={() => setShowAddCheckpoint(false)}
+                            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Checkpoints List */}
+                    <div className="space-y-4">
+                      {selectedGoal.checkpoints.length === 0 ? (
+                        <div className="text-center py-8 text-purple-200">
+                          <Circle className="w-8 h-8 mx-auto mb-2" />
+                          <p>Nenhum checkpoint criado ainda.</p>
+                          <p className="text-sm">Adicione checkpoints para acompanhar seu progresso.</p>
+                        </div>
+                      ) : (
+                        selectedGoal.checkpoints.map((checkpoint, index) => (
+                          <div
+                            key={checkpoint.id}
+                            className={`bg-white/10 rounded-xl p-6 border-2 transition-all duration-300 ${
+                              checkpoint.is_completed
+                                ? 'border-green-400 bg-green-400/10'
+                                : 'border-white/20 hover:border-purple-300'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center">
+                                {checkpoint.is_completed ? (
+                                  <CheckCircle className="w-6 h-6 text-green-400 mr-3" />
+                                ) : (
+                                  <Circle className="w-6 h-6 text-purple-300 mr-3" />
+                                )}
+                                <div>
+                                  <h4 className="font-semibold text-lg">{checkpoint.title}</h4>
+                                  <p className="text-purple-200 text-sm">{checkpoint.description}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-xl font-bold text-purple-300 mb-1">
+                                  {checkpoint.progress}%
+                                </div>
+                                {checkpoint.is_completed && (
+                                  <div className="text-xs text-green-400">✓ Concluído</div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-purple-300">
+                                  Atual: {formatCurrency(checkpoint.current_value)}
+                                </span>
+                                <span className="text-purple-300">
+                                  Meta: {formatCurrency(checkpoint.target_value)}
+                                </span>
+                              </div>
+
+                              <div className="w-full bg-white/20 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full transition-all duration-500 ${
+                                    checkpoint.is_completed
+                                      ? 'bg-gradient-to-r from-green-400 to-green-500'
+                                      : 'bg-gradient-to-r from-purple-400 to-pink-400'
+                                  }`}
+                                  style={{ width: `${checkpoint.progress}%` }}
+                                />
+                              </div>
+
+                              {!checkpoint.is_completed && (
+                                <div className="flex items-center space-x-3 mt-3">
+                                  <input
+                                    type="number"
+                                    placeholder="Valor atual"
+                                    className="flex-1 bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-purple-200 text-sm"
+                                    onKeyPress={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const value = parseFloat((e.target as HTMLInputElement).value)
+                                        if (!isNaN(value)) {
+                                          updateCheckpointProgress(checkpoint.id, value)
+                                          ;(e.target as HTMLInputElement).value = ''
+                                        }
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      const input = e.currentTarget.previousElementSibling as HTMLInputElement
+                                      const value = parseFloat(input.value)
+                                      if (!isNaN(value)) {
+                                        updateCheckpointProgress(checkpoint.id, value)
+                                        input.value = ''
+                                      }
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center"
+                                  >
+                                    <ArrowUp className="w-4 h-4 mr-1" />
+                                    Atualizar
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Statistics */}
+                  <div className="grid grid-cols-2 gap-4 mt-8">
+                    <div className="bg-white/10 rounded-xl p-4 text-center">
+                      <Zap className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
+                      <div className="text-lg font-semibold">
+                        {selectedGoal.checkpoints.filter(c => c.is_completed).length}
+                      </div>
+                      <div className="text-sm text-purple-200">Checkpoints Concluídos</div>
+                    </div>
+                    <div className="bg-white/10 rounded-xl p-4 text-center">
+                      <BarChart3 className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                      <div className="text-lg font-semibold">
+                        {selectedGoal.checkpoints.length}
+                      </div>
+                      <div className="text-sm text-purple-200">Total de Checkpoints</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
-
-      {/* Sidebar Direita - Estatísticas e Ações */}
-      <aside className="w-80 bg-[#F3F3F5] border-l border-[#E5E7EB] p-6 overflow-y-auto">
-        <div className="mb-6">
-          <h2 className="text-[18px] font-semibold text-[#1A1A1A] mb-4">
-            Suas Estatísticas
-          </h2>
-
-          <div className="space-y-4">
-            <div className="bg-white rounded-[12px] p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[13px] text-[#6B7280]">Metas Ativas</span>
-                <span className="text-[18px] font-bold text-[#E879F9]">
-                  {metas.filter(m => m.status === 'pending' || m.status === 'in_progress').length}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[13px] text-[#6B7280]">Concluídas este mês</span>
-                <span className="text-[18px] font-bold text-[#22C55E]">
-                  {metas.filter(m =>
-                    m.status === 'completed' &&
-                    m.completed_at &&
-                    new Date(m.completed_at).getMonth() === new Date().getMonth()
-                  ).length}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-[12px] p-4">
-              <h4 className="text-[15px] font-medium text-[#1A1A1A] mb-3">Distribuição por Prazo</h4>
-              <div className="space-y-2">
-                {prazosMeta.map(prazo => {
-                  const count = metas.filter(m => m.goal_type === prazo.value).length
-                  return (
-                    <div key={prazo.value} className="flex items-center justify-between">
-                      <span className={`text-[13px] font-medium ${prazo.color}`}>
-                        {prazo.label}
-                      </span>
-                      <span className="text-[13px] text-[#6B7280]">{count}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Modal de Criar Meta */}
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-        <DialogContent className="sm:max-w-[600px] bg-white rounded-[24px] overflow-hidden">
-          <div className="p-6">
-            <DialogHeader>
-              <DialogTitle className="text-[18px] font-semibold text-[#1A1A1A] mb-4">
-                Criar Nova Meta
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-[15px] font-medium text-[#1A1A1A] mb-2 block">
-                  Título da Meta
-                </label>
-                <input
-                  type="text"
-                  value={novaMeta.title}
-                  onChange={(e) => setNovaMeta(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="Ex: Concluir curso de marketing digital"
-                  className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#E879F9] focus:border-[#E879F9] text-[#1A1A1A]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[15px] font-medium text-[#1A1A1A] mb-2 block">
-                    Tipo de Meta
-                  </label>
-                  <select
-                    value={novaMeta.goal_type}
-                    onChange={(e) => setNovaMeta(prev => ({ ...prev, goal_type: e.target.value as any }))}
-                    className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#E879F9] focus:border-[#E879F9] text-[#1A1A1A]"
-                  >
-                    {prazosMeta.map(prazo => (
-                      <option key={prazo.value} value={prazo.value}>
-                        {prazo.label} ({prazo.sublabel})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[15px] font-medium text-[#1A1A1A] mb-2 block">
-                    Prioridade
-                  </label>
-                  <select
-                    value={novaMeta.priority_level}
-                    onChange={(e) => setNovaMeta(prev => ({ ...prev, priority_level: e.target.value as any }))}
-                    className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#E879F9] focus:border-[#E879F9] text-[#1A1A1A]"
-                  >
-                    <option value="low">Baixa</option>
-                    <option value="medium">Média</option>
-                    <option value="high">Alta</option>
-                    <option value="critical">Crítica</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[15px] font-medium text-[#1A1A1A] mb-2 block">
-                  Data Limite (Opcional)
-                </label>
-                <input
-                  type="date"
-                  value={novaMeta.due_date}
-                  onChange={(e) => setNovaMeta(prev => ({ ...prev, due_date: e.target.value }))}
-                  className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#E879F9] focus:border-[#E879F9] text-[#1A1A1A]"
-                />
-              </div>
-
-              <div>
-                <label className="text-[15px] font-medium text-[#1A1A1A] mb-2 block">
-                  Descrição (Opcional)
-                </label>
-                <textarea
-                  value={novaMeta.description}
-                  onChange={(e) => setNovaMeta(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Descreva sua meta em detalhes..."
-                  rows={3}
-                  className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#E879F9] focus:border-[#E879F9] text-[#1A1A1A]"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 bg-[#F3F3F5] text-[#6B7280] rounded-[8px] text-[14px] font-medium hover:bg-opacity-80 transition-colors"
-                >
-                  Cancelar
-                </button>
-
-                <button
-                  onClick={criarMeta}
-                  disabled={!novaMeta.title || saving}
-                  className="px-6 py-2 bg-[#1A1A1A] text-white rounded-[8px] text-[14px] font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                >
-                  {saving ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Criando...
-                    </>
-                  ) : (
-                    'Criar Meta'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

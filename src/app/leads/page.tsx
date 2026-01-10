@@ -242,40 +242,49 @@ export default function LeadsPage() {
 
   const loadStats = async () => {
     try {
-      let query = supabase.from('leads').select('*')
-
-      // Aplicar filtros de data nas estatísticas também
+      // Query para leads totais (usar created_at)
+      let queryTotal = supabase.from('leads').select('*')
       const dateRange = getDateRange(dateFilter)
       if (dateRange) {
-        query = query
+        queryTotal = queryTotal
           .gte('created_at', dateRange.start)
           .lte('created_at', dateRange.end)
       }
 
-      // Aplicar filtros de status e origem se selecionados
+      // Query para vendas (usar data_venda para leads vendidos)
+      let queryVendas = supabase.from('leads').select('*').eq('status', 'vendido')
+      if (dateRange) {
+        queryVendas = queryVendas
+          .gte('data_venda', dateRange.start)
+          .lte('data_venda', dateRange.end)
+      }
+
+      // Aplicar filtros de status e origem nas queries
       if (statusFilter !== 'todos') {
-        query = query.eq('status', statusFilter)
+        queryTotal = queryTotal.eq('status', statusFilter)
       }
-
       if (origemFilter !== 'todas') {
-        query = query.eq('origem', origemFilter)
+        queryTotal = queryTotal.eq('origem', origemFilter)
+        queryVendas = queryVendas.eq('origem', origemFilter)
       }
 
+      // Executar as duas queries
+      const [{ data: leadsTotal }, { data: vendasData }] = await Promise.all([
+        queryTotal,
+        queryVendas
+      ])
 
-      const { data: leads } = await query
-
-      if (leads) {
-        const convertedLeads = leads.filter(lead => lead.status === 'vendido')
-        const totalVendas = convertedLeads.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
-        const totalArrecadado = convertedLeads.reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0)
+      if (leadsTotal && vendasData) {
+        const totalVendas = vendasData.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
+        const totalArrecadado = vendasData.reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0)
 
         setStats({
-          total_leads: leads.length,
-          leads_convertidos: convertedLeads.length,
+          total_leads: leadsTotal.length,
+          leads_convertidos: vendasData.length,
           valor_total_vendas: totalVendas,
           valor_total_arrecadado: totalArrecadado,
-          taxa_conversao: leads.length > 0 ? (convertedLeads.length / leads.length) * 100 : 0,
-          ticket_medio: convertedLeads.length > 0 ? totalVendas / convertedLeads.length : 0
+          taxa_conversao: leadsTotal.length > 0 ? (vendasData.length / leadsTotal.length) * 100 : 0,
+          ticket_medio: vendasData.length > 0 ? totalVendas / vendasData.length : 0
         })
       }
     } catch (error) {

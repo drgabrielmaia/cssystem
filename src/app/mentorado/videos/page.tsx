@@ -14,7 +14,13 @@ import {
   TrendingUp,
   Video,
   HelpCircle,
-  Search
+  Search,
+  Star,
+  Heart,
+  Plus,
+  Filter,
+  Grid,
+  List
 } from 'lucide-react'
 
 interface VideoModule {
@@ -23,7 +29,17 @@ interface VideoModule {
   description: string
   order_index: number
   thumbnail_url?: string
+  cover_image_url?: string
   is_active: boolean
+  featured?: boolean
+  average_rating?: number
+  total_ratings?: number
+  difficulty_level?: 'beginner' | 'intermediate' | 'advanced'
+  category?: {
+    id: string
+    name: string
+    color: string
+  }
   lessons: VideoLesson[]
 }
 
@@ -71,6 +87,11 @@ interface LessonProgress {
 }
 
 export default function MentoradoVideosPage() {
+  // Redirect to new Netflix-style page
+  if (typeof window !== 'undefined') {
+    window.location.href = '/mentorado/videos/netflix'
+    return null
+  }
   const [mentorado, setMentorado] = useState<any>(null)
   const [modules, setModules] = useState<VideoModule[]>([])
   const [selectedLesson, setSelectedLesson] = useState<VideoLesson | null>(null)
@@ -80,6 +101,11 @@ export default function MentoradoVideosPage() {
   const [exerciseResponse, setExerciseResponse] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [categories, setCategories] = useState<any[]>([])
+  const [continueWatching, setContinueWatching] = useState<any[]>([])
+  const [featuredModules, setFeaturedModules] = useState<VideoModule[]>([])
 
   useEffect(() => {
     const savedMentorado = localStorage.getItem('mentorado')
@@ -94,6 +120,12 @@ export default function MentoradoVideosPage() {
     try {
       setLoading(true)
 
+      // Carregar categorias primeiro
+      await loadCategories()
+
+      // Carregar continue watching
+      await loadContinueWatching(mentoradoData.id)
+
       // Verificar acesso aos módulos
       const { data: accessData, error: accessError } = await supabase
         .from('video_access_control')
@@ -105,12 +137,20 @@ export default function MentoradoVideosPage() {
 
       const accessibleModuleIds = accessData?.map(a => a.module_id) || []
 
-      // Carregar módulos com acesso
+      // Carregar módulos com acesso e categorias
       const { data: modulesData, error: modulesError } = await supabase
         .from('video_modules')
-        .select('*')
+        .select(`
+          *,
+          category:module_categories!category_id (
+            id,
+            name,
+            color
+          )
+        `)
         .in('id', accessibleModuleIds.length > 0 ? accessibleModuleIds : [''])
         .eq('is_active', true)
+        .order('featured', { ascending: false })
         .order('order_index', { ascending: true })
 
       if (modulesError) throw modulesError
@@ -182,10 +222,46 @@ export default function MentoradoVideosPage() {
 
       setModules(processedModules)
 
+      // Separar módulos em destaque
+      const featured = processedModules.filter(m => m.featured) || []
+      setFeaturedModules(featured)
+
     } catch (error) {
       console.error('Erro ao carregar dados de vídeo:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('module_categories')
+        .select('*')
+        .order('display_order')
+
+      if (!error && data) {
+        setCategories(data)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error)
+    }
+  }
+
+  const loadContinueWatching = async (mentoradoId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('continue_watching_details')
+        .select('*')
+        .eq('mentorado_id', mentoradoId)
+        .order('last_watched_at', { ascending: false })
+        .limit(6)
+
+      if (!error && data) {
+        setContinueWatching(data)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar continue watching:', error)
     }
   }
 
