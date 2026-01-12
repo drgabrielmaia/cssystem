@@ -41,32 +41,72 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Função para obter cookie
+  // Função para obter cookie com fallback para localStorage
   const getCookie = (name: string): string | null => {
     if (typeof document === 'undefined') return null
 
-    const value = `; ${document.cookie}`
-    const parts = value.split(`; ${name}=`)
-    if (parts.length === 2) {
-      return parts.pop()?.split(';').shift() || null
+    // Tentar ler do cookie primeiro
+    try {
+      const value = `; ${document.cookie}`
+      const parts = value.split(`; ${name}=`)
+      if (parts.length === 2) {
+        const cookieValue = parts.pop()?.split(';').shift() || null
+        if (cookieValue) {
+          return cookieValue
+        }
+      }
+    } catch (error) {
+      console.log('Erro ao ler cookie:', error)
     }
+
+    // Fallback: tentar ler do localStorage se cookie falhou
+    try {
+      const fallbackValue = localStorage.getItem(`${name}_fallback`)
+      if (fallbackValue) {
+        console.log('🔄 Usando fallback localStorage para:', name)
+        return fallbackValue
+      }
+    } catch (error) {
+      console.log('Erro ao ler fallback localStorage:', error)
+    }
+
     return null
   }
 
-  // Função para definir cookie
+  // Função para definir cookie - Compatível com mobile
   const setCookie = (name: string, value: string, days = 7) => {
     if (typeof document === 'undefined') return
 
     const expires = new Date()
     expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000)
-    document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`
+
+    // Configuração mais compatível com mobile
+    const isSecure = window.location.protocol === 'https:'
+    const cookieString = `${name}=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Lax${isSecure ? '; Secure' : ''}`
+
+    document.cookie = cookieString
+
+    // Fallback: Salvar também no localStorage para casos onde cookies não funcionam
+    try {
+      localStorage.setItem(`${name}_fallback`, value)
+    } catch (error) {
+      console.log('Fallback localStorage falhou:', error)
+    }
   }
 
   // Função para remover cookie
   const removeCookie = (name: string) => {
     if (typeof document === 'undefined') return
 
-    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`
+    const isSecure = window.location.protocol === 'https:'
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax${isSecure ? '; Secure' : ''}`
+
+    // Remover também o fallback
+    try {
+      localStorage.removeItem(`${name}_fallback`)
+    } catch (error) {
+      console.log('Erro ao remover fallback localStorage:', error)
+    }
   }
 
   // Verificar autenticação no carregamento
@@ -76,8 +116,13 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
         setLoading(true)
         setError(null)
 
+        // Debug: Verificar dispositivo
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        console.log('📱 Dispositivo:', isMobile ? 'MOBILE' : 'DESKTOP')
+
         // Verificar cookie
         const mentoradoId = getCookie(COOKIE_NAME)
+        console.log('🔍 Cookie mentorado_auth:', mentoradoId ? 'ENCONTRADO' : 'NÃO ENCONTRADO')
 
         if (mentoradoId) {
           // Buscar dados atualizados do mentorado
