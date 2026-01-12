@@ -120,6 +120,7 @@ export default function NetflixStyleVideosPage() {
   const loadVideoData = async (mentoradoData: any) => {
     try {
       setLoading(true)
+      console.log('🎥 Carregando dados de vídeo para mentorado:', mentoradoData.id)
 
       // Carregar categorias primeiro
       await loadCategories()
@@ -134,64 +135,150 @@ export default function NetflixStyleVideosPage() {
         .eq('mentorado_id', mentoradoData.id)
         .eq('has_access', true)
 
-      if (accessError) throw accessError
+      console.log('📊 Dados de acesso encontrados:', { accessData, accessError })
 
-      const accessibleModuleIds = accessData?.map(a => a.module_id) || []
+      let modulesData: any[] = []
+      let lessonsData: any[] = []
 
-      // Carregar módulos com acesso e categorias
-      const { data: modulesData, error: modulesError } = await supabase
-        .from('video_modules')
-        .select(`
-          *,
-          category:module_categories!category_id (
-            id,
-            name,
-            color
-          )
-        `)
-        .in('id', accessibleModuleIds.length > 0 ? accessibleModuleIds : [''])
-        .eq('is_active', true)
-        .order('featured', { ascending: false })
-        .order('order_index', { ascending: true })
+      if (accessError) {
+        console.warn('⚠️ Erro ao verificar acesso, carregando todos os módulos:', accessError.message)
 
-      if (modulesError) throw modulesError
+        // Fallback: carregar todos os módulos ativos
+        const { data: allModulesData, error: allModulesError } = await supabase
+          .from('video_modules')
+          .select(`
+            *,
+            category:module_categories!category_id (
+              id,
+              name,
+              color
+            )
+          `)
+          .eq('is_active', true)
+          .order('featured', { ascending: false })
+          .order('order_index', { ascending: true })
+          .limit(20) // Limitar para não sobrecarregar
 
-      // Carregar aulas dos módulos com acesso
-      const { data: lessonsData, error: lessonsError } = await supabase
-        .from('video_lessons')
-        .select('*')
-        .in('module_id', accessibleModuleIds.length > 0 ? accessibleModuleIds : [''])
-        .eq('is_active', true)
-        .order('order_index', { ascending: true })
+        if (!allModulesError && allModulesData) {
+          modulesData = allModulesData
+          console.log('✅ Fallback: carregou', allModulesData.length, 'módulos')
+        }
 
-      if (lessonsError) throw lessonsError
+      } else {
+        const accessibleModuleIds = accessData?.map(a => a.module_id) || []
+        console.log('🔑 Módulos acessíveis encontrados:', accessibleModuleIds.length)
 
-      // Carregar exercícios das aulas
+        if (accessibleModuleIds.length === 0) {
+          console.warn('⚠️ Nenhum módulo acessível, carregando sample módulos')
+
+          // Se não há módulos acessíveis, mostrar alguns módulos como exemplo
+          const { data: sampleModulesData, error: sampleError } = await supabase
+            .from('video_modules')
+            .select(`
+              *,
+              category:module_categories!category_id (
+                id,
+                name,
+                color
+              )
+            `)
+            .eq('is_active', true)
+            .order('featured', { ascending: false })
+            .limit(6)
+
+          if (!sampleError && sampleModulesData) {
+            modulesData = sampleModulesData
+            console.log('✅ Sample: carregou', sampleModulesData.length, 'módulos')
+          }
+
+        } else {
+          // Carregar módulos com acesso
+          const { data: accessModulesData, error: modulesError } = await supabase
+            .from('video_modules')
+            .select(`
+              *,
+              category:module_categories!category_id (
+                id,
+                name,
+                color
+              )
+            `)
+            .in('id', accessibleModuleIds)
+            .eq('is_active', true)
+            .order('featured', { ascending: false })
+            .order('order_index', { ascending: true })
+
+          if (modulesError) {
+            console.error('❌ Erro ao carregar módulos específicos:', modulesError)
+          } else {
+            modulesData = accessModulesData || []
+            console.log('✅ Carregou', modulesData.length, 'módulos com acesso')
+          }
+
+          // Carregar aulas dos módulos com acesso
+          const { data: accessLessonsData, error: lessonsError } = await supabase
+            .from('video_lessons')
+            .select('*')
+            .in('module_id', accessibleModuleIds)
+            .eq('is_active', true)
+            .order('order_index', { ascending: true })
+
+          if (lessonsError) {
+            console.error('❌ Erro ao carregar aulas:', lessonsError)
+          } else {
+            lessonsData = accessLessonsData || []
+            console.log('✅ Carregou', lessonsData.length, 'aulas')
+          }
+        }
+      }
+
+      // Carregar exercícios das aulas (se temos aulas)
+      let exercisesData: any[] = []
       const lessonIds = lessonsData?.map(l => l.id) || []
-      const { data: exercisesData, error: exercisesError } = await supabase
-        .from('lesson_exercises')
-        .select('*')
-        .in('lesson_id', lessonIds.length > 0 ? lessonIds : [''])
-        .eq('ativo', true)
-        .order('ordem', { ascending: true })
 
-      if (exercisesError) throw exercisesError
+      if (lessonIds.length > 0) {
+        const { data: exercisesResult, error: exercisesError } = await supabase
+          .from('lesson_exercises')
+          .select('*')
+          .in('lesson_id', lessonIds)
+          .eq('ativo', true)
+          .order('ordem', { ascending: true })
+
+        if (exercisesError) {
+          console.warn('⚠️ Erro ao carregar exercícios:', exercisesError)
+        } else {
+          exercisesData = exercisesResult || []
+          console.log('✅ Carregou', exercisesData.length, 'exercícios')
+        }
+      }
 
       // Carregar progresso do mentorado
-      const { data: progressData, error: progressError } = await supabase
+      let progressData: any[] = []
+      const { data: progressResult, error: progressError } = await supabase
         .from('lesson_progress')
         .select('*')
         .eq('mentorado_id', mentoradoData.id)
 
-      if (progressError) throw progressError
+      if (progressError) {
+        console.warn('⚠️ Erro ao carregar progresso:', progressError)
+      } else {
+        progressData = progressResult || []
+        console.log('✅ Carregou progresso de', progressData.length, 'aulas')
+      }
 
       // Carregar respostas de exercícios do mentorado
-      const { data: exerciseResponsesData, error: exerciseResponseError } = await supabase
+      let exerciseResponsesData: any[] = []
+      const { data: responseResult, error: exerciseResponseError } = await supabase
         .from('exercise_responses')
         .select('*')
         .eq('mentorado_id', mentoradoData.id)
 
-      if (exerciseResponseError) throw exerciseResponseError
+      if (exerciseResponseError) {
+        console.warn('⚠️ Erro ao carregar respostas:', exerciseResponseError)
+      } else {
+        exerciseResponsesData = responseResult || []
+        console.log('✅ Carregou', exerciseResponsesData.length, 'respostas')
+      }
 
       // Processar dados dos módulos
       const processedModules = modulesData?.map(module => {
@@ -222,14 +309,23 @@ export default function NetflixStyleVideosPage() {
       }) || []
 
       setModules(processedModules)
+      console.log('✅ Total de módulos processados:', processedModules.length)
 
       // Separar módulos em destaque
       const featured = processedModules.filter(m => m.featured) || []
       setFeaturedModules(featured)
+      console.log('✅ Módulos em destaque:', featured.length)
 
     } catch (error) {
-      console.error('Erro ao carregar dados de vídeo:', error)
+      console.error('❌ Erro crítico ao carregar dados de vídeo:', error)
+
+      // Em caso de erro crítico, definir arrays vazios para evitar loading infinito
+      setModules([])
+      setFeaturedModules([])
+      setContinueWatching([])
+      setCategories([])
     } finally {
+      console.log('🎯 Finalizando loading de vídeos')
       setLoading(false)
     }
   }

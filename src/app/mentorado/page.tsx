@@ -118,209 +118,271 @@ function MentoradoPageContent() {
   }
 
   return (
-    <div className="p-8 space-y-8 bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[32px] font-semibold text-[#1A1A1A] mb-2">
-            Olá, {mentorado?.nome_completo?.split(' ')[0]}!
-          </h1>
-          <p className="text-[15px] text-[#6B7280]">
-            Continue seu aprendizado de onde parou
-          </p>
-        </div>
-        <Button
-          onClick={handleLogout}
-          variant="outline"
-          className="border-[#E5E7EB] text-[#6B7280] hover:bg-[#F9FAFB]"
-        >
-          Sair
-        </Button>
-      </div>
+    <div className="bg-[#141414] min-h-screen text-white">
+      {/* Netflix-style Hero Section */}
+      <div className="relative h-[80vh] mb-8">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#141414]/50 to-[#141414] z-10" />
 
-      {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Progresso */}
-        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
+        {/* Hero Background */}
+        <div className="absolute inset-0">
+          <img
+            src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
+            alt="Learning Background"
+            className="w-full h-full object-cover"
+          />
+        </div>
+
+        {/* Header */}
+        <div className="absolute top-0 left-0 right-0 p-8 z-20">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[13px] text-[#6B7280] font-medium mb-2">Seu Progresso</p>
-              <div className="flex items-center">
-                <div className="w-16 h-16 rounded-full border-4 border-[#E879F9] flex items-center justify-center bg-white">
-                  <span className="text-[18px] font-bold text-[#1A1A1A]">0%</span>
+              <h1 className="text-[36px] font-bold text-white mb-2">
+                Olá, {mentorado?.nome_completo?.split(' ')[0]}!
+              </h1>
+              <p className="text-[16px] text-gray-300">
+                Continue seu aprendizado de onde parou
+              </p>
+            </div>
+            <Button
+              onClick={handleLogout}
+              variant="outline"
+              className="border-gray-600 text-white hover:bg-white hover:text-black transition-all"
+            >
+              Sair
+            </Button>
+          </div>
+        </div>
+
+        {/* Hero Content */}
+        <div className="absolute bottom-0 left-0 right-0 p-8 z-20">
+          <div className="max-w-2xl">
+            <h2 className="text-[48px] font-bold text-white mb-4 leading-tight">
+              Sua jornada de aprendizado continua
+            </h2>
+            <p className="text-[18px] text-gray-300 mb-6 leading-relaxed">
+              Acesse seus módulos, acompanhe seu progresso e descubra novas oportunidades de crescimento.
+            </p>
+            <div className="flex space-x-4">
+              <Link
+                href="/mentorado/videos/netflix"
+                className="bg-white text-black px-8 py-3 rounded-[4px] font-semibold hover:bg-opacity-80 transition-all flex items-center text-[16px]"
+              >
+                <Play className="w-5 h-5 mr-2" />
+                Assistir Aulas
+              </Link>
+              <Link
+                href="/mentorado/comissoes"
+                className="bg-[#6B7280] bg-opacity-50 text-white px-6 py-3 rounded-[4px] font-medium hover:bg-opacity-70 transition-all flex items-center text-[16px]"
+              >
+                <DollarSign className="w-5 h-5 mr-2" />
+                Ver Comissões
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Netflix-style Content Sections */}
+      <div className="px-8 pb-8 space-y-12">
+        {/* Stats Row */}
+        <section>
+          <h2 className="text-[24px] font-semibold text-white mb-6">
+            Suas estatísticas
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Progresso */}
+            <div className="bg-[#1A1A1A] rounded-[8px] p-6 hover:bg-[#2A2A2A] transition-colors">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[13px] text-gray-400 font-medium mb-2">Seu Progresso</p>
+                  <div className="flex items-center">
+                    <div className="w-16 h-16 rounded-full border-4 border-[#E879F9] flex items-center justify-center bg-[#141414]">
+                      <span className="text-[18px] font-bold text-white">0%</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-[#E879F9] rounded-[8px] flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-white" />
                 </div>
               </div>
             </div>
-            <div className="w-12 h-12 bg-[#E879F9] rounded-[12px] flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </div>
 
-        {/* Módulos */}
-        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[13px] text-[#6B7280] font-medium mb-2">Módulos</p>
-              <p className="text-[28px] font-bold text-[#1A1A1A]">3</p>
-            </div>
-            <div className="w-12 h-12 bg-[#1A1A1A] rounded-[12px] flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </div>
-
-        {/* Comissões */}
-        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[13px] text-[#6B7280] font-medium mb-2">Comissões</p>
-              <p className="text-[18px] font-bold text-[#1A1A1A]">R$ 0,00</p>
-            </div>
-            <div className="w-12 h-12 bg-[#22C55E] rounded-[12px] flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Seção Principal - Vídeo Aula */}
-      <div className="bg-[#F3F3F5] rounded-[24px] p-8">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[18px] font-semibold text-[#1A1A1A]">
-            Continue assistindo
-          </h2>
-          <Link
-            href="/mentorado/videos"
-            className="text-[14px] text-[#6B7280] hover:text-[#1A1A1A] transition-colors"
-          >
-            Ver todos
-          </Link>
-        </div>
-
-        {/* Placeholder para Vídeo */}
-        <div className="bg-[#1A1A1A] rounded-[20px] aspect-video mb-6 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-4">
-              <Play className="w-8 h-8 text-white ml-1" />
-            </div>
-            <p className="text-white text-[15px]">
-              Próxima aula disponível
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-[16px] font-medium text-[#1A1A1A] mb-1">
-              Assistir próxima aula
-            </h3>
-            <p className="text-[14px] text-[#6B7280]">
-              Continue seu progresso de aprendizado
-            </p>
-          </div>
-          <Link
-            href="/mentorado/videos"
-            className="bg-[#1A1A1A] text-white px-6 py-3 rounded-full text-[14px] font-medium hover:bg-opacity-90 transition-all"
-          >
-            Assistir agora
-          </Link>
-        </div>
-      </div>
-
-      {/* Ações Rápidas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
-          <h3 className="text-[16px] font-medium text-[#1A1A1A] mb-4">
-            Acesso Rápido
-          </h3>
-          <div className="space-y-3">
-            <Link
-              href="/mentorado/videos"
-              className="flex items-center justify-between p-3 bg-white rounded-[12px] hover:bg-opacity-80 transition-colors group"
-            >
-              <div className="flex items-center">
-                <Play className="w-5 h-5 text-[#6B7280] mr-3" />
-                <span className="text-[14px] text-[#1A1A1A]">Minhas Aulas</span>
+            {/* Módulos */}
+            <div className="bg-[#1A1A1A] rounded-[8px] p-6 hover:bg-[#2A2A2A] transition-colors">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[13px] text-gray-400 font-medium mb-2">Módulos</p>
+                  <p className="text-[28px] font-bold text-white">3</p>
+                </div>
+                <div className="w-12 h-12 bg-[#6B7280] rounded-[8px] flex items-center justify-center">
+                  <BookOpen className="w-6 h-6 text-white" />
+                </div>
               </div>
-              <span className="text-[12px] text-[#6B7280] group-hover:text-[#1A1A1A] transition-colors">
-                →
-              </span>
+            </div>
+
+            {/* Comissões */}
+            <div className="bg-[#1A1A1A] rounded-[8px] p-6 hover:bg-[#2A2A2A] transition-colors">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[13px] text-gray-400 font-medium mb-2">Comissões</p>
+                  <p className="text-[18px] font-bold text-white">R$ 0,00</p>
+                </div>
+                <div className="w-12 h-12 bg-[#22C55E] rounded-[8px] flex items-center justify-center">
+                  <DollarSign className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Continue Watching Section */}
+        <section>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-[24px] font-semibold text-white">
+              Continue assistindo
+            </h2>
+            <Link
+              href="/mentorado/videos/netflix"
+              className="text-[14px] text-gray-400 hover:text-white transition-colors"
+            >
+              Ver todos
+            </Link>
+          </div>
+
+          {/* Featured Video Card */}
+          <div className="relative bg-[#1A1A1A] rounded-[8px] overflow-hidden hover:scale-105 transition-transform duration-300 cursor-pointer">
+            <div className="aspect-video relative">
+              <img
+                src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+                alt="Continue watching"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-white bg-opacity-90 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <Play className="w-8 h-8 text-black ml-1" />
+                  </div>
+                  <p className="text-white text-[15px] font-medium">
+                    Próxima aula disponível
+                  </p>
+                </div>
+              </div>
+              {/* Progress Bar */}
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-black bg-opacity-50">
+                <div className="h-full bg-[#E879F9] w-0 transition-all duration-300" />
+              </div>
+            </div>
+            <div className="p-4">
+              <h3 className="text-[16px] font-medium text-white mb-1">
+                Assistir próxima aula
+              </h3>
+              <p className="text-[14px] text-gray-400">
+                Continue seu progresso de aprendizado
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Quick Actions Grid */}
+        <section>
+          <h2 className="text-[24px] font-semibold text-white mb-6">
+            Acesso rápido
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <Link
+              href="/mentorado/videos/netflix"
+              className="bg-[#1A1A1A] rounded-[8px] p-4 hover:bg-[#2A2A2A] transition-colors group text-center"
+            >
+              <div className="w-12 h-12 bg-[#E879F9] rounded-[8px] flex items-center justify-center mx-auto mb-3">
+                <Play className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-[14px] text-white block font-medium">Minhas Aulas</span>
             </Link>
 
             <Link
               href="/mentorado/comissoes"
-              className="flex items-center justify-between p-3 bg-white rounded-[12px] hover:bg-opacity-80 transition-colors group"
+              className="bg-[#1A1A1A] rounded-[8px] p-4 hover:bg-[#2A2A2A] transition-colors group text-center"
             >
-              <div className="flex items-center">
-                <DollarSign className="w-5 h-5 text-[#6B7280] mr-3" />
-                <span className="text-[14px] text-[#1A1A1A]">Ver Comissões</span>
+              <div className="w-12 h-12 bg-[#22C55E] rounded-[8px] flex items-center justify-center mx-auto mb-3">
+                <DollarSign className="w-6 h-6 text-white" />
               </div>
-              <span className="text-[12px] text-[#6B7280] group-hover:text-[#1A1A1A] transition-colors">
-                →
-              </span>
+              <span className="text-[14px] text-white block font-medium">Comissões</span>
             </Link>
 
             <Link
               href="/mentorado/metas"
-              className="flex items-center justify-between p-3 bg-white rounded-[12px] hover:bg-opacity-80 transition-colors group"
+              className="bg-[#1A1A1A] rounded-[8px] p-4 hover:bg-[#2A2A2A] transition-colors group text-center"
             >
-              <div className="flex items-center">
-                <Target className="w-5 h-5 text-[#6B7280] mr-3" />
-                <span className="text-[14px] text-[#1A1A1A]">Minhas Metas</span>
+              <div className="w-12 h-12 bg-[#F59E0B] rounded-[8px] flex items-center justify-center mx-auto mb-3">
+                <Target className="w-6 h-6 text-white" />
               </div>
-              <span className="text-[12px] text-[#6B7280] group-hover:text-[#1A1A1A] transition-colors">
-                →
-              </span>
+              <span className="text-[14px] text-white block font-medium">Metas</span>
             </Link>
 
             <Link
               href="/mentorado/conquistas"
-              className="flex items-center justify-between p-3 bg-white rounded-[12px] hover:bg-opacity-80 transition-colors group"
+              className="bg-[#1A1A1A] rounded-[8px] p-4 hover:bg-[#2A2A2A] transition-colors group text-center"
             >
-              <div className="flex items-center">
-                <Trophy className="w-5 h-5 text-[#6B7280] mr-3" />
-                <span className="text-[14px] text-[#1A1A1A]">Conquistas</span>
+              <div className="w-12 h-12 bg-[#EF4444] rounded-[8px] flex items-center justify-center mx-auto mb-3">
+                <Trophy className="w-6 h-6 text-white" />
               </div>
-              <span className="text-[12px] text-[#6B7280] group-hover:text-[#1A1A1A] transition-colors">
-                →
-              </span>
+              <span className="text-[14px] text-white block font-medium">Conquistas</span>
             </Link>
 
             <Link
               href="/mentorado/onboarding"
-              className="flex items-center justify-between p-3 bg-white rounded-[12px] hover:bg-opacity-80 transition-colors group"
+              className="bg-[#1A1A1A] rounded-[8px] p-4 hover:bg-[#2A2A2A] transition-colors group text-center"
             >
-              <div className="flex items-center">
-                <Brain className="w-5 h-5 text-[#6B7280] mr-3" />
-                <span className="text-[14px] text-[#1A1A1A]">Meu Onboarding</span>
+              <div className="w-12 h-12 bg-[#8B5CF6] rounded-[8px] flex items-center justify-center mx-auto mb-3">
+                <Brain className="w-6 h-6 text-white" />
               </div>
-              <span className="text-[12px] text-[#6B7280] group-hover:text-[#1A1A1A] transition-colors">
-                →
-              </span>
+              <span className="text-[14px] text-white block font-medium">Onboarding</span>
+            </Link>
+
+            <Link
+              href="/mentorado/progress"
+              className="bg-[#1A1A1A] rounded-[8px] p-4 hover:bg-[#2A2A2A] transition-colors group text-center"
+            >
+              <div className="w-12 h-12 bg-[#06B6D4] rounded-[8px] flex items-center justify-center mx-auto mb-3">
+                <Star className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-[14px] text-white block font-medium">Progresso</span>
             </Link>
           </div>
-        </div>
+        </section>
 
-        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
-          <h3 className="text-[16px] font-medium text-[#1A1A1A] mb-4">
-            Informações da Conta
-          </h3>
-          <div className="space-y-3">
-            <div className="flex items-center">
-              <div className="w-2 h-2 bg-[#22C55E] rounded-full mr-3"></div>
-              <span className="text-[14px] text-[#6B7280]">
-                Status: Ativo
-              </span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-2 h-2 bg-[#E879F9] rounded-full mr-3"></div>
-              <span className="text-[14px] text-[#6B7280]">
-                Estado: {mentorado?.estado_atual || 'Em progresso'}
-              </span>
+        {/* Account Info */}
+        <section>
+          <h2 className="text-[24px] font-semibold text-white mb-6">
+            Informações da conta
+          </h2>
+          <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <div className="flex items-center mb-3">
+                  <div className="w-3 h-3 bg-[#22C55E] rounded-full mr-3"></div>
+                  <span className="text-[16px] text-white font-medium">Status: Ativo</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-[#E879F9] rounded-full mr-3"></div>
+                  <span className="text-[16px] text-white font-medium">
+                    Estado: {mentorado?.estado_atual || 'Em progresso'}
+                  </span>
+                </div>
+              </div>
+              <div className="text-gray-400">
+                <p className="text-[14px] mb-2">
+                  <strong className="text-white">Email:</strong> {mentorado?.email}
+                </p>
+                {mentorado?.telefone && (
+                  <p className="text-[14px]">
+                    <strong className="text-white">Telefone:</strong> {mentorado?.telefone}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   )
