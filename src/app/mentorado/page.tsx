@@ -1,13 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { UserCheck, Mail, Eye, EyeOff, LogIn, Play, BookOpen, DollarSign, TrendingUp, Target, Trophy, Brain, Star } from 'lucide-react'
 import { MentoradoAuthProvider, useMentoradoAuth } from '@/contexts/mentorado-auth'
+import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+
+interface VideoModule {
+  id: string
+  title: string
+  description: string
+  cover_image_url?: string
+  is_active: boolean
+  order_index: number
+}
 
 function MentoradoPageContent() {
   const { mentorado, loading: authLoading, error, signIn, signOut } = useMentoradoAuth()
@@ -15,6 +25,37 @@ function MentoradoPageContent() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [modules, setModules] = useState<VideoModule[]>([])
+
+  useEffect(() => {
+    if (mentorado) {
+      loadModules()
+    }
+  }, [mentorado])
+
+  const loadModules = async () => {
+    try {
+      console.log('📚 Carregando módulos para dashboard inicial')
+
+      const { data: modulesData, error } = await supabase
+        .from('video_modules')
+        .select('*')
+        .eq('is_active', true)
+        .order('order_index', { ascending: true })
+        .limit(6) // Limitar para não sobrecarregar a tela inicial
+
+      if (error) {
+        console.error('❌ Erro ao carregar módulos:', error)
+        setModules([])
+      } else {
+        console.log('✅ Módulos carregados:', modulesData?.length || 0)
+        setModules(modulesData || [])
+      }
+    } catch (error) {
+      console.error('Erro ao carregar módulos:', error)
+      setModules([])
+    }
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -235,7 +276,7 @@ function MentoradoPageContent() {
           </div>
         </section>
 
-        {/* Continue Watching Section */}
+        {/* Continue Watching Section - Modules Grid */}
         <section>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-[24px] font-semibold text-white">
@@ -249,38 +290,53 @@ function MentoradoPageContent() {
             </Link>
           </div>
 
-          {/* Featured Video Card */}
-          <div className="relative bg-[#1A1A1A] rounded-[8px] overflow-hidden hover:scale-105 transition-transform duration-300 cursor-pointer">
-            <div className="aspect-video relative">
-              <img
-                src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                alt="Continue watching"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-white bg-opacity-90 rounded-full flex items-center justify-center mb-4 mx-auto">
-                    <Play className="w-8 h-8 text-black ml-1" />
+          {/* Modules Grid */}
+          {modules.length === 0 ? (
+            <div className="text-center py-12">
+              <BookOpen className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+              <h3 className="text-[20px] font-medium text-white mb-2">Nenhum módulo disponível</h3>
+              <p className="text-gray-400">Entre em contato com seu mentor para acessar os módulos</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+              {modules.map((module) => (
+                <Link
+                  key={module.id}
+                  href="/mentorado/videos/netflix"
+                  className="group cursor-pointer"
+                >
+                  <div className="relative bg-[#1A1A1A] rounded-[8px] overflow-hidden aspect-[3/4] mb-3 group-hover:scale-105 transition-transform duration-300">
+                    {module.cover_image_url ? (
+                      <img
+                        src={module.cover_image_url}
+                        alt={module.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-[#E879F9]/20 to-[#1A1A1A] flex items-center justify-center">
+                        <BookOpen className="w-8 h-8 text-white" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div className="w-12 h-12 bg-white bg-opacity-90 rounded-full flex items-center justify-center">
+                          <Play className="w-6 h-6 text-black ml-0.5" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-white text-[15px] font-medium">
-                    Próxima aula disponível
-                  </p>
-                </div>
-              </div>
-              {/* Progress Bar */}
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-black bg-opacity-50">
-                <div className="h-full bg-[#E879F9] w-0 transition-all duration-300" />
-              </div>
+                  <div className="px-1">
+                    <h3 className="text-white text-[14px] font-medium mb-1 group-hover:text-gray-300 transition-colors line-clamp-2">
+                      {module.title}
+                    </h3>
+                    <p className="text-gray-400 text-[12px] line-clamp-2">
+                      {module.description}
+                    </p>
+                  </div>
+                </Link>
+              ))}
             </div>
-            <div className="p-4">
-              <h3 className="text-[16px] font-medium text-white mb-1">
-                Assistir próxima aula
-              </h3>
-              <p className="text-[14px] text-gray-400">
-                Continue seu progresso de aprendizado
-              </p>
-            </div>
-          </div>
+          )}
         </section>
 
         {/* Quick Actions Grid */}
