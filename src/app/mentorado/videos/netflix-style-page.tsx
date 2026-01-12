@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Play, BookOpen, Clock, CheckCircle, Lock, Search, Star } from 'lucide-react'
+import { useMentoradoAuth } from '@/contexts/mentorado-auth'
 
 interface VideoModule {
   id: string
@@ -37,20 +38,18 @@ interface LessonProgress {
 }
 
 export default function NetflixStyleVideosPage() {
-  const [mentorado, setMentorado] = useState<any>(null)
+  const { mentorado, loading: authLoading } = useMentoradoAuth()
   const [modules, setModules] = useState<VideoModule[]>([])
   const [selectedLesson, setSelectedLesson] = useState<VideoLesson | null>(null)
   const [showVideoModal, setShowVideoModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState<string>('')
 
   useEffect(() => {
-    const savedMentorado = localStorage.getItem('mentorado')
-    if (savedMentorado) {
-      const mentoradoData = JSON.parse(savedMentorado)
-      setMentorado(mentoradoData)
-      loadVideoData(mentoradoData)
+    if (mentorado && !authLoading) {
+      console.log('🎥 Mentorado autenticado via cookie:', mentorado.nome_completo)
+      loadVideoData(mentorado)
     }
-  }, [])
+  }, [mentorado, authLoading])
 
   const loadVideoData = async (mentoradoData: any) => {
     try {
@@ -173,7 +172,7 @@ export default function NetflixStyleVideosPage() {
     setShowVideoModal(true)
 
     // Marcar como iniciada se não foi ainda
-    if (!lesson.progress) {
+    if (!lesson.progress && mentorado) {
       supabase
         .from('lesson_progress')
         .insert([{
@@ -190,6 +189,8 @@ export default function NetflixStyleVideosPage() {
   }
 
   const handleCompleteLesson = async (lessonId: string) => {
+    if (!mentorado) return
+
     try {
       await supabase
         .from('lesson_progress')
@@ -247,6 +248,33 @@ export default function NetflixStyleVideosPage() {
   }
 
   const filteredModules = getFilteredModules()
+
+  // Loading state
+  if (authLoading) {
+    return (
+      <div className="bg-[#141414] min-h-screen text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-gray-400">Carregando...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Not authenticated
+  if (!mentorado) {
+    return (
+      <div className="bg-[#141414] min-h-screen text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl mb-4">Acesso Restrito</h1>
+          <p className="text-gray-400 mb-4">Você precisa fazer login para acessar as aulas.</p>
+          <a href="/login" className="bg-[#E879F9] hover:bg-[#D865E8] text-white px-6 py-2 rounded">
+            Fazer Login
+          </a>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-[#141414] min-h-screen text-white">
