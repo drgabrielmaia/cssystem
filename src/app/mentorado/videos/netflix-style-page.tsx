@@ -56,21 +56,76 @@ export default function NetflixStyleVideosPage() {
     try {
       console.log('🎥 Carregando dados de vídeo para:', mentoradoData.id)
 
-      // Carregar todos os módulos ativos (sem RLS complicado)
+      // Step 1: Verificar acesso aos módulos
+      const { data: accessData, error: accessError } = await supabase
+        .from('video_access_control')
+        .select('module_id')
+        .eq('mentorado_id', mentoradoData.id)
+        .eq('has_access', true)
+
+      let accessibleModuleIds: string[] = []
+
+      if (accessError) {
+        console.log('🔧 Erro de acesso, usando fallback para módulos:', accessError.message)
+        // Fallback: carregar todos os módulos
+        const { data: allModulesData } = await supabase
+          .from('video_modules')
+          .select('id')
+          .eq('is_active', true)
+        accessibleModuleIds = allModulesData?.map(m => m.id) || []
+      } else {
+        accessibleModuleIds = accessData?.map(a => a.module_id) || []
+      }
+
+      console.log('🔓 Módulos acessíveis:', accessibleModuleIds.length)
+
+      if (accessibleModuleIds.length === 0) {
+        console.log('❌ Nenhum módulo acessível')
+        setModules([])
+        return
+      }
+
+      // Step 2: Carregar módulos com acesso
       const { data: modulesData } = await supabase
         .from('video_modules')
         .select('*')
+        .in('id', accessibleModuleIds)
         .eq('is_active', true)
         .order('order_index', { ascending: true })
 
-      // Carregar todas as aulas ativas
-      const moduleIds = modulesData?.map(m => m.id) || []
-      const { data: lessonsData } = await supabase
+      // Step 3: Carregar aulas dos módulos acessíveis
+      console.log('🎬 Carregando aulas para módulos:', accessibleModuleIds)
+      let { data: lessonsData, error: lessonsError } = await supabase
         .from('video_lessons')
         .select('*')
-        .in('module_id', moduleIds)
+        .in('module_id', accessibleModuleIds)
         .eq('is_active', true)
         .order('order_index', { ascending: true })
+
+      console.log('🎬 Query direta das aulas - Success:', !!lessonsData, 'Error:', !!lessonsError)
+      console.log('🎬 Aulas retornadas:', lessonsData?.length || 0)
+
+      if (lessonsError) {
+        console.log('❌ Erro ao carregar aulas:', lessonsError.message)
+        console.log('🔧 Implementando fallback para aulas...')
+        // Fallback: tentar carregar aulas sem filtro específico
+        const { data: fallbackLessons } = await supabase
+          .from('video_lessons')
+          .select('*')
+          .eq('is_active', true)
+          .order('order_index', { ascending: true })
+
+        console.log('🔧 Fallback aulas - Total:', fallbackLessons?.length || 0)
+
+        // Filtrar apenas aulas dos módulos acessíveis
+        lessonsData = fallbackLessons?.filter(lesson =>
+          accessibleModuleIds.includes(lesson.module_id)
+        ) || []
+
+        console.log('✅ Fallback funcionou, aulas filtradas:', lessonsData.length)
+      } else {
+        console.log('✅ Query direta funcionou, aulas:', lessonsData?.length || 0)
+      }
 
       // Carregar progresso do mentorado
       const { data: progressData } = await supabase
@@ -79,8 +134,11 @@ export default function NetflixStyleVideosPage() {
         .eq('mentorado_id', mentoradoData.id)
 
       // Processar dados dos módulos
+      console.log('🔄 Processando módulos...')
       const processedModules = modulesData?.map(module => {
         const moduleLessons = lessonsData?.filter(l => l.module_id === module.id) || []
+        console.log(`📚 Módulo ${module.title}: ${moduleLessons.length} aulas encontradas`)
+
         const lessonsWithProgress = moduleLessons.map(lesson => {
           const lessonProgress = progressData?.find(p => p.lesson_id === lesson.id)
           return {
@@ -95,8 +153,13 @@ export default function NetflixStyleVideosPage() {
         }
       }) || []
 
+      console.log('📊 Resultado final:')
+      processedModules.forEach(module => {
+        console.log(`  📚 ${module.title}: ${module.lessons.length} aulas`)
+      })
+
       setModules(processedModules)
-      console.log('✅ Carregou', processedModules.length, 'módulos com', lessonsData?.length || 0, 'aulas')
+      console.log('✅ Carregou', processedModules.length, 'módulos com', lessonsData?.length || 0, 'aulas total')
 
     } catch (error) {
       console.error('❌ Erro ao carregar vídeos:', error)
