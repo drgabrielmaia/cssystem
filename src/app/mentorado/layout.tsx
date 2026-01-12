@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { MentoradoAuthProvider } from '@/contexts/mentorado-auth'
 import {
   Home,
   Video,
@@ -50,7 +51,7 @@ const navigation = [
   }
 ]
 
-export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
+function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
   const [mentorado, setMentorado] = useState<any>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -311,5 +312,15 @@ export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
+  return (
+    <MentoradoAuthProvider>
+      <MentoradoLayoutContent>
+        {children}
+      </MentoradoLayoutContent>
+    </MentoradoAuthProvider>
   )
 }
