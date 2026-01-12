@@ -40,11 +40,6 @@ const navigation = [
     icon: Target
   },
   {
-    name: 'Progresso',
-    href: '/mentorado/progress',
-    icon: TrendingUp
-  },
-  {
     name: 'Comissões',
     href: '/mentorado/comissoes',
     icon: DollarSign

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { Trophy, Star, Award, Medal, Target, Calendar } from 'lucide-react'
+import { useMentoradoAuth } from '@/contexts/mentorado-auth'
+import { supabase } from '@/lib/supabase'
 
 interface Achievement {
   id: string
@@ -15,67 +17,120 @@ interface Achievement {
 }
 
 export default function MentoradoConquistasPage() {
+  const { mentorado, loading: authLoading } = useMentoradoAuth()
   const [achievements, setAchievements] = useState<Achievement[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Dados mockados de conquistas
-    const mockAchievements: Achievement[] = [
-      {
-        id: '1',
-        title: 'Primeira Aula',
-        description: 'Assistiu sua primeira aula do curso',
-        icon: 'play',
-        unlocked: true,
-        unlockedAt: '2024-01-15'
-      },
-      {
-        id: '2',
-        title: 'Dedicado',
-        description: 'Assistiu 10 aulas consecutivas',
-        icon: 'star',
-        unlocked: true,
-        unlockedAt: '2024-01-20'
-      },
-      {
-        id: '3',
-        title: 'Estudioso',
-        description: 'Completou seu primeiro módulo',
-        icon: 'award',
-        unlocked: false,
-        progress: 7,
-        maxProgress: 10
-      },
-      {
-        id: '4',
-        title: 'Primeiro Ganho',
-        description: 'Recebeu sua primeira comissão',
-        icon: 'dollar',
-        unlocked: false,
-        progress: 0,
-        maxProgress: 1
-      },
-      {
-        id: '5',
-        title: 'Meta Batida',
-        description: 'Alcançou sua primeira meta',
-        icon: 'target',
-        unlocked: false,
-        progress: 2,
-        maxProgress: 5
-      },
-      {
-        id: '6',
-        title: 'Especialista',
-        description: 'Completou todos os módulos',
-        icon: 'medal',
-        unlocked: false,
-        progress: 1,
-        maxProgress: 8
-      }
-    ]
+    if (mentorado && !authLoading) {
+      loadAchievements()
+    }
+  }, [mentorado, authLoading])
 
-    setAchievements(mockAchievements)
-  }, [])
+  const loadAchievements = async () => {
+    if (!mentorado) return
+
+    try {
+      setLoading(true)
+
+      // Carregar dados do progresso real do mentorado
+      const [lessonsProgress, comissoes, metas] = await Promise.all([
+        // Progresso das aulas
+        supabase
+          .from('lesson_progress')
+          .select('*')
+          .eq('mentorado_id', mentorado.id),
+        // Comissões
+        supabase
+          .from('comissoes')
+          .select('*')
+          .eq('mentorado_id', mentorado.id)
+          .gt('valor', 0),
+        // Metas (se houver tabela)
+        supabase
+          .from('metas')
+          .select('*')
+          .eq('mentorado_id', mentorado.id)
+          .eq('alcancada', true)
+          .then(result => result.data || [], () => [])
+      ])
+
+      const completedLessons = lessonsProgress.data?.filter(p => p.is_completed) || []
+      const totalLessons = lessonsProgress.data?.length || 0
+      const totalComissoes = comissoes.data?.length || 0
+      const totalMetas = Array.isArray(metas) ? metas.length : 0
+
+      // Gerar conquistas baseadas em dados reais
+      const realAchievements: Achievement[] = [
+        {
+          id: '1',
+          title: 'Primeira Aula',
+          description: 'Assistiu sua primeira aula do curso',
+          icon: 'play',
+          unlocked: completedLessons.length > 0,
+          unlockedAt: completedLessons[0]?.completed_at || undefined
+        },
+        {
+          id: '2',
+          title: 'Dedicado',
+          description: 'Completou 5 aulas',
+          icon: 'star',
+          unlocked: completedLessons.length >= 5,
+          progress: completedLessons.length,
+          maxProgress: 5,
+          unlockedAt: completedLessons.length >= 5 ? completedLessons[4]?.completed_at : undefined
+        },
+        {
+          id: '3',
+          title: 'Estudioso',
+          description: 'Completou 10 aulas',
+          icon: 'award',
+          unlocked: completedLessons.length >= 10,
+          progress: completedLessons.length,
+          maxProgress: 10,
+          unlockedAt: completedLessons.length >= 10 ? completedLessons[9]?.completed_at : undefined
+        },
+        {
+          id: '4',
+          title: 'Primeiro Ganho',
+          description: 'Recebeu sua primeira comissão',
+          icon: 'dollar',
+          unlocked: totalComissoes > 0,
+          progress: totalComissoes,
+          maxProgress: 1,
+          unlockedAt: totalComissoes > 0 ? comissoes.data?.[0]?.data_pagamento : undefined
+        },
+        {
+          id: '5',
+          title: 'Vendedor',
+          description: 'Recebeu 5 comissões',
+          icon: 'target',
+          unlocked: totalComissoes >= 5,
+          progress: totalComissoes,
+          maxProgress: 5,
+          unlockedAt: totalComissoes >= 5 ? comissoes.data?.[4]?.data_pagamento : undefined
+        },
+        {
+          id: '6',
+          title: 'Especialista',
+          description: 'Completou todas as aulas disponíveis',
+          icon: 'medal',
+          unlocked: totalLessons > 0 && completedLessons.length === totalLessons,
+          progress: completedLessons.length,
+          maxProgress: totalLessons,
+          unlockedAt: totalLessons > 0 && completedLessons.length === totalLessons ?
+            completedLessons[completedLessons.length - 1]?.completed_at : undefined
+        }
+      ]
+
+      setAchievements(realAchievements)
+    } catch (error) {
+      console.error('Erro ao carregar conquistas:', error)
+      setAchievements([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getIconComponent = (iconName: string) => {
     switch (iconName) {
@@ -90,6 +145,33 @@ export default function MentoradoConquistasPage() {
   }
 
   const unlockedCount = achievements.filter(a => a.unlocked).length
+
+  // Loading state
+  if (authLoading || loading) {
+    return (
+      <div className="bg-[#141414] min-h-screen text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-gray-400">Carregando conquistas...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Not authenticated
+  if (!mentorado) {
+    return (
+      <div className="bg-[#141414] min-h-screen text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl mb-4">Acesso Restrito</h1>
+          <p className="text-gray-400 mb-4">Você precisa fazer login para ver suas conquistas.</p>
+          <a href="/login" className="bg-[#E879F9] hover:bg-[#D865E8] text-white px-6 py-2 rounded">
+            Fazer Login
+          </a>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-[#141414] min-h-screen text-white">
@@ -106,12 +188,12 @@ export default function MentoradoConquistasPage() {
           />
         </div>
 
-        <div className="absolute top-0 left-0 right-0 p-8 z-20">
+        <div className="absolute top-0 left-0 right-0 p-4 md:p-8 z-20">
           <div className="max-w-2xl">
-            <h1 className="text-[48px] font-bold text-white mb-4 leading-tight">
+            <h1 className="text-[32px] md:text-[48px] font-bold text-white mb-4 leading-tight">
               Minhas Conquistas
             </h1>
-            <p className="text-[18px] text-gray-300 mb-6 leading-relaxed">
+            <p className="text-[16px] md:text-[18px] text-gray-300 mb-6 leading-relaxed">
               Acompanhe seus marcos e celebre suas vitórias
             </p>
             <div className="text-gray-300 text-sm">
@@ -122,13 +204,13 @@ export default function MentoradoConquistasPage() {
       </div>
 
       {/* Content */}
-      <div className="px-8 pb-8">
+      <div className="px-4 md:px-8 pb-8">
         {/* Stats */}
         <section className="mb-12">
-          <h2 className="text-[24px] font-semibold text-white mb-6">
+          <h2 className="text-[20px] md:text-[24px] font-semibold text-white mb-6">
             Seu progresso
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
             <div className="bg-[#1A1A1A] rounded-[8px] p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -169,10 +251,10 @@ export default function MentoradoConquistasPage() {
 
         {/* Achievements Grid */}
         <section>
-          <h2 className="text-[24px] font-semibold text-white mb-6">
+          <h2 className="text-[20px] md:text-[24px] font-semibold text-white mb-6">
             Todas as conquistas
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {achievements.map((achievement) => {
               const IconComponent = getIconComponent(achievement.icon)
               const progress = achievement.progress || 0
