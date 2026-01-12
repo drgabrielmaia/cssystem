@@ -30,6 +30,7 @@ interface VideoModule {
   description: string
   order_index: number
   thumbnail_url?: string
+  cover_image_url?: string
   is_active: boolean
   created_at: string
   updated_at: string
@@ -75,7 +76,7 @@ export default function AdminVideosPage() {
   const [selectedModule, setSelectedModule] = useState<VideoModule | null>(null)
   const [selectedLesson, setSelectedLesson] = useState<VideoLesson | null>(null)
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set())
-  const [moduleForm, setModuleForm] = useState({ title: '', description: '', order_index: 1, is_active: true })
+  const [moduleForm, setModuleForm] = useState({ title: '', description: '', cover_image_url: '', order_index: 1, is_active: true })
   const [lessonForm, setLessonForm] = useState({ title: '', description: '', panda_video_embed_url: '', duration_minutes: 0, order_index: 1, module_id: '', is_active: true })
 
   useEffect(() => {
@@ -324,12 +325,13 @@ export default function AdminVideosPage() {
       setModuleForm({
         title: module.title,
         description: module.description || '',
+        cover_image_url: module.cover_image_url || '',
         order_index: module.order_index,
         is_active: module.is_active
       })
     } else {
       setSelectedModule(null)
-      setModuleForm({ title: '', description: '', order_index: modules.length + 1, is_active: true })
+      setModuleForm({ title: '', description: '', cover_image_url: '', order_index: modules.length + 1, is_active: true })
     }
     setShowModuleModal(true)
   }
@@ -795,6 +797,20 @@ export default function AdminVideosPage() {
                   placeholder="Descrição do módulo"
                   rows={3}
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#374151] mb-2">URL da Imagem de Capa</label>
+                <input
+                  type="url"
+                  value={moduleForm.cover_image_url}
+                  onChange={(e) => setModuleForm(prev => ({ ...prev, cover_image_url: e.target.value }))}
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
+                  placeholder="https://exemplo.com/imagem-capa.jpg"
+                />
+                <p className="text-xs text-[#64748B] mt-1">
+                  Esta imagem será exibida como capa do módulo na página de vídeos
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
