@@ -6,12 +6,9 @@ import {
   DollarSign,
   TrendingUp,
   Calendar,
-  Users,
   Target,
   Award,
-  Eye,
   Download,
-  Filter,
   Search
 } from 'lucide-react'
 
@@ -29,11 +26,8 @@ interface Comissao {
 export default function MentoradoComissoesPage() {
   const [mentorado, setMentorado] = useState<any>(null)
   const [comissoes, setComissoes] = useState<Comissao[]>([])
-  const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<string>('todos')
   const [searchTerm, setSearchTerm] = useState('')
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
 
   useEffect(() => {
     const savedMentorado = localStorage.getItem('mentorado')
@@ -46,10 +40,8 @@ export default function MentoradoComissoesPage() {
 
   const loadComissoes = async (mentoradoId: string) => {
     try {
-      setLoading(true)
       console.log('🔍 Carregando comissões para mentorado:', mentoradoId)
 
-      // Buscar comissões do mentorado sem depender de RLS
       const { data: comissoesData, error } = await supabase
         .from('comissoes')
         .select('*')
@@ -58,7 +50,6 @@ export default function MentoradoComissoesPage() {
 
       if (error) {
         console.error('❌ Erro ao buscar comissões:', error)
-        // Se der erro por RLS, continuar com array vazio
         setComissoes([])
       } else {
         console.log('✅ Comissões carregadas:', comissoesData?.length || 0)
@@ -66,10 +57,7 @@ export default function MentoradoComissoesPage() {
       }
     } catch (error) {
       console.error('Erro ao carregar comissões:', error)
-      // Em caso de erro, definir array vazio para evitar loading infinito
       setComissoes([])
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -79,10 +67,9 @@ export default function MentoradoComissoesPage() {
     const comissoesPendentes = comissoes.filter(c => c.status === 'pendente').reduce((acc, c) => acc + c.valor, 0)
     const totalVendas = comissoes.length
 
-    // Comissões do mês atual
     const mesAtual = comissoes.filter(c => {
       const dataVenda = new Date(c.data_venda)
-      return dataVenda.getMonth() === currentMonth && dataVenda.getFullYear() === currentYear
+      return dataVenda.getMonth() === new Date().getMonth() && dataVenda.getFullYear() === new Date().getFullYear()
     })
     const comissoesMesAtual = mesAtual.reduce((acc, c) => acc + c.valor, 0)
 
@@ -120,15 +107,6 @@ export default function MentoradoComissoesPage() {
     })
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pago': return 'text-green-600 bg-green-50 border-green-200'
-      case 'pendente': return 'text-yellow-600 bg-yellow-50 border-yellow-200'
-      case 'cancelado': return 'text-red-600 bg-red-50 border-red-200'
-      default: return 'text-gray-600 bg-gray-50 border-gray-200'
-    }
-  }
-
   const getStatusText = (status: string) => {
     switch (status) {
       case 'pago': return 'Pago'
@@ -138,201 +116,187 @@ export default function MentoradoComissoesPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="p-6 flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    )
-  }
-
   const stats = getStats()
 
   return (
-    <div className="p-8 space-y-8 bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[32px] font-semibold text-[#1A1A1A] mb-2">Minhas Comissões</h1>
-          <p className="text-[15px] text-[#6B7280]">Acompanhe suas vendas e ganhos</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center px-4 py-2 bg-[#1A1A1A] text-white rounded-full text-[14px] font-medium hover:bg-opacity-90 transition-colors">
-            <Download className="w-4 h-4 mr-2" />
-            Exportar
-          </button>
-        </div>
-      </div>
+    <div className="bg-[#141414] min-h-screen text-white">
+      {/* Netflix-style Header */}
+      <div className="relative h-[40vh] mb-8">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#141414]/50 to-[#141414] z-10" />
 
-      {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[13px] text-[#6B7280] font-medium mb-2">Total Comissões</p>
-              <p className="text-[28px] font-bold text-[#1A1A1A]">{formatCurrency(stats.totalComissoes)}</p>
-            </div>
-            <div className="w-12 h-12 bg-[#22C55E] rounded-[12px] flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-white" />
-            </div>
-          </div>
+        {/* Hero Background */}
+        <div className="absolute inset-0">
+          <img
+            src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
+            alt="Comissões"
+            className="w-full h-full object-cover"
+          />
         </div>
 
-        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[13px] text-[#6B7280] font-medium mb-2">Já Recebidas</p>
-              <p className="text-[28px] font-bold text-[#1A1A1A]">{formatCurrency(stats.comissoesPagas)}</p>
-            </div>
-            <div className="w-12 h-12 bg-[#1A1A1A] rounded-[12px] flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[13px] text-[#6B7280] font-medium mb-2">Pendentes</p>
-              <p className="text-[28px] font-bold text-[#1A1A1A]">{formatCurrency(stats.comissoesPendentes)}</p>
-            </div>
-            <div className="w-12 h-12 bg-[#E879F9] rounded-[12px] flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-[#F3F3F5] rounded-[20px] p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[13px] text-[#6B7280] font-medium mb-2">Total Vendas</p>
-              <p className="text-[28px] font-bold text-[#1A1A1A]">{stats.totalVendas}</p>
-            </div>
-            <div className="w-12 h-12 bg-[#6366F1] rounded-[12px] flex items-center justify-center">
-              <Target className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Performance do Mês */}
-      <div className="bg-[#F3F3F5] rounded-[24px] p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-[18px] font-semibold text-[#1A1A1A] mb-2">Performance do Mês</h3>
-            <p className="text-[15px] text-[#6B7280]">Seu desempenho financeiro atual</p>
-          </div>
-          <div className="w-16 h-16 bg-[#1A1A1A] rounded-[16px] flex items-center justify-center">
-            <Award className="w-8 h-8 text-white" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-8">
-          <div>
-            <p className="text-[13px] text-[#6B7280] font-medium mb-1">Comissões do Mês</p>
-            <p className="text-[24px] font-bold text-[#1A1A1A]">{formatCurrency(stats.comissoesMesAtual)}</p>
-          </div>
-          <div>
-            <p className="text-[13px] text-[#6B7280] font-medium mb-1">Vendas Realizadas</p>
-            <p className="text-[24px] font-bold text-[#1A1A1A]">{stats.vendasMesAtual}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Filtros */}
-      <div className="bg-[#F3F3F5] rounded-[20px] p-6">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1">
-            {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#9CA3AF] w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Buscar por cliente..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-white border-0 rounded-full text-[14px] text-[#1A1A1A] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#E879F9] transition-all"
-              />
-            </div>
-
-            {/* Filter by status */}
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-3 bg-white border-0 rounded-full text-[14px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#E879F9] transition-all cursor-pointer"
-            >
-              <option value="todos">Todos os Status</option>
-              <option value="pago">Pago</option>
-              <option value="pendente">Pendente</option>
-              <option value="cancelado">Cancelado</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Lista de Comissões */}
-      <div className="bg-[#F3F3F5] rounded-[24px] overflow-hidden">
-        <div className="px-8 py-6">
-          <h3 className="text-[18px] font-semibold text-[#1A1A1A]">Histórico de Comissões</h3>
-        </div>
-
-        {filteredComissoes.length === 0 ? (
-          <div className="p-12 text-center">
-            <DollarSign className="w-16 h-16 text-[#6B7280] mx-auto mb-4" />
-            <h4 className="text-[16px] font-medium text-[#1A1A1A] mb-2">Nenhuma comissão encontrada</h4>
-            <p className="text-[14px] text-[#6B7280]">
-              {searchTerm || filterStatus !== 'todos'
-                ? 'Tente ajustar os filtros de busca.'
-                : 'Suas comissões aparecerão aqui conforme você realizar vendas.'}
+        <div className="absolute top-0 left-0 right-0 p-8 z-20">
+          <div className="max-w-2xl">
+            <h1 className="text-[48px] font-bold text-white mb-4 leading-tight">
+              Minhas Comissões
+            </h1>
+            <p className="text-[18px] text-gray-300 mb-6 leading-relaxed">
+              Acompanhe suas vendas e ganhos
             </p>
+            <div className="text-gray-300 text-sm">
+              {stats.totalVendas} vendas realizadas • {formatCurrency(stats.totalComissoes)} em comissões
+            </div>
           </div>
-        ) : (
-          <div className="px-8 pb-8 space-y-4">
-            {filteredComissoes.map((comissao) => (
-              <div key={comissao.id} className="bg-white rounded-[16px] p-6 hover:bg-opacity-80 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className={`w-12 h-12 rounded-[12px] flex items-center justify-center ${
-                      comissao.status === 'pago' ? 'bg-[#22C55E]' :
-                      comissao.status === 'pendente' ? 'bg-[#E879F9]' :
-                      'bg-[#6B7280]'
-                    }`}>
-                      <DollarSign className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-3 mb-1">
-                        <h4 className="text-[15px] font-medium text-[#1A1A1A]">
-                          {comissao.lead_nome || 'Cliente não informado'}
-                        </h4>
-                        <span className={`px-3 py-1 text-[12px] font-medium rounded-full ${
-                          comissao.status === 'pago' ? 'bg-[#22C55E] bg-opacity-20 text-[#22C55E]' :
-                          comissao.status === 'pendente' ? 'bg-[#E879F9] bg-opacity-20 text-[#E879F9]' :
-                          'bg-[#6B7280] bg-opacity-20 text-[#6B7280]'
-                        }`}>
-                          {getStatusText(comissao.status)}
-                        </span>
-                      </div>
-                      <p className="text-[13px] text-[#6B7280]">
-                        {formatDate(comissao.data_venda)}
-                      </p>
-                      {comissao.observacoes && (
-                        <p className="text-[13px] text-[#6B7280] mt-1">{comissao.observacoes}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[18px] font-bold text-[#1A1A1A]">
-                      {formatCurrency(comissao.valor)}
-                    </p>
-                    <p className="text-[12px] text-[#6B7280]">
-                      {formatDate(comissao.created_at)}
-                    </p>
-                  </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="px-8 pb-8 space-y-12">
+        {/* Stats Grid */}
+        <section>
+          <h2 className="text-[24px] font-semibold text-white mb-6">
+            Suas estatísticas
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[13px] text-gray-400 font-medium mb-2">Total Comissões</p>
+                  <p className="text-[20px] font-bold text-white">{formatCurrency(stats.totalComissoes)}</p>
+                </div>
+                <div className="w-12 h-12 bg-[#22C55E] rounded-[8px] flex items-center justify-center">
+                  <DollarSign className="w-6 h-6 text-white" />
                 </div>
               </div>
-            ))}
+            </div>
+
+            <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[13px] text-gray-400 font-medium mb-2">Já Recebidas</p>
+                  <p className="text-[20px] font-bold text-white">{formatCurrency(stats.comissoesPagas)}</p>
+                </div>
+                <div className="w-12 h-12 bg-[#6366F1] rounded-[8px] flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[13px] text-gray-400 font-medium mb-2">Pendentes</p>
+                  <p className="text-[20px] font-bold text-white">{formatCurrency(stats.comissoesPendentes)}</p>
+                </div>
+                <div className="w-12 h-12 bg-[#E879F9] rounded-[8px] flex items-center justify-center">
+                  <Calendar className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[13px] text-gray-400 font-medium mb-2">Total Vendas</p>
+                  <p className="text-[20px] font-bold text-white">{stats.totalVendas}</p>
+                </div>
+                <div className="w-12 h-12 bg-[#F59E0B] rounded-[8px] flex items-center justify-center">
+                  <Target className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
           </div>
-        )}
+        </section>
+
+        {/* Filters */}
+        <section>
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
+            <h2 className="text-[24px] font-semibold text-white">
+              Histórico de comissões
+            </h2>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Buscar por cliente..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-[#2A2A2A] border border-gray-600 rounded-[4px] text-white placeholder-gray-400 focus:outline-none focus:border-white transition-all"
+                />
+              </div>
+
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-4 py-3 bg-[#2A2A2A] border border-gray-600 rounded-[4px] text-white focus:outline-none focus:border-white transition-all cursor-pointer"
+              >
+                <option value="todos">Todos os Status</option>
+                <option value="pago">Pago</option>
+                <option value="pendente">Pendente</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Commissions List */}
+          {filteredComissoes.length === 0 ? (
+            <div className="text-center py-16">
+              <DollarSign className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+              <h4 className="text-[20px] font-medium text-white mb-2">Nenhuma comissão encontrada</h4>
+              <p className="text-gray-400">
+                {searchTerm || filterStatus !== 'todos'
+                  ? 'Tente ajustar os filtros de busca.'
+                  : 'Suas comissões aparecerão aqui conforme você realizar vendas.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredComissoes.map((comissao) => (
+                <div key={comissao.id} className="bg-[#1A1A1A] rounded-[8px] p-6 hover:bg-[#2A2A2A] transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className={`w-12 h-12 rounded-[8px] flex items-center justify-center ${
+                        comissao.status === 'pago' ? 'bg-[#22C55E]' :
+                        comissao.status === 'pendente' ? 'bg-[#E879F9]' :
+                        'bg-[#6B7280]'
+                      }`}>
+                        <DollarSign className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                          <h4 className="text-[15px] font-medium text-white">
+                            {comissao.lead_nome || 'Cliente não informado'}
+                          </h4>
+                          <span className={`px-3 py-1 text-[12px] font-medium rounded-[4px] ${
+                            comissao.status === 'pago' ? 'bg-[#22C55E] bg-opacity-20 text-[#22C55E]' :
+                            comissao.status === 'pendente' ? 'bg-[#E879F9] bg-opacity-20 text-[#E879F9]' :
+                            'bg-[#6B7280] bg-opacity-20 text-[#6B7280]'
+                          }`}>
+                            {getStatusText(comissao.status)}
+                          </span>
+                        </div>
+                        <p className="text-[13px] text-gray-400">
+                          Venda: {formatDate(comissao.data_venda)}
+                        </p>
+                        {comissao.observacoes && (
+                          <p className="text-[13px] text-gray-400 mt-1">{comissao.observacoes}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[18px] font-bold text-white">
+                        {formatCurrency(comissao.valor)}
+                      </p>
+                      <p className="text-[12px] text-gray-400">
+                        Criado: {formatDate(comissao.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   )
