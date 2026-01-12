@@ -128,7 +128,7 @@ export default function VideoAccessControlPage() {
       setProgress(progressData || [])
 
       // Processar progresso dos mentorados
-      await processMentoradoProgress(mentoradosData || [], progressData || [])
+      await processMentoradoProgress(mentoradosData || [], progressData || [], accessData || [])
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
     } finally {
@@ -136,7 +136,7 @@ export default function VideoAccessControlPage() {
     }
   }
 
-  const processMentoradoProgress = async (mentoradosData: Mentorado[], progressData: LessonProgress[]) => {
+  const processMentoradoProgress = async (mentoradosData: Mentorado[], progressData: LessonProgress[], accessData: VideoAccess[]) => {
     // Buscar total de aulas
     const { count: totalLessons } = await supabase
       .from('video_lessons')
@@ -151,7 +151,7 @@ export default function VideoAccessControlPage() {
       const completionRate = totalLessons ? (completed.length / totalLessons) * 100 : 0
 
       // Contar módulos com acesso
-      const modulesAccessed = access.filter(a => a.mentorado_id === mentorado.id && a.has_access).length
+      const modulesAccessed = accessData.filter(a => a.mentorado_id === mentorado.id && a.has_access).length
 
       return {
         mentorado,
