@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth'
 import { useOrganizationUsers } from '@/hooks/use-organization-users'
+import { OrganizationGuard } from '@/hooks/use-organization-security'
 import Link from 'next/link'
 
 export default function CreateUserPage() {
@@ -151,7 +152,8 @@ export default function CreateUserPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <OrganizationGuard requiredRoles={['owner', 'manager']}>
+      <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex justify-between items-start">
@@ -448,6 +450,7 @@ export default function CreateUserPage() {
           </Card>
         </div>
       </div>
-    </div>
+      </div>
+    </OrganizationGuard>
   )
 }
