@@ -126,9 +126,10 @@ export default function DashboardPage() {
 
       // Aplicar filtros de data se necessário
       if (dateRange.start && dateRange.end) {
-        leadsQuery = leadsQuery.gte('created_at', dateRange.start).lte('created_at', dateRange.end)
+        // Para leads TOTAIS, usar data_primeiro_contato (data do lead)
+        leadsQuery = leadsQuery.gte('data_primeiro_contato', dateRange.start).lte('data_primeiro_contato', dateRange.end)
         mentoradosQuery = mentoradosQuery.gte('created_at', dateRange.start).lte('created_at', dateRange.end)
-        // Para vendas, usar data_venda ao invés de created_at
+        // Para vendas, usar data_venda (data da conversão)
         vendasQuery = vendasQuery.gte('data_venda', dateRange.start).lte('data_venda', dateRange.end)
       }
 

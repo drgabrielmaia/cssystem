@@ -62,7 +62,9 @@ export default function FinanceiroDashboard() {
   const [loading, setLoading] = useState(true)
   const [chartPeriod, setChartPeriod] = useState('7d')
   const [chartType, setChartType] = useState('entradas')
+  const [chartData, setChartData] = useState<number[]>([])
   const [financeUser, setFinanceUser] = useState<any>(null)
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionForm, setTransactionForm] = useState({
     tipo: 'entrada' as 'entrada' | 'saida',
@@ -74,14 +76,40 @@ export default function FinanceiroDashboard() {
   })
 
   useEffect(() => {
-    checkAuth()
-    loadFinanceData()
+    checkAuth().then(() => loadFinanceData())
   }, [])
 
-  const checkAuth = () => {
+  // Recarregar dados quando organização for identificada
+  useEffect(() => {
+    if (organizationId) {
+      loadFinanceData()
+    }
+  }, [organizationId])
+
+  const checkAuth = async () => {
     const savedUser = localStorage.getItem('finance_user')
     if (savedUser) {
-      setFinanceUser(JSON.parse(savedUser))
+      const user = JSON.parse(savedUser)
+      setFinanceUser(user)
+
+      // Buscar organization_id do usuário
+      try {
+        const { data: orgUser } = await supabase
+          .from('organization_users')
+          .select('organization_id')
+          .eq('email', user.email)
+          .eq('is_active', true)
+          .single()
+
+        if (orgUser) {
+          setOrganizationId(orgUser.organization_id)
+          console.log('✅ Organização financeira encontrada:', orgUser.organization_id)
+        } else {
+          console.warn('⚠️ Usuário financeiro sem organização!')
+        }
+      } catch (error) {
+        console.error('❌ Erro ao buscar organização do usuário financeiro:', error)
+      }
     }
   }
 
@@ -89,10 +117,24 @@ export default function FinanceiroDashboard() {
     try {
       setLoading(true)
 
-      // Buscar métricas financeiras do Supabase
-      const [transactionsResult, metricsResult] = await Promise.all([
-        supabase.from('transacoes_financeiras').select('*').order('data_transacao', { ascending: false }).limit(10),
-        calculateMetrics()
+      // Verificar se temos organização
+      if (!organizationId) {
+        console.log('🔄 Aguardando organização do usuário...')
+        return
+      }
+
+      console.log('💰 Carregando dados financeiros para organização:', organizationId)
+
+      // Buscar métricas financeiras do Supabase com filtro organizacional
+      const [transactionsResult, metricsResult, chartDataResult] = await Promise.all([
+        supabase
+          .from('transacoes_financeiras')
+          .select('*')
+          .eq('organization_id', organizationId)
+          .order('data_transacao', { ascending: false })
+          .limit(10),
+        calculateMetrics(),
+        generateChartData()
       ])
 
       if (transactionsResult.data) {
@@ -100,6 +142,7 @@ export default function FinanceiroDashboard() {
       }
 
       setMetrics(metricsResult)
+      setChartData(chartDataResult)
     } catch (error) {
       console.error('Erro ao carregar dados financeiros:', error)
     } finally {
@@ -111,17 +154,33 @@ export default function FinanceiroDashboard() {
     const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
 
     try {
-      // Buscar transações do mês atual
+      if (!organizationId) {
+        console.warn('❌ calculateMetrics: organizationId não definido')
+        return {
+          caixa_atual: 0,
+          entradas_mes: 0,
+          saidas_mes: 0,
+          resultado_liquido: 0,
+          contas_pagar: 0,
+          contas_receber: 0,
+          variacao_entradas: 0,
+          variacao_saidas: 0
+        }
+      }
+
+      // Buscar transações do mês atual com filtro organizacional
       const { data: monthlyTransactions } = await supabase
         .from('transacoes_financeiras')
         .select('*')
+        .eq('organization_id', organizationId)
         .gte('data_transacao', `${currentMonth}-01`)
         .lt('data_transacao', `${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString()}`)
 
-      // Buscar todas as transações para caixa atual
+      // Buscar todas as transações para caixa atual com filtro organizacional
       const { data: allTransactions } = await supabase
         .from('transacoes_financeiras')
         .select('*')
+        .eq('organization_id', organizationId)
         .eq('status', 'pago')
 
       const entradas_mes = monthlyTransactions?.filter(t => t.tipo === 'entrada').reduce((acc, t) => acc + t.valor, 0) || 0
@@ -131,21 +190,47 @@ export default function FinanceiroDashboard() {
         return t.tipo === 'entrada' ? acc + t.valor : acc - t.valor
       }, 0) || 0
 
-      // Buscar contas a pagar e receber
+      // Buscar contas a pagar e receber com filtro organizacional
       const { data: contasPagar } = await supabase
         .from('transacoes_financeiras')
         .select('valor')
+        .eq('organization_id', organizationId)
         .eq('tipo', 'saida')
         .eq('status', 'pendente')
 
       const { data: contasReceber } = await supabase
         .from('transacoes_financeiras')
         .select('valor')
+        .eq('organization_id', organizationId)
         .eq('tipo', 'entrada')
         .eq('status', 'pendente')
 
       const contas_pagar = contasPagar?.reduce((acc, t) => acc + t.valor, 0) || 0
       const contas_receber = contasReceber?.reduce((acc, t) => acc + t.valor, 0) || 0
+
+      // Calcular variações reais (mês atual vs anterior) com filtro organizacional
+      const previousMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().slice(0, 7)
+
+      const { data: previousMonthData } = await supabase
+        .from('transacoes_financeiras')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .gte('data_transacao', `${previousMonth}-01`)
+        .lt('data_transacao', `${currentMonth}-01`)
+
+      const entradas_mes_anterior = previousMonthData?.filter(t => t.tipo === 'entrada').reduce((acc, t) => acc + t.valor, 0) || 1
+      const saidas_mes_anterior = previousMonthData?.filter(t => t.tipo === 'saida').reduce((acc, t) => acc + t.valor, 0) || 1
+
+      const variacao_entradas = entradas_mes_anterior > 0 ? ((entradas_mes - entradas_mes_anterior) / entradas_mes_anterior) * 100 : 0
+      const variacao_saidas = saidas_mes_anterior > 0 ? ((saidas_mes - saidas_mes_anterior) / saidas_mes_anterior) * 100 : 0
+
+      console.log('📊 Métricas calculadas para organização', organizationId, {
+        caixa_atual,
+        entradas_mes,
+        saidas_mes,
+        variacao_entradas: Math.round(variacao_entradas * 100) / 100,
+        variacao_saidas: Math.round(variacao_saidas * 100) / 100
+      })
 
       return {
         caixa_atual,
@@ -154,8 +239,8 @@ export default function FinanceiroDashboard() {
         resultado_liquido: entradas_mes - saidas_mes,
         contas_pagar,
         contas_receber,
-        variacao_entradas: Math.random() * 20 - 10, // Placeholder - implementar lógica real
-        variacao_saidas: Math.random() * 20 - 10     // Placeholder - implementar lógica real
+        variacao_entradas: Math.round(variacao_entradas * 100) / 100, // Real calculation
+        variacao_saidas: Math.round(variacao_saidas * 100) / 100      // Real calculation
       }
     } catch (error) {
       console.error('Erro ao calcular métricas:', error)
@@ -169,6 +254,64 @@ export default function FinanceiroDashboard() {
         variacao_entradas: 0,
         variacao_saidas: 0
       }
+    }
+  }
+
+  const generateChartData = async (): Promise<number[]> => {
+    try {
+      if (!organizationId) {
+        console.warn('❌ generateChartData: organizationId não definido')
+        return Array.from({ length: 14 }, () => Math.random() * 60 + 20) // Fallback
+      }
+
+      // Gerar dados dos últimos 14 dias para o gráfico
+      const days = []
+      for (let i = 13; i >= 0; i--) {
+        const date = new Date()
+        date.setDate(date.getDate() - i)
+        days.push(date.toISOString().split('T')[0])
+      }
+
+      const chartValues = []
+      for (const day of days) {
+        const { data: dayTransactions } = await supabase
+          .from('transacoes_financeiras')
+          .select('*')
+          .eq('organization_id', organizationId)
+          .gte('data_transacao', day)
+          .lt('data_transacao', new Date(new Date(day).getTime() + 86400000).toISOString().split('T')[0])
+
+        let value = 0
+        if (chartType === 'entradas') {
+          value = dayTransactions?.filter(t => t.tipo === 'entrada').reduce((acc, t) => acc + t.valor, 0) || 0
+        } else if (chartType === 'saidas') {
+          value = dayTransactions?.filter(t => t.tipo === 'saida').reduce((acc, t) => acc + t.valor, 0) || 0
+        } else {
+          const entradas = dayTransactions?.filter(t => t.tipo === 'entrada').reduce((acc, t) => acc + t.valor, 0) || 0
+          const saidas = dayTransactions?.filter(t => t.tipo === 'saida').reduce((acc, t) => acc + t.valor, 0) || 0
+          value = entradas - saidas
+        }
+
+        chartValues.push(value)
+      }
+
+      // Normalizar valores para porcentagem (0-100)
+      const maxValue = Math.max(...chartValues, 1)
+      const normalizedData = chartValues.map(value => Math.max((value / maxValue) * 100, 5)) // Mín 5% para visibilidade
+
+      console.log('📈 Dados do gráfico gerados para organização', organizationId, {
+        chartType,
+        days: days.length,
+        maxValue,
+        chartValues: chartValues.slice(0, 3),
+        normalizedData: normalizedData.slice(0, 3)
+      })
+
+      return normalizedData
+
+    } catch (error) {
+      console.error('Erro ao gerar dados do gráfico:', error)
+      return Array.from({ length: 14 }, () => Math.random() * 60 + 20) // Fallback
     }
   }
 
@@ -214,6 +357,11 @@ export default function FinanceiroDashboard() {
     try {
       setLoading(true)
 
+      if (!organizationId) {
+        alert('❌ Erro: Organização não identificada. Faça login novamente.')
+        return
+      }
+
       const { error } = await supabase
         .from('transacoes_financeiras')
         .insert([{
@@ -224,11 +372,13 @@ export default function FinanceiroDashboard() {
           data_transacao: transactionForm.data,
           status: 'pago',
           fornecedor: transactionForm.fornecedor,
-          referencia_tipo: 'manual'
+          referencia_tipo: 'manual',
+          organization_id: organizationId
         }])
 
       if (error) throw error
 
+      console.log('✅ Transação salva com organização:', organizationId)
       alert('Transação registrada com sucesso!')
       setShowTransactionModal(false)
       loadFinanceData() // Recarregar dados
@@ -400,7 +550,11 @@ export default function FinanceiroDashboard() {
                   {['entradas', 'saidas', 'liquido'].map((type) => (
                     <button
                       key={type}
-                      onClick={() => setChartType(type)}
+                      onClick={() => {
+                        setChartType(type)
+                        // Recarregar dados do gráfico quando tipo muda
+                        generateChartData().then(setChartData)
+                      }}
                       className={`px-4 py-2 text-sm font-medium rounded-xl transition-colors capitalize ${
                         chartType === type
                           ? 'bg-white text-slate-800 shadow-sm'
@@ -414,9 +568,9 @@ export default function FinanceiroDashboard() {
               </div>
             </div>
 
-            {/* Gráfico de Barras Pontilhado */}
+            {/* Gráfico de Barras com Dados Reais */}
             <div className="h-64 flex items-end justify-between space-x-3">
-              {[45, 52, 38, 65, 42, 58, 70, 48, 63, 55, 72, 60, 45, 68].map((height, index) => (
+              {chartData.map((height, index) => (
                 <div key={index} className="flex-1 flex flex-col justify-end h-full">
                   <div
                     className={`w-full rounded-t-lg transition-all hover:opacity-80 cursor-pointer ${

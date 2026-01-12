@@ -220,12 +220,20 @@ export default function LeadsPage() {
       }
 
 
-      // Aplicar filtro de data
+      // Aplicar filtro de data (inteligente baseado no status)
       const dateRange = getDateRange(dateFilter)
       if (dateRange) {
-        query = query
-          .gte('created_at', dateRange.start)
-          .lte('created_at', dateRange.end)
+        if (statusFilter === 'vendido') {
+          // Para leads vendidos, filtrar por data_venda
+          query = query
+            .gte('data_venda', dateRange.start)
+            .lte('data_venda', dateRange.end)
+        } else {
+          // Para outros leads, filtrar por data_primeiro_contato (data do lead)
+          query = query
+            .gte('data_primeiro_contato', dateRange.start)
+            .lte('data_primeiro_contato', dateRange.end)
+        }
       }
 
       const { data, error } = await query.order('created_at', { ascending: false })
@@ -242,13 +250,13 @@ export default function LeadsPage() {
 
   const loadStats = async () => {
     try {
-      // Query para leads totais (usar created_at)
+      // Query para leads totais (usar data_primeiro_contato - data do lead)
       let queryTotal = supabase.from('leads').select('*')
       const dateRange = getDateRange(dateFilter)
       if (dateRange) {
         queryTotal = queryTotal
-          .gte('created_at', dateRange.start)
-          .lte('created_at', dateRange.end)
+          .gte('data_primeiro_contato', dateRange.start)
+          .lte('data_primeiro_contato', dateRange.end)
       }
 
       // Query para vendas (usar data_venda para leads vendidos)
