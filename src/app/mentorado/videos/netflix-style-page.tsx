@@ -43,6 +43,7 @@ export default function NetflixStyleVideosPage() {
   const [selectedLesson, setSelectedLesson] = useState<VideoLesson | null>(null)
   const [showVideoModal, setShowVideoModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState<string>('')
+  const [expandedModule, setExpandedModule] = useState<string | null>(null)
 
   useEffect(() => {
     if (mentorado && !authLoading) {
@@ -175,15 +176,21 @@ export default function NetflixStyleVideosPage() {
     if (!lesson.progress && mentorado) {
       supabase
         .from('lesson_progress')
-        .insert([{
+        .upsert({
           mentorado_id: mentorado.id,
           lesson_id: lesson.id,
           started_at: new Date().toISOString(),
           watch_time_minutes: 0,
           is_completed: false
-        }])
-        .then(() => {
-          console.log('✅ Progresso iniciado para:', lesson.title)
+        }, {
+          onConflict: 'mentorado_id,lesson_id'
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.log('⚠️ Progresso já existe:', error.message)
+          } else {
+            console.log('✅ Progresso iniciado para:', lesson.title)
+          }
         })
     }
   }
@@ -245,6 +252,10 @@ export default function NetflixStyleVideosPage() {
       total: module.lessons.length,
       percentage: module.lessons.length > 0 ? (completedLessons / module.lessons.length) * 100 : 0
     }
+  }
+
+  const toggleModule = (moduleId: string) => {
+    setExpandedModule(expandedModule === moduleId ? null : moduleId)
   }
 
   const filteredModules = getFilteredModules()
@@ -316,22 +327,24 @@ export default function NetflixStyleVideosPage() {
 
           {/* Hero Content */}
           <div className="max-w-2xl">
-            <h1 className="text-[48px] font-bold text-white mb-4 leading-tight">
-              Suas Aulas
+            <h1 className="text-[32px] md:text-[48px] font-bold text-white mb-4 leading-tight">
+              Seus Módulos de Aulas
             </h1>
-            <p className="text-[18px] text-gray-300 mb-6 leading-relaxed">
-              Continue seu aprendizado de onde parou
+            <p className="text-[16px] md:text-[18px] text-gray-300 mb-6 leading-relaxed">
+              {expandedModule ? 'Aulas do módulo selecionado' : 'Clique em um módulo para ver as aulas'}
             </p>
             <div className="text-gray-300 text-sm">
-              {modules.reduce((total, m) => total + m.lessons.length, 0)} aulas disponíveis
+              {expandedModule ?
+                `${modules.find(m => m.id === expandedModule)?.lessons.length || 0} aulas neste módulo` :
+                `${modules.length} módulos • ${modules.reduce((total, m) => total + m.lessons.length, 0)} aulas disponíveis`
+              }
             </div>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="px-8 pb-8">
-        {/* Modules Grid */}
+      <div className="px-4 md:px-8 pb-8">
         {filteredModules.length === 0 ? (
           <div className="text-center py-16">
             <BookOpen className="w-16 h-16 text-gray-600 mx-auto mb-4" />
@@ -343,46 +356,146 @@ export default function NetflixStyleVideosPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-12">
-            {filteredModules.map((module) => {
-              const moduleProgress = getModuleProgress(module)
+          <div className="space-y-8">
+            {/* Back button */}
+            {expandedModule && (
+              <button
+                onClick={() => setExpandedModule(null)}
+                className="flex items-center text-gray-400 hover:text-white transition-colors mb-4"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Voltar aos módulos
+              </button>
+            )}
 
-              return (
-                <section key={module.id}>
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h2 className="text-[24px] font-semibold text-white mb-2">
+            {!expandedModule ? (
+              /* Modules Grid */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                {filteredModules.map((module) => {
+                  const moduleProgress = getModuleProgress(module)
+
+                  return (
+                    <div
+                      key={module.id}
+                      className="group cursor-pointer"
+                      onClick={() => toggleModule(module.id)}
+                    >
+                      <div className="relative bg-[#2A2A2A] rounded-[8px] overflow-hidden aspect-video mb-3 group-hover:scale-105 transition-transform duration-300">
+                        {module.cover_image_url ? (
+                          <img
+                            src={module.cover_image_url}
+                            alt={module.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-[#E879F9]/20 to-[#1A1A1A] flex items-center justify-center">
+                            <BookOpen className="w-8 h-8 text-white" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end">
+                          <div className="p-4 w-full">
+                            <div className="flex items-center justify-between">
+                              <div className="bg-white bg-opacity-90 rounded-full p-2">
+                                <Play className="w-4 h-4 text-black" />
+                              </div>
+                              <span className="text-white text-xs bg-black bg-opacity-50 px-2 py-1 rounded">
+                                {module.lessons.length} aulas
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Progress bar */}
+                        {moduleProgress.percentage > 0 && (
+                          <div className="absolute top-2 left-2 right-2">
+                            <div className="bg-black bg-opacity-50 rounded-full h-1">
+                              <div
+                                className="bg-[#E879F9] h-1 rounded-full transition-all"
+                                style={{ width: `${moduleProgress.percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="px-1">
+                        <h3 className="text-white text-[15px] md:text-[16px] font-medium mb-1 group-hover:text-gray-300 transition-colors line-clamp-2">
+                          {module.title}
+                        </h3>
+                        <p className="text-gray-400 text-[12px] md:text-[13px] mb-2 line-clamp-2">
+                          {module.description}
+                        </p>
+                        <div className="text-[11px] md:text-[12px] text-gray-500">
+                          {moduleProgress.completed}/{moduleProgress.total} concluídas
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              /* Lessons Grid for Expanded Module */
+              (() => {
+                const module = modules.find(m => m.id === expandedModule)
+                if (!module) return null
+
+                return (
+                  <div>
+                    <div className="mb-6">
+                      <h2 className="text-[20px] md:text-[24px] font-semibold text-white mb-2">
                         {module.title}
                       </h2>
-                      <p className="text-gray-400 text-sm">
-                        {moduleProgress.completed}/{moduleProgress.total} aulas concluídas
+                      <p className="text-gray-400 text-sm md:text-base">
+                        {module.description}
                       </p>
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {module.lessons.map((lesson) => {
-                      const isUnlocked = isLessonUnlocked(lesson, module.lessons)
-                      const isCompleted = lesson.progress?.is_completed || false
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                      {module.lessons.map((lesson) => {
+                        const isUnlocked = isLessonUnlocked(lesson, module.lessons)
+                        const isCompleted = lesson.progress?.is_completed || false
 
-                      return (
-                        <div
-                          key={lesson.id}
-                          className={`group cursor-pointer ${!isUnlocked ? 'opacity-50' : ''}`}
-                          onClick={() => isUnlocked && handleWatchLesson(lesson)}
-                        >
-                          <div className="relative bg-[#2A2A2A] rounded-[8px] overflow-hidden aspect-video mb-3 group-hover:scale-105 transition-transform duration-300">
-                            {/* Module Cover Image if available */}
-                            {module.cover_image_url ? (
-                              <div className="relative w-full h-full">
-                                <img
-                                  src={module.cover_image_url}
-                                  alt={module.title}
-                                  className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                        return (
+                          <div
+                            key={lesson.id}
+                            className={`group cursor-pointer ${!isUnlocked ? 'opacity-50' : ''}`}
+                            onClick={() => isUnlocked && handleWatchLesson(lesson)}
+                          >
+                            <div className="relative bg-[#2A2A2A] rounded-[8px] overflow-hidden aspect-video mb-3 group-hover:scale-105 transition-transform duration-300">
+                              {module.cover_image_url ? (
+                                <div className="relative w-full h-full">
+                                  <img
+                                    src={module.cover_image_url}
+                                    alt={module.title}
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                                    <div className="text-center">
+                                      <div className={`w-12 md:w-16 h-12 md:h-16 rounded-full flex items-center justify-center mb-2 ${
+                                        isCompleted
+                                          ? 'bg-green-500'
+                                          : isUnlocked
+                                            ? 'bg-white bg-opacity-90'
+                                            : 'bg-gray-600'
+                                      }`}>
+                                        {isCompleted ? (
+                                          <CheckCircle className="w-6 md:w-8 h-6 md:h-8 text-white" />
+                                        ) : isUnlocked ? (
+                                          <Play className="w-6 md:w-8 h-6 md:h-8 text-black ml-1" />
+                                        ) : (
+                                          <Lock className="w-6 md:w-8 h-6 md:h-8 text-white" />
+                                        )}
+                                      </div>
+                                      <p className="text-white text-xs">
+                                        Aula {lesson.order_index}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-[#E879F9]/20 to-[#1A1A1A] flex items-center justify-center">
                                   <div className="text-center">
-                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2 ${
+                                    <div className={`w-12 md:w-16 h-12 md:h-16 rounded-full flex items-center justify-center mb-2 ${
                                       isCompleted
                                         ? 'bg-green-500'
                                         : isUnlocked
@@ -390,11 +503,11 @@ export default function NetflixStyleVideosPage() {
                                           : 'bg-gray-600'
                                     }`}>
                                       {isCompleted ? (
-                                        <CheckCircle className="w-8 h-8 text-white" />
+                                        <CheckCircle className="w-6 md:w-8 h-6 md:h-8 text-white" />
                                       ) : isUnlocked ? (
-                                        <Play className="w-8 h-8 text-black ml-1" />
+                                        <Play className="w-6 md:w-8 h-6 md:h-8 text-black ml-1" />
                                       ) : (
-                                        <Lock className="w-8 h-8 text-white" />
+                                        <Lock className="w-6 md:w-8 h-6 md:h-8 text-white" />
                                       )}
                                     </div>
                                     <p className="text-white text-xs">
@@ -402,54 +515,30 @@ export default function NetflixStyleVideosPage() {
                                     </p>
                                   </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-[#E879F9]/20 to-[#1A1A1A] flex items-center justify-center">
-                                <div className="text-center">
-                                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2 ${
-                                    isCompleted
-                                      ? 'bg-green-500'
-                                      : isUnlocked
-                                        ? 'bg-white bg-opacity-90'
-                                        : 'bg-gray-600'
-                                  }`}>
-                                    {isCompleted ? (
-                                      <CheckCircle className="w-8 h-8 text-white" />
-                                    ) : isUnlocked ? (
-                                      <Play className="w-8 h-8 text-black ml-1" />
-                                    ) : (
-                                      <Lock className="w-8 h-8 text-white" />
-                                    )}
-                                  </div>
-                                  <p className="text-white text-xs">
-                                    Aula {lesson.order_index}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                            {/* Progress indicator */}
-                            {lesson.progress && !isCompleted && (
-                              <div className="absolute top-2 right-2 w-3 h-3 bg-[#E879F9] rounded-full"></div>
-                            )}
-                          </div>
-                          <div className="px-1">
-                            <h3 className="text-white text-[15px] font-medium mb-1 group-hover:text-gray-300 transition-colors line-clamp-2">
-                              {lesson.title}
-                            </h3>
-                            <div className="flex items-center justify-between text-[12px] text-gray-500">
-                              <span>{formatDuration(lesson.duration_minutes)}</span>
-                              {isCompleted && (
-                                <span className="text-green-400 text-xs">Concluída</span>
+                              )}
+                              {lesson.progress && !isCompleted && (
+                                <div className="absolute top-2 right-2 w-3 h-3 bg-[#E879F9] rounded-full"></div>
                               )}
                             </div>
+                            <div className="px-1">
+                              <h3 className="text-white text-[14px] md:text-[15px] font-medium mb-1 group-hover:text-gray-300 transition-colors line-clamp-2">
+                                {lesson.title}
+                              </h3>
+                              <div className="flex items-center justify-between text-[11px] md:text-[12px] text-gray-500">
+                                <span>{formatDuration(lesson.duration_minutes)}</span>
+                                {isCompleted && (
+                                  <span className="text-green-400 text-xs">Concluída</span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                   </div>
-                </section>
-              )
-            })}
+                )
+              })()
+            )}
           </div>
         )}
       </div>
