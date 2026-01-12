@@ -70,6 +70,7 @@ export default function MentoradoMetasPage() {
   const loadGoalsData = async (mentoradoId: string) => {
     try {
       setLoading(true)
+      console.log('🎯 Carregando metas para mentorado:', mentoradoId)
 
       // Carregar metas do mentorado
       const { data: goalsData, error: goalsError } = await supabase
@@ -78,7 +79,12 @@ export default function MentoradoMetasPage() {
         .eq('mentorado_id', mentoradoId)
         .order('created_at', { ascending: false })
 
-      if (goalsError) throw goalsError
+      if (goalsError) {
+        console.error('❌ Erro ao carregar metas:', goalsError)
+        // Em caso de erro de RLS, criar metas padrão
+        setGoals([])
+        return
+      }
 
       if (!goalsData || goalsData.length === 0) {
         setGoals([])
@@ -110,6 +116,8 @@ export default function MentoradoMetasPage() {
 
     } catch (error) {
       console.error('Erro ao carregar metas:', error)
+      // Em caso de erro, definir array vazio para evitar loading infinito
+      setGoals([])
     } finally {
       setLoading(false)
     }

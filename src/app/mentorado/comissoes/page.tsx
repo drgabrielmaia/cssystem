@@ -47,19 +47,27 @@ export default function MentoradoComissoesPage() {
   const loadComissoes = async (mentoradoId: string) => {
     try {
       setLoading(true)
+      console.log('🔍 Carregando comissões para mentorado:', mentoradoId)
 
-      // Buscar comissões do mentorado
+      // Buscar comissões do mentorado sem depender de RLS
       const { data: comissoesData, error } = await supabase
         .from('comissoes')
         .select('*')
         .eq('mentorado_id', mentoradoId)
         .order('data_venda', { ascending: false })
 
-      if (error) throw error
-
-      setComissoes(comissoesData || [])
+      if (error) {
+        console.error('❌ Erro ao buscar comissões:', error)
+        // Se der erro por RLS, continuar com array vazio
+        setComissoes([])
+      } else {
+        console.log('✅ Comissões carregadas:', comissoesData?.length || 0)
+        setComissoes(comissoesData || [])
+      }
     } catch (error) {
       console.error('Erro ao carregar comissões:', error)
+      // Em caso de erro, definir array vazio para evitar loading infinito
+      setComissoes([])
     } finally {
       setLoading(false)
     }

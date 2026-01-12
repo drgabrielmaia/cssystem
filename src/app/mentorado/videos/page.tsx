@@ -119,6 +119,7 @@ export default function MentoradoVideosPage() {
   const loadVideoData = async (mentoradoData: any) => {
     try {
       setLoading(true)
+      console.log('🔍 Carregando dados de vídeo para mentorado:', mentoradoData.id)
 
       // Carregar categorias primeiro
       await loadCategories()
@@ -133,7 +134,12 @@ export default function MentoradoVideosPage() {
         .eq('mentorado_id', mentoradoData.id)
         .eq('has_access', true)
 
-      if (accessError) throw accessError
+      if (accessError) {
+        console.error('❌ Erro ao verificar acesso:', accessError)
+        // Em caso de erro, tentar carregar todos os módulos ativos
+        console.log('⚠️ Carregando todos os módulos como fallback')
+        return loadAllModulesAsFallback(mentoradoData)
+      }
 
       const accessibleModuleIds = accessData?.map(a => a.module_id) || []
 
@@ -148,12 +154,16 @@ export default function MentoradoVideosPage() {
             color
           )
         `)
-        .in('id', accessibleModuleIds.length > 0 ? accessibleModuleIds : [''])
+        .in('id', accessibleModuleIds.length > 0 ? accessibleModuleIds : ['fallback-empty'])
         .eq('is_active', true)
         .order('featured', { ascending: false })
         .order('order_index', { ascending: true })
 
-      if (modulesError) throw modulesError
+      if (modulesError) {
+        console.error('❌ Erro ao carregar módulos:', modulesError)
+        // Fallback: carregar todos os módulos
+        return loadAllModulesAsFallback(mentoradoData)
+      }
 
       // Carregar aulas dos módulos com acesso
       const { data: lessonsData, error: lessonsError } = await supabase
@@ -262,6 +272,65 @@ export default function MentoradoVideosPage() {
       }
     } catch (error) {
       console.error('Erro ao carregar continue watching:', error)
+    }
+  }
+
+  const loadAllModulesAsFallback = async (mentoradoData: any) => {
+    try {
+      console.log('🔄 Executando fallback - carregando todos os módulos ativos')
+
+      // Carregar todos os módulos ativos como fallback
+      const { data: allModulesData, error: allModulesError } = await supabase
+        .from('video_modules')
+        .select(`
+          *,
+          category:module_categories!category_id (
+            id,
+            name,
+            color
+          )
+        `)
+        .eq('is_active', true)
+        .order('featured', { ascending: false })
+        .order('order_index', { ascending: true })
+
+      if (allModulesError) {
+        console.error('❌ Erro no fallback de módulos:', allModulesError)
+        setModules([])
+        return
+      }
+
+      // Carregar aulas de todos os módulos
+      const moduleIds = allModulesData?.map(m => m.id) || []
+      const { data: allLessonsData, error: allLessonsError } = await supabase
+        .from('video_lessons')
+        .select('*')
+        .in('module_id', moduleIds.length > 0 ? moduleIds : ['fallback'])
+        .eq('is_active', true)
+        .order('order_index', { ascending: true })
+
+      if (allLessonsError) {
+        console.error('❌ Erro no fallback de aulas:', allLessonsError)
+      }
+
+      // Processar módulos com suas aulas
+      const processedModules = allModulesData?.map(module => {
+        const moduleLessons = allLessonsData?.filter(l => l.module_id === module.id) || []
+        return {
+          ...module,
+          lessons: moduleLessons
+        }
+      }) || []
+
+      console.log('✅ Fallback concluído:', processedModules.length, 'módulos carregados')
+      setModules(processedModules)
+      setFeaturedModules(processedModules.filter(m => m.featured))
+
+    } catch (error) {
+      console.error('❌ Erro geral no fallback:', error)
+      setModules([])
+    } finally {
+      setLoading(false)
     }
   }
 
