@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { Play, BookOpen, Clock, CheckCircle, Lock, Search, Star } from 'lucide-react'
+import { Play, BookOpen, Clock, CheckCircle, Lock, Search, Star, Trophy, Medal, Award, FileText, MessageSquare, ThumbsUp } from 'lucide-react'
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
 
 interface VideoModule {
@@ -37,6 +37,15 @@ interface LessonProgress {
   is_completed: boolean
 }
 
+interface RankingMentorado {
+  mentorado_id: string
+  nome_completo: string
+  total_indicacoes: number
+  indicacoes_vendidas: number
+  total_comissoes: number
+  valor_medio_comissao: number
+}
+
 export default function NetflixStyleVideosPage() {
   const { mentorado, loading: authLoading } = useMentoradoAuth()
   const [modules, setModules] = useState<VideoModule[]>([])
@@ -44,11 +53,21 @@ export default function NetflixStyleVideosPage() {
   const [showVideoModal, setShowVideoModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [expandedModule, setExpandedModule] = useState<string | null>(null)
+  const [ranking, setRanking] = useState<RankingMentorado[]>([])
+  const [showRanking, setShowRanking] = useState(true)
+
+  // Estados para anotações e NPS
+  const [showNotesModal, setShowNotesModal] = useState(false)
+  const [showNpsModal, setShowNpsModal] = useState(false)
+  const [lessonNote, setLessonNote] = useState('')
+  const [npsScore, setNpsScore] = useState<number | null>(null)
+  const [npsFeedback, setNpsFeedback] = useState('')
 
   useEffect(() => {
     if (mentorado && !authLoading) {
       console.log('🎥 Mentorado autenticado via cookie:', mentorado.nome_completo)
       loadVideoData(mentorado)
+      loadRankingData()
     }
   }, [mentorado, authLoading])
 
@@ -231,6 +250,101 @@ export default function NetflixStyleVideosPage() {
       return `${hours}h ${mins}min`
     }
     return `${mins}min`
+  }
+
+  const loadRankingData = async () => {
+    try {
+      console.log('🏆 Carregando ranking de indicações...')
+
+      const { data, error } = await supabase
+        .from('view_dashboard_comissoes_mentorado')
+        .select(`
+          mentorado_id,
+          total_indicacoes,
+          indicacoes_vendidas,
+          total_comissoes,
+          valor_medio_comissao,
+          mentorados!inner(nome_completo)
+        `)
+        .order('total_indicacoes', { ascending: false })
+        .limit(10)
+
+      if (error) {
+        console.error('❌ Erro ao carregar ranking:', error)
+        return
+      }
+
+      const rankingFormatted = data?.map((item: any) => ({
+        mentorado_id: item.mentorado_id,
+        nome_completo: item.mentorados?.nome_completo || 'Nome não encontrado',
+        total_indicacoes: item.total_indicacoes || 0,
+        indicacoes_vendidas: item.indicacoes_vendidas || 0,
+        total_comissoes: item.total_comissoes || 0,
+        valor_medio_comissao: item.valor_medio_comissao || 0
+      })) || []
+
+      setRanking(rankingFormatted)
+      console.log('✅ Ranking carregado:', rankingFormatted.length, 'mentorados')
+    } catch (error) {
+      console.error('❌ Erro ao carregar ranking:', error)
+    }
+  }
+
+  const saveNote = async () => {
+    if (!mentorado || !selectedLesson || !lessonNote.trim()) return
+
+    try {
+      const { error } = await supabase
+        .from('lesson_notes')
+        .insert({
+          mentorado_id: mentorado.id,
+          lesson_id: selectedLesson.id,
+          note_text: lessonNote,
+          note_type: 'text',
+          timestamp_seconds: 0, // Para anotação geral da aula
+          created_at: new Date().toISOString()
+        })
+
+      if (error) throw error
+
+      console.log('✅ Anotação salva!')
+      setLessonNote('')
+      setShowNotesModal(false)
+      alert('Anotação salva com sucesso! 📝')
+    } catch (error) {
+      console.error('❌ Erro ao salvar anotação:', error)
+      alert('Erro ao salvar anotação')
+    }
+  }
+
+  const saveNps = async () => {
+    if (!mentorado || !selectedLesson || npsScore === null) return
+
+    try {
+      const { error } = await supabase
+        .from('video_form_responses')
+        .upsert({
+          mentorado_id: mentorado.id,
+          lesson_id: selectedLesson.id,
+          nps_score: npsScore,
+          satisfaction_score: npsScore <= 2 ? 1 : npsScore <= 4 ? 2 : npsScore <= 6 ? 3 : npsScore <= 8 ? 4 : 5,
+          feedback_text: npsFeedback,
+          created_at: new Date().toISOString()
+        }, {
+          onConflict: 'mentorado_id,lesson_id'
+        })
+
+      if (error) throw error
+
+      console.log('✅ Avaliação NPS salva!')
+      setNpsScore(null)
+      setNpsFeedback('')
+      setShowNpsModal(false)
+      alert('Obrigado pela sua avaliação! 🌟')
+    } catch (error) {
+      console.error('❌ Erro ao salvar NPS:', error)
+      alert('Erro ao salvar avaliação')
+    }
   }
 
   const getFilteredModules = () => {
@@ -543,6 +657,129 @@ export default function NetflixStyleVideosPage() {
         )}
       </div>
 
+      {/* Placar de Indicações */}
+      {showRanking && ranking.length > 0 && (
+        <div className="mt-16 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <Trophy className="w-8 h-8 text-yellow-500" />
+              <div>
+                <h2 className="text-2xl font-bold text-white">🏆 Ranking de Indicações</h2>
+                <p className="text-gray-400">Concorra a prêmios incríveis! Rolex para o 1º lugar e bolsa para o 2º!</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowRanking(false)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            {/* Top 3 - Pódio */}
+            {ranking.slice(0, 3).map((mentorado, index) => (
+              <div
+                key={mentorado.mentorado_id}
+                className={`relative p-6 rounded-lg text-center transform transition-all hover:scale-105 ${
+                  index === 0
+                    ? 'bg-gradient-to-b from-yellow-600 to-yellow-800 border-2 border-yellow-400'
+                    : index === 1
+                    ? 'bg-gradient-to-b from-gray-500 to-gray-700 border-2 border-gray-400'
+                    : 'bg-gradient-to-b from-amber-600 to-amber-800 border-2 border-amber-500'
+                }`}
+              >
+                {/* Coroa/Medal */}
+                <div className="flex justify-center mb-3">
+                  {index === 0 ? (
+                    <Trophy className="w-12 h-12 text-yellow-200" />
+                  ) : index === 1 ? (
+                    <Medal className="w-12 h-12 text-gray-200" />
+                  ) : (
+                    <Award className="w-12 h-12 text-amber-200" />
+                  )}
+                </div>
+
+                {/* Posição */}
+                <div className="text-3xl font-bold text-white mb-2">
+                  {index + 1}º
+                </div>
+
+                {/* Nome */}
+                <div className="text-lg font-semibold text-white mb-3 truncate">
+                  {mentorado.nome_completo}
+                </div>
+
+                {/* Métricas */}
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between text-white/90">
+                    <span>Indicações:</span>
+                    <span className="font-bold">{mentorado.total_indicacoes}</span>
+                  </div>
+                  <div className="flex justify-between text-white/90">
+                    <span>Vendidas:</span>
+                    <span className="font-bold text-green-300">{mentorado.indicacoes_vendidas}</span>
+                  </div>
+                  <div className="flex justify-between text-white/90">
+                    <span>Comissões:</span>
+                    <span className="font-bold text-green-300">
+                      R$ {(mentorado.total_comissoes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Prêmio */}
+                <div className="mt-4 p-2 bg-black/20 rounded text-white/80 text-xs font-medium">
+                  {index === 0 ? '🏆 ROLEX' : index === 1 ? '👜 BOLSA DE GRIFE' : '🥉 3º LUGAR'}
+                </div>
+
+                {/* Badge de destaque */}
+                {index === 0 && (
+                  <div className="absolute -top-3 -right-3 bg-yellow-400 text-black text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                    👑 LÍDER
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Lista completa (Top 4-10) */}
+          {ranking.length > 3 && (
+            <div className="bg-[#1A1A1A] rounded-lg overflow-hidden">
+              <div className="p-4 bg-[#2A2A2A] border-b border-gray-700">
+                <h3 className="text-lg font-semibold text-white">Demais Posições</h3>
+              </div>
+              <div className="divide-y divide-gray-700">
+                {ranking.slice(3, 10).map((mentorado, index) => (
+                  <div
+                    key={mentorado.mentorado_id}
+                    className="flex items-center justify-between p-4 hover:bg-[#2A2A2A] transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white font-bold">
+                        {index + 4}
+                      </div>
+                      <div>
+                        <div className="text-white font-medium">{mentorado.nome_completo}</div>
+                        <div className="text-sm text-gray-400">
+                          {mentorado.total_indicacoes} indicações • {mentorado.indicacoes_vendidas} vendas
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-green-400 font-semibold">
+                        R$ {(mentorado.total_comissoes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                      <div className="text-xs text-gray-400">em comissões</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Video Modal */}
       <Dialog open={showVideoModal} onOpenChange={setShowVideoModal}>
         <DialogContent className="sm:max-w-[95vw] sm:max-h-[95vh] p-0 bg-[#181818] border-gray-800 rounded-[8px] overflow-hidden">
@@ -566,6 +803,24 @@ export default function NetflixStyleVideosPage() {
                 <p className="text-[15px] text-gray-400 mb-4">
                   {selectedLesson.description}
                 </p>
+
+                {/* Botões de Anotações e NPS */}
+                <div className="flex gap-3 mb-4">
+                  <button
+                    onClick={() => setShowNotesModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-[4px] text-[14px] font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Fazer Anotação
+                  </button>
+                  <button
+                    onClick={() => setShowNpsModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-[4px] text-[14px] font-medium hover:bg-purple-700 transition-colors"
+                  >
+                    <Star className="w-4 h-4" />
+                    Avaliar Aula
+                  </button>
+                </div>
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
@@ -596,6 +851,127 @@ export default function NetflixStyleVideosPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Anotações */}
+      <Dialog open={showNotesModal} onOpenChange={setShowNotesModal}>
+        <DialogContent className="sm:max-w-[600px] bg-[#181818] border-gray-800 text-white">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <FileText className="w-6 h-6 text-blue-400" />
+              <div>
+                <h3 className="text-xl font-semibold">Fazer Anotação</h3>
+                <p className="text-gray-400 text-sm">
+                  {selectedLesson?.title}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-gray-300">
+                Sua anotação sobre esta aula:
+              </label>
+              <textarea
+                value={lessonNote}
+                onChange={(e) => setLessonNote(e.target.value)}
+                placeholder="Digite suas anotações, insights ou pontos importantes desta aula..."
+                className="w-full h-32 p-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:border-blue-400"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <button
+                onClick={() => setShowNotesModal(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveNote}
+                disabled={!lessonNote.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Salvar Anotação
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de NPS */}
+      <Dialog open={showNpsModal} onOpenChange={setShowNpsModal}>
+        <DialogContent className="sm:max-w-[500px] bg-[#181818] border-gray-800 text-white">
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <Star className="w-6 h-6 text-purple-400" />
+              <div>
+                <h3 className="text-xl font-semibold">Avaliar esta Aula</h3>
+                <p className="text-gray-400 text-sm">
+                  {selectedLesson?.title}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-3">
+                  Qual nota você daria para esta aula? (0-10)
+                </label>
+                <div className="flex gap-2 justify-center">
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((score) => (
+                    <button
+                      key={score}
+                      onClick={() => setNpsScore(score)}
+                      className={`w-10 h-10 rounded-full font-bold transition-all ${
+                        npsScore === score
+                          ? score <= 6
+                            ? 'bg-red-600 text-white'
+                            : score <= 8
+                            ? 'bg-yellow-600 text-white'
+                            : 'bg-green-600 text-white'
+                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                    >
+                      {score}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex justify-between text-xs text-gray-400 mt-2">
+                  <span>Muito insatisfeito</span>
+                  <span>Extremamente satisfeito</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Feedback adicional (opcional):
+                </label>
+                <textarea
+                  value={npsFeedback}
+                  onChange={(e) => setNpsFeedback(e.target.value)}
+                  placeholder="O que você achou desta aula? Sugestões de melhoria?"
+                  className="w-full h-24 p-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:border-purple-400"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <button
+                onClick={() => setShowNpsModal(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveNps}
+                disabled={npsScore === null}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Enviar Avaliação
+              </button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
