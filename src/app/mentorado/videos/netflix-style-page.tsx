@@ -410,8 +410,8 @@ export default function NetflixStyleVideosPage() {
         <div className="absolute inset-0">
           {modules.length === 0 || !modules[0]?.cover_image_url ? (
             <img
-              src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
-              alt="Aulas"
+              src="https://medicosderesultado.com/wp-content/uploads/2024/10/capa-dashboard.png"
+              alt="Dashboard Médicos de Resultado"
               className="w-full h-full object-cover"
             />
           ) : (
@@ -664,7 +664,7 @@ export default function NetflixStyleVideosPage() {
               <Trophy className="w-8 h-8 text-yellow-500" />
               <div>
                 <h2 className="text-2xl font-bold text-white">🏆 Ranking de Indicações</h2>
-                <p className="text-gray-400">Concorra a prêmios incríveis! Rolex para o 1º lugar e bolsa para o 2º!</p>
+                <p className="text-gray-400">Concorra ao prêmio! O 1º lugar ganha um Rolex OU uma bolsa de grife!</p>
               </div>
             </div>
             <button
@@ -729,7 +729,7 @@ export default function NetflixStyleVideosPage() {
 
                 {/* Prêmio */}
                 <div className="mt-4 p-2 bg-black/20 rounded text-white/80 text-xs font-medium">
-                  {index === 0 ? '🏆 ROLEX' : index === 1 ? '👜 BOLSA DE GRIFE' : '🥉 3º LUGAR'}
+                  {index === 0 ? '🏆 ROLEX OU BOLSA DE GRIFE' : index === 1 ? '🥈 2º LUGAR' : '🥉 3º LUGAR'}
                 </div>
 
                 {/* Badge de destaque */}

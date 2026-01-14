@@ -20,7 +20,9 @@ import {
   Plus,
   Filter,
   Grid,
-  List
+  List,
+  Trophy,
+  Medal
 } from 'lucide-react'
 
 interface VideoModule {

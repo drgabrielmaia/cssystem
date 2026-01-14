@@ -167,8 +167,8 @@ function MentoradoPageContent() {
         {/* Hero Background */}
         <div className="absolute inset-0">
           <img
-            src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
-            alt="Learning Background"
+            src="https://medicosderesultado.com/wp-content/uploads/2024/10/capa-dashboard.png"
+            alt="Dashboard Médicos de Resultado"
             className="w-full h-full object-cover"
           />
         </div>

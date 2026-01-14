@@ -9,7 +9,9 @@ import {
   Target,
   Award,
   Download,
-  Search
+  Search,
+  Trophy,
+  Medal
 } from 'lucide-react'
 
 interface Comissao {
@@ -23,11 +25,22 @@ interface Comissao {
   created_at: string
 }
 
+interface RankingMentorado {
+  mentorado_id: string
+  nome_completo: string
+  total_indicacoes: number
+  indicacoes_vendidas: number
+  total_comissoes: number
+  valor_medio_comissao: number
+}
+
 export default function MentoradoComissoesPage() {
   const [mentorado, setMentorado] = useState<any>(null)
   const [comissoes, setComissoes] = useState<Comissao[]>([])
   const [filterStatus, setFilterStatus] = useState<string>('todos')
   const [searchTerm, setSearchTerm] = useState('')
+  const [ranking, setRanking] = useState<RankingMentorado[]>([])
+  const [showRanking, setShowRanking] = useState(true)
 
   useEffect(() => {
     const savedMentorado = localStorage.getItem('mentorado')
@@ -35,6 +48,7 @@ export default function MentoradoComissoesPage() {
       const mentoradoData = JSON.parse(savedMentorado)
       setMentorado(mentoradoData)
       loadComissoes(mentoradoData.id)
+      loadRanking()
     }
   }, [])
 
@@ -58,6 +72,44 @@ export default function MentoradoComissoesPage() {
     } catch (error) {
       console.error('Erro ao carregar comissões:', error)
       setComissoes([])
+    }
+  }
+
+  const loadRanking = async () => {
+    try {
+      console.log('🏆 Carregando ranking de indicações...')
+
+      const { data, error } = await supabase
+        .from('view_dashboard_comissoes_mentorado')
+        .select(`
+          mentorado_id,
+          total_indicacoes,
+          indicacoes_vendidas,
+          total_comissoes,
+          valor_medio_comissao,
+          mentorados!inner(nome_completo)
+        `)
+        .order('total_indicacoes', { ascending: false })
+        .limit(10)
+
+      if (error) {
+        console.error('❌ Erro ao carregar ranking:', error)
+        return
+      }
+
+      const rankingFormatted = data?.map((item: any) => ({
+        mentorado_id: item.mentorado_id,
+        nome_completo: item.mentorados?.nome_completo || 'Nome não encontrado',
+        total_indicacoes: item.total_indicacoes || 0,
+        indicacoes_vendidas: item.indicacoes_vendidas || 0,
+        total_comissoes: item.total_comissoes || 0,
+        valor_medio_comissao: item.valor_medio_comissao || 0
+      })) || []
+
+      setRanking(rankingFormatted)
+      console.log('✅ Ranking carregado:', rankingFormatted.length, 'mentorados')
+    } catch (error) {
+      console.error('❌ Erro ao carregar ranking:', error)
     }
   }
 
@@ -127,8 +179,8 @@ export default function MentoradoComissoesPage() {
         {/* Hero Background */}
         <div className="absolute inset-0">
           <img
-            src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
-            alt="Comissões"
+            src="https://medicosderesultado.com/wp-content/uploads/2024/10/capa-dashboard.png"
+            alt="Dashboard Médicos de Resultado"
             className="w-full h-full object-cover"
           />
         </div>
@@ -297,6 +349,132 @@ export default function MentoradoComissoesPage() {
             </div>
           )}
         </section>
+
+        {/* Ranking de Indicações */}
+        {showRanking && ranking.length > 0 && (
+          <section className="mt-16 mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <Trophy className="w-8 h-8 text-yellow-500" />
+                <div>
+                  <h2 className="text-2xl font-bold text-white">🏆 Ranking de Indicações</h2>
+                  <p className="text-gray-400">Concorra ao prêmio! O 1º lugar ganha um Rolex OU uma bolsa de grife!</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRanking(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              {/* Top 3 - Pódio */}
+              {ranking.slice(0, 3).map((mentorado, index) => (
+                <div
+                  key={mentorado.mentorado_id}
+                  className={`relative p-6 rounded-lg text-center transform transition-all hover:scale-105 ${
+                    index === 0
+                      ? 'bg-gradient-to-b from-yellow-600 to-yellow-800 border-2 border-yellow-400'
+                      : index === 1
+                      ? 'bg-gradient-to-b from-gray-500 to-gray-700 border-2 border-gray-400'
+                      : 'bg-gradient-to-b from-amber-600 to-amber-800 border-2 border-amber-500'
+                  }`}
+                >
+                  {/* Coroa/Medal */}
+                  <div className="flex justify-center mb-3">
+                    {index === 0 ? (
+                      <Trophy className="w-12 h-12 text-yellow-200" />
+                    ) : index === 1 ? (
+                      <Medal className="w-12 h-12 text-gray-200" />
+                    ) : (
+                      <Award className="w-12 h-12 text-amber-200" />
+                    )}
+                  </div>
+
+                  {/* Posição */}
+                  <div className="text-3xl font-bold text-white mb-2">
+                    {index + 1}º
+                  </div>
+
+                  {/* Nome */}
+                  <div className="text-lg font-semibold text-white mb-3 truncate">
+                    {mentorado.nome_completo}
+                  </div>
+
+                  {/* Métricas */}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between text-white/90">
+                      <span>Indicações:</span>
+                      <span className="font-bold">{mentorado.total_indicacoes}</span>
+                    </div>
+                    <div className="flex justify-between text-white/90">
+                      <span>Vendidas:</span>
+                      <span className="font-bold text-green-300">{mentorado.indicacoes_vendidas}</span>
+                    </div>
+                    <div className="flex justify-between text-white/90">
+                      <span>Comissões:</span>
+                      <span className="font-bold text-green-300">
+                        R$ {(mentorado.total_comissoes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Prêmio */}
+                  <div className="mt-4 p-2 bg-black/20 rounded text-white/80 text-xs font-medium">
+                    {index === 0 ? '🏆 ROLEX OU BOLSA DE GRIFE' : index === 1 ? '🥈 2º LUGAR' : '🥉 3º LUGAR'}
+                  </div>
+
+                  {/* Badge de destaque */}
+                  {index === 0 && (
+                    <div className="absolute -top-3 -right-3 bg-yellow-400 text-black text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                      👑 LÍDER
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Lista completa do ranking */}
+            {ranking.length > 3 && (
+              <div className="bg-[#1A1A1A] rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Ranking Completo</h3>
+                <div className="space-y-3">
+                  {ranking.slice(3).map((mentorado, index) => (
+                    <div
+                      key={mentorado.mentorado_id}
+                      className="flex items-center justify-between bg-[#2A2A2A] rounded-lg p-4"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-bold text-white">{index + 4}</span>
+                        </div>
+                        <span className="text-white font-medium">{mentorado.nome_completo}</span>
+                      </div>
+                      <div className="flex items-center space-x-6 text-sm">
+                        <div className="text-center">
+                          <p className="text-gray-400">Indicações</p>
+                          <p className="text-white font-bold">{mentorado.total_indicacoes}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-gray-400">Vendidas</p>
+                          <p className="text-green-300 font-bold">{mentorado.indicacoes_vendidas}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-gray-400">Comissões</p>
+                          <p className="text-green-300 font-bold">
+                            R$ {(mentorado.total_comissoes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
       </div>
     </div>
   )

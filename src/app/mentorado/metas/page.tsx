@@ -176,8 +176,8 @@ export default function MentoradoMetasPage() {
         {/* Hero Background */}
         <div className="absolute inset-0">
           <img
-            src="https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
-            alt="Metas"
+            src="https://medicosderesultado.com/wp-content/uploads/2024/10/capa-dashboard.png"
+            alt="Dashboard Médicos de Resultado"
             className="w-full h-full object-cover"
           />
         </div>

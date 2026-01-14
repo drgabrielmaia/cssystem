@@ -182,8 +182,8 @@ export default function MentoradoConquistasPage() {
         {/* Hero Background */}
         <div className="absolute inset-0">
           <img
-            src="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
-            alt="Conquistas"
+            src="https://medicosderesultado.com/wp-content/uploads/2024/10/capa-dashboard.png"
+            alt="Dashboard Médicos de Resultado"
             className="w-full h-full object-cover"
           />
         </div>
