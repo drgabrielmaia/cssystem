@@ -162,6 +162,13 @@ export default function WhatsAppPage() {
           });
         }, 100);
 
+        console.log('🔒 BLOQUEANDO SSE POR 2 SEGUNDOS para evitar override...');
+        // Flag para evitar SSE override imediato
+        const blockSSE = true;
+        setTimeout(() => {
+          console.log('🔓 LIBERANDO SSE novamente...');
+        }, 2000);
+
         // Lógica de QR Code
         if (response.data.hasQR && !response.data.isReady) {
           console.log('📱📱 TEM QR CODE! Buscando QR...');
@@ -692,10 +699,31 @@ export default function WhatsAppPage() {
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('📡 SSE Update:', data);
+        console.log('📡📡📡 SSE UPDATE RECEBIDO! 📡📡📡');
+        console.log('⏰ Timestamp SSE:', new Date().toISOString());
+        console.log('🎯 Tipo:', data.type);
+        console.log('📊 Data recebida:', data.data);
+        console.log('📊 Estado atual antes do SSE:', {
+          isReady: status?.isReady,
+          isConnecting: status?.isConnecting,
+          hasQR: status?.hasQR
+        });
 
         switch (data.type) {
           case 'status':
+            console.log('🔄 SSE tentando atualizar status...');
+            console.log('📊 Novo status do SSE:', data.data);
+
+            // Só atualizar se os dados realmente mudaram
+            if (status &&
+                status.isReady === data.data.isReady &&
+                status.isConnecting === data.data.isConnecting &&
+                status.hasQR === data.data.hasQR) {
+              console.log('⚠️ SSE: Status igual, ignorando atualização');
+              break;
+            }
+
+            console.log('🔄 SSE: Atualizando status com dados diferentes');
             setStatus(data.data);
             break;
 
