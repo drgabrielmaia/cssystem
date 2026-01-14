@@ -77,21 +77,32 @@ export default function WhatsAppPage() {
 
   const checkStatus = useCallback(async () => {
     try {
+      console.log('🔄 Verificando status do WhatsApp...');
       const response = await whatsappCoreAPI.getStatus();
       if (response.success && response.data) {
-        setStatus(response.data);
+        console.log('🔍 Status recebido da API:', JSON.stringify(response.data, null, 2));
+        console.log('📊 Novo estado WhatsApp:', {
+          isReady: response.data.isReady,
+          isConnecting: response.data.isConnecting,
+          hasQR: response.data.hasQR,
+          contactsCount: response.data.contactsCount
+        });
 
-        // Evitar loop infinito de registro
+        setStatus(response.data);
 
         // Se tem QR disponível, buscar o QR code
         if (response.data.hasQR && !response.data.isReady) {
+          console.log('📱 Buscando QR code...');
           fetchQRCode();
         } else if (response.data.isReady) {
+          console.log('✅ WhatsApp conectado - limpando QR code');
           setQrCode(null); // Limpar QR quando conectado
         }
+      } else {
+        console.error('❌ Resposta inválida da API:', response);
       }
     } catch (error) {
-      console.error('Erro ao verificar status:', error);
+      console.error('❌ Erro ao verificar status:', error);
     }
   }, [fetchQRCode]);
 
