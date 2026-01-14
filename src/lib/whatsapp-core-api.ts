@@ -203,11 +203,11 @@ class WhatsAppCoreAPI {
     return this.request<Message[]>(`/users/${organizationId}/chats/${encodeURIComponent(chatId)}/history?limit=${limit}`);
   }
 
-  async sendMessage(to: string, message: string): Promise<ApiResponse<{ messageId: string; timestamp: number }>> {
+  async sendMessage(phoneNumber: string, message: string): Promise<ApiResponse<{ messageId: string; timestamp: number }>> {
     const organizationId = await this.getOrganizationId();
     return this.request(`/users/${organizationId}/send`, {
       method: 'POST',
-      body: JSON.stringify({ to, message }),
+      body: JSON.stringify({ phoneNumber, message }),
     }, true); // Exigir autenticação
   }
 
