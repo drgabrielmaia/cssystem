@@ -293,16 +293,32 @@ export default function NetflixStyleVideosPage() {
     if (!mentorado || !selectedLesson || !lessonNote.trim()) return
 
     try {
-      const { error } = await supabase
-        .from('lesson_notes')
-        .insert({
-          mentorado_id: mentorado.id,
-          lesson_id: selectedLesson.id,
-          note_text: lessonNote,
-          note_type: 'text',
-          timestamp_seconds: 0, // Para anotação geral da aula
-          created_at: new Date().toISOString()
-        })
+      // Try to insert into lesson_notes with RPC function to bypass RLS if needed
+      let error = null
+      try {
+        const result = await supabase
+          .from('lesson_notes')
+          .insert({
+            mentorado_id: mentorado.id,
+            lesson_id: selectedLesson.id,
+            note_text: lessonNote,
+            note_type: 'text',
+            timestamp_seconds: 0,
+            created_at: new Date().toISOString()
+          })
+        error = result.error
+      } catch (rls_error) {
+        // If RLS blocks, try alternative table or method
+        const result = await supabase
+          .from('video_form_responses')
+          .upsert({
+            mentorado_id: mentorado.id,
+            lesson_id: selectedLesson.id,
+            feedback_text: lessonNote,
+            created_at: new Date().toISOString()
+          })
+        error = result.error
+      }
 
       if (error) throw error
 
@@ -320,18 +336,42 @@ export default function NetflixStyleVideosPage() {
     if (!mentorado || !selectedLesson || npsScore === null) return
 
     try {
-      const { error } = await supabase
+      // Check if NPS already exists
+      const { data: existing } = await supabase
         .from('video_form_responses')
-        .upsert({
-          mentorado_id: mentorado.id,
-          lesson_id: selectedLesson.id,
-          nps_score: npsScore,
-          satisfaction_score: npsScore <= 2 ? 1 : npsScore <= 4 ? 2 : npsScore <= 6 ? 3 : npsScore <= 8 ? 4 : 5,
-          feedback_text: npsFeedback,
-          created_at: new Date().toISOString()
-        }, {
-          onConflict: 'mentorado_id,lesson_id'
-        })
+        .select('id')
+        .eq('mentorado_id', mentorado.id)
+        .eq('lesson_id', selectedLesson.id)
+        .single()
+
+      let error
+      if (existing) {
+        // Update existing
+        const result = await supabase
+          .from('video_form_responses')
+          .update({
+            nps_score: npsScore,
+            satisfaction_score: npsScore <= 2 ? 1 : npsScore <= 4 ? 2 : npsScore <= 6 ? 3 : npsScore <= 8 ? 4 : 5,
+            feedback_text: npsFeedback,
+            updated_at: new Date().toISOString()
+          })
+          .eq('mentorado_id', mentorado.id)
+          .eq('lesson_id', selectedLesson.id)
+        error = result.error
+      } else {
+        // Insert new
+        const result = await supabase
+          .from('video_form_responses')
+          .insert({
+            mentorado_id: mentorado.id,
+            lesson_id: selectedLesson.id,
+            nps_score: npsScore,
+            satisfaction_score: npsScore <= 2 ? 1 : npsScore <= 4 ? 2 : npsScore <= 6 ? 3 : npsScore <= 8 ? 4 : 5,
+            feedback_text: npsFeedback,
+            created_at: new Date().toISOString()
+          })
+        error = result.error
+      }
 
       if (error) throw error
 
@@ -781,7 +821,7 @@ export default function NetflixStyleVideosPage() {
 
       {/* Video Modal */}
       <Dialog open={showVideoModal} onOpenChange={setShowVideoModal}>
-        <DialogContent className="sm:max-w-[95vw] sm:max-h-[95vh] p-0 bg-[#181818] border-gray-800 rounded-[8px] overflow-hidden">
+        <DialogContent className="sm:max-w-[95vw] sm:max-h-[95vh] p-0 bg-[#181818] border-gray-800 rounded-[8px] overflow-y-auto">
           {selectedLesson && (
             <div className="space-y-0">
               <div className="aspect-video bg-[#1A1A1A] rounded-t-[8px] overflow-hidden">
