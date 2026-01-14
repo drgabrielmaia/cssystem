@@ -8,6 +8,12 @@ export interface WhatsAppStatus {
   contactsCount: number;
   messagesCount: number;
   registered: boolean;
+  userInfo?: {
+    id: string;
+    name: string;
+    phone: string;
+    isConnected: boolean;
+  };
 }
 
 export interface QRCodeData {

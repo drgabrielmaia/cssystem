@@ -151,7 +151,7 @@ export default function WhatsAppPage() {
           registered: response.data.registered,
           contactsCount: response.data.contactsCount,
           messagesCount: response.data.messagesCount,
-          // userInfo: response.data.userInfo // Removido - não existe na interface
+          userInfo: response.data.userInfo
         });
 
         console.log('🔄 Atualizando estado React com setStatus()...');
