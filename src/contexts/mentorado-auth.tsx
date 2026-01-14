@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
 interface Mentorado {
@@ -40,6 +40,12 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
   const [mentorado, setMentorado] = useState<Mentorado | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const mentoradoRef = useRef<Mentorado | null>(null)
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    mentoradoRef.current = mentorado
+  }, [mentorado])
 
   // Função para obter cookie com fallback para localStorage
   const getCookie = (name: string): string | null => {
@@ -190,7 +196,7 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
     // Monitorar mudanças no cookie periodicamente
     const intervalId = setInterval(() => {
       const cookieExists = !!getCookie(COOKIE_NAME)
-      const hasUser = !!mentorado
+      const hasUser = !!mentoradoRef.current
 
       // Se o estado não bate com o cookie, revalidar
       if (cookieExists !== hasUser) {
@@ -219,7 +225,7 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('mentoradoLoginSuccess', handleMentoradoLogin)
       window.removeEventListener('storage', handleStorageChange)
     }
-  }, [mentorado]) // Include mentorado in dependency array to track state changes
+  }, []) // Empty dependency array - only run once on mount
 
   const signIn = async (email: string, password: string): Promise<boolean> => {
     try {
