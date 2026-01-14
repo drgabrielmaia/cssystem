@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-01-14T17:24:21.447Z",
+  "tables": {
+    "comissoes": {
+      "exists": false,
+      "missingFields": []
+    },
+    "comissoes_configuracoes": {
+      "exists": false,
+      "missingFields": []
+    },
+    "leads": {
+      "exists": false,
+      "missingFields": [
+        "mentorado_indicador_id",
+        "data_venda"
+      ]
+    }
+  },
+  "views": {
+    "view_dashboard_comissoes_mentorado": {
+      "exists": false
+    }
+  },
+  "summary": {
+    "totalTables": 0,
+    "totalViews": 0,
+    "comissoesExists": false,
+    "comissoesConfigExists": false,
+    "leadsExists": false,
+    "leadsHasRequiredFields": false,
+    "dashboardViewExists": false,
+    "allTables": [],
+    "allViews": []
+  }
+}
