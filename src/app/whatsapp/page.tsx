@@ -60,50 +60,114 @@ export default function WhatsAppPage() {
 
   const fetchQRCode = useCallback(async () => {
     try {
-      console.log('📱 Buscando QR code...');
+      console.log('📱📱📱 INICIANDO fetchQRCode() 📱📱📱');
+      console.log('⏰ Timestamp:', new Date().toISOString());
+
+      console.log('🌐 Chamando whatsappCoreAPI.getQRCode()...');
       const response = await whatsappCoreAPI.getQRCode();
+
+      console.log('📡 Resposta do QR Code:', {
+        success: response.success,
+        data: response.data,
+        qr_presente: !!response.data?.qr,
+        qr_length: response.data?.qr?.length,
+        response_completa: JSON.stringify(response, null, 2)
+      });
+
       if (response.success && response.data?.qr) {
+        console.log('✅✅ QR CODE OBTIDO COM SUCESSO!');
+        console.log('📏 Tamanho do QR:', response.data.qr.length, 'caracteres');
         setQrCode(response.data.qr);
-        console.log('✅ QR Code obtido com sucesso');
+        console.log('🔄 QR Code salvo no estado React!');
       } else {
-        console.log('📭 QR Code não disponível ainda');
+        console.log('📭📭 QR CODE NÃO DISPONÍVEL');
+        console.log('🔍 Detalhes:', {
+          success: response.success,
+          has_data: !!response.data,
+          has_qr: !!response.data?.qr
+        });
         setQrCode(null);
+        console.log('🧹 QR Code limpo do estado React');
       }
-    } catch (error) {
-      console.error('Erro ao buscar QR code:', error);
+    } catch (error: any) {
+      console.error('💥💥💥 ERRO CRÍTICO NO fetchQRCode()!');
+      console.error('🔴 Erro:', error);
+      console.error('🔴 Stack:', error?.stack);
+      console.error('🔴 Message:', error?.message);
       setQrCode(null);
     }
+
+    console.log('🏁🏁🏁 FINALIZANDO fetchQRCode() 🏁🏁🏁');
   }, []);
 
   const checkStatus = useCallback(async () => {
     try {
-      console.log('🔄 Verificando status do WhatsApp...');
+      console.log('🔄🔄🔄 INICIANDO checkStatus() 🔄🔄🔄');
+      console.log('⏰ Timestamp:', new Date().toISOString());
+      console.log('📍 Estado atual antes da chamada:', {
+        status_isReady: status?.isReady,
+        status_isConnecting: status?.isConnecting,
+        status_hasQR: status?.hasQR,
+        qrCode_presente: !!qrCode
+      });
+
+      console.log('🌐 Fazendo chamada para whatsappCoreAPI.getStatus()...');
       const response = await whatsappCoreAPI.getStatus();
+
+      console.log('📡 Resposta bruta da API:', {
+        success: response.success,
+        data: response.data,
+        error: response.error,
+        response_completa: JSON.stringify(response, null, 2)
+      });
+
       if (response.success && response.data) {
-        console.log('🔍 Status recebido da API:', JSON.stringify(response.data, null, 2));
-        console.log('📊 Novo estado WhatsApp:', {
+        console.log('✅ API retornou sucesso! Dados recebidos:');
+        console.log('📊 Estado detalhado da API:', {
           isReady: response.data.isReady,
           isConnecting: response.data.isConnecting,
           hasQR: response.data.hasQR,
-          contactsCount: response.data.contactsCount
+          registered: response.data.registered,
+          contactsCount: response.data.contactsCount,
+          messagesCount: response.data.messagesCount,
+          userInfo: response.data.userInfo
         });
 
+        console.log('🔄 Atualizando estado React com setStatus()...');
         setStatus(response.data);
+        console.log('✅ Estado React atualizado!');
 
-        // Se tem QR disponível, buscar o QR code
+        // Lógica de QR Code
         if (response.data.hasQR && !response.data.isReady) {
-          console.log('📱 Buscando QR code...');
-          fetchQRCode();
+          console.log('📱📱 TEM QR CODE! Buscando QR...');
+          console.log('🎯 Condições: hasQR=' + response.data.hasQR + ', isReady=' + response.data.isReady);
+          await fetchQRCode();
         } else if (response.data.isReady) {
-          console.log('✅ WhatsApp conectado - limpando QR code');
-          setQrCode(null); // Limpar QR quando conectado
+          console.log('✅✅ WHATSAPP CONECTADO! Limpando QR...');
+          console.log('🎯 isReady=' + response.data.isReady);
+          setQrCode(null);
+        } else {
+          console.log('⚠️ Estado intermediário:', {
+            hasQR: response.data.hasQR,
+            isReady: response.data.isReady,
+            isConnecting: response.data.isConnecting
+          });
         }
       } else {
-        console.error('❌ Resposta inválida da API:', response);
+        console.error('❌❌❌ RESPOSTA INVÁLIDA DA API!');
+        console.error('🔴 Success:', response.success);
+        console.error('🔴 Data:', response.data);
+        console.error('🔴 Error:', response.error);
+        console.error('🔴 Response completa:', JSON.stringify(response, null, 2));
       }
-    } catch (error) {
-      console.error('❌ Erro ao verificar status:', error);
+    } catch (error: any) {
+      console.error('💥💥💥 ERRO CRÍTICO NO checkStatus()!');
+      console.error('🔴 Erro:', error);
+      console.error('🔴 Stack:', error?.stack);
+      console.error('🔴 Message:', error?.message);
     }
+
+    console.log('🏁🏁🏁 FINALIZANDO checkStatus() 🏁🏁🏁');
   }, [fetchQRCode]);
 
   const loadChats = useCallback(async () => {
@@ -660,19 +724,55 @@ export default function WhatsAppPage() {
   }, [status?.isReady, selectedChat, loadChats, loadContacts, loadChatMessages]);
 
   useEffect(() => {
+    console.log('🚀🚀🚀 USEEFFECT PRINCIPAL - INICIANDO! 🚀🚀🚀');
+    console.log('⏰ Timestamp:', new Date().toISOString());
+    console.log('🔄 Chamando checkStatus() inicial...');
+
     checkStatus();
-    const interval = setInterval(checkStatus, 10000); // Check status every 10s
-    return () => clearInterval(interval);
+
+    console.log('⏱️ Configurando interval de 10 segundos...');
+    const interval = setInterval(() => {
+      console.log('⏰⏰ INTERVAL TRIGGERED! Chamando checkStatus() automático...');
+      checkStatus();
+    }, 10000);
+
+    console.log('✅ UseEffect principal configurado! Interval ID:', interval);
+
+    return () => {
+      console.log('🧹🧹 LIMPANDO UseEffect principal - clearInterval');
+      clearInterval(interval);
+    };
   }, [checkStatus]);
 
   useEffect(() => {
+    console.log('🔧🔧🔧 USEEFFECT SECUNDÁRIO - STATUS MUDOU! 🔧🔧🔧');
+    console.log('⏰ Timestamp:', new Date().toISOString());
+    console.log('📊 Status atual:', {
+      isReady: status?.isReady,
+      isConnecting: status?.isConnecting,
+      hasQR: status?.hasQR,
+      status_completo: status
+    });
+
     if (status?.isReady) {
+      console.log('✅✅ STATUS READY! Carregando dados...');
+      console.log('📱 Chamando loadChats()...');
       loadChats();
+      console.log('👥 Chamando loadContacts()...');
       loadContacts();
+      console.log('🤖 Chamando loadAutoMessages()...');
       loadAutoMessages();
+    } else {
+      console.log('⚠️⚠️ STATUS NOT READY! Não carregando dados. Estado:', {
+        isReady: status?.isReady,
+        isConnecting: status?.isConnecting
+      });
     }
-    // Carregar configurações sempre que o componente montar
+
+    console.log('⚙️ Chamando loadSettings() sempre...');
     loadSettings();
+
+    console.log('🏁 UseEffect secundário finalizado!');
   }, [status?.isReady, loadChats, loadContacts, loadAutoMessages, loadSettings]);
 
   useEffect(() => {
