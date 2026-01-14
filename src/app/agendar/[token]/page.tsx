@@ -326,6 +326,84 @@ export default function AgendarPublicoPage() {
 
       if (error) throw error
 
+      // 🔥 ENVIAR NOTIFICAÇÃO WHATSAPP PARA O ADMIN
+      try {
+        console.log('📱 Enviando notificação WhatsApp para o admin...')
+
+        // Buscar admin_phone da organização (através do lead/mentorado)
+        let adminPhone = '+5583996910414' // Fallback
+
+        if (agendaLink?.lead_id) {
+          const { data: leadOrg } = await supabase
+            .from('leads')
+            .select('organization_id, organizations!inner(admin_phone)')
+            .eq('id', agendaLink.lead_id)
+            .single()
+          adminPhone = (leadOrg?.organizations as any)?.admin_phone || adminPhone
+        } else if (agendaLink?.mentorado_id) {
+          const { data: mentorOrg } = await supabase
+            .from('mentorados')
+            .select('organization_id, organizations!inner(admin_phone)')
+            .eq('id', agendaLink.mentorado_id)
+            .single()
+          adminPhone = (mentorOrg?.organizations as any)?.admin_phone || adminPhone
+        }
+
+        // Formatear data/hora
+        const dataFormatada = new Date(eventData.start_datetime).toLocaleDateString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        })
+        const horaFormatada = new Date(eventData.start_datetime).toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+
+        // Mensagem para o admin
+        const mensagemAdmin = `🎯 NOVO AGENDAMENTO CONFIRMADO
+
+📋 ${eventData.title}
+📅 ${dataFormatada} às ${horaFormatada}
+⏱️ Duração: ${tiposCall[tipoCallSelecionado]?.duracao || 60} minutos
+
+👤 CLIENTE:
+${formData.nome_completo}
+📧 ${formData.email}
+📱 ${formData.telefone || formData.whatsapp || 'Não informado'}
+
+🎯 OBJETIVO:
+${formData.objetivo_call || 'Não especificado'}
+
+💰 VALOR: R$ ${tiposCall[tipoCallSelecionado]?.preco?.toLocaleString('pt-BR') || '0,00'}
+
+🔗 Link da call será enviado próximo ao horário agendado.
+
+✅ O cliente foi notificado e receberá lembretes automáticos.`
+
+        // Enviar para admin
+        const notificationResponse = await fetch('/api/whatsapp/send-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            phoneNumber: adminPhone,
+            message: mensagemAdmin
+          })
+        })
+
+        if (notificationResponse.ok) {
+          console.log('✅ Notificação enviada para admin:', adminPhone)
+        } else {
+          console.warn('⚠️ Falha ao enviar notificação para admin')
+        }
+
+      } catch (notificationError) {
+        console.error('❌ Erro ao enviar notificação WhatsApp:', notificationError)
+        // Não para o fluxo se a notificação falhar
+      }
+
       setStep(6) // Tela de confirmação final
     } catch (err) {
       console.error('Erro ao finalizar agendamento:', err)
