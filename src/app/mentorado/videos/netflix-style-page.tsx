@@ -238,9 +238,8 @@ export default function NetflixStyleVideosPage() {
   }
 
   const isLessonUnlocked = (lesson: VideoLesson, moduleLessons: VideoLesson[]) => {
-    if (lesson.order_index === 1) return true
-    const previousLesson = moduleLessons.find(l => l.order_index === lesson.order_index - 1)
-    return previousLesson?.progress?.is_completed || false
+    // Todas as aulas estão desbloqueadas
+    return true
   }
 
   const formatDuration = (minutes: number) => {

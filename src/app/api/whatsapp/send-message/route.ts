@@ -1,4 +1,54 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+async function getOrganizationId(): Promise<string> {
+  try {
+    // Buscar usuário autenticado
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+    if (userError || !user?.email) {
+      console.warn('⚠️ Usuário não autenticado, usando organizationId padrão')
+      return 'default'
+    }
+
+    console.log('🔍 Buscando organização para usuário:', user.email, 'ID:', user.id)
+
+    // Tentar buscar por email primeiro (mais confiável)
+    const { data: orgByEmail, error: emailError } = await supabase
+      .from('organization_users')
+      .select('organization_id')
+      .eq('email', user.email)
+      .single()
+
+    if (!emailError && orgByEmail) {
+      console.log('✅ Organização encontrada por email:', orgByEmail.organization_id)
+      return orgByEmail.organization_id
+    }
+
+    // Fallback: tentar buscar pela tabela organizations usando owner_email
+    const { data: orgDirectData, error: orgDirectError } = await supabase
+      .from('organizations')
+      .select('id')
+      .eq('owner_email', user.email)
+      .single()
+
+    if (!orgDirectError && orgDirectData) {
+      console.log('✅ Organização encontrada como owner:', orgDirectData.id)
+      return orgDirectData.id
+    }
+
+    console.warn('⚠️ Organização não encontrada, usando padrão')
+    return 'default'
+  } catch (error) {
+    console.error('❌ Erro ao obter organization_id:', error)
+    return 'default'
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -43,15 +93,17 @@ export async function POST(request: Request) {
       // Fallback: usar API externa do WhatsApp
       try {
         console.log('🔄 Tentando enviar via API externa...')
-        const externalResponse = await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL}/send-message`, {
+        // Buscar organizationId dinamicamente
+        const userId = await getOrganizationId()
+
+        const externalResponse = await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL}/users/${userId}/send`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             phoneNumber: phoneNumber,
-            message: message,
-            sender: sender || 'kellybsantoss@icloud.com'
+            message: message
           })
         })
 

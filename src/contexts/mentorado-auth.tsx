@@ -109,76 +109,117 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Verificar autenticação no carregamento
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        setLoading(true)
-        setError(null)
+  // Função para verificar autenticação (reutilizável)
+  const checkAuth = async () => {
+    try {
+      setLoading(true)
+      setError(null)
 
-        // Debug: Verificar dispositivo
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-        console.log('📱 Dispositivo:', isMobile ? 'MOBILE' : 'DESKTOP')
+      // Debug: Verificar dispositivo
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      console.log('📱 Dispositivo:', isMobile ? 'MOBILE' : 'DESKTOP')
 
-        // Verificar cookie
-        const mentoradoId = getCookie(COOKIE_NAME)
-        console.log('🔍 Cookie mentorado_auth:', mentoradoId ? 'ENCONTRADO' : 'NÃO ENCONTRADO')
+      // Verificar cookie
+      const mentoradoId = getCookie(COOKIE_NAME)
+      console.log('🔍 Cookie mentorado_auth:', mentoradoId ? 'ENCONTRADO' : 'NÃO ENCONTRADO')
 
-        if (mentoradoId) {
-          // Buscar dados atualizados do mentorado
-          const { data: mentoradoData, error: fetchError } = await supabase
-            .from('mentorados')
-            .select('*')
-            .eq('id', mentoradoId)
-            .eq('status_login', 'ativo')
-            .single()
+      if (mentoradoId) {
+        // Buscar dados atualizados do mentorado
+        const { data: mentoradoData, error: fetchError } = await supabase
+          .from('mentorados')
+          .select('*')
+          .eq('id', mentoradoId)
+          .eq('status_login', 'ativo')
+          .single()
 
-          if (fetchError || !mentoradoData) {
-            // Cookie inválido ou usuário inativo
-            removeCookie(COOKIE_NAME)
-            localStorage.removeItem('mentorado') // Limpar localStorage legado
-          } else {
-            setMentorado(mentoradoData)
-          }
+        if (fetchError || !mentoradoData) {
+          // Cookie inválido ou usuário inativo
+          removeCookie(COOKIE_NAME)
+          localStorage.removeItem('mentorado') // Limpar localStorage legado
+          setMentorado(null)
         } else {
-          // Migrar do localStorage para cookie se existir
-          const savedMentorado = localStorage.getItem('mentorado')
-          if (savedMentorado) {
-            try {
-              const mentoradoData = JSON.parse(savedMentorado)
+          setMentorado(mentoradoData)
+        }
+      } else {
+        // Migrar do localStorage para cookie se existir
+        const savedMentorado = localStorage.getItem('mentorado')
+        if (savedMentorado) {
+          try {
+            const mentoradoData = JSON.parse(savedMentorado)
 
-              // Verificar se ainda é válido no banco
-              const { data: currentData, error: fetchError } = await supabase
-                .from('mentorados')
-                .select('*')
-                .eq('id', mentoradoData.id)
-                .eq('status_login', 'ativo')
-                .single()
+            // Verificar se ainda é válido no banco
+            const { data: currentData, error: fetchError } = await supabase
+              .from('mentorados')
+              .select('*')
+              .eq('id', mentoradoData.id)
+              .eq('status_login', 'ativo')
+              .single()
 
-              if (!fetchError && currentData) {
-                setMentorado(currentData)
-                setCookie(COOKIE_NAME, currentData.id)
-              }
-
-              // Limpar localStorage
-              localStorage.removeItem('mentorado')
-            } catch (e) {
-              localStorage.removeItem('mentorado')
+            if (!fetchError && currentData) {
+              setMentorado(currentData)
+              setCookie(COOKIE_NAME, currentData.id)
             }
+
+            // Limpar localStorage
+            localStorage.removeItem('mentorado')
+          } catch (e) {
+            localStorage.removeItem('mentorado')
           }
         }
-      } catch (error: any) {
-        console.error('Erro ao verificar autenticação do mentorado:', error)
-        setError('Erro ao verificar autenticação')
-        removeCookie(COOKIE_NAME)
-        localStorage.removeItem('mentorado')
-      } finally {
-        setLoading(false)
+
+        // Se não encontrou nada, garantir que está null
+        if (!savedMentorado) {
+          setMentorado(null)
+        }
       }
+    } catch (error: any) {
+      console.error('Erro ao verificar autenticação do mentorado:', error)
+      setError('Erro ao verificar autenticação')
+      removeCookie(COOKIE_NAME)
+      localStorage.removeItem('mentorado')
+      setMentorado(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Verificar autenticação no carregamento e monitorar mudanças
+  useEffect(() => {
+    checkAuth()
+
+    // Monitorar mudanças no cookie periodicamente
+    const intervalId = setInterval(() => {
+      const cookieExists = !!getCookie(COOKIE_NAME)
+      const hasUser = !!mentorado
+
+      // Se o estado não bate com o cookie, revalidar
+      if (cookieExists !== hasUser) {
+        console.log('🔄 Cookie state mismatch, rechecking auth...')
+        checkAuth()
+      }
+    }, 1000)
+
+    // Escutar eventos customizados
+    const handleMentoradoLogin = () => {
+      console.log('🎉 Evento de login do mentorado detectado')
+      setTimeout(checkAuth, 100) // Pequeno delay para garantir que o cookie foi setado
     }
 
-    checkAuth()
-  }, [])
+    // Monitorar mudanças de storage/cookie
+    const handleStorageChange = () => {
+      checkAuth()
+    }
+
+    // Adicionar event listeners
+    window.addEventListener('mentoradoLoginSuccess', handleMentoradoLogin)
+    window.addEventListener('storage', handleStorageChange)
+
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener('mentoradoLoginSuccess', handleMentoradoLogin)
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [mentorado]) // Include mentorado in dependency array to track state changes
 
   const signIn = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -204,6 +245,11 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
 
         // Limpar localStorage legado se existir
         localStorage.removeItem('mentorado')
+
+        // Disparar evento customizado para notificar outros componentes
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('mentoradoLoginSuccess'))
+        }, 50)
 
         return true
       } else {
