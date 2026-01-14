@@ -114,8 +114,16 @@ export default function WhatsAppPage() {
       console.log('📡 Resposta bruta da API:', {
         success: response.success,
         data: response.data,
-        error: response.error,
-        response_completa: JSON.stringify(response, null, 2)
+        error: response.error
+      });
+
+      console.log('🔍 RESPONSE.DATA DETALHADO:', response.data);
+      console.log('🔍 JSON COMPLETO:', JSON.stringify(response.data, null, 2));
+      console.log('🔍 VERIFICAÇÕES ESPECÍFICAS:', {
+        'response.data_existe': !!response.data,
+        'response.data_tipo': typeof response.data,
+        'response.data_isReady': response.data?.isReady,
+        'response.data_keys': response.data ? Object.keys(response.data) : 'null'
       });
 
       console.log('🔍 COMPARAÇÃO ESTADO ANTERIOR vs NOVO:');
@@ -148,6 +156,14 @@ export default function WhatsAppPage() {
 
         console.log('🔄 Atualizando estado React com setStatus()...');
         console.log('📝 Dados que serão salvos no setStatus:', response.data);
+        console.log('📝 SETATUS() - VERIFICAÇÃO ANTES:', {
+          'dados_para_setStatus': response.data,
+          'tipo': typeof response.data,
+          'eh_null': response.data === null,
+          'eh_undefined': response.data === undefined,
+          'eh_objeto_vazio': response.data && Object.keys(response.data).length === 0
+        });
+
         setStatus(response.data);
         console.log('✅ Estado React atualizado!');
 
