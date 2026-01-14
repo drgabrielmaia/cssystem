@@ -75,24 +75,27 @@ export default function WhatsAppPage() {
     }
   }, []);
 
+  const [hasTriedRegister, setHasTriedRegister] = useState(false);
+
   const checkStatus = useCallback(async () => {
     try {
       const response = await whatsappCoreAPI.getStatus();
       if (response.success && response.data) {
         setStatus(response.data);
 
-        // Se o usuário não está registrado e não está conectando, iniciar registro
-        if (!response.data.isReady && !response.data.isConnecting && !response.data.hasQR) {
+        // Se o usuário não está registrado e não está conectando, iniciar registro APENAS UMA VEZ
+        if (!response.data.isReady && !response.data.isConnecting && !response.data.hasQR && !hasTriedRegister) {
           console.log('🔄 Usuário não registrado, iniciando registro automático...');
+          setHasTriedRegister(true); // Marcar que já tentou registrar
           try {
             const registerResponse = await whatsappCoreAPI.registerUser();
             if (registerResponse.success) {
               console.log('✅ Registro iniciado:', registerResponse.data?.message || 'Registro iniciado com sucesso');
-              // Aguardar um momento e verificar status novamente
-              setTimeout(checkStatus, 3000);
+              // Não chamar checkStatus novamente - deixar o intervalo normal fazer isso
             }
           } catch (registerError) {
             console.error('Erro ao registrar usuário:', registerError);
+            setHasTriedRegister(false); // Reset para tentar novamente depois
           }
         }
 
@@ -101,12 +104,13 @@ export default function WhatsAppPage() {
           fetchQRCode();
         } else if (response.data.isReady) {
           setQrCode(null); // Limpar QR quando conectado
+          setHasTriedRegister(false); // Reset para próxima sessão
         }
       }
     } catch (error) {
       console.error('Erro ao verificar status:', error);
     }
-  }, [fetchQRCode]);
+  }, [fetchQRCode, hasTriedRegister]);
 
   const loadChats = useCallback(async () => {
     try {
