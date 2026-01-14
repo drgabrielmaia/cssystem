@@ -23,8 +23,9 @@ import Link from 'next/link';
 export default function WhatsAppPage() {
   const { user } = useAuth();
 
-  const [status, setStatus] = useState<WhatsAppStatus | null>(null);
-  const [qrCode, setQrCode] = useState<string | null>(null);
+  // LÓGICA SIMPLIFICADA - SÓ O ESSENCIAL
+  const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(false);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
   const [chats, setChats] = useState<Chat[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
@@ -35,7 +36,7 @@ export default function WhatsAppPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAutoMessageModal, setShowAutoMessageModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [adminPhone, setAdminPhone] = useState('+5583996910414'); // Número padrão
+  const [adminPhone, setAdminPhone] = useState('+5583996910414');
   const [autoMessages, setAutoMessages] = useState([
     {
       id: '1',
@@ -58,178 +59,33 @@ export default function WhatsAppPage() {
     chat.lastMessage?.body.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const fetchQRCode = useCallback(async () => {
+  // FUNÇÃO SIMPLES: SÓ VERIFICA SE TÁ CONECTADO
+  const checkWhatsAppConnection = useCallback(async () => {
     try {
-      console.log('📱📱📱 INICIANDO fetchQRCode() 📱📱📱');
-      console.log('⏰ Timestamp:', new Date().toISOString());
+      console.log('🔍 Verificando conexão WhatsApp...');
 
-      console.log('🌐 Chamando whatsappCoreAPI.getQRCode()...');
-      const response = await whatsappCoreAPI.getQRCode();
-
-      console.log('📡 Resposta do QR Code:', {
-        success: response.success,
-        data: response.data,
-        qr_presente: !!response.data?.qr,
-        qr_length: response.data?.qr?.length,
-        response_completa: JSON.stringify(response, null, 2)
-      });
-
-      if (response.success && response.data?.qr) {
-        console.log('✅✅ QR CODE OBTIDO COM SUCESSO!');
-        console.log('📏 Tamanho do QR:', response.data.qr.length, 'caracteres');
-        setQrCode(response.data.qr);
-        console.log('🔄 QR Code salvo no estado React!');
-      } else {
-        console.log('📭📭 QR CODE NÃO DISPONÍVEL');
-        console.log('🔍 Detalhes:', {
-          success: response.success,
-          has_data: !!response.data,
-          has_qr: !!response.data?.qr
-        });
-        setQrCode(null);
-        console.log('🧹 QR Code limpo do estado React');
-      }
-    } catch (error: any) {
-      console.error('💥💥💥 ERRO CRÍTICO NO fetchQRCode()!');
-      console.error('🔴 Erro:', error);
-      console.error('🔴 Stack:', error?.stack);
-      console.error('🔴 Message:', error?.message);
-      setQrCode(null);
-    }
-
-    console.log('🏁🏁🏁 FINALIZANDO fetchQRCode() 🏁🏁🏁');
-  }, []);
-
-  const checkStatus = useCallback(async () => {
-    try {
-      console.log('🔄🔄🔄 INICIANDO checkStatus() 🔄🔄🔄');
-      console.log('⏰ Timestamp:', new Date().toISOString());
-
-      // Usar uma ref para pegar o estado mais atual, não o do closure
-      console.log('📍 Estado atual antes da chamada via useState atual');
-
-      console.log('🌐 Fazendo chamada para whatsappCoreAPI.getStatus()...');
       const response = await whatsappCoreAPI.getStatus();
 
-      console.log('📡 Resposta bruta da API:', {
-        success: response.success,
-        data: response.data,
-        error: response.error
-      });
+      if (response.success && response.data?.isReady) {
+        console.log('✅ WhatsApp CONECTADO!');
+        setIsWhatsAppConnected(true);
+        setIsLoadingStatus(false);
 
-      console.log('🔍 RESPONSE.DATA DETALHADO:', response.data);
-      console.log('🔍 JSON COMPLETO:', JSON.stringify(response.data, null, 2));
-      console.log('🔍 VERIFICAÇÕES ESPECÍFICAS:', {
-        'response.data_existe': !!response.data,
-        'response.data_tipo': typeof response.data,
-        'response.data_isReady': response.data?.isReady,
-        'response.data_keys': response.data ? Object.keys(response.data) : 'null'
-      });
-
-      console.log('🔍 COMPARAÇÃO ESTADO ANTERIOR vs NOVO:');
-      console.log('📊 Estado ANTERIOR:', {
-        isReady: status?.isReady,
-        isConnecting: status?.isConnecting,
-        hasQR: status?.hasQR,
-        contactsCount: status?.contactsCount,
-        messagesCount: status?.messagesCount
-      });
-      console.log('📊 Estado NOVO (da API):', {
-        isReady: response.data?.isReady,
-        isConnecting: response.data?.isConnecting,
-        hasQR: response.data?.hasQR,
-        contactsCount: response.data?.contactsCount,
-        messagesCount: response.data?.messagesCount
-      });
-
-      if (response.success && response.data) {
-        console.log('✅ API retornou sucesso! Dados recebidos:');
-        console.log('📊 Estado detalhado da API:', {
-          isReady: response.data.isReady,
-          isConnecting: response.data.isConnecting,
-          hasQR: response.data.hasQR,
-          registered: response.data.registered,
-          contactsCount: response.data.contactsCount,
-          messagesCount: response.data.messagesCount,
-          userInfo: response.data.userInfo
-        });
-
-        console.log('🔄 Atualizando estado React com setStatus()...');
-        console.log('📝 Dados que serão salvos no setStatus:', response.data);
-        console.log('📝 SETATUS() - VERIFICAÇÃO ANTES:', {
-          'dados_para_setStatus': response.data,
-          'tipo': typeof response.data,
-          'eh_null': response.data === null,
-          'eh_undefined': response.data === undefined,
-          'eh_objeto_vazio': response.data && Object.keys(response.data).length === 0
-        });
-
-        setStatus(response.data);
-        console.log('✅ Estado React atualizado!');
-
-        // Verificar se realmente atualizou (setTimeout para aguardar o React atualizar)
-        setTimeout(() => {
-          console.log('🔍 VERIFICAÇÃO PÓS-SETSTATE:', {
-            estado_atual_no_componente: status,
-            deveria_ser: response.data
-          });
-        }, 100);
-
-        console.log('🔒 BLOQUEANDO SSE POR 2 SEGUNDOS para evitar override...');
-        // Flag para evitar SSE override imediato
-        const blockSSE = true;
-        setTimeout(() => {
-          console.log('🔓 LIBERANDO SSE novamente...');
-        }, 2000);
-
-        // Lógica de QR Code
-        if (response.data.hasQR && !response.data.isReady) {
-          console.log('📱📱 TEM QR CODE! Buscando QR...');
-          console.log('🎯 Condições: hasQR=' + response.data.hasQR + ', isReady=' + response.data.isReady);
-
-          // Chamar fetchQRCode diretamente para evitar problema de dependência
-          try {
-            console.log('📱📱📱 INICIANDO fetchQRCode() INTERNO 📱📱📱');
-            const qrResponse = await whatsappCoreAPI.getQRCode();
-
-            if (qrResponse.success && qrResponse.data?.qr) {
-              console.log('✅✅ QR CODE OBTIDO internamente!');
-              setQrCode(qrResponse.data.qr);
-            } else {
-              console.log('📭📭 QR CODE NÃO DISPONÍVEL internamente');
-              setQrCode(null);
-            }
-          } catch (error: any) {
-            console.error('💥💥💥 ERRO no fetchQRCode interno:', error);
-            setQrCode(null);
-          }
-        } else if (response.data.isReady) {
-          console.log('✅✅ WHATSAPP CONECTADO! Limpando QR...');
-          console.log('🎯 isReady=' + response.data.isReady);
-          setQrCode(null);
-        } else {
-          console.log('⚠️ Estado intermediário:', {
-            hasQR: response.data.hasQR,
-            isReady: response.data.isReady,
-            isConnecting: response.data.isConnecting
-          });
-        }
+        // Se conectado, carrega as mensagens
+        loadChats();
+        loadContacts();
+        loadAutoMessages();
       } else {
-        console.error('❌❌❌ RESPOSTA INVÁLIDA DA API!');
-        console.error('🔴 Success:', response.success);
-        console.error('🔴 Data:', response.data);
-        console.error('🔴 Error:', response.error);
-        console.error('🔴 Response completa:', JSON.stringify(response, null, 2));
+        console.log('❌ WhatsApp NÃO conectado');
+        setIsWhatsAppConnected(false);
+        setIsLoadingStatus(false);
       }
-    } catch (error: any) {
-      console.error('💥💥💥 ERRO CRÍTICO NO checkStatus()!');
-      console.error('🔴 Erro:', error);
-      console.error('🔴 Stack:', error?.stack);
-      console.error('🔴 Message:', error?.message);
+    } catch (error) {
+      console.error('❌ Erro ao verificar WhatsApp:', error);
+      setIsWhatsAppConnected(false);
+      setIsLoadingStatus(false);
     }
-
-    console.log('🏁🏁🏁 FINALIZANDO checkStatus() 🏁🏁🏁');
-  }, []); // Remover dependências que causam problemas de closure
+  }, []);
 
   const loadChats = useCallback(async () => {
     try {
@@ -717,145 +573,21 @@ export default function WhatsAppPage() {
     }
   };
 
-  // SSE para atualizações em tempo real
+  // useEffect SIMPLES: SÓ VERIFICA CONEXÃO
   useEffect(() => {
-    if (!status?.isReady) return;
+    console.log('🚀 Verificando conexão WhatsApp...');
 
-    console.log('📡 Conectando SSE para atualizações...');
-    // Por enquanto usar 'default' para SSE, será atualizado para organizationId depois
-    const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/default/events`);
+    // Verifica conexão inicial
+    checkWhatsAppConnection();
 
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('📡📡📡 SSE UPDATE RECEBIDO! 📡📡📡');
-        console.log('⏰ Timestamp SSE:', new Date().toISOString());
-        console.log('🎯 Tipo:', data.type);
-        console.log('📊 Data recebida:', data.data);
-        console.log('📊 Estado atual antes do SSE:', {
-          isReady: status?.isReady,
-          isConnecting: status?.isConnecting,
-          hasQR: status?.hasQR
-        });
+    // Verifica a cada 30 segundos
+    const interval = setInterval(checkWhatsAppConnection, 30000);
 
-        switch (data.type) {
-          case 'status':
-            console.log('🔄 SSE tentando atualizar status...');
-            console.log('📊 Novo status do SSE:', data.data);
-
-            // Só atualizar se os dados realmente mudaram
-            if (status &&
-                status.isReady === data.data.isReady &&
-                status.isConnecting === data.data.isConnecting &&
-                status.hasQR === data.data.hasQR) {
-              console.log('⚠️ SSE: Status igual, ignorando atualização');
-              break;
-            }
-
-            console.log('🔄 SSE: Atualizando status com dados diferentes');
-            setStatus(data.data);
-            break;
-
-          case 'new_message':
-            console.log('📲 Nova mensagem recebida via SSE');
-
-            // Sempre atualizar lista de chats
-            loadChats();
-
-            // Se estamos na conversa ativa, atualizar mensagens apenas se for dessa conversa
-            if (selectedChat && data.data) {
-              const messageFrom = data.data.isFromMe ? data.data.to : data.data.from;
-              console.log(`🔍 Verificando mensagem: ${messageFrom} vs ${selectedChat.id}`);
-
-              if (messageFrom === selectedChat.id) {
-                console.log('🔄 Atualizando mensagens do chat ativo');
-                loadChatMessages(selectedChat.id);
-              }
-            }
-            break;
-
-          case 'chats_updated':
-            loadChats();
-            break;
-
-          case 'chat_updated':
-            console.log('🔄 Chat atualizado via SSE:', data.data);
-            // Se é o chat atual, recarregar mensagens
-            if (selectedChat && data.data?.chatId === selectedChat.id) {
-              loadChatMessages(selectedChat.id);
-            }
-            break;
-
-          case 'contacts_updated':
-            loadContacts();
-            break;
-        }
-      } catch (error) {
-        console.error('❌ Erro ao processar SSE:', error);
-      }
-    };
-
-    eventSource.onerror = (error) => {
-      console.error('❌ Erro na conexão SSE:', error);
-    };
-
-    return () => {
-      console.log('🔌 Desconectando SSE');
-      eventSource.close();
-    };
-  }, [status?.isReady, selectedChat, loadChats, loadContacts, loadChatMessages]);
-
-  useEffect(() => {
-    console.log('🚀🚀🚀 USEEFFECT PRINCIPAL - INICIANDO! 🚀🚀🚀');
-    console.log('⏰ Timestamp:', new Date().toISOString());
-    console.log('🔄 Chamando checkStatus() inicial...');
-
-    checkStatus();
-
-    console.log('⏱️ Configurando interval de 10 segundos...');
-    const interval = setInterval(() => {
-      console.log('⏰⏰ INTERVAL TRIGGERED! Chamando checkStatus() automático...');
-      checkStatus();
-    }, 10000);
-
-    console.log('✅ UseEffect principal configurado! Interval ID:', interval);
-
-    return () => {
-      console.log('🧹🧹 LIMPANDO UseEffect principal - clearInterval');
-      clearInterval(interval);
-    };
-  }, [checkStatus]);
-
-  useEffect(() => {
-    console.log('🔧🔧🔧 USEEFFECT SECUNDÁRIO - STATUS MUDOU! 🔧🔧🔧');
-    console.log('⏰ Timestamp:', new Date().toISOString());
-    console.log('📊 Status atual:', {
-      isReady: status?.isReady,
-      isConnecting: status?.isConnecting,
-      hasQR: status?.hasQR,
-      status_completo: status
-    });
-
-    if (status?.isReady) {
-      console.log('✅✅ STATUS READY! Carregando dados...');
-      console.log('📱 Chamando loadChats()...');
-      loadChats();
-      console.log('👥 Chamando loadContacts()...');
-      loadContacts();
-      console.log('🤖 Chamando loadAutoMessages()...');
-      loadAutoMessages();
-    } else {
-      console.log('⚠️⚠️ STATUS NOT READY! Não carregando dados. Estado:', {
-        isReady: status?.isReady,
-        isConnecting: status?.isConnecting
-      });
-    }
-
-    console.log('⚙️ Chamando loadSettings() sempre...');
+    // Carrega configurações sempre
     loadSettings();
 
-    console.log('🏁 UseEffect secundário finalizado!');
-  }, [status?.isReady, loadChats, loadContacts, loadAutoMessages, loadSettings]);
+    return () => clearInterval(interval);
+  }, [checkWhatsAppConnection, loadSettings]);
 
   useEffect(() => {
     if (selectedChat) {
@@ -868,138 +600,93 @@ export default function WhatsAppPage() {
       title="WhatsApp Business"
       subtitle="Sistema de mensagens profissional integrado"
     >
-      {/* Actions */}
-      {status?.isReady && (
-        <div className="flex items-center gap-4 mb-6">
-          <button
-            onClick={() => setShowAutoMessageModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
-          >
-            <Clock className="w-4 h-4" />
-            Mensagens Automáticas
-          </button>
-          <button
-            onClick={() => setShowSettingsModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-xl font-medium transition-colors"
-          >
-            <Settings className="w-4 h-4" />
-            Configurações
-          </button>
-          <div className="hidden lg:flex items-center gap-2 bg-green-50 px-3 py-2 rounded-xl border border-green-200">
-            <div className="w-2 h-2 bg-[#059669] rounded-full animate-pulse" />
-            <span className="text-sm font-medium text-[#059669]">Online</span>
-          </div>
-        </div>
-      )}
-      {/* Métricas de Status */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <MetricCard
-          title="Status da Conexão"
-          value={status?.isReady ? "Conectado" : "Desconectado"}
-          change={0}
-          icon={status?.isReady ? Wifi : WifiOff}
-          iconColor={status?.isReady ? "green" : "orange"}
-        />
-        <MetricCard
-          title="Contatos"
-          value={status?.contactsCount?.toString() || "0"}
-          change={0}
-          icon={Users}
-          iconColor="blue"
-        />
-        <MetricCard
-          title="Mensagens"
-          value={status?.messagesCount?.toString() || "0"}
-          change={0}
-          icon={MessageCircle}
-          iconColor="purple"
-        />
-        <MetricCard
-          title="Conversas Ativas"
-          value={filteredChats.length.toString()}
-          change={0}
-          icon={MessageCircle}
-          iconColor="orange"
-        />
-      </div>
-
-      {/* Estado Conectando */}
-      {!status?.isReady && status?.isConnecting && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 mb-6">
+      {/* LOADING STATE */}
+      {isLoadingStatus && (
+        <div className="flex items-center justify-center py-12">
           <div className="flex items-center gap-3">
             <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <div className="flex-1">
-              <p className="font-semibold text-blue-800">Conectando WhatsApp...</p>
-              <p className="text-sm text-blue-700">
-                {qrCode ? 'QR Code disponível - escaneie para conectar' : 'Iniciando processo de conexão'}
+            <span>Verificando conexão WhatsApp...</span>
+          </div>
+        </div>
+      )}
+
+      {/* NOT CONNECTED - BOTÃO PARA CONECTAR */}
+      {!isLoadingStatus && !isWhatsAppConnected && (
+        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-2xl p-8 mb-6 text-center">
+          <div className="flex flex-col items-center gap-4">
+            <WifiOff className="w-12 h-12 text-orange-500" />
+            <div>
+              <p className="font-semibold text-orange-800 text-lg">WhatsApp não conectado</p>
+              <p className="text-sm text-orange-700">
+                Conecte seu WhatsApp Business para começar a enviar mensagens
               </p>
             </div>
-          </div>
-          {qrCode && (
-            <div className="flex flex-col items-center gap-4 p-4 bg-white rounded-xl border border-blue-200 mt-4">
-              <div className="bg-white p-4 rounded-xl shadow-sm">
-                <img
-                  src={`data:image/png;base64,${qrCode}`}
-                  alt="QR Code WhatsApp"
-                  className="w-48 h-48"
-                />
-              </div>
-              <div className="text-center">
-                <p className="font-medium text-blue-800">Escaneie com seu WhatsApp</p>
-                <p className="text-sm text-blue-600 mt-1">
-                  Abra o WhatsApp → Menu (3 pontos) → Dispositivos conectados → Conectar dispositivo
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Alerta de Conexão */}
-      {!status?.isReady && !status?.isConnecting && (
-        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-2xl p-4 mb-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <WifiOff className="w-5 h-5 text-orange-500" />
-              <div className="flex-1">
-                <p className="font-semibold text-orange-800">WhatsApp não conectado</p>
-                <p className="text-sm text-orange-700">
-                  {status?.hasQR ? 'Escaneie o QR code com seu WhatsApp' : 'Conecte seu WhatsApp Business para começar a enviar mensagens'}
-                </p>
-              </div>
-              {!qrCode && (
-                <Link href={`/whatsapp/connect?userId=default`}>
-                  <button className="flex items-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors">
-                    <QrCode className="w-4 h-4" />
-                    Conectar WhatsApp
-                  </button>
-                </Link>
-              )}
-            </div>
-
-            {/* QR Code Display */}
-            {qrCode && (
-              <div className="flex flex-col items-center gap-4 p-4 bg-white rounded-xl border border-orange-200">
-                <div className="bg-white p-4 rounded-xl shadow-sm">
-                  <img
-                    src={`data:image/png;base64,${qrCode}`}
-                    alt="QR Code WhatsApp"
-                    className="w-48 h-48"
-                  />
-                </div>
-                <div className="text-center">
-                  <p className="font-medium text-orange-800">Escaneie com seu WhatsApp</p>
-                  <p className="text-sm text-orange-600 mt-1">
-                    Abra o WhatsApp → Menu (3 pontos) → Dispositivos conectados → Conectar dispositivo
-                  </p>
-                </div>
-              </div>
-            )}
+            <Link href="/whatsapp/connect?userId=default">
+              <button className="flex items-center gap-2 px-6 py-3 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors">
+                <QrCode className="w-5 h-5" />
+                Conectar WhatsApp
+              </button>
+            </Link>
           </div>
         </div>
       )}
 
-      {status?.isReady && (
+      {/* CONNECTED - INTERFACE COMPLETA */}
+      {!isLoadingStatus && isWhatsAppConnected && (
+        <>
+          {/* Actions */}
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={() => setShowAutoMessageModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+            >
+              <Clock className="w-4 h-4" />
+              Mensagens Automáticas
+            </button>
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-xl font-medium transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              Configurações
+            </button>
+            <div className="hidden lg:flex items-center gap-2 bg-green-50 px-3 py-2 rounded-xl border border-green-200">
+              <div className="w-2 h-2 bg-[#059669] rounded-full animate-pulse" />
+              <span className="text-sm font-medium text-[#059669]">WhatsApp Online</span>
+            </div>
+          </div>
+
+          {/* Métricas */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <MetricCard
+              title="Status da Conexão"
+              value="Conectado"
+              change={0}
+              icon={Wifi}
+              iconColor="green"
+            />
+            <MetricCard
+              title="Contatos"
+              value={contacts.length.toString()}
+              change={0}
+              icon={Users}
+              iconColor="blue"
+            />
+            <MetricCard
+              title="Conversas"
+              value={chats.length.toString()}
+              change={0}
+              icon={MessageCircle}
+              iconColor="purple"
+            />
+            <MetricCard
+              title="Conversas Ativas"
+              value={filteredChats.length.toString()}
+              change={0}
+              icon={MessageCircle}
+              iconColor="orange"
+            />
+          </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Lista de Chats */}
             <Card className="bg-white shadow-xl border-0 overflow-hidden">
@@ -1292,6 +979,7 @@ export default function WhatsAppPage() {
             </CardContent>
           </Card>
         </div>
+        </>
       )}
 
       {/* Modal de Mensagens Automáticas */}
