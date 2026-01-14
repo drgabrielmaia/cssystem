@@ -104,12 +104,9 @@ export default function WhatsAppPage() {
     try {
       console.log('🔄🔄🔄 INICIANDO checkStatus() 🔄🔄🔄');
       console.log('⏰ Timestamp:', new Date().toISOString());
-      console.log('📍 Estado atual antes da chamada:', {
-        status_isReady: status?.isReady,
-        status_isConnecting: status?.isConnecting,
-        status_hasQR: status?.hasQR,
-        qrCode_presente: !!qrCode
-      });
+
+      // Usar uma ref para pegar o estado mais atual, não o do closure
+      console.log('📍 Estado atual antes da chamada via useState atual');
 
       console.log('🌐 Fazendo chamada para whatsappCoreAPI.getStatus()...');
       const response = await whatsappCoreAPI.getStatus();
@@ -173,7 +170,23 @@ export default function WhatsAppPage() {
         if (response.data.hasQR && !response.data.isReady) {
           console.log('📱📱 TEM QR CODE! Buscando QR...');
           console.log('🎯 Condições: hasQR=' + response.data.hasQR + ', isReady=' + response.data.isReady);
-          await fetchQRCode();
+
+          // Chamar fetchQRCode diretamente para evitar problema de dependência
+          try {
+            console.log('📱📱📱 INICIANDO fetchQRCode() INTERNO 📱📱📱');
+            const qrResponse = await whatsappCoreAPI.getQRCode();
+
+            if (qrResponse.success && qrResponse.data?.qr) {
+              console.log('✅✅ QR CODE OBTIDO internamente!');
+              setQrCode(qrResponse.data.qr);
+            } else {
+              console.log('📭📭 QR CODE NÃO DISPONÍVEL internamente');
+              setQrCode(null);
+            }
+          } catch (error: any) {
+            console.error('💥💥💥 ERRO no fetchQRCode interno:', error);
+            setQrCode(null);
+          }
         } else if (response.data.isReady) {
           console.log('✅✅ WHATSAPP CONECTADO! Limpando QR...');
           console.log('🎯 isReady=' + response.data.isReady);
@@ -200,7 +213,7 @@ export default function WhatsAppPage() {
     }
 
     console.log('🏁🏁🏁 FINALIZANDO checkStatus() 🏁🏁🏁');
-  }, [fetchQRCode]);
+  }, []); // Remover dependências que causam problemas de closure
 
   const loadChats = useCallback(async () => {
     try {
