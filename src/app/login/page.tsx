@@ -27,6 +27,10 @@ export default function LoginPage() {
         if (password === 'admin') {
           // Login customizado para admin
           document.cookie = 'admin_auth=true; path=/; max-age=86400' // 24 horas
+
+          // Disparar evento customizado para notificar o contexto de auth
+          window.dispatchEvent(new CustomEvent('adminLoginSuccess'))
+
           router.push('/lista-mentorados')
           return
         } else {
