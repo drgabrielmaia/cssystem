@@ -41,9 +41,6 @@ interface RankingMentorado {
   mentorado_id: string
   nome_completo: string
   total_indicacoes: number
-  indicacoes_vendidas: number
-  total_comissoes: number
-  valor_medio_comissao: number
 }
 
 export default function NetflixStyleVideosPage() {
@@ -268,15 +265,12 @@ export default function NetflixStyleVideosPage() {
         return
       }
 
-      // Then get ranking data from the view
+      // Then get ranking data from the view (only indicações count)
       const { data: viewData, error: viewError } = await supabase
         .from('view_dashboard_comissoes_mentorado')
         .select(`
           mentorado_id,
-          total_indicacoes,
-          indicacoes_vendidas,
-          total_comissoes,
-          valor_medio_comissao
+          total_indicacoes
         `)
 
       if (viewError) {
@@ -291,10 +285,7 @@ export default function NetflixStyleVideosPage() {
         return {
           mentorado_id: mentoradoItem.id,
           nome_completo: mentoradoItem.nome_completo,
-          total_indicacoes: rankingData?.total_indicacoes || 0,
-          indicacoes_vendidas: rankingData?.indicacoes_vendidas || 0,
-          total_comissoes: rankingData?.total_comissoes || 0,
-          valor_medio_comissao: rankingData?.valor_medio_comissao || 0
+          total_indicacoes: rankingData?.total_indicacoes || 0
         }
       }).sort((a, b) => b.total_indicacoes - a.total_indicacoes) || []
 
@@ -867,16 +858,6 @@ export default function NetflixStyleVideosPage() {
                     <span>Indicações:</span>
                     <span className="font-bold">{mentorado.total_indicacoes}</span>
                   </div>
-                  <div className="flex justify-between text-white/90">
-                    <span>Vendidas:</span>
-                    <span className="font-bold text-green-300">{mentorado.indicacoes_vendidas}</span>
-                  </div>
-                  <div className="flex justify-between text-white/90">
-                    <span>Comissões:</span>
-                    <span className="font-bold text-green-300">
-                      R$ {(mentorado.total_comissoes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
                 </div>
 
                 {/* Prêmio */}
@@ -913,15 +894,15 @@ export default function NetflixStyleVideosPage() {
                       <div>
                         <div className="text-white font-medium">{mentorado.nome_completo}</div>
                         <div className="text-sm text-gray-400">
-                          {mentorado.total_indicacoes} indicações • {mentorado.indicacoes_vendidas} vendas
+                          {mentorado.total_indicacoes} indicações
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-green-400 font-semibold">
-                        R$ {(mentorado.total_comissoes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      <div className="text-green-400 font-semibold text-lg">
+                        #{index + 4}
                       </div>
-                      <div className="text-xs text-gray-400">em comissões</div>
+                      <div className="text-xs text-gray-400">posição</div>
                     </div>
                   </div>
                 ))}

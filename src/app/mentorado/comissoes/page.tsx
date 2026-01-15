@@ -34,9 +34,6 @@ interface RankingMentorado {
   mentorado_id: string
   nome_completo: string
   total_indicacoes: number
-  indicacoes_vendidas: number
-  total_comissoes: number
-  valor_medio_comissao: number
 }
 
 export default function MentoradoComissoesPage() {
@@ -105,10 +102,7 @@ export default function MentoradoComissoesPage() {
         .from('view_dashboard_comissoes_mentorado')
         .select(`
           mentorado_id,
-          total_indicacoes,
-          indicacoes_vendidas,
-          total_comissoes,
-          valor_medio_comissao
+          total_indicacoes
         `)
 
       if (viewError) {
@@ -123,10 +117,7 @@ export default function MentoradoComissoesPage() {
         return {
           mentorado_id: mentorado.id,
           nome_completo: mentorado.nome_completo,
-          total_indicacoes: rankingData?.total_indicacoes || 0,
-          indicacoes_vendidas: rankingData?.indicacoes_vendidas || 0,
-          total_comissoes: rankingData?.total_comissoes || 0,
-          valor_medio_comissao: rankingData?.valor_medio_comissao || 0
+          total_indicacoes: rankingData?.total_indicacoes || 0
         }
       }).sort((a, b) => b.total_indicacoes - a.total_indicacoes) || []
 
@@ -258,6 +249,131 @@ export default function MentoradoComissoesPage() {
             </div>
           </div>
         </section>
+
+        {/* Seção Competitiva - Status do Mentorado */}
+        {mentorado && ranking.length > 0 && (() => {
+          const mentoradoIndex = ranking.findIndex(r => r.mentorado_id === mentorado?.id)
+          const currentPosition = mentoradoIndex + 1
+          const mentoradoData = ranking[mentoradoIndex]
+          const nextPosition = ranking[mentoradoIndex - 1]
+          const indicacoesParaSubir = nextPosition ? (nextPosition.total_indicacoes - mentoradoData.total_indicacoes + 1) : 0
+
+          return (
+            <section className="mb-8">
+              <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-400/30 rounded-lg p-6">
+                <div className="flex items-center space-x-4 mb-6">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                    currentPosition === 1 ? 'bg-yellow-400 text-black' :
+                    currentPosition === 2 ? 'bg-gray-400 text-black' :
+                    currentPosition === 3 ? 'bg-amber-500 text-white' :
+                    'bg-gray-600 text-white'
+                  }`}>
+                    {currentPosition === 1 ? (
+                      <Trophy className="w-8 h-8" />
+                    ) : currentPosition === 2 ? (
+                      <Medal className="w-8 h-8" />
+                    ) : currentPosition === 3 ? (
+                      <Award className="w-8 h-8" />
+                    ) : (
+                      <span className="text-2xl font-bold">#{currentPosition}</span>
+                    )}
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-white mb-1">
+                      {currentPosition === 1 ? '🏆 Você é o CAMPEÃO!' :
+                       currentPosition <= 3 ? `🏅 Você está em ${currentPosition}º lugar!` :
+                       `Você está em ${currentPosition}º lugar`}
+                    </h2>
+                    <p className="text-gray-400">
+                      {mentoradoData.total_indicacoes} indicação{mentoradoData.total_indicacoes !== 1 ? 'ões' : ''} feita{mentoradoData.total_indicacoes !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Status Atual */}
+                  <div className="bg-[#1A1A1A] rounded-lg p-4">
+                    <h3 className="text-white font-semibold mb-2 flex items-center">
+                      <Star className="w-5 h-5 mr-2 text-blue-400" />
+                      Sua Posição
+                    </h3>
+                    <div className="text-3xl font-bold text-white mb-1">#{currentPosition}</div>
+                    <div className="text-sm text-gray-400">de {ranking.length} competidores</div>
+                  </div>
+
+                  {/* Para Subir de Posição */}
+                  {nextPosition && (
+                    <div className="bg-[#1A1A1A] rounded-lg p-4">
+                      <h3 className="text-white font-semibold mb-2 flex items-center">
+                        <Trophy className="w-5 h-5 mr-2 text-yellow-400" />
+                        Para Subir
+                      </h3>
+                      <div className="text-3xl font-bold text-yellow-400 mb-1">+{indicacoesParaSubir}</div>
+                      <div className="text-sm text-gray-400">
+                        indicações para passar {nextPosition.nome_completo}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quem Está Acima */}
+                  {nextPosition && (
+                    <div className="bg-[#1A1A1A] rounded-lg p-4">
+                      <h3 className="text-white font-semibold mb-2 flex items-center">
+                        <Medal className="w-5 h-5 mr-2 text-orange-400" />
+                        Quem Está Acima
+                      </h3>
+                      <div className="text-lg font-bold text-white mb-1">
+                        {nextPosition.nome_completo}
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        {nextPosition.total_indicacoes} indicações
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Se for o primeiro lugar */}
+                  {currentPosition === 1 && (
+                    <div className="bg-[#1A1A1A] rounded-lg p-4">
+                      <h3 className="text-white font-semibold mb-2 flex items-center">
+                        <Trophy className="w-5 h-5 mr-2 text-yellow-400" />
+                        Prêmio do Campeão
+                      </h3>
+                      <div className="text-lg font-bold text-yellow-400 mb-1">
+                        🏆 VOCÊ GANHA!
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        Bolsa de luxo OU Relógio de luxo
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Barra de Progresso Motivacional */}
+                {nextPosition && (
+                  <div className="mt-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-white font-medium">Progresso para subir de posição</span>
+                      <span className="text-gray-400 text-sm">
+                        {mentoradoData.total_indicacoes} / {nextPosition.total_indicacoes + 1}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-3">
+                      <div
+                        className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${Math.min(100, (mentoradoData.total_indicacoes / (nextPosition.total_indicacoes + 1)) * 100)}%`
+                        }}
+                      />
+                    </div>
+                    <p className="text-gray-400 text-sm mt-2">
+                      Faltam apenas <span className="text-yellow-400 font-bold">{indicacoesParaSubir}</span> indicações para você subir!
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
+          )
+        })()}
 
         {/* Filters */}
         <section>

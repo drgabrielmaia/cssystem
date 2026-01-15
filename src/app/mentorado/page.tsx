@@ -23,9 +23,6 @@ interface RankingMentorado {
   mentorado_id: string
   nome_completo: string
   total_indicacoes: number
-  indicacoes_vendidas: number
-  total_comissoes: number
-  valor_medio_comissao: number
 }
 
 
@@ -90,10 +87,7 @@ function MentoradoPageContent() {
         .from('view_dashboard_comissoes_mentorado')
         .select(`
           mentorado_id,
-          total_indicacoes,
-          indicacoes_vendidas,
-          total_comissoes,
-          valor_medio_comissao
+          total_indicacoes
         `)
 
       if (viewError) {
@@ -106,10 +100,7 @@ function MentoradoPageContent() {
         return {
           mentorado_id: mentoradoItem.id,
           nome_completo: mentoradoItem.nome_completo,
-          total_indicacoes: rankingData?.total_indicacoes || 0,
-          indicacoes_vendidas: rankingData?.indicacoes_vendidas || 0,
-          total_comissoes: rankingData?.total_comissoes || 0,
-          valor_medio_comissao: rankingData?.valor_medio_comissao || 0
+          total_indicacoes: rankingData?.total_indicacoes || 0
         }
       }).sort((a, b) => b.total_indicacoes - a.total_indicacoes) || []
 
