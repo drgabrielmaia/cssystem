@@ -176,6 +176,38 @@ export default function AdminComissoesPage() {
     }
   }
 
+  const corrigirComissoesZeradas = async () => {
+    try {
+      if (!confirm(`Corrigir ${stats.comissoesZeradas} comissões zeradas para R$ 2.000,00 cada?`)) {
+        return
+      }
+
+      setLoading(true)
+
+      const response = await fetch('/api/admin/fix-commissions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        alert(`✅ ${result.corrigidas || 0} comissões corrigidas com sucesso!`)
+        carregarComissoes()
+      } else {
+        throw new Error(result.error || 'Erro na correção')
+      }
+
+    } catch (error: any) {
+      console.error('❌ Erro ao corrigir comissões:', error)
+      alert(`❌ Erro: ${error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const getStatusBadge = (status?: string) => {
     switch (status) {
       case 'pago':
@@ -220,7 +252,8 @@ export default function AdminComissoesPage() {
     pagas: comissoes.filter(c => c.status === 'pago').length,
     recusadas: comissoes.filter(c => c.status === 'recusado').length,
     totalValor: comissoes.reduce((acc, c) => acc + (c.valor_comissao || 0), 0),
-    valorPendente: comissoes.filter(c => (c.status || 'pendente') === 'pendente').reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
+    valorPendente: comissoes.filter(c => (c.status || 'pendente') === 'pendente').reduce((acc, c) => acc + (c.valor_comissao || 0), 0),
+    comissoesZeradas: comissoes.filter(c => (c.status || 'pendente') === 'pendente' && (c.valor_comissao || 0) === 0).length
   }
 
   return (
@@ -285,6 +318,34 @@ export default function AdminComissoesPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Alerta para comissões zeradas */}
+          {stats.comissoesZeradas > 0 && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <AlertCircle className="w-6 h-6 text-red-500" />
+                    <div>
+                      <p className="font-semibold text-red-700">
+                        ⚠️ {stats.comissoesZeradas} comissões com valor zerado encontradas
+                      </p>
+                      <p className="text-sm text-red-600">
+                        Estas comissões deveriam ter R$ 2.000,00 cada. Total perdido: R$ {(stats.comissoesZeradas * 2000).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={corrigirComissoesZeradas}
+                    className="bg-red-500 hover:bg-red-600 text-white"
+                    disabled={loading}
+                  >
+                    {loading ? 'Corrigindo...' : 'Corrigir Agora'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Filters */}
@@ -351,7 +412,14 @@ export default function AdminComissoesPage() {
                   </thead>
                   <tbody>
                     {filteredComissoes.map((comissao) => (
-                      <tr key={comissao.id} className="border-b hover:bg-gray-50">
+                      <tr
+                        key={comissao.id}
+                        className={`border-b transition-colors ${
+                          (comissao.valor_comissao || 0) === 0 && (comissao.status || 'pendente') === 'pendente'
+                            ? 'bg-red-50 hover:bg-red-100 border-red-200'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
                         <td className="py-3 px-4">
                           <div>
                             <p className="font-medium text-gray-900">{comissao.mentorado_nome}</p>
@@ -365,9 +433,20 @@ export default function AdminComissoesPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <p className="font-bold text-green-600">
-                            {formatCurrency(comissao.valor_comissao || 0)}
-                          </p>
+                          <div className="flex items-center space-x-2">
+                            <p className={`font-bold ${
+                              (comissao.valor_comissao || 0) === 0 && (comissao.status || 'pendente') === 'pendente'
+                                ? 'text-red-600'
+                                : 'text-green-600'
+                            }`}>
+                              {formatCurrency(comissao.valor_comissao || 0)}
+                            </p>
+                            {(comissao.valor_comissao || 0) === 0 && (comissao.status || 'pendente') === 'pendente' && (
+                              <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
+                                ZERADA
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-4">
                           <p className="text-gray-900">

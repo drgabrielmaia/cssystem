@@ -22,9 +22,10 @@ import {
 interface Comissao {
   id: string
   mentorado_id: string
-  valor: number
+  valor_comissao: number
+  valor_venda?: number
   data_venda: string
-  status: 'pendente' | 'pago' | 'cancelado'
+  status_pagamento: 'pendente' | 'pago' | 'cancelado'
   observacoes?: string
   lead_nome?: string
   created_at: string
@@ -130,16 +131,16 @@ export default function MentoradoComissoesPage() {
   }
 
   const getStats = () => {
-    const totalComissoes = comissoes.reduce((acc, c) => acc + (c.valor || 0), 0)
-    const comissoesPagas = comissoes.filter(c => c.status === 'pago').reduce((acc, c) => acc + (c.valor || 0), 0)
-    const comissoesPendentes = comissoes.filter(c => c.status === 'pendente').reduce((acc, c) => acc + (c.valor || 0), 0)
+    const totalComissoes = comissoes.reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
+    const comissoesPagas = comissoes.filter(c => c.status_pagamento === 'pago').reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
+    const comissoesPendentes = comissoes.filter(c => c.status_pagamento === 'pendente').reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
     const totalVendas = comissoes.length
 
     const mesAtual = comissoes.filter(c => {
       const dataVenda = new Date(c.data_venda)
       return dataVenda.getMonth() === new Date().getMonth() && dataVenda.getFullYear() === new Date().getFullYear()
     })
-    const comissoesMesAtual = mesAtual.reduce((acc, c) => acc + (c.valor || 0), 0)
+    const comissoesMesAtual = mesAtual.reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
 
     return {
       totalComissoes,
@@ -152,7 +153,7 @@ export default function MentoradoComissoesPage() {
   }
 
   const filteredComissoes = comissoes.filter(comissao => {
-    const matchStatus = filterStatus === 'todos' || comissao.status === filterStatus
+    const matchStatus = filterStatus === 'todos' || comissao.status_pagamento === filterStatus
     const matchSearch = searchTerm === '' ||
       comissao.lead_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       comissao.observacoes?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -421,12 +422,19 @@ export default function MentoradoComissoesPage() {
           ) : (
             <div className="space-y-4">
               {filteredComissoes.map((comissao) => (
-                <div key={comissao.id} className="bg-[#1A1A1A] rounded-[8px] p-6 hover:bg-[#2A2A2A] transition-colors">
+                <div
+                  key={comissao.id}
+                  className={`rounded-[8px] p-6 transition-colors ${
+                    (comissao.valor_comissao || 0) === 0 && comissao.status_pagamento === 'pendente'
+                      ? 'bg-red-900/20 border border-red-500/30 hover:bg-red-900/30'
+                      : 'bg-[#1A1A1A] hover:bg-[#2A2A2A]'
+                  }`}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div className={`w-12 h-12 rounded-[8px] flex items-center justify-center ${
-                        comissao.status === 'pago' ? 'bg-[#22C55E]' :
-                        comissao.status === 'pendente' ? 'bg-[#E879F9]' :
+                        comissao.status_pagamento === 'pago' ? 'bg-[#22C55E]' :
+                        comissao.status_pagamento === 'pendente' ? 'bg-[#E879F9]' :
                         'bg-[#6B7280]'
                       }`}>
                         <DollarSign className="w-6 h-6 text-white" />
@@ -437,11 +445,11 @@ export default function MentoradoComissoesPage() {
                             {comissao.lead_nome || 'Cliente não informado'}
                           </h4>
                           <span className={`px-3 py-1 text-[12px] font-medium rounded-[4px] ${
-                            comissao.status === 'pago' ? 'bg-[#22C55E] bg-opacity-20 text-[#22C55E]' :
-                            comissao.status === 'pendente' ? 'bg-[#E879F9] bg-opacity-20 text-[#E879F9]' :
+                            comissao.status_pagamento === 'pago' ? 'bg-[#22C55E] bg-opacity-20 text-[#22C55E]' :
+                            comissao.status_pagamento === 'pendente' ? 'bg-[#E879F9] bg-opacity-20 text-[#E879F9]' :
                             'bg-[#6B7280] bg-opacity-20 text-[#6B7280]'
                           }`}>
-                            {getStatusText(comissao.status)}
+                            {getStatusText(comissao.status_pagamento)}
                           </span>
                         </div>
                         <p className="text-[13px] text-gray-400">
@@ -453,6 +461,18 @@ export default function MentoradoComissoesPage() {
                       </div>
                     </div>
                     <div className="text-right">
+                      <div className={`text-2xl font-bold mb-1 ${
+                        (comissao.valor_comissao || 0) === 0 && comissao.status_pagamento === 'pendente'
+                          ? 'text-red-400'
+                          : 'text-green-400'
+                      }`}>
+                        {formatCurrency(comissao.valor_comissao || 0)}
+                        {(comissao.valor_comissao || 0) === 0 && comissao.status_pagamento === 'pendente' && (
+                          <span className="block text-xs text-red-300 font-normal">
+                            ⚠️ Valor incorreto
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[12px] text-gray-400">
                         Criado: {formatDate(comissao.created_at)}
                       </p>
