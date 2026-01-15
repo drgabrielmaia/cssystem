@@ -126,22 +126,23 @@ export default function MentoradoComissoesPage() {
 
       setRanking(rankingFormatted)
       console.log('✅ Ranking carregado:', rankingFormatted.length, 'mentorados')
+      console.log('📊 Primeiros 3 do ranking:', rankingFormatted.slice(0, 3))
     } catch (error) {
       console.error('❌ Erro ao carregar ranking:', error)
     }
   }
 
   const getStats = () => {
-    const totalComissoes = comissoes.reduce((acc, c) => acc + c.valor, 0)
-    const comissoesPagas = comissoes.filter(c => c.status === 'pago').reduce((acc, c) => acc + c.valor, 0)
-    const comissoesPendentes = comissoes.filter(c => c.status === 'pendente').reduce((acc, c) => acc + c.valor, 0)
+    const totalComissoes = comissoes.reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
+    const comissoesPagas = comissoes.filter(c => c.status === 'pago').reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
+    const comissoesPendentes = comissoes.filter(c => c.status === 'pendente').reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
     const totalVendas = comissoes.length
 
     const mesAtual = comissoes.filter(c => {
       const dataVenda = new Date(c.data_venda)
       return dataVenda.getMonth() === new Date().getMonth() && dataVenda.getFullYear() === new Date().getFullYear()
     })
-    const comissoesMesAtual = mesAtual.reduce((acc, c) => acc + c.valor, 0)
+    const comissoesMesAtual = mesAtual.reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
 
     return {
       totalComissoes,
@@ -212,7 +213,7 @@ export default function MentoradoComissoesPage() {
               Acompanhe suas vendas e ganhos
             </p>
             <div className="text-gray-300 text-sm">
-              {stats.totalVendas} vendas realizadas • {formatCurrency(stats.totalComissoes)} em comissões
+              {stats.totalVendas} vendas realizadas
             </div>
           </div>
         </div>
@@ -355,7 +356,7 @@ export default function MentoradoComissoesPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-[18px] font-bold text-white">
-                        {formatCurrency(comissao.valor)}
+                        {formatCurrency(comissao.valor_comissao || 0)}
                       </p>
                       <p className="text-[12px] text-gray-400">
                         Criado: {formatDate(comissao.created_at)}
@@ -404,9 +405,16 @@ export default function MentoradoComissoesPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              {/* Top 3 - Pódio */}
-              {ranking.slice(0, 3).map((mentorado, index) => (
+            {ranking.length === 0 ? (
+              <div className="bg-[#1A1A1A] rounded-lg p-8 text-center">
+                <Trophy className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                <p className="text-gray-400 text-lg">Carregando ranking...</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                  {/* Top 3 - Pódio */}
+                  {ranking.slice(0, 3).map((mentorado, index) => (
                 <div
                   key={mentorado.mentorado_id}
                   className={`relative p-6 rounded-lg text-center transform transition-all hover:scale-105 ${
@@ -447,12 +455,6 @@ export default function MentoradoComissoesPage() {
                     <div className="flex justify-between text-white/90">
                       <span>Vendidas:</span>
                       <span className="font-bold text-green-300">{mentorado.indicacoes_vendidas}</span>
-                    </div>
-                    <div className="flex justify-between text-white/90">
-                      <span>Comissões:</span>
-                      <span className="font-bold text-green-300">
-                        R$ {(mentorado.total_comissoes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
                     </div>
                   </div>
 
@@ -496,17 +498,12 @@ export default function MentoradoComissoesPage() {
                           <p className="text-gray-400">Vendidas</p>
                           <p className="text-green-300 font-bold">{mentorado.indicacoes_vendidas}</p>
                         </div>
-                        <div className="text-center">
-                          <p className="text-gray-400">Comissões</p>
-                          <p className="text-green-300 font-bold">
-                            R$ {(mentorado.total_comissoes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </p>
-                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
+              </>
             )}
           </section>
         )}
