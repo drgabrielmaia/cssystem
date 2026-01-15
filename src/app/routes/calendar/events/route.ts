@@ -137,22 +137,28 @@ export async function POST(request: NextRequest) {
 
 ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}\n` : ''}🚀 Evento adicionado à agenda!`
 
-        // Enviar notificação para Admin Organization (que sabemos que está conectada)
+        // Enviar notificação via endpoint que busca todas organizações automaticamente
         try {
-          await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/9c8c0033-15ea-4e33-a55f-28d81a19693b/send`, {
+          await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/send-event-notification`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'ngrok-skip-browser-warning': 'true'
             },
             body: JSON.stringify({
-              to: '558396910414',
-              message: message.trim()
+              message: message.trim(),
+              eventData: {
+                id: createdEvent.id,
+                title: createdEvent.title,
+                date: formattedDate,
+                time: formattedTime,
+                description: createdEvent.description
+              }
             })
           })
-          console.log('📱 Notificação enviada para Admin Organization')
+          console.log('📱 Notificação enviada para todas organizações')
         } catch (error) {
-          console.error('❌ Erro ao enviar notificação para admin:', error)
+          console.error('❌ Erro ao enviar notificação de evento:', error)
         }
 
         console.log('📱 Notificação WhatsApp enviada para o admin')
