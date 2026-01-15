@@ -412,100 +412,113 @@ export default function MentoradoComissoesPage() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                  {/* Top 3 - Pódio */}
-                  {ranking.slice(0, 3).map((mentorado, index) => (
-                <div
-                  key={mentorado.mentorado_id}
-                  className={`relative p-6 rounded-lg text-center transform transition-all hover:scale-105 ${
-                    index === 0
-                      ? 'bg-gradient-to-b from-yellow-600 to-yellow-800 border-2 border-yellow-400'
-                      : index === 1
-                      ? 'bg-gradient-to-b from-gray-500 to-gray-700 border-2 border-gray-400'
-                      : 'bg-gradient-to-b from-amber-600 to-amber-800 border-2 border-amber-500'
-                  }`}
-                >
-                  {/* Coroa/Medal */}
-                  <div className="flex justify-center mb-3">
-                    {index === 0 ? (
-                      <Trophy className="w-12 h-12 text-yellow-200" />
-                    ) : index === 1 ? (
-                      <Medal className="w-12 h-12 text-gray-200" />
-                    ) : (
-                      <Award className="w-12 h-12 text-amber-200" />
-                    )}
+                {/* Layout vertical do ranking competitivo */}
+                <div className="flex">
+                  {/* Lista do ranking */}
+                  <div className="flex-1 space-y-4">
+                    {ranking.map((mentorado, index) => (
+                      <div
+                        key={mentorado.mentorado_id}
+                        className={`flex items-center p-4 rounded-lg transition-all hover:scale-[1.02] ${
+                          index === 0
+                            ? 'bg-gradient-to-r from-yellow-600/20 to-yellow-800/20 border-l-4 border-yellow-400'
+                            : index === 1
+                            ? 'bg-gradient-to-r from-gray-500/20 to-gray-700/20 border-l-4 border-gray-400'
+                            : index === 2
+                            ? 'bg-gradient-to-r from-amber-600/20 to-amber-800/20 border-l-4 border-amber-500'
+                            : 'bg-[#1A1A1A] border-l-4 border-gray-600'
+                        }`}
+                      >
+                        {/* Medalha */}
+                        <div className="flex items-center justify-center w-12 h-12 mr-4">
+                          {index === 0 ? (
+                            <Medal className="w-8 h-8 text-yellow-400" />
+                          ) : index === 1 ? (
+                            <Medal className="w-8 h-8 text-gray-400" />
+                          ) : index === 2 ? (
+                            <Medal className="w-8 h-8 text-amber-500" />
+                          ) : (
+                            <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                              {index + 1}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Nome e indicações */}
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-white font-semibold text-lg">
+                              {mentorado.nome_completo}
+                            </h3>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-white">
+                                {mentorado.total_indicacoes}
+                              </div>
+                              <div className="text-sm text-gray-400">indicações</div>
+                            </div>
+                          </div>
+
+                          {/* Barra de progresso visual */}
+                          <div className="mt-2 flex items-center space-x-2">
+                            <div className="flex-1 bg-gray-700 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full ${
+                                  index === 0 ? 'bg-yellow-400' :
+                                  index === 1 ? 'bg-gray-400' :
+                                  index === 2 ? 'bg-amber-500' : 'bg-blue-500'
+                                }`}
+                                style={{
+                                  width: `${Math.min(100, (mentorado.total_indicacoes / Math.max(1, ranking[0]?.total_indicacoes || 1)) * 100)}%`
+                                }}
+                              />
+                            </div>
+                            <span className="text-green-300 text-sm font-medium">
+                              {mentorado.indicacoes_vendidas} vendidas
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Badge de posição para top 3 */}
+                        {index < 3 && (
+                          <div className={`ml-4 px-3 py-1 rounded-full text-xs font-bold ${
+                            index === 0 ? 'bg-yellow-400 text-black' :
+                            index === 1 ? 'bg-gray-400 text-black' :
+                            'bg-amber-500 text-white'
+                          }`}>
+                            {index + 1}º LUGAR
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
 
-                  {/* Posição */}
-                  <div className="text-3xl font-bold text-white mb-2">
-                    {index + 1}º
-                  </div>
-
-                  {/* Nome */}
-                  <div className="text-lg font-semibold text-white mb-3 truncate">
-                    {mentorado.nome_completo}
-                  </div>
-
-                  {/* Métricas */}
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between text-white/90">
-                      <span>Indicações:</span>
-                      <span className="font-bold">{mentorado.total_indicacoes}</span>
+                  {/* Seção de recompensas visuais */}
+                  <div className="ml-8 w-64 space-y-6">
+                    <div className="bg-gradient-to-b from-yellow-600/20 to-yellow-800/20 border border-yellow-400/30 rounded-lg p-6 text-center">
+                      <div className="flex justify-center space-x-4 mb-3">
+                        <div className="text-3xl">⌚</div>
+                        <div className="text-2xl text-gray-300">OU</div>
+                        <div className="text-3xl">👜</div>
+                      </div>
+                      <h4 className="text-yellow-400 font-bold mb-2">🏆 PRÊMIO DO CAMPEÃO</h4>
+                      <p className="text-white text-sm font-medium">Bolsa de luxo OU Relógio de luxo</p>
+                      <p className="text-gray-400 text-xs mt-2">Para quem ficar em 1º lugar no ranking</p>
+                      <div className="mt-3 px-3 py-1 bg-yellow-400/20 rounded-full">
+                        <p className="text-yellow-300 text-xs font-bold">APENAS O 1º LUGAR GANHA!</p>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-white/90">
-                      <span>Vendidas:</span>
-                      <span className="font-bold text-green-300">{mentorado.indicacoes_vendidas}</span>
+
+                    <div className="bg-gradient-to-b from-gray-600/20 to-gray-800/20 border border-gray-400/30 rounded-lg p-6 text-center">
+                      <div className="text-4xl mb-3">🎯</div>
+                      <h4 className="text-gray-400 font-bold mb-2">COMPETIÇÃO</h4>
+                      <p className="text-white text-sm">Quem fizer mais indicações que virarem vendas</p>
+                      <p className="text-gray-400 text-xs mt-2">O ranking é atualizado em tempo real</p>
                     </div>
                   </div>
-
-                  {/* Prêmio */}
-                  <div className="mt-4 p-2 bg-black/20 rounded text-white/80 text-xs font-medium">
-                    {index === 0 ? '🏆 ROLEX OU BOLSA DE GRIFE' : index === 1 ? '🥈 2º LUGAR' : '🥉 3º LUGAR'}
-                  </div>
-
-                  {/* Badge de destaque */}
-                  {index === 0 && (
-                    <div className="absolute -top-3 -right-3 bg-yellow-400 text-black text-xs font-bold px-2 py-1 rounded-full animate-pulse">
-                      👑 LÍDER
-                    </div>
-                  )}
                 </div>
-              ))}
-            </div>
               </>
             )}
 
-            {/* Lista completa do ranking */}
-            {ranking.length > 3 && (
-              <div className="bg-[#1A1A1A] rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Ranking Completo</h3>
-                <div className="space-y-3">
-                  {ranking.slice(3).map((mentorado, index) => (
-                    <div
-                      key={mentorado.mentorado_id}
-                      className="flex items-center justify-between bg-[#2A2A2A] rounded-lg p-4"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-bold text-white">{index + 4}</span>
-                        </div>
-                        <span className="text-white font-medium">{mentorado.nome_completo}</span>
-                      </div>
-                      <div className="flex items-center space-x-6 text-sm">
-                        <div className="text-center">
-                          <p className="text-gray-400">Indicações</p>
-                          <p className="text-white font-bold">{mentorado.total_indicacoes}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-gray-400">Vendidas</p>
-                          <p className="text-green-300 font-bold">{mentorado.indicacoes_vendidas}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </section>
         )}
       </div>
