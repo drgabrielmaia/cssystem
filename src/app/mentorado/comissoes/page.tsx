@@ -11,7 +11,11 @@ import {
   Download,
   Search,
   Trophy,
-  Medal
+  Medal,
+  Crown,
+  Star,
+  Watch,
+  ShoppingBag
 } from 'lucide-react'
 
 interface Comissao {
@@ -445,36 +449,15 @@ export default function MentoradoComissoesPage() {
                         </div>
 
                         {/* Nome e indicações */}
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-white font-semibold text-lg">
-                              {mentorado.nome_completo}
-                            </h3>
-                            <div className="text-right">
-                              <div className="text-2xl font-bold text-white">
-                                {mentorado.total_indicacoes}
-                              </div>
-                              <div className="text-sm text-gray-400">indicações</div>
+                        <div className="flex-1 flex items-center justify-between">
+                          <h3 className="text-white font-semibold text-lg">
+                            {mentorado.nome_completo}
+                          </h3>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-white">
+                              {mentorado.total_indicacoes}
                             </div>
-                          </div>
-
-                          {/* Barra de progresso visual */}
-                          <div className="mt-2 flex items-center space-x-2">
-                            <div className="flex-1 bg-gray-700 rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full ${
-                                  index === 0 ? 'bg-yellow-400' :
-                                  index === 1 ? 'bg-gray-400' :
-                                  index === 2 ? 'bg-amber-500' : 'bg-blue-500'
-                                }`}
-                                style={{
-                                  width: `${Math.min(100, (mentorado.total_indicacoes / Math.max(1, ranking[0]?.total_indicacoes || 1)) * 100)}%`
-                                }}
-                              />
-                            </div>
-                            <span className="text-green-300 text-sm font-medium">
-                              {mentorado.indicacoes_vendidas} vendidas
-                            </span>
+                            <div className="text-sm text-gray-400">indicações</div>
                           </div>
                         </div>
 
@@ -495,12 +478,15 @@ export default function MentoradoComissoesPage() {
                   {/* Seção de recompensas visuais */}
                   <div className="ml-8 w-64 space-y-6">
                     <div className="bg-gradient-to-b from-yellow-600/20 to-yellow-800/20 border border-yellow-400/30 rounded-lg p-6 text-center">
-                      <div className="flex justify-center space-x-4 mb-3">
-                        <div className="text-3xl">⌚</div>
-                        <div className="text-2xl text-gray-300">OU</div>
-                        <div className="text-3xl">👜</div>
+                      <div className="flex justify-center items-center space-x-4 mb-3">
+                        <Watch className="w-8 h-8 text-yellow-400" />
+                        <div className="text-lg text-gray-300 font-bold">OU</div>
+                        <ShoppingBag className="w-8 h-8 text-yellow-400" />
                       </div>
-                      <h4 className="text-yellow-400 font-bold mb-2">🏆 PRÊMIO DO CAMPEÃO</h4>
+                      <div className="flex justify-center mb-2">
+                        <Crown className="w-6 h-6 text-yellow-400 mr-2" />
+                        <h4 className="text-yellow-400 font-bold">PRÊMIO DO CAMPEÃO</h4>
+                      </div>
                       <p className="text-white text-sm font-medium">Bolsa de luxo OU Relógio de luxo</p>
                       <p className="text-gray-400 text-xs mt-2">Para quem ficar em 1º lugar no ranking</p>
                       <div className="mt-3 px-3 py-1 bg-yellow-400/20 rounded-full">
@@ -509,7 +495,9 @@ export default function MentoradoComissoesPage() {
                     </div>
 
                     <div className="bg-gradient-to-b from-gray-600/20 to-gray-800/20 border border-gray-400/30 rounded-lg p-6 text-center">
-                      <div className="text-4xl mb-3">🎯</div>
+                      <div className="flex justify-center mb-3">
+                        <Target className="w-10 h-10 text-gray-400" />
+                      </div>
                       <h4 className="text-gray-400 font-bold mb-2">COMPETIÇÃO</h4>
                       <p className="text-white text-sm">Quem fizer mais indicações que virarem vendas</p>
                       <p className="text-gray-400 text-xs mt-2">O ranking é atualizado em tempo real</p>
