@@ -22,7 +22,8 @@ import {
   Grid,
   List,
   Trophy,
-  Medal
+  Medal,
+  FileText
 } from 'lucide-react'
 
 interface VideoModule {
@@ -108,6 +109,13 @@ export default function MentoradoVideosPage() {
   const [categories, setCategories] = useState<any[]>([])
   const [continueWatching, setContinueWatching] = useState<any[]>([])
   const [featuredModules, setFeaturedModules] = useState<VideoModule[]>([])
+
+  // Estados para anotações e NPS
+  const [showNotesModal, setShowNotesModal] = useState(false)
+  const [showNpsModal, setShowNpsModal] = useState(false)
+  const [lessonNote, setLessonNote] = useState('')
+  const [npsScore, setNpsScore] = useState<number | null>(null)
+  const [npsFeedback, setNpsFeedback] = useState('')
 
   useEffect(() => {
     const savedMentorado = localStorage.getItem('mentorado')
@@ -461,6 +469,63 @@ export default function MentoradoVideosPage() {
       return `${hours}h ${mins}min`
     }
     return `${mins}min`
+  }
+
+  const saveNote = async () => {
+    if (!mentorado || !selectedLesson || !lessonNote.trim()) return
+
+    try {
+      const { error } = await supabase
+        .from('lesson_notes')
+        .insert({
+          mentorado_id: mentorado.id,
+          lesson_id: selectedLesson.id,
+          note_text: lessonNote,
+          note_type: 'text',
+          timestamp_seconds: 0,
+          created_at: new Date().toISOString()
+        })
+
+      if (error) throw error
+
+      console.log('✅ Anotação salva!')
+      setLessonNote('')
+      setShowNotesModal(false)
+      alert('Anotação salva com sucesso! 📝')
+    } catch (error) {
+      console.error('❌ Erro ao salvar anotação:', error)
+      alert('Erro ao salvar anotação')
+    }
+  }
+
+  const saveNps = async () => {
+    if (!mentorado || !selectedLesson || npsScore === null) return
+
+    try {
+      const { error } = await supabase
+        .from('video_form_responses')
+        .upsert({
+          mentorado_id: mentorado.id,
+          lesson_id: selectedLesson.id,
+          nps_score: npsScore,
+          satisfaction_score: npsScore <= 2 ? 1 : npsScore <= 4 ? 2 : npsScore <= 6 ? 3 : npsScore <= 8 ? 4 : 5,
+          feedback_text: npsFeedback,
+          created_at: new Date().toISOString()
+        }, {
+          onConflict: 'mentorado_id,lesson_id'
+        })
+
+      if (error) throw error
+
+      console.log('✅ Avaliação NPS salva!')
+      setNpsScore(null)
+      setNpsFeedback('')
+      setShowNpsModal(false)
+      alert('Obrigado pela sua avaliação! 🌟')
+    } catch (error) {
+      console.error('❌ Erro ao salvar NPS:', error)
+      alert('Erro ao salvar avaliação')
+    }
   }
 
   const getNextRecommendedLesson = () => {
