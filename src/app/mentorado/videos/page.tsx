@@ -475,18 +475,25 @@ export default function MentoradoVideosPage() {
     if (!mentorado || !selectedLesson || !lessonNote.trim()) return
 
     try {
-      const { error } = await supabase
-        .from('lesson_notes')
-        .insert({
+      const response = await fetch('/api/video/save-note', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           mentorado_id: mentorado.id,
           lesson_id: selectedLesson.id,
           note_text: lessonNote,
-          note_type: 'text',
           timestamp_seconds: 0,
-          created_at: new Date().toISOString()
-        })
+          note_type: 'text'
+        }),
+      })
 
-      if (error) throw error
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao salvar anotação')
+      }
 
       console.log('✅ Anotação salva!')
       setLessonNote('')
@@ -502,20 +509,24 @@ export default function MentoradoVideosPage() {
     if (!mentorado || !selectedLesson || npsScore === null) return
 
     try {
-      const { error } = await supabase
-        .from('video_form_responses')
-        .upsert({
+      const response = await fetch('/api/video/save-nps', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           mentorado_id: mentorado.id,
           lesson_id: selectedLesson.id,
           nps_score: npsScore,
-          satisfaction_score: npsScore <= 2 ? 1 : npsScore <= 4 ? 2 : npsScore <= 6 ? 3 : npsScore <= 8 ? 4 : 5,
-          feedback_text: npsFeedback,
-          created_at: new Date().toISOString()
-        }, {
-          onConflict: 'mentorado_id,lesson_id'
-        })
+          feedback_text: npsFeedback
+        }),
+      })
 
-      if (error) throw error
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao salvar avaliação')
+      }
 
       console.log('✅ Avaliação NPS salva!')
       setNpsScore(null)

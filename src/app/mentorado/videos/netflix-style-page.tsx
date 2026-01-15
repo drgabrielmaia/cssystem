@@ -293,34 +293,25 @@ export default function NetflixStyleVideosPage() {
     if (!mentorado || !selectedLesson || !lessonNote.trim()) return
 
     try {
-      // Try to insert into lesson_notes with RPC function to bypass RLS if needed
-      let error = null
-      try {
-        const result = await supabase
-          .from('lesson_notes')
-          .insert({
-            mentorado_id: mentorado.id,
-            lesson_id: selectedLesson.id,
-            note_text: lessonNote,
-            note_type: 'text',
-            timestamp_seconds: 0,
-            created_at: new Date().toISOString()
-          })
-        error = result.error
-      } catch (rls_error) {
-        // If RLS blocks, try alternative table or method
-        const result = await supabase
-          .from('video_form_responses')
-          .upsert({
-            mentorado_id: mentorado.id,
-            lesson_id: selectedLesson.id,
-            feedback_text: lessonNote,
-            created_at: new Date().toISOString()
-          })
-        error = result.error
-      }
+      const response = await fetch('/api/video/save-note', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mentorado_id: mentorado.id,
+          lesson_id: selectedLesson.id,
+          note_text: lessonNote,
+          timestamp_seconds: 0,
+          note_type: 'text'
+        }),
+      })
 
-      if (error) throw error
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao salvar anotação')
+      }
 
       console.log('✅ Anotação salva!')
       setLessonNote('')
@@ -336,44 +327,24 @@ export default function NetflixStyleVideosPage() {
     if (!mentorado || !selectedLesson || npsScore === null) return
 
     try {
-      // Check if NPS already exists
-      const { data: existing } = await supabase
-        .from('video_form_responses')
-        .select('id')
-        .eq('mentorado_id', mentorado.id)
-        .eq('lesson_id', selectedLesson.id)
-        .single()
+      const response = await fetch('/api/video/save-nps', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mentorado_id: mentorado.id,
+          lesson_id: selectedLesson.id,
+          nps_score: npsScore,
+          feedback_text: npsFeedback
+        }),
+      })
 
-      let error
-      if (existing) {
-        // Update existing
-        const result = await supabase
-          .from('video_form_responses')
-          .update({
-            nps_score: npsScore,
-            satisfaction_score: npsScore <= 2 ? 1 : npsScore <= 4 ? 2 : npsScore <= 6 ? 3 : npsScore <= 8 ? 4 : 5,
-            feedback_text: npsFeedback,
-            updated_at: new Date().toISOString()
-          })
-          .eq('mentorado_id', mentorado.id)
-          .eq('lesson_id', selectedLesson.id)
-        error = result.error
-      } else {
-        // Insert new
-        const result = await supabase
-          .from('video_form_responses')
-          .insert({
-            mentorado_id: mentorado.id,
-            lesson_id: selectedLesson.id,
-            nps_score: npsScore,
-            satisfaction_score: npsScore <= 2 ? 1 : npsScore <= 4 ? 2 : npsScore <= 6 ? 3 : npsScore <= 8 ? 4 : 5,
-            feedback_text: npsFeedback,
-            created_at: new Date().toISOString()
-          })
-        error = result.error
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao salvar avaliação')
       }
-
-      if (error) throw error
 
       console.log('✅ Avaliação NPS salva!')
       setNpsScore(null)
