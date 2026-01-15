@@ -90,6 +90,45 @@ export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoMo
 
       if (error) throw error
 
+      // Automatically grant access to all video modules
+      if (result && result[0]) {
+        try {
+          const newMentorado = result[0]
+
+          // Get all active modules from the organization
+          const { data: modules, error: modulesError } = await supabase
+            .from('video_modules')
+            .select('id')
+            .eq('organization_id', newMentorado.organization_id)
+            .eq('is_active', true)
+
+          if (!modulesError && modules && modules.length > 0) {
+            // Create access records for all modules
+            const accessRecords = modules.map(module => ({
+              mentorado_id: newMentorado.id,
+              module_id: module.id,
+              has_access: true,
+              granted_at: new Date().toISOString(),
+              granted_by: 'auto_grant_on_creation',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }))
+
+            const { error: accessError } = await supabase
+              .from('video_access_control')
+              .insert(accessRecords)
+
+            if (accessError) {
+              console.warn('⚠️ Erro ao criar acessos aos módulos:', accessError.message)
+            } else {
+              console.log('✅ Acessos aos módulos criados automaticamente para', newMentorado.nome_completo)
+            }
+          }
+        } catch (moduleAccessError) {
+          console.warn('⚠️ Erro ao processar acesso aos módulos:', moduleAccessError)
+        }
+      }
+
       // Send welcome message via WhatsApp if phone number is provided
       if (data.telefone && result && result[0]) {
         try {
