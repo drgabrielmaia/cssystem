@@ -28,6 +28,7 @@ interface RankingMentorado {
   valor_medio_comissao: number
 }
 
+
 function MentoradoPageContent() {
   const { mentorado, loading: authLoading, error, signIn, signOut } = useMentoradoAuth()
   const [email, setEmail] = useState('')
@@ -42,17 +43,8 @@ function MentoradoPageContent() {
     if (mentorado) {
       loadModules()
       loadRankingData()
-    } else {
-      // Carregar ranking mesmo sem mentorado logado (para debug)
-      console.log('🔍 Mentorado não encontrado, carregando ranking anyway...')
-      loadRankingData()
     }
   }, [mentorado])
-
-  // Carregar ranking automaticamente na inicialização
-  useEffect(() => {
-    loadRankingData()
-  }, [])
 
   const loadModules = async () => {
     try {
@@ -81,9 +73,7 @@ function MentoradoPageContent() {
   const loadRankingData = async () => {
     try {
       console.log('🏆 Carregando ranking de indicações...')
-      console.log('📊 Estado atual - showRanking:', showRanking)
 
-      // First get all mentorados from the admin organization (where all mentorados are now)
       const { data: allMentorados, error: mentoradosError } = await supabase
         .from('mentorados')
         .select('id, nome_completo, organization_id')
@@ -96,7 +86,6 @@ function MentoradoPageContent() {
         return
       }
 
-      // Then get ranking data from the view
       const { data: viewData, error: viewError } = await supabase
         .from('view_dashboard_comissoes_mentorado')
         .select(`
@@ -109,16 +98,14 @@ function MentoradoPageContent() {
 
       if (viewError) {
         console.error('❌ Erro ao carregar dados do ranking:', viewError)
-        // Continue even with view error - show all mentorados with 0 values
       }
 
-      // Create ranking with all mentorados, filling in 0 values for those without data
-      const rankingFormatted = allMentorados?.map((mentorado: any) => {
-        const rankingData = viewData?.find(item => item.mentorado_id === mentorado.id)
+      const rankingFormatted = allMentorados?.map((mentoradoItem: any) => {
+        const rankingData = viewData?.find(item => item.mentorado_id === mentoradoItem.id)
 
         return {
-          mentorado_id: mentorado.id,
-          nome_completo: mentorado.nome_completo,
+          mentorado_id: mentoradoItem.id,
+          nome_completo: mentoradoItem.nome_completo,
           total_indicacoes: rankingData?.total_indicacoes || 0,
           indicacoes_vendidas: rankingData?.indicacoes_vendidas || 0,
           total_comissoes: rankingData?.total_comissoes || 0,
@@ -127,9 +114,7 @@ function MentoradoPageContent() {
       }).sort((a, b) => b.total_indicacoes - a.total_indicacoes) || []
 
       setRanking(rankingFormatted)
-      console.log('✅ Ranking carregado:', rankingFormatted.length, 'mentorados (incluindo zeros)')
-      console.log('📊 Ranking será exibido?', showRanking && rankingFormatted.length > 0)
-      console.log('📋 Primeiros 3 do ranking:', rankingFormatted.slice(0, 3).map(r => ({ nome: r.nome_completo, indicacoes: r.total_indicacoes })))
+      console.log('✅ Ranking carregado:', rankingFormatted.length, 'mentorados')
     } catch (error) {
       console.error('❌ Erro ao carregar ranking:', error)
     }
@@ -354,6 +339,83 @@ function MentoradoPageContent() {
           </div>
         </section>
 
+        {/* Ranking de Indicações - Layout Vertical */}
+        {showRanking && ranking.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <Trophy className="w-8 h-8 text-yellow-500" />
+                <div>
+                  <h2 className="text-2xl font-bold text-white">🏆 Ranking de Indicações</h2>
+                  <p className="text-gray-400">Concorra ao prêmio! O 1º lugar ganha bolsa de luxo OU relógio de luxo!</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRanking(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {ranking.map((mentoradoRank, index) => (
+                <div
+                  key={mentoradoRank.mentorado_id}
+                  className={`flex items-center p-4 rounded-lg transition-all hover:scale-[1.02] ${
+                    index === 0
+                      ? 'bg-gradient-to-r from-yellow-600/20 to-yellow-800/20 border-l-4 border-yellow-400'
+                      : index === 1
+                      ? 'bg-gradient-to-r from-gray-500/20 to-gray-700/20 border-l-4 border-gray-400'
+                      : index === 2
+                      ? 'bg-gradient-to-r from-amber-600/20 to-amber-800/20 border-l-4 border-amber-500'
+                      : 'bg-[#1A1A1A] border-l-4 border-gray-600'
+                  }`}
+                >
+                  {/* Ícone da medalha */}
+                  <div className="flex items-center justify-center w-12 h-12 mr-4">
+                    {index === 0 ? (
+                      <Medal className="w-8 h-8 text-yellow-400" />
+                    ) : index === 1 ? (
+                      <Medal className="w-8 h-8 text-gray-400" />
+                    ) : index === 2 ? (
+                      <Medal className="w-8 h-8 text-amber-500" />
+                    ) : (
+                      <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                        {index + 1}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Nome e indicações */}
+                  <div className="flex-1 flex items-center justify-between">
+                    <h3 className="text-white font-semibold text-lg">
+                      {mentoradoRank.nome_completo}
+                    </h3>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-white">
+                        {mentoradoRank.total_indicacoes}
+                      </div>
+                      <div className="text-sm text-gray-400">indicações</div>
+                    </div>
+                  </div>
+
+                  {/* Badge de posição para top 3 */}
+                  {index < 3 && (
+                    <div className={`ml-4 px-3 py-1 rounded-full text-xs font-bold ${
+                      index === 0 ? 'bg-yellow-400 text-black' :
+                      index === 1 ? 'bg-gray-400 text-black' :
+                      'bg-amber-500 text-white'
+                    }`}>
+                      {index + 1}º LUGAR
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Botão para mostrar ranking quando escondido */}
         {!showRanking && (
           <div className="mb-6">
@@ -368,130 +430,6 @@ function MentoradoPageContent() {
               </div>
             </button>
           </div>
-        )}
-
-        {/* Ranking de Indicações */}
-        {showRanking && (
-          <section>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <Trophy className="w-8 h-8 text-yellow-500" />
-                <div>
-                  <h2 className="text-2xl font-bold text-white">🏆 Ranking de Indicações</h2>
-                  <p className="text-gray-400">Concorra ao prêmio! O 1º lugar ganha um Rolex OU uma bolsa de grife!</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowRanking(!showRanking)}
-                className="text-gray-400 hover:text-white transition-colors"
-                title={showRanking ? "Esconder ranking" : "Mostrar ranking"}
-              >
-                {showRanking ? "✕" : "👁️"}
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              {/* Top 3 - Pódio */}
-              {ranking.slice(0, 3).map((mentoradoRank, index) => (
-                <div
-                  key={mentoradoRank.mentorado_id}
-                  className={`relative p-6 rounded-lg text-center transform transition-all hover:scale-105 ${
-                    index === 0
-                      ? 'bg-gradient-to-b from-yellow-600 to-yellow-800 border-2 border-yellow-400'
-                      : index === 1
-                      ? 'bg-gradient-to-b from-gray-500 to-gray-700 border-2 border-gray-400'
-                      : 'bg-gradient-to-b from-amber-600 to-amber-800 border-2 border-amber-500'
-                  }`}
-                >
-                  {/* Coroa/Medal */}
-                  <div className="flex justify-center mb-3">
-                    {index === 0 ? (
-                      <Trophy className="w-12 h-12 text-yellow-200" />
-                    ) : index === 1 ? (
-                      <Medal className="w-12 h-12 text-gray-200" />
-                    ) : (
-                      <Award className="w-12 h-12 text-amber-200" />
-                    )}
-                  </div>
-
-                  {/* Posição */}
-                  <div className="text-3xl font-bold text-white mb-2">
-                    {index + 1}º
-                  </div>
-
-                  {/* Nome */}
-                  <div className="text-lg font-semibold text-white mb-3 truncate">
-                    {mentoradoRank.nome_completo}
-                  </div>
-
-                  {/* Métricas */}
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between text-white/90">
-                      <span>Indicações:</span>
-                      <span className="font-bold">{mentoradoRank.total_indicacoes}</span>
-                    </div>
-                    <div className="flex justify-between text-white/90">
-                      <span>Vendidas:</span>
-                      <span className="font-bold text-green-300">{mentoradoRank.indicacoes_vendidas}</span>
-                    </div>
-                    <div className="flex justify-between text-white/90">
-                      <span>Comissões:</span>
-                      <span className="font-bold text-green-300">
-                        R$ {(mentoradoRank.total_comissoes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Prêmio */}
-                  <div className="mt-4 p-2 bg-black/20 rounded text-white/80 text-xs font-medium">
-                    {index === 0 ? '🏆 ROLEX OU BOLSA DE GRIFE' : index === 1 ? '🥈 2º LUGAR' : '🥉 3º LUGAR'}
-                  </div>
-
-                  {/* Badge de destaque */}
-                  {index === 0 && (
-                    <div className="absolute -top-3 -right-3 bg-yellow-400 text-black text-xs font-bold px-2 py-1 rounded-full animate-pulse">
-                      👑 LÍDER
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Lista completa (Top 4-10) */}
-            {ranking.length > 3 && (
-              <div className="bg-[#1A1A1A] rounded-lg overflow-hidden">
-                <div className="p-4 bg-[#2A2A2A] border-b border-gray-700">
-                  <h3 className="text-lg font-semibold text-white">Demais Posições</h3>
-                </div>
-                <div className="divide-y divide-gray-700">
-                  {ranking.slice(3, 10).map((mentoradoRank, index) => (
-                    <div
-                      key={mentoradoRank.mentorado_id}
-                      className="flex items-center justify-between p-4 hover:bg-[#2A2A2A] transition-colors"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white font-bold">
-                          {index + 4}
-                        </div>
-                        <div>
-                          <div className="text-white font-medium">{mentoradoRank.nome_completo}</div>
-                          <div className="text-sm text-gray-400">
-                            {mentoradoRank.total_indicacoes} indicações • {mentoradoRank.indicacoes_vendidas} vendas
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-green-400 font-semibold">
-                          R$ {(mentoradoRank.total_comissoes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </div>
-                        <div className="text-xs text-gray-400">em comissões</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
         )}
 
         {/* Continue Watching Section - Modules Grid */}
