@@ -1182,10 +1182,15 @@ async function checkAndCreateCommission(leadId: string, leadData: any, originalL
         return
       }
 
-      // Buscar dados do mentorado indicador
+      // Buscar dados do mentorado indicador e sua organização
       const { data: mentorado, error: mentoradoError } = await supabase
         .from('mentorados')
-        .select('id, nome_completo, email, porcentagem_comissao')
+        .select(`
+          id, nome_completo, email, organization_id,
+          organizations:organization_id (
+            comissao_fixa_indicacao
+          )
+        `)
         .eq('id', leadData.mentorado_indicador_id)
         .single()
 
@@ -1194,13 +1199,15 @@ async function checkAndCreateCommission(leadId: string, leadData: any, originalL
         return
       }
 
-      if (!mentorado.porcentagem_comissao || mentorado.porcentagem_comissao <= 0) {
-        console.warn('⚠️ Mentorado não tem porcentagem de comissão configurada')
+      const comissaoFixa = mentorado.organizations?.comissao_fixa_indicacao || 2000.00
+
+      if (!comissaoFixa || comissaoFixa <= 0) {
+        console.warn('⚠️ Organização não tem comissão fixa configurada')
         return
       }
 
-      // Calcular valor da comissão
-      const valorComissao = (leadData.valor_vendido * mentorado.porcentagem_comissao) / 100
+      // Usar valor fixo da organização
+      const valorComissao = comissaoFixa
 
       // Criar registro de comissão
       const comissaoData = {
@@ -1209,7 +1216,7 @@ async function checkAndCreateCommission(leadId: string, leadData: any, originalL
         valor_comissao: valorComissao,
         valor_venda: leadData.valor_vendido,
         data_venda: leadData.data_venda || new Date().toISOString(),
-        observacoes: `Comissão gerada automaticamente para indicação de ${mentorado.nome_completo} (${mentorado.porcentagem_comissao}%)`
+        observacoes: `Comissão fixa gerada automaticamente para indicação de ${mentorado.nome_completo} (R$ ${comissaoFixa.toFixed(2)})`
       }
 
       const { error: comissaoError } = await supabase

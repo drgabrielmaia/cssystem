@@ -20,7 +20,8 @@ import {
   Settings,
   UserCheck,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  DollarSign
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth'
 import { useOrganization } from '@/hooks/use-organization'
@@ -29,8 +30,10 @@ import Link from 'next/link'
 export default function OrganizationManagementPage() {
   const [isEditNameOpen, setIsEditNameOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+  const [isEditCommissionOpen, setIsEditCommissionOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [newCommissionValue, setNewCommissionValue] = useState('')
 
   const { user } = useAuth()
 
@@ -69,6 +72,23 @@ export default function OrganizationManagementPage() {
       setDeleteConfirmText('')
       // Redirecionar ou mostrar mensagem de sucesso
       alert('Organização deletada com sucesso')
+    } catch (error: any) {
+      alert(error.message)
+    }
+  }
+
+  const editarComissao = async () => {
+    const valor = parseFloat(newCommissionValue)
+    if (isNaN(valor) || valor <= 0) {
+      alert('Valor deve ser um número maior que zero')
+      return
+    }
+
+    try {
+      await updateOrganization({ comissao_fixa_indicacao: valor })
+      setIsEditCommissionOpen(false)
+      setNewCommissionValue('')
+      alert('Comissão fixa atualizada com sucesso!')
     } catch (error: any) {
       alert(error.message)
     }
