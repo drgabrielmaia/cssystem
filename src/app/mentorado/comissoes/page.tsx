@@ -15,7 +15,8 @@ import {
   Crown,
   Star,
   Watch,
-  ShoppingBag
+  ShoppingBag,
+  X
 } from 'lucide-react'
 
 interface Comissao {
@@ -45,6 +46,7 @@ export default function MentoradoComissoesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [ranking, setRanking] = useState<RankingMentorado[]>([])
   const [showRanking, setShowRanking] = useState(true)
+  const [showFullRanking, setShowFullRanking] = useState(false)
 
   useEffect(() => {
     const savedMentorado = localStorage.getItem('mentorado')
@@ -389,11 +391,11 @@ export default function MentoradoComissoesPage() {
               </div>
             ) : (
               <>
-                {/* Layout vertical do ranking competitivo */}
+                {/* Layout vertical do ranking competitivo - TOP 3 */}
                 <div className="flex">
                   {/* Lista do ranking */}
                   <div className="flex-1 space-y-4">
-                    {ranking.map((mentorado, index) => (
+                    {ranking.slice(0, 3).map((mentorado, index) => (
                       <div
                         key={mentorado.mentorado_id}
                         className={`flex items-center p-4 rounded-lg transition-all hover:scale-[1.02] ${
@@ -477,12 +479,133 @@ export default function MentoradoComissoesPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Botão Ver Ranking Completo */}
+                {ranking.length > 3 && (
+                  <div className="text-center mt-6">
+                    <button
+                      onClick={() => setShowFullRanking(true)}
+                      className="bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-500 hover:to-yellow-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center mx-auto space-x-2"
+                    >
+                      <Trophy className="w-5 h-5" />
+                      <span>Ver Ranking Completo</span>
+                      <span className="bg-white/20 px-2 py-1 rounded-full text-xs">
+                        {ranking.length} mentorados
+                      </span>
+                    </button>
+                  </div>
+                )}
               </>
             )}
 
           </section>
         )}
       </div>
+
+      {/* Modal do Ranking Completo */}
+      {showFullRanking && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#141414] rounded-lg w-full max-w-4xl max-h-[80vh] overflow-hidden">
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+              <div className="flex items-center space-x-3">
+                <Trophy className="w-6 h-6 text-yellow-400" />
+                <h2 className="text-2xl font-bold text-white">Ranking Completo</h2>
+                <span className="bg-yellow-400/20 text-yellow-400 px-3 py-1 rounded-full text-sm font-medium">
+                  {ranking.length} Competidores
+                </span>
+              </div>
+              <button
+                onClick={() => setShowFullRanking(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Conteúdo do Modal */}
+            <div className="overflow-y-auto max-h-[60vh] p-6">
+              <div className="space-y-3">
+                {ranking.map((mentoradoItem, index) => (
+                  <div
+                    key={mentoradoItem.mentorado_id}
+                    className={`flex items-center p-4 rounded-lg transition-all ${
+                      mentoradoItem.mentorado_id === mentorado?.id
+                        ? 'bg-blue-600/20 border-2 border-blue-400'
+                        : index === 0
+                        ? 'bg-gradient-to-r from-yellow-600/20 to-yellow-800/20 border-l-4 border-yellow-400'
+                        : index === 1
+                        ? 'bg-gradient-to-r from-gray-500/20 to-gray-700/20 border-l-4 border-gray-400'
+                        : index === 2
+                        ? 'bg-gradient-to-r from-amber-600/20 to-amber-800/20 border-l-4 border-amber-500'
+                        : 'bg-[#1A1A1A] border-l-4 border-gray-600'
+                    }`}
+                  >
+                    {/* Posição */}
+                    <div className="w-12 text-center mr-4">
+                      <span className={`text-2xl font-bold ${
+                        index === 0 ? 'text-yellow-400' :
+                        index === 1 ? 'text-gray-400' :
+                        index === 2 ? 'text-amber-500' : 'text-white'
+                      }`}>
+                        {index + 1}
+                      </span>
+                    </div>
+
+                    {/* Medalha */}
+                    <div className="flex items-center justify-center w-12 h-12 mr-4">
+                      {index === 0 ? (
+                        <Medal className="w-8 h-8 text-yellow-400" />
+                      ) : index === 1 ? (
+                        <Medal className="w-8 h-8 text-gray-400" />
+                      ) : index === 2 ? (
+                        <Medal className="w-8 h-8 text-amber-500" />
+                      ) : (
+                        <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                          {index + 1}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Nome e indicações */}
+                    <div className="flex-1 flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <h3 className={`font-semibold text-lg ${
+                          mentoradoItem.mentorado_id === mentorado?.id ? 'text-blue-400' : 'text-white'
+                        }`}>
+                          {mentoradoItem.nome_completo}
+                        </h3>
+                        {mentoradoItem.mentorado_id === mentorado?.id && (
+                          <span className="bg-blue-400/20 text-blue-400 px-2 py-1 rounded-full text-xs font-bold">
+                            VOCÊ
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-white">
+                          {mentoradoItem.total_indicacoes}
+                        </div>
+                        <div className="text-sm text-gray-400">indicações</div>
+                      </div>
+                    </div>
+
+                    {/* Badges */}
+                    {index < 3 && (
+                      <div className={`ml-4 px-3 py-1 rounded-full text-xs font-bold ${
+                        index === 0 ? 'bg-yellow-400 text-black' :
+                        index === 1 ? 'bg-gray-400 text-black' :
+                        'bg-amber-500 text-white'
+                      }`}>
+                        {index === 0 ? '🏆 CAMPEÃO' : index === 1 ? '🥈 VICE' : '🥉 3º LUGAR'}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
