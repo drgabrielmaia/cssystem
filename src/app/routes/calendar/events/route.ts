@@ -137,18 +137,33 @@ export async function POST(request: NextRequest) {
 
 ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}\n` : ''}🚀 Evento adicionado à agenda!`
 
-        // Enviar notificação para Admin Organization
-        await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/9c8c0033-15ea-4e33-a55f-28d81a19693b/send`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true'
-          },
-          body: JSON.stringify({
-            to: '558396910414',
-            message: message.trim()
-          })
-        })
+        // Buscar organizações com WhatsApp e enviar notificação
+        const { data: organizations } = await supabase
+          .from('organizations')
+          .select('id, admin_phone')
+          .not('admin_phone', 'is', null)
+          .neq('admin_phone', '')
+
+        if (organizations && organizations.length > 0) {
+          for (const org of organizations) {
+            try {
+              await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/${org.id}/send`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'ngrok-skip-browser-warning': 'true'
+                },
+                body: JSON.stringify({
+                  to: org.admin_phone,
+                  message: message.trim()
+                })
+              })
+              console.log(`📱 Notificação enviada para organização ${org.id}`)
+            } catch (error) {
+              console.error(`❌ Erro ao enviar para organização ${org.id}:`, error)
+            }
+          }
+        }
 
         console.log('📱 Notificação WhatsApp enviada para o admin')
 
