@@ -137,22 +137,16 @@ export async function POST(request: NextRequest) {
 
 ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}\n` : ''}🚀 Evento adicionado à agenda!`
 
-        // Enviar notificação para TODAS as organizações com WhatsApp conectado
-        await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/send-event-notification`, {
+        // Enviar notificação para Admin Organization
+        await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/9c8c0033-15ea-4e33-a55f-28d81a19693b/send`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'ngrok-skip-browser-warning': 'true'
           },
           body: JSON.stringify({
-            message: message.trim(),
-            eventData: {
-              id: createdEvent.id,
-              title: createdEvent.title,
-              date: formattedDate,
-              time: formattedTime,
-              description: createdEvent.description
-            }
+            to: '558396910414',
+            message: message.trim()
           })
         })
 
