@@ -230,15 +230,15 @@ export default function MentoradoComissoesPage() {
           <h2 className="text-[24px] font-semibold text-white mb-6">
             Suas estatísticas
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-[#1A1A1A] rounded-[8px] p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[13px] text-gray-400 font-medium mb-2">Total Comissões</p>
-                  <p className="text-[20px] font-bold text-white">{formatCurrency(stats.totalComissoes)}</p>
+                  <p className="text-[13px] text-gray-400 font-medium mb-2">Total de Indicações</p>
+                  <p className="text-[20px] font-bold text-white">{stats.totalVendas}</p>
                 </div>
                 <div className="w-12 h-12 bg-[#22C55E] rounded-[8px] flex items-center justify-center">
-                  <DollarSign className="w-6 h-6 text-white" />
+                  <Target className="w-6 h-6 text-white" />
                 </div>
               </div>
             </div>
@@ -246,35 +246,11 @@ export default function MentoradoComissoesPage() {
             <div className="bg-[#1A1A1A] rounded-[8px] p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[13px] text-gray-400 font-medium mb-2">Já Recebidas</p>
-                  <p className="text-[20px] font-bold text-white">{formatCurrency(stats.comissoesPagas)}</p>
+                  <p className="text-[13px] text-gray-400 font-medium mb-2">Este Mês</p>
+                  <p className="text-[20px] font-bold text-white">{stats.vendasMesAtual}</p>
                 </div>
                 <div className="w-12 h-12 bg-[#6366F1] rounded-[8px] flex items-center justify-center">
                   <TrendingUp className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#1A1A1A] rounded-[8px] p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[13px] text-gray-400 font-medium mb-2">Pendentes</p>
-                  <p className="text-[20px] font-bold text-white">{formatCurrency(stats.comissoesPendentes)}</p>
-                </div>
-                <div className="w-12 h-12 bg-[#E879F9] rounded-[8px] flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#1A1A1A] rounded-[8px] p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[13px] text-gray-400 font-medium mb-2">Total Vendas</p>
-                  <p className="text-[20px] font-bold text-white">{stats.totalVendas}</p>
-                </div>
-                <div className="w-12 h-12 bg-[#F59E0B] rounded-[8px] flex items-center justify-center">
-                  <Target className="w-6 h-6 text-white" />
                 </div>
               </div>
             </div>
@@ -359,9 +335,6 @@ export default function MentoradoComissoesPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-[18px] font-bold text-white">
-                        {formatCurrency(comissao.valor || 0)}
-                      </p>
                       <p className="text-[12px] text-gray-400">
                         Criado: {formatDate(comissao.created_at)}
                       </p>
