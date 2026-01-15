@@ -1199,7 +1199,7 @@ async function checkAndCreateCommission(leadId: string, leadData: any, originalL
         return
       }
 
-      const comissaoFixa = mentorado.organizations?.comissao_fixa_indicacao || 2000.00
+      const comissaoFixa = mentorado.organizations?.[0]?.comissao_fixa_indicacao || 2000.00
 
       if (!comissaoFixa || comissaoFixa <= 0) {
         console.warn('⚠️ Organização não tem comissão fixa configurada')

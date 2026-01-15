@@ -173,6 +173,7 @@ export interface Organization {
   owner_email: string
   created_at: string
   updated_at: string
+  comissao_fixa_indicacao?: number
 }
 
 export interface OrganizationUser {

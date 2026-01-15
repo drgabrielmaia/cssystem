@@ -133,16 +133,16 @@ export default function MentoradoComissoesPage() {
   }
 
   const getStats = () => {
-    const totalComissoes = comissoes.reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
-    const comissoesPagas = comissoes.filter(c => c.status === 'pago').reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
-    const comissoesPendentes = comissoes.filter(c => c.status === 'pendente').reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
+    const totalComissoes = comissoes.reduce((acc, c) => acc + (c.valor || 0), 0)
+    const comissoesPagas = comissoes.filter(c => c.status === 'pago').reduce((acc, c) => acc + (c.valor || 0), 0)
+    const comissoesPendentes = comissoes.filter(c => c.status === 'pendente').reduce((acc, c) => acc + (c.valor || 0), 0)
     const totalVendas = comissoes.length
 
     const mesAtual = comissoes.filter(c => {
       const dataVenda = new Date(c.data_venda)
       return dataVenda.getMonth() === new Date().getMonth() && dataVenda.getFullYear() === new Date().getFullYear()
     })
-    const comissoesMesAtual = mesAtual.reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
+    const comissoesMesAtual = mesAtual.reduce((acc, c) => acc + (c.valor || 0), 0)
 
     return {
       totalComissoes,
@@ -356,7 +356,7 @@ export default function MentoradoComissoesPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-[18px] font-bold text-white">
-                        {formatCurrency(comissao.valor_comissao || 0)}
+                        {formatCurrency(comissao.valor || 0)}
                       </p>
                       <p className="text-[12px] text-gray-400">
                         Criado: {formatDate(comissao.created_at)}
@@ -472,6 +472,8 @@ export default function MentoradoComissoesPage() {
                 </div>
               ))}
             </div>
+              </>
+            )}
 
             {/* Lista completa do ranking */}
             {ranking.length > 3 && (
@@ -503,7 +505,6 @@ export default function MentoradoComissoesPage() {
                   ))}
                 </div>
               </div>
-              </>
             )}
           </section>
         )}

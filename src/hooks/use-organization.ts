@@ -17,7 +17,7 @@ interface UseOrganizationReturn {
   stats: OrganizationStats | null
   loading: boolean
   error: string | null
-  updateOrganization: (updates: { name: string }) => Promise<void>
+  updateOrganization: (updates: { name?: string; comissao_fixa_indicacao?: number }) => Promise<void>
   deleteOrganization: () => Promise<void>
   refreshData: () => Promise<void>
   canManageOrganization: boolean
@@ -66,7 +66,7 @@ export function useOrganization(userId: string | null): UseOrganizationReturn {
   }, [loadData])
 
   // Função para atualizar organização
-  const updateOrganization = useCallback(async (updates: { name: string }) => {
+  const updateOrganization = useCallback(async (updates: { name?: string; comissao_fixa_indicacao?: number }) => {
     if (!organization || !currentUserRole) {
       throw new Error('Dados da organização não carregados')
     }
