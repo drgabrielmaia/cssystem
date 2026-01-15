@@ -129,24 +129,30 @@ export async function POST(request: NextRequest) {
           timeZone: 'America/Sao_Paulo'
         })
 
-        const message = `🎯 Novo evento cadastrado!
+        const message = `🎯 NOVO EVENTO CADASTRADO!
 
 📅 ${createdEvent.title}
 📅 Data: ${formattedDate}
 ⏰ Horário: ${formattedTime}
 
-${createdEvent.description ? `📋 Descrição: ${createdEvent.description}` : ''}`
+${createdEvent.description ? `📋 Descrição: ${createdEvent.description}\n` : ''}🚀 Evento adicionado à agenda!`
 
-        // Enviar notificação para Admin
-        await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/users/kellybsantoss@icloud.com/send`, {
+        // Enviar notificação para TODAS as organizações com WhatsApp conectado
+        await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/send-event-notification`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'ngrok-skip-browser-warning': 'true'
           },
           body: JSON.stringify({
-            to: '558396910414', // Admin Gabriel
-            message: message.trim()
+            message: message.trim(),
+            eventData: {
+              id: createdEvent.id,
+              title: createdEvent.title,
+              date: formattedDate,
+              time: formattedTime,
+              description: createdEvent.description
+            }
           })
         })
 
