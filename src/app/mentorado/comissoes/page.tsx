@@ -79,32 +79,50 @@ export default function MentoradoComissoesPage() {
     try {
       console.log('🏆 Carregando ranking de indicações...')
 
-      const { data, error } = await supabase
+      // First get all mentorados from the admin organization (where all mentorados are now)
+      const { data: allMentorados, error: mentoradosError } = await supabase
+        .from('mentorados')
+        .select('id, nome_completo, organization_id')
+        .eq('excluido', false)
+        .eq('organization_id', '9c8c0033-15ea-4e33-a55f-28d81a19693b')
+        .order('nome_completo')
+
+      if (mentoradosError) {
+        console.error('❌ Erro ao carregar mentorados:', mentoradosError)
+        return
+      }
+
+      console.log(`✅ ${allMentorados.length} mentorados encontrados`)
+
+      // Then get ranking data from the view
+      const { data: viewData, error: viewError } = await supabase
         .from('view_dashboard_comissoes_mentorado')
         .select(`
           mentorado_id,
           total_indicacoes,
           indicacoes_vendidas,
           total_comissoes,
-          valor_medio_comissao,
-          mentorados!inner(nome_completo)
+          valor_medio_comissao
         `)
-        .order('total_indicacoes', { ascending: false })
-        .limit(10)
 
-      if (error) {
-        console.error('❌ Erro ao carregar ranking:', error)
-        return
+      if (viewError) {
+        console.error('❌ Erro ao carregar dados do ranking:', viewError)
+        // Continue even with view error - show all mentorados with 0 values
       }
 
-      const rankingFormatted = data?.map((item: any) => ({
-        mentorado_id: item.mentorado_id,
-        nome_completo: item.mentorados?.nome_completo || 'Nome não encontrado',
-        total_indicacoes: item.total_indicacoes || 0,
-        indicacoes_vendidas: item.indicacoes_vendidas || 0,
-        total_comissoes: item.total_comissoes || 0,
-        valor_medio_comissao: item.valor_medio_comissao || 0
-      })) || []
+      // Create ranking with all mentorados, filling in 0 values for those without data
+      const rankingFormatted = allMentorados?.map((mentorado: any) => {
+        const rankingData = viewData?.find(item => item.mentorado_id === mentorado.id)
+
+        return {
+          mentorado_id: mentorado.id,
+          nome_completo: mentorado.nome_completo,
+          total_indicacoes: rankingData?.total_indicacoes || 0,
+          indicacoes_vendidas: rankingData?.indicacoes_vendidas || 0,
+          total_comissoes: rankingData?.total_comissoes || 0,
+          valor_medio_comissao: rankingData?.valor_medio_comissao || 0
+        }
+      }).sort((a, b) => b.total_indicacoes - a.total_indicacoes) || []
 
       setRanking(rankingFormatted)
       console.log('✅ Ranking carregado:', rankingFormatted.length, 'mentorados')
@@ -350,8 +368,24 @@ export default function MentoradoComissoesPage() {
           )}
         </section>
 
+        {/* Botão para mostrar ranking quando escondido */}
+        {!showRanking && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowRanking(true)}
+              className="flex items-center space-x-3 bg-[#1A1A1A] p-4 rounded-lg border border-gray-700 hover:bg-[#2A2A2A] transition-colors w-full"
+            >
+              <Trophy className="w-8 h-8 text-yellow-500" />
+              <div>
+                <h3 className="text-lg font-bold text-white">Mostrar Ranking de Indicações</h3>
+                <p className="text-gray-400 text-sm">Clique para ver sua posição no ranking competitivo</p>
+              </div>
+            </button>
+          </div>
+        )}
+
         {/* Ranking de Indicações */}
-        {showRanking && ranking.length > 0 && (
+        {showRanking && (
           <section className="mt-16 mb-8">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
@@ -362,10 +396,11 @@ export default function MentoradoComissoesPage() {
                 </div>
               </div>
               <button
-                onClick={() => setShowRanking(false)}
+                onClick={() => setShowRanking(!showRanking)}
                 className="text-gray-400 hover:text-white transition-colors"
+                title={showRanking ? "Esconder ranking" : "Mostrar ranking"}
               >
-                ✕
+                {showRanking ? "✕" : "👁️"}
               </button>
             </div>
 

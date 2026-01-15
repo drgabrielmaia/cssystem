@@ -42,8 +42,17 @@ function MentoradoPageContent() {
     if (mentorado) {
       loadModules()
       loadRankingData()
+    } else {
+      // Carregar ranking mesmo sem mentorado logado (para debug)
+      console.log('🔍 Mentorado não encontrado, carregando ranking anyway...')
+      loadRankingData()
     }
   }, [mentorado])
+
+  // Carregar ranking automaticamente na inicialização
+  useEffect(() => {
+    loadRankingData()
+  }, [])
 
   const loadModules = async () => {
     try {
@@ -72,6 +81,7 @@ function MentoradoPageContent() {
   const loadRankingData = async () => {
     try {
       console.log('🏆 Carregando ranking de indicações...')
+      console.log('📊 Estado atual - showRanking:', showRanking)
 
       // First get all mentorados from the admin organization (where all mentorados are now)
       const { data: allMentorados, error: mentoradosError } = await supabase
@@ -118,6 +128,8 @@ function MentoradoPageContent() {
 
       setRanking(rankingFormatted)
       console.log('✅ Ranking carregado:', rankingFormatted.length, 'mentorados (incluindo zeros)')
+      console.log('📊 Ranking será exibido?', showRanking && rankingFormatted.length > 0)
+      console.log('📋 Primeiros 3 do ranking:', rankingFormatted.slice(0, 3).map(r => ({ nome: r.nome_completo, indicacoes: r.total_indicacoes })))
     } catch (error) {
       console.error('❌ Erro ao carregar ranking:', error)
     }
@@ -342,6 +354,22 @@ function MentoradoPageContent() {
           </div>
         </section>
 
+        {/* Botão para mostrar ranking quando escondido */}
+        {!showRanking && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowRanking(true)}
+              className="flex items-center space-x-3 bg-[#1A1A1A] p-4 rounded-lg border border-gray-700 hover:bg-[#2A2A2A] transition-colors w-full"
+            >
+              <Trophy className="w-8 h-8 text-yellow-500" />
+              <div>
+                <h3 className="text-lg font-bold text-white">Mostrar Ranking de Indicações</h3>
+                <p className="text-gray-400 text-sm">Clique para ver o ranking competitivo</p>
+              </div>
+            </button>
+          </div>
+        )}
+
         {/* Ranking de Indicações */}
         {showRanking && (
           <section>
@@ -354,10 +382,11 @@ function MentoradoPageContent() {
                 </div>
               </div>
               <button
-                onClick={() => setShowRanking(false)}
+                onClick={() => setShowRanking(!showRanking)}
                 className="text-gray-400 hover:text-white transition-colors"
+                title={showRanking ? "Esconder ranking" : "Mostrar ranking"}
               >
-                ✕
+                {showRanking ? "✕" : "👁️"}
               </button>
             </div>
 

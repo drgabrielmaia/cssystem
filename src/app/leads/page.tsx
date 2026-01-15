@@ -1124,13 +1124,22 @@ className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py
                       .eq('id', editingLead.id)
 
                     if (error) throw error
+
+                    // Verificar se lead foi marcado como vendido e tem indicador
+                    await checkAndCreateCommission(editingLead.id, leadData, editingLead)
                   } else {
                     // Criar novo lead
-                    const { error } = await supabase
+                    const { data: newLead, error } = await supabase
                       .from('leads')
                       .insert(leadData)
+                      .select()
 
                     if (error) throw error
+
+                    // Verificar se novo lead foi marcado como vendido e tem indicador
+                    if (newLead && newLead[0]) {
+                      await checkAndCreateCommission(newLead[0].id, leadData)
+                    }
                   }
 
                   setIsModalOpen(false)
@@ -1154,6 +1163,80 @@ className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py
 }
 
 // Componente de formulário de edição/criação
+// Função para verificar e criar comissão automaticamente
+async function checkAndCreateCommission(leadId: string, leadData: any, originalLead?: Lead) {
+  try {
+    // Verificar se o lead foi marcado como vendido e tem indicador
+    if (leadData.status === 'vendido' && leadData.mentorado_indicador_id && leadData.valor_vendido) {
+      console.log('🎯 Lead vendido com indicador detectado, criando comissão...')
+
+      // Verificar se já existe comissão para este lead
+      const { data: existingCommission } = await supabase
+        .from('comissoes')
+        .select('id')
+        .eq('lead_id', leadId)
+        .single()
+
+      if (existingCommission) {
+        console.log('ℹ️ Comissão já existe para este lead')
+        return
+      }
+
+      // Buscar dados do mentorado indicador
+      const { data: mentorado, error: mentoradoError } = await supabase
+        .from('mentorados')
+        .select('id, nome_completo, email, porcentagem_comissao')
+        .eq('id', leadData.mentorado_indicador_id)
+        .single()
+
+      if (mentoradoError) {
+        console.error('❌ Erro ao buscar mentorado:', mentoradoError)
+        return
+      }
+
+      if (!mentorado.porcentagem_comissao || mentorado.porcentagem_comissao <= 0) {
+        console.warn('⚠️ Mentorado não tem porcentagem de comissão configurada')
+        return
+      }
+
+      // Calcular valor da comissão
+      const valorComissao = (leadData.valor_vendido * mentorado.porcentagem_comissao) / 100
+
+      // Criar registro de comissão
+      const comissaoData = {
+        mentorado_id: leadData.mentorado_indicador_id,
+        lead_id: leadId,
+        valor_comissao: valorComissao,
+        valor_venda: leadData.valor_vendido,
+        data_venda: leadData.data_venda || new Date().toISOString(),
+        observacoes: `Comissão gerada automaticamente para indicação de ${mentorado.nome_completo} (${mentorado.porcentagem_comissao}%)`
+      }
+
+      const { error: comissaoError } = await supabase
+        .from('comissoes')
+        .insert(comissaoData)
+
+      if (comissaoError) {
+        console.error('❌ Erro ao criar comissão:', comissaoError)
+        // Mostrar alerta para o usuário mas não bloquear o salvamento do lead
+        alert(`Lead salvo, mas houve erro ao gerar comissão automaticamente. Erro: ${comissaoError.message}`)
+      } else {
+        console.log(`✅ Comissão de R$ ${valorComissao.toFixed(2)} criada para ${mentorado.nome_completo}`)
+
+        // Mostrar confirmação para o usuário
+        alert(`✅ Lead salvo e comissão de R$ ${valorComissao.toFixed(2)} gerada automaticamente para ${mentorado.nome_completo}!`)
+      }
+
+    } else if (leadData.status === 'vendido' && leadData.mentorado_indicador_id && !leadData.valor_vendido) {
+      console.warn('⚠️ Lead vendido com indicador mas sem valor de venda - comissão não pode ser calculada')
+      alert('⚠️ Lead salvo, mas para gerar a comissão automaticamente é necessário informar o valor da venda.')
+    }
+
+  } catch (error) {
+    console.error('❌ Erro na verificação de comissão:', error)
+  }
+}
+
 function EditLeadForm({ lead, onSave, onCancel }: {
   lead: Lead | null
   onSave: (lead: Partial<Lead>) => void
