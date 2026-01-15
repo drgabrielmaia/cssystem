@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { UserCheck, Mail, Eye, EyeOff, LogIn, Play, BookOpen, DollarSign, TrendingUp, Target, Trophy, Brain, Star, Medal, Award } from 'lucide-react'
 import { MentoradoAuthProvider, useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { supabase } from '@/lib/supabase'
@@ -35,6 +36,7 @@ function MentoradoPageContent() {
   const [modules, setModules] = useState<VideoModule[]>([])
   const [ranking, setRanking] = useState<RankingMentorado[]>([])
   const [showRanking, setShowRanking] = useState(true)
+  const [showFullRankingModal, setShowFullRankingModal] = useState(false)
 
   useEffect(() => {
     if (mentorado) {
@@ -350,7 +352,7 @@ function MentoradoPageContent() {
             </div>
 
             <div className="space-y-3">
-              {ranking.map((mentoradoRank, index) => (
+              {ranking.slice(0, 3).map((mentoradoRank, index) => (
                 <div
                   key={mentoradoRank.mentorado_id}
                   className={`flex items-center p-4 rounded-lg transition-all hover:scale-[1.02] ${
@@ -404,6 +406,18 @@ function MentoradoPageContent() {
                 </div>
               ))}
             </div>
+
+            {/* Botão Ver Mais */}
+            {ranking.length > 3 && (
+              <div className="text-center mt-6">
+                <button
+                  onClick={() => setShowFullRankingModal(true)}
+                  className="bg-[#1A1A1A] hover:bg-[#2A2A2A] text-white px-6 py-3 rounded-lg font-medium transition-colors border border-gray-600 hover:border-gray-500"
+                >
+                  Ver ranking completo ({ranking.length} competidores)
+                </button>
+              </div>
+            )}
           </section>
         )}
 
@@ -587,6 +601,122 @@ function MentoradoPageContent() {
           </div>
         </section>
       </div>
+
+      {/* Modal de Ranking Completo */}
+      <Dialog open={showFullRankingModal} onOpenChange={setShowFullRankingModal}>
+        <DialogContent className="sm:max-w-[800px] sm:max-h-[90vh] bg-[#181818] border-gray-800 text-white overflow-hidden">
+          <div className="space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-gray-700">
+              <div className="flex items-center gap-3">
+                <Trophy className="w-8 h-8 text-yellow-500" />
+                <div>
+                  <h3 className="text-2xl font-bold">🏆 Ranking Completo</h3>
+                  <p className="text-gray-400">
+                    {ranking.length} competidores • Concorra ao prêmio!
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFullRankingModal(false)}
+                className="text-gray-400 hover:text-white transition-colors text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Top 3 destaque */}
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              {ranking.slice(0, 3).map((mentoradoRank, index) => (
+                <div
+                  key={mentoradoRank.mentorado_id}
+                  className={`p-4 rounded-lg text-center ${
+                    index === 0
+                      ? 'bg-gradient-to-b from-yellow-600 to-yellow-800 border border-yellow-400'
+                      : index === 1
+                      ? 'bg-gradient-to-b from-gray-500 to-gray-700 border border-gray-400'
+                      : 'bg-gradient-to-b from-amber-600 to-amber-800 border border-amber-500'
+                  }`}
+                >
+                  <div className="flex justify-center mb-2">
+                    {index === 0 ? (
+                      <Trophy className="w-8 h-8 text-yellow-200" />
+                    ) : index === 1 ? (
+                      <Medal className="w-8 h-8 text-gray-200" />
+                    ) : (
+                      <Award className="w-8 h-8 text-amber-200" />
+                    )}
+                  </div>
+                  <div className="text-xl font-bold mb-1">{index + 1}º</div>
+                  <div className="font-medium text-sm truncate">{mentoradoRank.nome_completo}</div>
+                  <div className="text-xs text-white/80">{mentoradoRank.total_indicacoes} indicações</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Lista completa */}
+            <div className="overflow-y-auto max-h-[400px]">
+              <div className="space-y-2">
+                {ranking.map((mentoradoRank, index) => (
+                  <div
+                    key={mentoradoRank.mentorado_id}
+                    className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                      index < 3
+                        ? 'bg-gradient-to-r from-gray-700/50 to-gray-800/50 border border-gray-600'
+                        : 'bg-[#1A1A1A] hover:bg-[#2A2A2A]'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                        index === 0 ? 'bg-yellow-500 text-black' :
+                        index === 1 ? 'bg-gray-400 text-black' :
+                        index === 2 ? 'bg-amber-500 text-black' :
+                        'bg-gray-600 text-white'
+                      }`}>
+                        {index + 1}
+                      </div>
+                      <div>
+                        <div className="text-white font-medium">{mentoradoRank.nome_completo}</div>
+                        <div className="text-sm text-gray-400">
+                          {mentoradoRank.total_indicacoes} indicação{mentoradoRank.total_indicacoes !== 1 ? 'ões' : ''}
+                        </div>
+                      </div>
+                      {index < 3 && (
+                        <div className="ml-2">
+                          {index === 0 ? (
+                            <span className="text-xs bg-yellow-500 text-black px-2 py-1 rounded-full font-bold">CAMPEÃO</span>
+                          ) : index === 1 ? (
+                            <span className="text-xs bg-gray-400 text-black px-2 py-1 rounded-full font-bold">2º LUGAR</span>
+                          ) : (
+                            <span className="text-xs bg-amber-500 text-black px-2 py-1 rounded-full font-bold">3º LUGAR</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <div className={`font-semibold ${
+                        index === 0 ? 'text-yellow-400' :
+                        index === 1 ? 'text-gray-400' :
+                        index === 2 ? 'text-amber-400' :
+                        'text-green-400'
+                      }`}>
+                        #{index + 1}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="pt-4 border-t border-gray-700 text-center">
+              <p className="text-sm text-gray-400">
+                🏆 1º lugar: Bolsa de luxo OU Relógio de luxo • 🥈 2º lugar • 🥉 3º lugar
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

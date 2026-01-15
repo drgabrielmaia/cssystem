@@ -183,12 +183,37 @@ export default function FinanceiroDashboard() {
         .eq('organization_id', organizationId)
         .eq('status', 'pago')
 
-      const entradas_mes = monthlyTransactions?.filter(t => t.tipo === 'entrada').reduce((acc, t) => acc + t.valor, 0) || 0
+      // ADICIONAR VALORES DOS LEADS ARRECADADOS
+      // Buscar leads arrecadados do mês atual
+      const { data: monthlyLeads } = await supabase
+        .from('leads')
+        .select('valor_arrecadado, data_arrecadacao, organization_id')
+        .eq('organization_id', organizationId)
+        .not('valor_arrecadado', 'is', null)
+        .gt('valor_arrecadado', 0)
+        .gte('data_arrecadacao', `${currentMonth}-01`)
+        .lt('data_arrecadacao', `${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString()}`)
+
+      // Buscar todos os leads arrecadados para caixa atual
+      const { data: allLeads } = await supabase
+        .from('leads')
+        .select('valor_arrecadado, organization_id')
+        .eq('organization_id', organizationId)
+        .not('valor_arrecadado', 'is', null)
+        .gt('valor_arrecadado', 0)
+
+      const entradas_transacoes = monthlyTransactions?.filter(t => t.tipo === 'entrada').reduce((acc, t) => acc + t.valor, 0) || 0
+      const entradas_leads = monthlyLeads?.reduce((acc, lead) => acc + (lead.valor_arrecadado || 0), 0) || 0
+      const entradas_mes = entradas_transacoes + entradas_leads
+
       const saidas_mes = monthlyTransactions?.filter(t => t.tipo === 'saida').reduce((acc, t) => acc + t.valor, 0) || 0
 
-      const caixa_atual = allTransactions?.reduce((acc, t) => {
+      const caixa_transacoes = allTransactions?.reduce((acc, t) => {
         return t.tipo === 'entrada' ? acc + t.valor : acc - t.valor
       }, 0) || 0
+
+      const caixa_leads = allLeads?.reduce((acc, lead) => acc + (lead.valor_arrecadado || 0), 0) || 0
+      const caixa_atual = caixa_transacoes + caixa_leads
 
       // Buscar contas a pagar e receber com filtro organizacional
       const { data: contasPagar } = await supabase
