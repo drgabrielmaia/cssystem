@@ -399,9 +399,28 @@ function MentoradoPageContent() {
 
                   {/* Nome e indicações */}
                   <div className="flex-1 flex items-center justify-between">
-                    <h3 className="text-white font-semibold text-lg">
-                      {mentoradoRank.nome_completo}
-                    </h3>
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-white font-semibold text-lg">
+                        {mentoradoRank.nome_completo}
+                      </h3>
+                      {/* Prêmios para o 1º lugar */}
+                      {index === 0 && (
+                        <div className="flex items-center gap-2">
+                          <img
+                            src="/bolsa.jpg"
+                            alt="Bolsa de luxo"
+                            className="w-6 h-6 rounded object-cover border border-yellow-400/50"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                          />
+                          <img
+                            src="/rolex.jpg"
+                            alt="Relógio de luxo"
+                            className="w-6 h-6 rounded object-cover border border-yellow-400/50"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                          />
+                        </div>
+                      )}
+                    </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-white">
                         {mentoradoRank.total_indicacoes}
@@ -693,7 +712,26 @@ function MentoradoPageContent() {
                         {index + 1}
                       </div>
                       <div>
-                        <div className="text-white font-medium">{mentoradoRank.nome_completo}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-medium">{mentoradoRank.nome_completo}</span>
+                          {/* Prêmios para o 1º lugar no modal */}
+                          {index === 0 && (
+                            <div className="flex items-center gap-1">
+                              <img
+                                src="/bolsa.jpg"
+                                alt="Bolsa de luxo"
+                                className="w-4 h-4 rounded object-cover border border-yellow-400/50"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                              />
+                              <img
+                                src="/rolex.jpg"
+                                alt="Relógio de luxo"
+                                className="w-4 h-4 rounded object-cover border border-yellow-400/50"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                              />
+                            </div>
+                          )}
+                        </div>
                         <div className="text-sm text-gray-400">
                           {mentoradoRank.total_indicacoes} indicação{mentoradoRank.total_indicacoes !== 1 ? 'ões' : ''}
                         </div>

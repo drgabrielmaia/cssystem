@@ -48,12 +48,16 @@ export default function DashboardPage() {
     try {
       setMetricsLoading(true)
 
+      console.log('🏢 Debug Dashboard - Organization ID:', activeOrganizationId)
+      console.log('🏢 Debug Dashboard - isReady:', isReady)
+
       // Calcular data do mês atual
       const now = new Date()
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
       // Buscar todos os leads do mês (data_primeiro_contato)
+      // TODO: Adicionar filtro de organização quando leads tiverem organization_id
       const { data: allLeads } = await supabase
         .from('leads')
         .select('id')
@@ -61,6 +65,7 @@ export default function DashboardPage() {
         .lte('data_primeiro_contato', endOfMonth.toISOString())
 
       // Buscar TODAS as vendas primeiro (sem filtro de data)
+      // TODO: Adicionar filtro de organização quando leads tiverem organization_id
       const { data: allSalesData } = await supabase
         .from('leads')
         .select('valor_vendido, valor_arrecadado, data_venda, nome_completo')
@@ -80,6 +85,7 @@ export default function DashboardPage() {
       console.log('🎯 Debug Dashboard - Período:', startOfMonth.toISOString(), 'até', endOfMonth.toISOString())
 
       // Para taxa de conversão: buscar leads vendidos no período por data_venda
+      // TODO: Adicionar filtro de organização quando leads tiverem organization_id
       const { data: vendasParaConversao } = await supabase
         .from('leads')
         .select('id, data_primeiro_contato, data_venda')
@@ -89,10 +95,22 @@ export default function DashboardPage() {
 
       const total_leads = allLeads?.length || 0
       const total_vendas = vendasParaConversao?.length || 0
-      const valor_vendido = salesData?.reduce((sum, sale) => sum + (sale.valor_vendido || 0), 0) || 0
-      const valor_arrecadado = salesData?.reduce((sum, sale) => sum + (sale.valor_arrecadado || 0), 0) || 0
+
+      // Garantir que valores sejam números válidos, incluindo 0
+      const valor_vendido = salesData?.reduce((sum, sale) => {
+        const val = parseFloat(sale.valor_vendido) || 0
+        return sum + val
+      }, 0) ?? 0
+
+      const valor_arrecadado = salesData?.reduce((sum, sale) => {
+        const val = parseFloat(sale.valor_arrecadado) || 0
+        return sum + val
+      }, 0) ?? 0
+
       const taxa_conversao = total_leads > 0 ? (total_vendas / total_leads) * 100 : 0
 
+      console.log('🎯 Debug Dashboard - Dados de vendas do mês:', salesData?.length, 'vendas')
+      console.log('🎯 Debug Dashboard - Exemplo venda:', salesData?.[0])
       console.log('🎯 Debug Dashboard - Resultado final:', {
         total_leads,
         total_vendas,
@@ -304,31 +322,38 @@ export default function DashboardPage() {
                             {formatCurrency(salesMetrics.valor_vendido)}
                           </div>
 
-                          {/* Valor Arrecadado (Pequeno, cinza) */}
-                          <div className="text-xs text-gray-500">
-                            Arrecadado: {formatCurrency(salesMetrics.valor_arrecadado)} • Meta: {formatCurrency(500000)}
+                          {/* Valor Arrecadado - Maior destaque */}
+                          <div className="bg-orange-100 p-2 rounded border border-orange-300">
+                            <div className="text-sm font-semibold text-orange-800 mb-1">Valor Arrecadado</div>
+                            <div className="text-lg font-bold text-orange-900">
+                              {formatCurrency(salesMetrics.valor_arrecadado || 0)}
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              Meta: {formatCurrency(500000)} •
+                              Taxa: {salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado || 0) / salesMetrics.valor_vendido * 100).toFixed(1) : '0.0'}%
+                            </div>
                           </div>
                         </div>
 
                         {/* Régua de Conversão */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-orange-700">Taxa de Conversão</span>
-                            <span className="text-xs font-bold text-orange-900">{salesMetrics.taxa_conversao.toFixed(1)}%</span>
+                        <div className="bg-orange-50 p-3 rounded border border-orange-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-semibold text-orange-700">Taxa de Conversão</span>
+                            <span className="text-lg font-bold text-orange-900">{(salesMetrics.taxa_conversao || 0).toFixed(1)}%</span>
                           </div>
 
-                          <div className="h-2 bg-orange-200 rounded-full overflow-hidden">
+                          <div className="h-3 bg-orange-200 rounded-full overflow-hidden mb-2">
                             <div
                               className={`h-full transition-all duration-500 ${
                                 salesMetrics.taxa_conversao > 55 ? 'bg-blue-500' :
                                 salesMetrics.taxa_conversao >= 40 ? 'bg-green-500' :
                                 salesMetrics.taxa_conversao >= 25 ? 'bg-yellow-500' : 'bg-red-500'
                               }`}
-                              style={{ width: `${Math.min(salesMetrics.taxa_conversao, 100)}%` }}
+                              style={{ width: `${Math.min(salesMetrics.taxa_conversao || 0, 100)}%` }}
                             />
                           </div>
 
-                          <div className="flex justify-between text-[10px] text-orange-600">
+                          <div className="grid grid-cols-2 gap-1 text-[10px] text-orange-700">
                             <span>🔴 Ruim &lt;25%</span>
                             <span>🟡 Normal 25-40%</span>
                             <span>🟢 Bom 40-55%</span>
