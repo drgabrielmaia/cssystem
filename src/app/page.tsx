@@ -24,6 +24,8 @@ interface KPIData {
 
 export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('month')
+  const [chartPeriod, setChartPeriod] = useState('monthly') // Estado para o filtro do gráfico
+  const [chartSubtitle, setChartSubtitle] = useState('Últimos 6 meses') // Subtítulo dinâmico do gráfico
   const [kpiData, setKpiData] = useState<KPIData>({
     total_vendas: 88000,
     meta_vendas: 500000,
@@ -108,6 +110,13 @@ export default function DashboardPage() {
     loadDashboardData()
   }, [])
 
+  // Recarregar dados do gráfico quando período do gráfico mudar
+  useEffect(() => {
+    if (!loading) { // Só carregar se já terminou o carregamento inicial
+      handleChartPeriodChange(chartPeriod)
+    }
+  }, [chartPeriod])
+
   // Recarregar dados quando período mudar
   useEffect(() => {
     if (!loading) {
@@ -158,8 +167,8 @@ export default function DashboardPage() {
 
       const totalVendasPeriod = vendasPeriod?.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0) || 0
 
-      // Carregar evolução do faturamento dos últimos 6 meses
-      await loadMonthlyRevenue()
+      // Carregar evolução do faturamento baseado no período do gráfico
+      await loadRevenueData(chartPeriod)
 
       // Carregar atividade recente
       await loadRecentActivity()
@@ -205,9 +214,9 @@ export default function DashboardPage() {
     }
   }
 
-  const loadMonthlyRevenue = async () => {
+  const loadRevenueData = async (period: string = 'monthly') => {
     try {
-      console.log('🔍 Carregando dados de faturamento mensal...')
+      console.log(`🔍 Carregando dados de faturamento ${period}...`)
 
       // Buscar dados de vendas dos leads
       const { data: leads, error: leadsError } = await supabase
@@ -230,72 +239,145 @@ export default function DashboardPage() {
 
       console.log('💰 Vendas válidas processadas:', vendas.length)
 
-      // Sempre gerar dados para os últimos 6 meses, mesmo sem vendas
-      const sparklineMonths = []
-      const monthlyDataPoints = []
+      let dataPoints = []
+      let subtitle = ''
 
-      for (let i = 5; i >= 0; i--) {
-        const date = new Date()
-        date.setMonth(date.getMonth() - i)
-        const year = date.getFullYear()
-        const month = date.getMonth() + 1
+      if (period === 'daily') {
+        // Últimos 30 dias
+        subtitle = 'Últimos 30 dias'
+        for (let i = 29; i >= 0; i--) {
+          const date = new Date()
+          date.setDate(date.getDate() - i)
+          const year = date.getFullYear()
+          const month = date.getMonth() + 1
+          const day = date.getDate()
 
-        // Filtrar vendas deste mês baseado na data da venda efetiva
-        const monthSales = vendas.filter(venda => {
-          if (!venda.data_venda) return false
-          try {
-            const saleDate = new Date(venda.data_venda)
-            return !isNaN(saleDate.getTime()) &&
-                   saleDate.getFullYear() === year &&
-                   saleDate.getMonth() + 1 === month
-          } catch {
-            return false
-          }
-        })
+          const daySales = vendas.filter(venda => {
+            if (!venda.data_venda) return false
+            try {
+              const saleDate = new Date(venda.data_venda)
+              return !isNaN(saleDate.getTime()) &&
+                     saleDate.getFullYear() === year &&
+                     saleDate.getMonth() + 1 === month &&
+                     saleDate.getDate() === day
+            } catch {
+              return false
+            }
+          })
 
-        const totalValue = monthSales.reduce((sum, venda) => sum + venda.valor_vendido, 0)
+          const totalValue = daySales.reduce((sum, venda) => sum + venda.valor_vendido, 0)
+          dataPoints.push({
+            month: `${day}/${month}`,
+            value: totalValue
+          })
+        }
+      } else if (period === 'weekly') {
+        // Últimas 12 semanas
+        subtitle = 'Últimas 12 semanas'
+        for (let i = 11; i >= 0; i--) {
+          const endDate = new Date()
+          endDate.setDate(endDate.getDate() - (i * 7))
+          const startDate = new Date(endDate)
+          startDate.setDate(startDate.getDate() - 6)
 
-        // Sparkline data (sempre incluir, mesmo que seja 0)
-        sparklineMonths.push({ value: totalValue / 1000 })
+          const weekSales = vendas.filter(venda => {
+            if (!venda.data_venda) return false
+            try {
+              const saleDate = new Date(venda.data_venda)
+              return !isNaN(saleDate.getTime()) &&
+                     saleDate >= startDate &&
+                     saleDate <= endDate
+            } catch {
+              return false
+            }
+          })
 
-        // Monthly chart data
-        const monthName = date.toLocaleDateString('pt-BR', { month: 'short' })
-        monthlyDataPoints.push({
-          month: monthName.charAt(0).toUpperCase() + monthName.slice(1),
-          value: totalValue
-        })
+          const totalValue = weekSales.reduce((sum, venda) => sum + venda.valor_vendido, 0)
+          const weekLabel = `${startDate.getDate()}/${startDate.getMonth() + 1} - ${endDate.getDate()}/${endDate.getMonth() + 1}`
+          dataPoints.push({
+            month: weekLabel,
+            value: totalValue
+          })
+        }
+      } else {
+        // Mensal - últimos 6 meses (padrão)
+        subtitle = 'Últimos 6 meses'
+        for (let i = 5; i >= 0; i--) {
+          const date = new Date()
+          date.setMonth(date.getMonth() - i)
+          const year = date.getFullYear()
+          const month = date.getMonth() + 1
 
-        console.log(`📈 ${monthName}/${year}: R$ ${totalValue.toLocaleString('pt-BR')}`)
+          // Filtrar vendas deste mês baseado na data da venda efetiva
+          const monthSales = vendas.filter(venda => {
+            if (!venda.data_venda) return false
+            try {
+              const saleDate = new Date(venda.data_venda)
+              return !isNaN(saleDate.getTime()) &&
+                     saleDate.getFullYear() === year &&
+                     saleDate.getMonth() + 1 === month
+            } catch {
+              return false
+            }
+          })
+
+          const totalValue = monthSales.reduce((sum, venda) => sum + venda.valor_vendido, 0)
+
+          // Monthly chart data
+          const monthName = date.toLocaleDateString('pt-BR', { month: 'short' })
+          dataPoints.push({
+            month: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+            value: totalValue
+          })
+
+          console.log(`📈 ${monthName}/${year}: R$ ${totalValue.toLocaleString('pt-BR')}`)
+        }
       }
 
-      setSparklineData(sparklineMonths)
-      setMonthlyData(monthlyDataPoints)
+      setMonthlyData(dataPoints)
 
       console.log('✅ Dados de faturamento carregados com sucesso')
-      console.log('📊 Sparkline:', sparklineMonths)
-      console.log('📈 Monthly data:', monthlyDataPoints)
+      console.log('📈 Data points:', dataPoints)
+
+      // Retornar o subtitle para atualizar no componente
+      return subtitle
 
     } catch (error) {
-      console.error('❌ Erro ao carregar dados mensais:', error)
+      console.error('❌ Erro ao carregar dados:', error)
 
       // Fallback: dados padrão em caso de erro
-      const defaultMonths = []
       const defaultData = []
 
-      for (let i = 5; i >= 0; i--) {
-        const date = new Date()
-        date.setMonth(date.getMonth() - i)
-        const monthName = date.toLocaleDateString('pt-BR', { month: 'short' })
-
-        defaultMonths.push({ value: 0 })
-        defaultData.push({
-          month: monthName.charAt(0).toUpperCase() + monthName.slice(1),
-          value: 0
-        })
+      if (period === 'daily') {
+        for (let i = 29; i >= 0; i--) {
+          const date = new Date()
+          date.setDate(date.getDate() - i)
+          defaultData.push({
+            month: `${date.getDate()}/${date.getMonth() + 1}`,
+            value: 0
+          })
+        }
+      } else if (period === 'weekly') {
+        for (let i = 11; i >= 0; i--) {
+          defaultData.push({
+            month: `Sem ${12-i}`,
+            value: 0
+          })
+        }
+      } else {
+        for (let i = 5; i >= 0; i--) {
+          const date = new Date()
+          date.setMonth(date.getMonth() - i)
+          const monthName = date.toLocaleDateString('pt-BR', { month: 'short' })
+          defaultData.push({
+            month: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+            value: 0
+          })
+        }
       }
 
-      setSparklineData(defaultMonths)
       setMonthlyData(defaultData)
+      return period === 'daily' ? 'Últimos 30 dias' : period === 'weekly' ? 'Últimas 12 semanas' : 'Últimos 6 meses'
     }
   }
 
@@ -464,6 +546,19 @@ export default function DashboardPage() {
     }
   }
 
+  // Função para lidar com mudança do período do gráfico
+  const handleChartPeriodChange = async (newPeriod: string) => {
+    try {
+      console.log(`🔄 Mudando período do gráfico para: ${newPeriod}`)
+      const subtitle = await loadRevenueData(newPeriod)
+      if (subtitle) {
+        setChartSubtitle(subtitle)
+      }
+    } catch (error) {
+      console.error('Erro ao mudar período do gráfico:', error)
+    }
+  }
+
   const [percentageChanges, setPercentageChanges] = useState({
     vendas: 12,
     mentorados: 8,
@@ -559,12 +654,16 @@ export default function DashboardPage() {
         <div className="lg:col-span-2">
           <ChartCard
             title="Evolução do Faturamento"
-            subtitle="Últimos 6 meses"
+            subtitle={chartSubtitle}
             actions={
-              <select className="px-4 py-2 bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all">
-                <option>Mensal</option>
-                <option>Semanal</option>
-                <option>Diário</option>
+              <select
+                value={chartPeriod}
+                onChange={(e) => setChartPeriod(e.target.value)}
+                className="px-4 py-2 bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl text-sm font-medium text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+              >
+                <option value="monthly">Mensal</option>
+                <option value="weekly">Semanal</option>
+                <option value="daily">Diário</option>
               </select>
             }
           >
