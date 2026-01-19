@@ -282,8 +282,8 @@ export default function LeadsPage() {
           .lte('data_primeiro_contato', dateRange.end)
       }
 
-      // Query para vendas (usar data_venda para leads vendidos)
-      let queryVendas = supabase.from('leads').select('*').eq('status', 'vendido')
+      // Query para vendas (usar data_venda para leads vendidos) - apenas com valor arrecadado
+      let queryVendas = supabase.from('leads').select('*').eq('status', 'vendido').not('valor_arrecadado', 'is', null).gt('valor_arrecadado', 0)
       if (dateRange) {
         queryVendas = queryVendas
           .gte('data_venda', dateRange.start)
@@ -310,13 +310,16 @@ export default function LeadsPage() {
         const totalArrecadado = vendasData.reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0)
 
         // Para performance (774K), usar o valor_arrecadado que é o que foi efetivamente pago
+        const taxaConversao = leadsTotal.length > 0 ? (vendasData.length / leadsTotal.length) * 100 : 0
+        const ticketMedio = vendasData.length > 0 ? totalArrecadado / vendasData.length : 0
+
         setStats({
           total_leads: leadsTotal.length,
           leads_convertidos: vendasData.length,
           valor_total_vendas: totalVendas, // Valor vendido (pode ser maior que o arrecadado)
           valor_total_arrecadado: totalArrecadado, // Valor efetivamente arrecadado (774K)
-          taxa_conversao: leadsTotal.length > 0 ? (vendasData.length / leadsTotal.length) * 100 : 0,
-          ticket_medio: vendasData.length > 0 ? totalArrecadado / vendasData.length : 0 // Usar arrecadado para ticket médio real
+          taxa_conversao: Math.round(taxaConversao * 100) / 100, // 2 casas decimais
+          ticket_medio: Math.round(ticketMedio * 100) / 100 // 2 casas decimais
         })
       }
     } catch (error) {
@@ -384,11 +387,13 @@ export default function LeadsPage() {
           .gte('data_primeiro_contato', startDate.toISOString())
           .lte('data_primeiro_contato', endDate.toISOString())
 
-        // Buscar vendas do mês
+        // Buscar vendas do mês - apenas vendas com valor arrecadado
         const { data: vendas } = await supabase
           .from('leads')
           .select('id')
           .eq('status', 'vendido')
+          .not('valor_arrecadado', 'is', null)
+          .gt('valor_arrecadado', 0)
           .gte('data_venda', startDate.toISOString())
           .lte('data_venda', endDate.toISOString())
 
@@ -400,7 +405,7 @@ export default function LeadsPage() {
           month: date.toLocaleDateString('pt-BR', { month: 'short' }).slice(0, 3),
           leads: totalLeadsCount,
           vendas: vendasCount,
-          taxa: taxaConversao
+          taxa: Math.round(taxaConversao * 100) / 100 // Limitar a 2 casas decimais
         })
       }
 

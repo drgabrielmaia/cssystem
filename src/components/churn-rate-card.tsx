@@ -89,32 +89,35 @@ export function ChurnRateCard() {
     try {
       setLoading(true)
 
-      // Buscar mentorados baseado no filtro de tempo
+      // Buscar TODOS os mentorados para o cálculo da porcentagem
+      const { data: todosMentorados, error: allError } = await supabase
+        .from('mentorados')
+        .select('id')
+
+      if (allError) throw allError
+
+      // Buscar mentorados que fizeram churn baseado no filtro de tempo
       const dateRange = getDateRange()
-      let query = supabase
+      let churnQuery = supabase
         .from('mentorados')
         .select('id, nome_completo, motivo_exclusao, data_entrada, data_exclusao, excluido')
+        .eq('excluido', true)
+        .eq('motivo_exclusao', 'reembolso')
 
-      // Aplicar filtro de data se necessário
+      // Aplicar filtro de data apenas para o churn se necessário
       if (dateRange && timeFilter !== 'ano_atual') {
-        // Para churn, filtrar por data_exclusao ou data_entrada dependendo do que queremos medir
-        query = query
-          .gte('data_entrada', dateRange.start)
-          .lte('data_entrada', dateRange.end)
+        // Filtrar por data_exclusao para churns no período
+        churnQuery = churnQuery
+          .gte('data_exclusao', dateRange.start)
+          .lte('data_exclusao', dateRange.end)
       }
 
-      const { data: mentorados, error } = await query
+      const { data: churnedMentorados, error: churnError } = await churnQuery
 
-      if (error) throw error
+      if (churnError) throw churnError
 
-      const totalMentorias = mentorados?.length || 0
-
-      // Contar apenas exclusões por reembolso como churn (não por erro)
-      const churnedMentorados = mentorados?.filter(
-        mentorado => mentorado.excluido === true && mentorado.motivo_exclusao === 'reembolso'
-      ) || []
-
-      const churnPorReembolso = churnedMentorados.length
+      const totalMentorias = todosMentorados?.length || 0
+      const churnPorReembolso = churnedMentorados?.length || 0
       const taxaChurn = totalMentorias > 0 ? (churnPorReembolso / totalMentorias) * 100 : 0
 
       let status: 'excelente' | 'aceitavel' | 'grave'
@@ -131,7 +134,7 @@ export function ChurnRateCard() {
         desistencias: churnPorReembolso,
         taxaChurn,
         status,
-        churnedMentorados
+        churnedMentorados: churnedMentorados || []
       })
     } catch (error) {
       console.error('Erro ao carregar estatísticas de churn:', error)

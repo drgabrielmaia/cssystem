@@ -72,6 +72,8 @@ export default function FinanceiroPlataformaDashboard() {
   const [loading, setLoading] = useState(true)
   const [chartPeriod, setChartPeriod] = useState('mensal')
   const [chartType, setChartType] = useState('entradas')
+  const [chartData, setChartData] = useState<Array<{period: string, value: number}>>([])
+  const [chartLoading, setChartLoading] = useState(false)
   const [financeUser, setFinanceUser] = useState<any>(null)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionForm, setTransactionForm] = useState({
@@ -86,7 +88,12 @@ export default function FinanceiroPlataformaDashboard() {
   useEffect(() => {
     checkAuth()
     loadFinanceData()
+    loadChartData()
   }, [])
+
+  useEffect(() => {
+    loadChartData()
+  }, [chartPeriod, chartType])
 
   const checkAuth = () => {
     const savedUser = localStorage.getItem('finance_user')
@@ -206,6 +213,137 @@ export default function FinanceiroPlataformaDashboard() {
         valor_total_arrecadado: 0,
         taxa_conversao: 0
       }
+    }
+  }
+
+  const loadChartData = async () => {
+    try {
+      setChartLoading(true)
+      const currentDate = new Date()
+      const periods = []
+
+      if (chartPeriod === 'diario') {
+        // Últimos 7 dias
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(currentDate)
+          date.setDate(currentDate.getDate() - i)
+          const startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+          const endDate = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
+
+          const { data: transactionsDay } = await supabase
+            .from('transacoes_financeiras')
+            .select('valor, tipo')
+            .eq('status', 'pago')
+            .eq('tipo', chartType === 'liquido' ? 'entrada' : chartType)
+            .gte('data_transacao', startDate.toISOString())
+            .lt('data_transacao', endDate.toISOString())
+
+          let value = transactionsDay?.reduce((acc, t) => acc + t.valor, 0) || 0
+
+          if (chartType === 'liquido') {
+            const { data: saidas } = await supabase
+              .from('transacoes_financeiras')
+              .select('valor')
+              .eq('status', 'pago')
+              .eq('tipo', 'saida')
+              .gte('data_transacao', startDate.toISOString())
+              .lt('data_transacao', endDate.toISOString())
+
+            const valorSaidas = saidas?.reduce((acc, t) => acc + t.valor, 0) || 0
+            value = value - valorSaidas
+          }
+
+          periods.push({
+            period: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+            value
+          })
+        }
+      } else if (chartPeriod === 'semanal') {
+        // Últimas 4 semanas
+        for (let i = 3; i >= 0; i--) {
+          const date = new Date(currentDate)
+          date.setDate(currentDate.getDate() - (i * 7))
+
+          // Início da semana (domingo)
+          const startOfWeek = new Date(date)
+          startOfWeek.setDate(date.getDate() - date.getDay())
+          startOfWeek.setHours(0, 0, 0, 0)
+
+          // Fim da semana (sábado)
+          const endOfWeek = new Date(startOfWeek)
+          endOfWeek.setDate(startOfWeek.getDate() + 6)
+          endOfWeek.setHours(23, 59, 59, 999)
+
+          const { data: transactionsWeek } = await supabase
+            .from('transacoes_financeiras')
+            .select('valor, tipo')
+            .eq('status', 'pago')
+            .eq('tipo', chartType === 'liquido' ? 'entrada' : chartType)
+            .gte('data_transacao', startOfWeek.toISOString())
+            .lte('data_transacao', endOfWeek.toISOString())
+
+          let value = transactionsWeek?.reduce((acc, t) => acc + t.valor, 0) || 0
+
+          if (chartType === 'liquido') {
+            const { data: saidas } = await supabase
+              .from('transacoes_financeiras')
+              .select('valor')
+              .eq('status', 'pago')
+              .eq('tipo', 'saida')
+              .gte('data_transacao', startOfWeek.toISOString())
+              .lte('data_transacao', endOfWeek.toISOString())
+
+            const valorSaidas = saidas?.reduce((acc, t) => acc + t.valor, 0) || 0
+            value = value - valorSaidas
+          }
+
+          periods.push({
+            period: `${startOfWeek.getDate()}/${startOfWeek.getMonth() + 1}`,
+            value
+          })
+        }
+      } else {
+        // Mensal - últimos 6 meses
+        for (let i = 5; i >= 0; i--) {
+          const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1)
+          const startDate = new Date(date.getFullYear(), date.getMonth(), 1)
+          const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59)
+
+          const { data: transactionsMonth } = await supabase
+            .from('transacoes_financeiras')
+            .select('valor, tipo')
+            .eq('status', 'pago')
+            .eq('tipo', chartType === 'liquido' ? 'entrada' : chartType)
+            .gte('data_transacao', startDate.toISOString())
+            .lte('data_transacao', endDate.toISOString())
+
+          let value = transactionsMonth?.reduce((acc, t) => acc + t.valor, 0) || 0
+
+          if (chartType === 'liquido') {
+            const { data: saidas } = await supabase
+              .from('transacoes_financeiras')
+              .select('valor')
+              .eq('status', 'pago')
+              .eq('tipo', 'saida')
+              .gte('data_transacao', startDate.toISOString())
+              .lte('data_transacao', endDate.toISOString())
+
+            const valorSaidas = saidas?.reduce((acc, t) => acc + t.valor, 0) || 0
+            value = value - valorSaidas
+          }
+
+          periods.push({
+            period: date.toLocaleDateString('pt-BR', { month: 'short' }),
+            value
+          })
+        }
+      }
+
+      setChartData(periods)
+    } catch (error) {
+      console.error('Erro ao carregar dados do gráfico:', error)
+    } finally {
+      setChartLoading(false)
     }
   }
 
@@ -549,18 +687,39 @@ export default function FinanceiroPlataformaDashboard() {
               </div>
 
               {/* Chart */}
-              <div className="h-64 flex items-end justify-between space-x-2">
-                {[45, 52, 38, 65, 42, 58, 70, 48, 63, 55, 72, 60, 45, 68].map((height, index) => (
-                  <div key={index} className="flex-1 flex flex-col justify-end h-full">
-                    <div
-                      className={`w-full rounded-t-lg transition-all ${
-                        chartType === 'entradas' ? 'bg-[#E879F9]' :
-                        chartType === 'saidas' ? 'bg-red-400' : 'bg-blue-400'
-                      }`}
-                      style={{ height: `${height}%` }}
-                    />
+              <div className="h-64">
+                {chartLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E879F9]"></div>
                   </div>
-                ))}
+                ) : (
+                  <div className="h-full flex items-end justify-between space-x-2">
+                    {chartData.map((item, index) => {
+                      const maxValue = Math.max(...chartData.map(d => Math.abs(d.value)))
+                      const height = maxValue > 0 ? (Math.abs(item.value) / maxValue) * 100 : 0
+                      const isNegative = item.value < 0
+
+                      return (
+                        <div key={index} className="flex-1 flex flex-col justify-end h-full relative">
+                          <div className="text-xs text-center text-gray-600 mb-1">
+                            {formatCurrency(item.value)}
+                          </div>
+                          <div
+                            className={`w-full rounded-t-lg transition-all ${
+                              isNegative ? 'bg-red-400' :
+                              chartType === 'entradas' ? 'bg-[#E879F9]' :
+                              chartType === 'saidas' ? 'bg-red-400' : 'bg-blue-400'
+                            }`}
+                            style={{ height: `${Math.max(height, 5)}%` }}
+                          />
+                          <div className="text-xs text-center text-gray-500 mt-1">
+                            {item.period}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
