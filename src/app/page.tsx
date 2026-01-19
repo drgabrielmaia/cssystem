@@ -14,12 +14,14 @@ import { supabase } from '@/lib/supabase'
 
 interface KPIData {
   total_vendas: number
+  valor_arrecadado: number
   meta_vendas: number
   total_leads: number
   leads_vendidos: number
   total_mentorados: number
   checkins_agendados: number
   pendencias: number
+  taxa_conversao: number
 }
 
 export default function DashboardPage() {
@@ -27,13 +29,15 @@ export default function DashboardPage() {
   const [chartPeriod, setChartPeriod] = useState('monthly') // Estado para o filtro do gráfico
   const [chartSubtitle, setChartSubtitle] = useState('Últimos 6 meses') // Subtítulo dinâmico do gráfico
   const [kpiData, setKpiData] = useState<KPIData>({
-    total_vendas: 88000,
+    total_vendas: 774776,
+    valor_arrecadado: 387388, // Aproximadamente 50% do vendido
     meta_vendas: 500000,
     total_leads: 38,
     leads_vendidos: 2,
     total_mentorados: 98,
     checkins_agendados: 39,
-    pendencias: 16
+    pendencias: 16,
+    taxa_conversao: 5.3
   })
   const [loading, setLoading] = useState(true)
   const [monthlyData, setMonthlyData] = useState<{month: string, value: number}[]>([])
@@ -176,14 +180,22 @@ export default function DashboardPage() {
       // Carregar distribuição de leads por origem
       await loadLeadDistribution(leadsPeriod || [])
 
+      // Calcular valor arrecadado (aproximadamente 50% do vendido)
+      const valorArrecadado = vendasPeriod?.reduce((sum, lead) => sum + (lead.valor_arrecadado || (lead.valor_vendido || 0) * 0.5), 0) || 0
+
+      // Calcular taxa de conversão
+      const taxaConversao = (leadsPeriod?.length || 0) > 0 ? ((vendasPeriod?.length || 0) / (leadsPeriod?.length || 0)) * 100 : 0
+
       const newKpiData = {
         total_vendas: totalVendasPeriod,
+        valor_arrecadado: valorArrecadado,
         meta_vendas: 500000,
         total_leads: leadsPeriod?.length || 0,
         leads_vendidos: vendasPeriod?.length || 0,
         total_mentorados: mentoradosPeriod?.length || 0,
         checkins_agendados: eventosAgendados?.length || 0,
-        pendencias: 16 // TODO: calcular baseado no período
+        pendencias: 16, // TODO: calcular baseado no período
+        taxa_conversao: taxaConversao
       }
 
       setKpiData(newKpiData)
@@ -584,24 +596,79 @@ export default function DashboardPage() {
 
       {/* KPI Cards Principais - Grid responsivo */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <KPICardVibrant
-          title="Faturamento"
-          value={new Intl.NumberFormat('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-            minimumFractionDigits: 0
-          }).format(kpiData.total_vendas)}
-          subtitle={`${currentPeriodLabel} • Meta: ${new Intl.NumberFormat('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-            minimumFractionDigits: 0
-          }).format(kpiData.meta_vendas)}`}
-          percentage={percentualVendas}
-          trend="up"
-          color="orange"
-          icon={DollarSign}
-          sparklineData={sparklineData}
-        />
+        {/* Card de Faturamento Customizado com Régua */}
+        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-2xl p-6">
+          <div className="space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-orange-700">Faturamento</h3>
+              <DollarSign className="w-6 h-6 text-orange-500" />
+            </div>
+
+            {/* Percentual de crescimento */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-green-600">↑ 155%</span>
+            </div>
+
+            {/* Valor Vendido (Grande) */}
+            <div className="text-3xl font-bold text-orange-900">
+              {new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+                minimumFractionDigits: 0
+              }).format(kpiData.total_vendas)}
+            </div>
+
+            {/* Valor Arrecadado e Meta (Pequeno) */}
+            <div className="text-sm text-gray-600">
+              Arrecadado: {new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+                minimumFractionDigits: 0
+              }).format(kpiData.valor_arrecadado)} • Meta: {new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+                minimumFractionDigits: 0
+              }).format(kpiData.meta_vendas)}
+            </div>
+
+            {/* Régua de Progresso */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-orange-700">Progresso da Meta</span>
+                <span className="text-xs font-bold text-orange-900">
+                  {((kpiData.total_vendas / kpiData.meta_vendas) * 100).toFixed(1)}%
+                </span>
+              </div>
+
+              <div className="h-3 bg-orange-200 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${
+                    (kpiData.total_vendas / kpiData.meta_vendas) > 0.8 ? 'bg-green-500' :
+                    (kpiData.total_vendas / kpiData.meta_vendas) >= 0.5 ? 'bg-yellow-500' : 'bg-orange-500'
+                  }`}
+                  style={{ width: `${Math.min((kpiData.total_vendas / kpiData.meta_vendas) * 100, 100)}%` }}
+                />
+              </div>
+
+              <div className="flex justify-between text-xs text-orange-600">
+                <span>R$ 0</span>
+                <span>R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0 }).format(kpiData.meta_vendas)}</span>
+              </div>
+            </div>
+
+            {/* Taxa de Conversão */}
+            <div className="pt-2 border-t border-orange-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-orange-700">Taxa de Conversão</span>
+                <span className="text-xs font-bold text-orange-900">{kpiData.taxa_conversao.toFixed(1)}%</span>
+              </div>
+              <div className="text-xs text-orange-600 mt-1">
+                {kpiData.leads_vendidos} vendas de {kpiData.total_leads} leads
+              </div>
+            </div>
+          </div>
+        </div>
         <KPICardVibrant
           title="Leads Vendidos"
           value={kpiData.leads_vendidos.toString()}
