@@ -89,19 +89,39 @@ export default function FinanceiroUsuarios() {
         if (error) throw error
         alert('Usuário atualizado com sucesso!')
       } else {
-        // Criar novo usuário
-        const { error } = await supabase
+        // Criar novo usuário no sistema de autenticação
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.senha,
+          options: {
+            data: {
+              name: formData.nome,
+              cargo: formData.cargo
+            }
+          }
+        })
+
+        if (authError) throw new Error('Erro ao criar usuário no sistema de autenticação: ' + authError.message)
+
+        // Criar registro na tabela usuarios_financeiro
+        const { error: dbError } = await supabase
           .from('usuarios_financeiro')
           .insert([{
             nome: formData.nome,
             email: formData.email,
             cargo: formData.cargo,
             permissoes: formData.permissoes,
-            ativo: true
+            ativo: true,
+            auth_user_id: authData.user?.id
           }])
 
-        if (error) throw error
-        alert('Usuário criado com sucesso!')
+        if (dbError) {
+          // Se erro ao criar na tabela, tentar limpar o usuário de auth
+          console.error('Erro ao criar na tabela, usuário auth pode ter sido criado:', dbError)
+          throw new Error('Erro ao salvar dados do usuário: ' + dbError.message)
+        }
+
+        alert('Usuário criado com sucesso! Ele pode fazer login agora.')
       }
 
       setShowModal(false)
