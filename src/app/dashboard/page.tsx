@@ -10,6 +10,7 @@ import { useOrganizationFilter } from '@/hooks/use-organization-filter'
 import { supabase } from '@/lib/supabase'
 
 interface SalesMetrics {
+  valor_vendido: number
   valor_arrecadado: number
   taxa_conversao: number
   total_leads: number
@@ -29,6 +30,7 @@ export default function DashboardPage() {
   } = useOrganizationFilter()
 
   const [salesMetrics, setSalesMetrics] = useState<SalesMetrics>({
+    valor_vendido: 0,
     valor_arrecadado: 0,
     taxa_conversao: 0,
     total_leads: 0,
@@ -58,15 +60,24 @@ export default function DashboardPage() {
         .gte('data_primeiro_contato', startOfMonth.toISOString())
         .lte('data_primeiro_contato', endOfMonth.toISOString())
 
-      // Buscar vendas com valor arrecadado do mês (data_venda)
-      const { data: salesData } = await supabase
+      // Buscar TODAS as vendas primeiro (sem filtro de data)
+      const { data: allSalesData } = await supabase
         .from('leads')
-        .select('valor_arrecadado, data_venda')
+        .select('valor_vendido, valor_arrecadado, data_venda, nome_completo')
         .eq('status', 'vendido')
-        .not('valor_arrecadado', 'is', null)
-        .gt('valor_arrecadado', 0)
-        .gte('data_venda', startOfMonth.toISOString())
-        .lte('data_venda', endOfMonth.toISOString())
+
+      console.log('🎯 Debug Dashboard - Total vendas com valor:', allSalesData?.length)
+      console.log('🎯 Debug Dashboard - Exemplo vendas:', allSalesData?.slice(0, 3))
+
+      // Agora filtrar pelo mês atual
+      const salesData = allSalesData?.filter(sale => {
+        if (!sale.data_venda) return false
+        const saleDate = new Date(sale.data_venda)
+        return saleDate >= startOfMonth && saleDate <= endOfMonth
+      })
+
+      console.log('🎯 Debug Dashboard - Vendas do mês atual:', salesData?.length)
+      console.log('🎯 Debug Dashboard - Período:', startOfMonth.toISOString(), 'até', endOfMonth.toISOString())
 
       // Para taxa de conversão: buscar leads vendidos no período por data_venda
       const { data: vendasParaConversao } = await supabase
@@ -77,11 +88,21 @@ export default function DashboardPage() {
         .lte('data_venda', endOfMonth.toISOString())
 
       const total_leads = allLeads?.length || 0
-      const total_vendas = vendasParaConversao?.length || 0  // Vendas por data_venda
+      const total_vendas = vendasParaConversao?.length || 0
+      const valor_vendido = salesData?.reduce((sum, sale) => sum + (sale.valor_vendido || 0), 0) || 0
       const valor_arrecadado = salesData?.reduce((sum, sale) => sum + (sale.valor_arrecadado || 0), 0) || 0
       const taxa_conversao = total_leads > 0 ? (total_vendas / total_leads) * 100 : 0
 
+      console.log('🎯 Debug Dashboard - Resultado final:', {
+        total_leads,
+        total_vendas,
+        valor_vendido,
+        valor_arrecadado,
+        taxa_conversao
+      })
+
       setSalesMetrics({
+        valor_vendido,
         valor_arrecadado,
         taxa_conversao,
         total_leads,
@@ -268,23 +289,34 @@ export default function DashboardPage() {
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <p className="text-sm text-orange-700">Valor Arrecadado</p>
-                            <p className="text-2xl font-bold text-orange-900">
-                              {formatCurrency(salesMetrics.valor_arrecadado)}
-                            </p>
+                        <div className="space-y-3 mb-4">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-orange-700">Faturamento</h3>
+                            <DollarSign className="w-5 h-5 text-orange-500" />
                           </div>
-                          <DollarSign className="w-8 h-8 text-orange-500" />
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-green-600">↑ 155%</span>
+                          </div>
+
+                          {/* Valor Vendido (Grande) */}
+                          <div className="text-2xl font-bold text-orange-900">
+                            {formatCurrency(salesMetrics.valor_vendido)}
+                          </div>
+
+                          {/* Valor Arrecadado (Pequeno, cinza) */}
+                          <div className="text-xs text-gray-500">
+                            Arrecadado: {formatCurrency(salesMetrics.valor_arrecadado)} • Meta: {formatCurrency(500000)}
+                          </div>
                         </div>
 
-                        <div className="mb-3">
-                          <div className="flex items-center justify-between text-xs text-orange-700 mb-1">
-                            <span>Taxa de Conversão: {salesMetrics.taxa_conversao.toFixed(1)}%</span>
-                            <span>Meta: {formatCurrency(500000)}</span>
+                        {/* Régua de Conversão */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-orange-700">Taxa de Conversão</span>
+                            <span className="text-xs font-bold text-orange-900">{salesMetrics.taxa_conversao.toFixed(1)}%</span>
                           </div>
 
-                          {/* Régua de Conversão */}
                           <div className="h-2 bg-orange-200 rounded-full overflow-hidden">
                             <div
                               className={`h-full transition-all duration-500 ${
@@ -296,7 +328,7 @@ export default function DashboardPage() {
                             />
                           </div>
 
-                          <div className="flex justify-between text-[8px] text-orange-600 mt-1">
+                          <div className="flex justify-between text-[10px] text-orange-600">
                             <span>🔴 Ruim &lt;25%</span>
                             <span>🟡 Normal 25-40%</span>
                             <span>🟢 Bom 40-55%</span>
