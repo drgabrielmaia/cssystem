@@ -89,7 +89,10 @@ export default function FinanceiroUsuarios() {
         if (error) throw error
         alert('Usuário atualizado com sucesso!')
       } else {
-        // Criar novo usuário no sistema de autenticação
+        // Salvar a sessão atual antes de criar o novo usuário
+        const { data: currentUser } = await supabase.auth.getUser()
+
+        // Criar novo usuário
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.senha,
@@ -101,7 +104,16 @@ export default function FinanceiroUsuarios() {
           }
         })
 
-        if (authError) throw new Error('Erro ao criar usuário no sistema de autenticação: ' + authError.message)
+        if (authError) throw new Error('Erro ao criar usuário: ' + authError.message)
+
+        // Fazer logout do novo usuário imediatamente
+        await supabase.auth.signOut()
+
+        // Restaurar a sessão do usuário original se possível
+        if (currentUser?.user) {
+          // Apenas recarregar a página para restaurar a sessão
+          window.location.reload()
+        }
 
         // Criar registro na tabela usuarios_financeiro
         const { error: dbError } = await supabase
@@ -116,12 +128,12 @@ export default function FinanceiroUsuarios() {
           }])
 
         if (dbError) {
-          // Se erro ao criar na tabela, tentar limpar o usuário de auth
-          console.error('Erro ao criar na tabela, usuário auth pode ter sido criado:', dbError)
+          console.error('Erro ao criar na tabela:', dbError)
           throw new Error('Erro ao salvar dados do usuário: ' + dbError.message)
         }
 
-        alert('Usuário criado com sucesso! Ele pode fazer login agora.')
+        alert('Usuário criado com sucesso! A página será recarregada.')
+        window.location.reload()
       }
 
       setShowModal(false)
