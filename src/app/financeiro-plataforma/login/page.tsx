@@ -61,17 +61,18 @@ export default function FinanceiroPlataformaLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-40">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-        <div className="absolute top-40 right-20 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
+      {/* Enhanced Background Pattern */}
+      <div className="absolute inset-0 opacity-50">
+        <div className="absolute top-10 left-10 w-96 h-96 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full mix-blend-multiply filter blur-2xl animate-blob"></div>
+        <div className="absolute top-60 right-10 w-96 h-96 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full mix-blend-multiply filter blur-2xl animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-20 left-1/3 w-96 h-96 bg-gradient-to-r from-pink-400 to-red-500 rounded-full mix-blend-multiply filter blur-2xl animate-blob animation-delay-4000"></div>
+        <div className="absolute top-1/3 left-1/2 w-80 h-80 bg-gradient-to-r from-indigo-400 to-cyan-500 rounded-full mix-blend-multiply filter blur-2xl animate-blob animation-delay-1000"></div>
       </div>
 
       <div className="relative z-10 min-h-screen flex">
         {/* Left Side - Branding */}
-        <div className="hidden lg:flex lg:w-1/2 bg-white/40 backdrop-blur-lg border-r border-white/20">
+        <div className="hidden lg:flex lg:w-1/2 bg-white/30 backdrop-blur-xl border-r border-white/30 shadow-2xl">
           <div className="flex flex-col justify-center px-12 xl:px-16">
             {/* Logo */}
             <div className="mb-12">
