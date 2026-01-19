@@ -46,21 +46,38 @@ export default function DashboardPage() {
     try {
       setMetricsLoading(true)
 
-      // Buscar todos os leads
+      // Calcular data do mês atual
+      const now = new Date()
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+
+      // Buscar todos os leads do mês (data_primeiro_contato)
       const { data: allLeads } = await supabase
         .from('leads')
         .select('id')
+        .gte('data_primeiro_contato', startOfMonth.toISOString())
+        .lte('data_primeiro_contato', endOfMonth.toISOString())
 
-      // Buscar vendas com valor arrecadado
+      // Buscar vendas com valor arrecadado do mês (data_venda)
       const { data: salesData } = await supabase
         .from('leads')
-        .select('valor_arrecadado')
+        .select('valor_arrecadado, data_venda')
         .eq('status', 'vendido')
         .not('valor_arrecadado', 'is', null)
         .gt('valor_arrecadado', 0)
+        .gte('data_venda', startOfMonth.toISOString())
+        .lte('data_venda', endOfMonth.toISOString())
+
+      // Para taxa de conversão: buscar leads vendidos no período por data_venda
+      const { data: vendasParaConversao } = await supabase
+        .from('leads')
+        .select('id, data_primeiro_contato, data_venda')
+        .eq('status', 'vendido')
+        .gte('data_venda', startOfMonth.toISOString())
+        .lte('data_venda', endOfMonth.toISOString())
 
       const total_leads = allLeads?.length || 0
-      const total_vendas = salesData?.length || 0
+      const total_vendas = vendasParaConversao?.length || 0  // Vendas por data_venda
       const valor_arrecadado = salesData?.reduce((sum, sale) => sum + (sale.valor_arrecadado || 0), 0) || 0
       const taxa_conversao = total_leads > 0 ? (total_vendas / total_leads) * 100 : 0
 
@@ -253,7 +270,7 @@ export default function DashboardPage() {
                       <>
                         <div className="flex items-center justify-between mb-4">
                           <div>
-                            <p className="text-sm text-orange-700">Faturamento</p>
+                            <p className="text-sm text-orange-700">Valor Arrecadado</p>
                             <p className="text-2xl font-bold text-orange-900">
                               {formatCurrency(salesMetrics.valor_arrecadado)}
                             </p>
@@ -263,8 +280,8 @@ export default function DashboardPage() {
 
                         <div className="mb-3">
                           <div className="flex items-center justify-between text-xs text-orange-700 mb-1">
+                            <span>Taxa de Conversão: {salesMetrics.taxa_conversao.toFixed(1)}%</span>
                             <span>Meta: {formatCurrency(500000)}</span>
-                            <span>{salesMetrics.taxa_conversao.toFixed(1)}% conversão</span>
                           </div>
 
                           {/* Régua de Conversão */}
@@ -280,10 +297,10 @@ export default function DashboardPage() {
                           </div>
 
                           <div className="flex justify-between text-[8px] text-orange-600 mt-1">
-                            <span>🔴 &lt;25%</span>
-                            <span>🟡 25-40%</span>
-                            <span>🟢 40-55%</span>
-                            <span>🔵 &gt;55%</span>
+                            <span>🔴 Ruim &lt;25%</span>
+                            <span>🟡 Normal 25-40%</span>
+                            <span>🟢 Bom 40-55%</span>
+                            <span>🔵 Excelente &gt;55%</span>
                           </div>
                         </div>
 

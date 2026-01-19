@@ -134,16 +134,34 @@ function MentoradoPageContent() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen relative overflow-hidden flex items-center justify-center">
+        {/* Background Image */}
+        <div className="absolute inset-0">
+          <img
+            src="https://medicosderesultado.com/wp-content/uploads/2024/10/capa-dashboard.png"
+            alt="Background Médicos de Resultado"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/40"></div>
+        </div>
+        <div className="relative z-10 animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
       </div>
     )
   }
 
   if (!mentorado) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
+        {/* Background Image */}
+        <div className="absolute inset-0">
+          <img
+            src="https://medicosderesultado.com/wp-content/uploads/2024/10/capa-dashboard.png"
+            alt="Background Médicos de Resultado"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/40"></div>
+        </div>
+        <Card className="relative z-10 w-full max-w-md bg-white/90 backdrop-blur-sm border-white/20">
           <CardHeader className="text-center">
             <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
               <UserCheck className="h-6 w-6 text-blue-600" />
