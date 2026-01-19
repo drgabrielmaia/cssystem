@@ -38,6 +38,8 @@ interface FinanceMetrics {
   contas_receber: number
   variacao_entradas: number
   variacao_saidas: number
+  valor_total_arrecadado: number
+  taxa_conversao: number
 }
 
 interface Transaction {
@@ -61,12 +63,14 @@ export default function FinanceiroPlataformaDashboard() {
     contas_pagar: 0,
     contas_receber: 0,
     variacao_entradas: 0,
-    variacao_saidas: 0
+    variacao_saidas: 0,
+    valor_total_arrecadado: 0,
+    taxa_conversao: 0
   })
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
-  const [chartPeriod, setChartPeriod] = useState('7d')
+  const [chartPeriod, setChartPeriod] = useState('mensal')
   const [chartType, setChartType] = useState('entradas')
   const [financeUser, setFinanceUser] = useState<any>(null)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
@@ -165,6 +169,17 @@ export default function FinanceiroPlataformaDashboard() {
       const contas_pagar = contasPagar?.reduce((acc, t) => acc + t.valor, 0) || 0
       const contas_receber = contasReceber?.reduce((acc, t) => acc + t.valor, 0) || 0
 
+      // Calcular valor total arrecadado (vendas realizadas)
+      const { data: vendasData } = await supabase
+        .from('leads')
+        .select('valor_arrecadado')
+        .eq('status', 'vendido')
+        .not('valor_arrecadado', 'is', null)
+
+      const valor_total_arrecadado = vendasData?.reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0) || 0
+      const meta_mensal = 500000 // Meta fixa de 500K
+      const taxa_conversao = (valor_total_arrecadado / meta_mensal) * 100
+
       return {
         caixa_atual,
         entradas_mes,
@@ -173,7 +188,9 @@ export default function FinanceiroPlataformaDashboard() {
         contas_pagar,
         contas_receber,
         variacao_entradas: Math.random() * 20 - 10, // Placeholder - implementar lógica real
-        variacao_saidas: Math.random() * 20 - 10     // Placeholder - implementar lógica real
+        variacao_saidas: Math.random() * 20 - 10,     // Placeholder - implementar lógica real
+        valor_total_arrecadado,
+        taxa_conversao
       }
     } catch (error) {
       console.error('Erro ao calcular métricas:', error)
@@ -185,7 +202,9 @@ export default function FinanceiroPlataformaDashboard() {
         contas_pagar: 0,
         contas_receber: 0,
         variacao_entradas: 0,
-        variacao_saidas: 0
+        variacao_saidas: 0,
+        valor_total_arrecadado: 0,
+        taxa_conversao: 0
       }
     }
   }
@@ -387,12 +406,48 @@ export default function FinanceiroPlataformaDashboard() {
             <div className="md:col-span-2 bg-gradient-to-r from-[#D4AF37] to-[#FFD700] rounded-[20px] p-8 text-[#1A1A1A] relative overflow-hidden">
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[#1A1A1A]/80 text-[14px] font-medium">Caixa Atual</h3>
-                  <Eye className="w-5 h-5 text-[#1A1A1A]/60" />
+                  <h3 className="text-[#1A1A1A]/80 text-[14px] font-medium">Faturamento & Meta</h3>
+                  <Target className="w-5 h-5 text-[#1A1A1A]/60" />
                 </div>
-                <div className="text-[32px] font-bold mb-2 text-[#1A1A1A]">
-                  {formatCurrency(metrics.caixa_atual)}
+                <div className="grid grid-cols-2 gap-6 mb-4">
+                  <div>
+                    <div className="text-[24px] font-bold mb-1 text-[#1A1A1A]">
+                      {formatCurrency(metrics.valor_total_arrecadado || 0)}
+                    </div>
+                    <div className="text-[12px] text-[#1A1A1A]/70">Total Coletado</div>
+                  </div>
+                  <div>
+                    <div className="text-[24px] font-bold mb-1 text-[#1A1A1A]">
+                      {formatCurrency(500000)} {/* Meta fixa */}
+                    </div>
+                    <div className="text-[12px] text-[#1A1A1A]/70">Meta Mensal</div>
+                  </div>
                 </div>
+
+                {/* Régua de Conversão */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between text-[12px] text-[#1A1A1A]/70 mb-1">
+                    <span>Taxa de Conversão</span>
+                    <span>{((metrics.valor_total_arrecadado || 0) / 500000 * 100).toFixed(1)}%</span>
+                  </div>
+                  <div className="h-2 bg-[#1A1A1A]/20 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-500 ${
+                        ((metrics.valor_total_arrecadado || 0) / 500000 * 100) >= 55 ? 'bg-green-600' :
+                        ((metrics.valor_total_arrecadado || 0) / 500000 * 100) >= 35 ? 'bg-yellow-600' :
+                        ((metrics.valor_total_arrecadado || 0) / 500000 * 100) >= 20 ? 'bg-orange-600' : 'bg-red-600'
+                      }`}
+                      style={{ width: `${Math.min(((metrics.valor_total_arrecadado || 0) / 500000 * 100), 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-[#1A1A1A]/60 mt-1">
+                    <span>0-19.9% (Ruim)</span>
+                    <span>20-35% (Normal)</span>
+                    <span>35-55% (Bom)</span>
+                    <span>55%+ (Elite)</span>
+                  </div>
+                </div>
+
                 <div className="flex items-center text-[#1A1A1A]/80">
                   <ArrowUpRight className="w-4 h-4 mr-1" />
                   <span className="text-[14px]">+{metrics.variacao_entradas.toFixed(1)}% vs mês anterior</span>
@@ -456,21 +511,40 @@ export default function FinanceiroPlataformaDashboard() {
             {/* Chart Principal */}
             <div className="lg:col-span-2 bg-white rounded-[20px] p-8 border border-[#E5E7EB]">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-[18px] font-semibold text-[#1A1A1A]">Fluxo Financeiro</h3>
-                <div className="flex bg-[#F3F3F5] rounded-lg p-1">
-                  {['entradas', 'saidas', 'liquido'].map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setChartType(type)}
-                      className={`px-4 py-2 text-[14px] font-medium rounded-lg transition-colors capitalize ${
-                        chartType === type
-                          ? 'bg-white text-[#1A1A1A] shadow-sm'
-                          : 'text-[#6B7280] hover:text-[#1A1A1A]'
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  ))}
+                <h3 className="text-[18px] font-semibold text-[#1A1A1A]">Evolução Financeira</h3>
+                <div className="flex gap-2">
+                  {/* Período */}
+                  <div className="flex bg-[#F3F3F5] rounded-lg p-1">
+                    {['diario', 'semanal', 'mensal'].map((period) => (
+                      <button
+                        key={period}
+                        onClick={() => setChartPeriod(period)}
+                        className={`px-3 py-1 text-[12px] font-medium rounded-lg transition-colors capitalize ${
+                          chartPeriod === period
+                            ? 'bg-white text-[#1A1A1A] shadow-sm'
+                            : 'text-[#6B7280] hover:text-[#1A1A1A]'
+                        }`}
+                      >
+                        {period}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Tipo */}
+                  <div className="flex bg-[#F3F3F5] rounded-lg p-1">
+                    {['entradas', 'saidas', 'liquido'].map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setChartType(type)}
+                        className={`px-4 py-2 text-[14px] font-medium rounded-lg transition-colors capitalize ${
+                          chartType === type
+                            ? 'bg-white text-[#1A1A1A] shadow-sm'
+                            : 'text-[#6B7280] hover:text-[#1A1A1A]'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 

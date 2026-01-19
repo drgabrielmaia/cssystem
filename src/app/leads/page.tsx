@@ -107,15 +107,22 @@ export default function LeadsPage() {
 
     switch (filter) {
       case 'mes_atual':
+        // Janeiro de 2026 (estamos em janeiro)
         return {
           start: new Date(year, month, 1).toISOString(),
-          end: new Date(year, month + 1, 0, 23, 59, 59).toISOString()
+          end: new Date(year, month + 1, 0, 23, 59, 59, 999).toISOString()
+        }
+      case 'ano_atual':
+        // De 1º de janeiro a 31 de dezembro de 2026
+        return {
+          start: new Date(year, 0, 1).toISOString(),
+          end: new Date(year, 11, 31, 23, 59, 59, 999).toISOString()
         }
       case 'semana_atual':
-        // Semana atual: Segunda a Domingo desta semana
-        const currentDayOfWeek = now.getDay() === 0 ? 7 : now.getDay() // Domingo = 7, Segunda = 1
+        // Semana atual: Domingo a Sábado desta semana
+        const currentDay = now.getDay() // 0 = Domingo
         const startOfWeek = new Date(now)
-        startOfWeek.setDate(now.getDate() - (currentDayOfWeek - 1))
+        startOfWeek.setDate(now.getDate() - currentDay)
         startOfWeek.setHours(0, 0, 0, 0)
         const endOfWeek = new Date(startOfWeek)
         endOfWeek.setDate(startOfWeek.getDate() + 6)
@@ -125,10 +132,10 @@ export default function LeadsPage() {
           end: endOfWeek.toISOString()
         }
       case 'semana_passada':
-        // Última semana: Segunda a Domingo da semana passada
-        const lastWeekDayOfWeek = now.getDay() === 0 ? 7 : now.getDay()
+        // Última semana: Domingo a Sábado da semana passada
+        const lastWeekDay = now.getDay()
         const startOfLastWeek = new Date(now)
-        startOfLastWeek.setDate(now.getDate() - (lastWeekDayOfWeek - 1) - 7)
+        startOfLastWeek.setDate(now.getDate() - lastWeekDay - 7)
         startOfLastWeek.setHours(0, 0, 0, 0)
         const endOfLastWeek = new Date(startOfLastWeek)
         endOfLastWeek.setDate(startOfLastWeek.getDate() + 6)
@@ -174,24 +181,40 @@ export default function LeadsPage() {
     'Indicação': '#3B82F6',
     'Site': '#EF4444',
     'LinkedIn': '#8B5CF6',
-    'Facebook': '#3B82F6',
-    'Google': '#EF4444',
+    'Facebook': '#1877F2',
+    'Google': '#EA4335',
+    'TikTok': '#FF0050',
+    'YouTube': '#FF0000',
+    'Tráfego': '#6366F1',
+    'Social Seller': '#EC4899',
+    'Eventos Próprios': '#8B5CF6',
+    'Parcerias': '#10B981',
+    'Sessão Fechada': '#F59E0B',
+    'instagram': '#F59E0B',
+    'whatsapp': '#059669',
+    'indicacao': '#3B82F6',
+    'site': '#EF4444',
+    'linkedin': '#8B5CF6',
+    'facebook': '#1877F2',
+    'google': '#EA4335',
+    'tiktok': '#FF0050',
+    'youtube': '#FF0000',
+    'trafego': '#6366F1',
+    'social-seller': '#EC4899',
+    'eventos-proprios': '#8B5CF6',
+    'parcerias': '#10B981',
+    'sessao-fechada': '#F59E0B',
     'Outros': '#94A3B8'
   }
 
-  const conversionData = [
-    { month: 'Jul', leads: 25, vendas: 3, taxa: 12 },
-    { month: 'Ago', leads: 32, vendas: 5, taxa: 15.6 },
-    { month: 'Set', leads: 28, vendas: 4, taxa: 14.3 },
-    { month: 'Out', leads: 38, vendas: 7, taxa: 18.4 },
-    { month: 'Nov', leads: 42, vendas: 8, taxa: 19.0 },
-    { month: 'Dez', leads: 35, vendas: 6, taxa: 17.1 }
-  ]
+  const [conversionData, setConversionData] = useState<Array<{month: string, leads: number, vendas: number, taxa: number}>>([])
+  const [conversionChartLoading, setConversionChartLoading] = useState(true)
 
   useEffect(() => {
     loadLeads()
     loadStats()
     loadOrigemData()
+    loadConversionData()
   }, [])
 
   // Recarregar dados quando filtros mudarem
@@ -286,13 +309,14 @@ export default function LeadsPage() {
         const totalVendas = vendasData.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
         const totalArrecadado = vendasData.reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0)
 
+        // Para performance (774K), usar o valor_arrecadado que é o que foi efetivamente pago
         setStats({
           total_leads: leadsTotal.length,
           leads_convertidos: vendasData.length,
-          valor_total_vendas: totalVendas,
-          valor_total_arrecadado: totalArrecadado,
+          valor_total_vendas: totalVendas, // Valor vendido (pode ser maior que o arrecadado)
+          valor_total_arrecadado: totalArrecadado, // Valor efetivamente arrecadado (774K)
           taxa_conversao: leadsTotal.length > 0 ? (vendasData.length / leadsTotal.length) * 100 : 0,
-          ticket_medio: vendasData.length > 0 ? totalVendas / vendasData.length : 0
+          ticket_medio: vendasData.length > 0 ? totalArrecadado / vendasData.length : 0 // Usar arrecadado para ticket médio real
         })
       }
     } catch (error) {
@@ -337,6 +361,54 @@ export default function LeadsPage() {
       }
     } catch (error) {
       console.error('Erro ao carregar dados de origem:', error)
+    }
+  }
+
+  const loadConversionData = async () => {
+    try {
+      setConversionChartLoading(true)
+
+      // Buscar dados dos últimos 6 meses
+      const currentDate = new Date()
+      const months = []
+
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1)
+        const startDate = new Date(date.getFullYear(), date.getMonth(), 1)
+        const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59)
+
+        // Buscar leads totais do mês
+        const { data: totalLeads } = await supabase
+          .from('leads')
+          .select('id')
+          .gte('data_primeiro_contato', startDate.toISOString())
+          .lte('data_primeiro_contato', endDate.toISOString())
+
+        // Buscar vendas do mês
+        const { data: vendas } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('status', 'vendido')
+          .gte('data_venda', startDate.toISOString())
+          .lte('data_venda', endDate.toISOString())
+
+        const totalLeadsCount = totalLeads?.length || 0
+        const vendasCount = vendas?.length || 0
+        const taxaConversao = totalLeadsCount > 0 ? (vendasCount / totalLeadsCount) * 100 : 0
+
+        months.push({
+          month: date.toLocaleDateString('pt-BR', { month: 'short' }).slice(0, 3),
+          leads: totalLeadsCount,
+          vendas: vendasCount,
+          taxa: taxaConversao
+        })
+      }
+
+      setConversionData(months)
+    } catch (error) {
+      console.error('Erro ao carregar dados de conversão:', error)
+    } finally {
+      setConversionChartLoading(false)
     }
   }
 
@@ -562,7 +634,7 @@ export default function LeadsPage() {
         />
         <MetricCard
           title="Valor em Vendas"
-          value={formatCurrency(stats.valor_total_vendas)}
+          value={formatCurrency(stats.valor_total_arrecadado)}
           change={18}
           changeType="increase"
           icon={DollarSign}
@@ -585,35 +657,41 @@ export default function LeadsPage() {
         <div className="lg:col-span-2">
           <ChartCard title="Evolução da Taxa de Conversão" subtitle="Últimos 6 meses">
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={conversionData}>
-                  <defs>
-                    <linearGradient id="colorConversion" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#059669" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="month" className="stroke-muted-foreground" fontSize={12} />
-                  <YAxis className="stroke-muted-foreground" fontSize={12} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '12px',
-                      boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="taxa"
-stroke="hsl(var(--primary))"
-                    fillOpacity={1}
-                    fill="url(#colorConversion)"
-                    strokeWidth={3}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              {conversionChartLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#059669]"></div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={conversionData}>
+                    <defs>
+                      <linearGradient id="colorConversion" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#059669" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="month" className="stroke-muted-foreground" fontSize={12} />
+                    <YAxis className="stroke-muted-foreground" fontSize={12} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="taxa"
+                      stroke="hsl(var(--primary))"
+                      fillOpacity={1}
+                      fill="url(#colorConversion)"
+                      strokeWidth={3}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </ChartCard>
         </div>
@@ -782,6 +860,7 @@ stroke="hsl(var(--primary))"
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
               >
                 <option value="mes_atual">Mês Atual</option>
+                <option value="ano_atual">Ano Atual</option>
                 <option value="semana_atual">Semana Atual</option>
                 <option value="semana_passada">Última Semana</option>
                 <option value="mes_passado">Mês Passado</option>
@@ -874,11 +953,18 @@ stroke="hsl(var(--primary))"
           },
           {
             header: 'Origem',
-            render: (lead) => (
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">
-                {lead.origem || 'Não informado'}
-              </span>
-            )
+            render: (lead) => {
+              const origem = lead.origem || 'Outros'
+              const cor = origemColors[origem as keyof typeof origemColors] || '#94A3B8'
+              return (
+                <span
+                  className="px-3 py-1 rounded-full text-xs font-semibold text-white"
+                  style={{ backgroundColor: cor }}
+                >
+                  {origem}
+                </span>
+              )
+            }
           },
           {
             header: 'Status',
