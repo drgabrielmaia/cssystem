@@ -544,21 +544,23 @@ export default function FinanceiroPlataformaDashboard() {
             <div className="md:col-span-2 bg-gradient-to-r from-[#D4AF37] to-[#FFD700] rounded-[20px] p-8 text-[#1A1A1A] relative overflow-hidden">
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[#1A1A1A]/80 text-[14px] font-medium">Faturamento & Meta</h3>
+                  <h3 className="text-[#1A1A1A]/80 text-[14px] font-medium">Desempenho de Vendas</h3>
                   <Target className="w-5 h-5 text-[#1A1A1A]/60" />
                 </div>
-                <div className="grid grid-cols-2 gap-6 mb-4">
-                  <div>
-                    <div className="text-[24px] font-bold mb-1 text-[#1A1A1A]">
+
+                {/* Faturamento vs Meta */}
+                <div className="mb-4">
+                  <div className="flex items-baseline justify-between mb-2">
+                    <span className="text-[14px] text-[#1A1A1A]/70">Faturamento:</span>
+                    <span className="text-[28px] font-bold text-[#1A1A1A]">
                       {formatCurrency(metrics.valor_total_arrecadado || 0)}
-                    </div>
-                    <div className="text-[12px] text-[#1A1A1A]/70">Total Coletado</div>
+                    </span>
                   </div>
-                  <div>
-                    <div className="text-[24px] font-bold mb-1 text-[#1A1A1A]">
-                      {formatCurrency(500000)} {/* Meta fixa */}
-                    </div>
-                    <div className="text-[12px] text-[#1A1A1A]/70">Meta Mensal</div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[14px] text-[#1A1A1A]/70">Meta:</span>
+                    <span className="text-[20px] font-semibold text-[#1A1A1A]/60">
+                      {formatCurrency(500000)}
+                    </span>
                   </div>
                 </div>
 
