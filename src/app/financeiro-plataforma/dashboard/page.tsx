@@ -201,6 +201,14 @@ export default function FinanceiroPlataformaDashboard() {
       const total_vendas = vendasConversao?.length || 0
       const taxa_conversao_real = total_leads > 0 ? (total_vendas / total_leads) * 100 : 0
 
+      // Debug logs
+      console.log('🎯 Debug Financeiro Dashboard:', {
+        valor_total_arrecadado,
+        total_leads,
+        total_vendas,
+        taxa_conversao_real
+      })
+
       return {
         caixa_atual,
         entradas_mes,

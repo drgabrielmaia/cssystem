@@ -1,11 +1,20 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Navbar } from '@/components/dashboard/Navbar'
 import { Sidebar } from '@/components/dashboard/Sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Building2, Crown, Shield, User2, Users, Loader2 } from 'lucide-react'
+import { Building2, Crown, Shield, User2, Users, Loader2, DollarSign, Target } from 'lucide-react'
 import { useOrganizationFilter } from '@/hooks/use-organization-filter'
+import { supabase } from '@/lib/supabase'
+
+interface SalesMetrics {
+  valor_arrecadado: number
+  taxa_conversao: number
+  total_leads: number
+  total_vendas: number
+}
 
 export default function DashboardPage() {
   const {
@@ -18,6 +27,62 @@ export default function DashboardPage() {
     loading,
     isReady
   } = useOrganizationFilter()
+
+  const [salesMetrics, setSalesMetrics] = useState<SalesMetrics>({
+    valor_arrecadado: 0,
+    taxa_conversao: 0,
+    total_leads: 0,
+    total_vendas: 0
+  })
+  const [metricsLoading, setMetricsLoading] = useState(true)
+
+  useEffect(() => {
+    if (isReady && activeOrganizationId) {
+      loadSalesMetrics()
+    }
+  }, [isReady, activeOrganizationId])
+
+  const loadSalesMetrics = async () => {
+    try {
+      setMetricsLoading(true)
+
+      // Buscar todos os leads
+      const { data: allLeads } = await supabase
+        .from('leads')
+        .select('id')
+
+      // Buscar vendas com valor arrecadado
+      const { data: salesData } = await supabase
+        .from('leads')
+        .select('valor_arrecadado')
+        .eq('status', 'vendido')
+        .not('valor_arrecadado', 'is', null)
+        .gt('valor_arrecadado', 0)
+
+      const total_leads = allLeads?.length || 0
+      const total_vendas = salesData?.length || 0
+      const valor_arrecadado = salesData?.reduce((sum, sale) => sum + (sale.valor_arrecadado || 0), 0) || 0
+      const taxa_conversao = total_leads > 0 ? (total_vendas / total_leads) * 100 : 0
+
+      setSalesMetrics({
+        valor_arrecadado,
+        taxa_conversao,
+        total_leads,
+        total_vendas
+      })
+    } catch (error) {
+      console.error('Erro ao carregar métricas de vendas:', error)
+    } finally {
+      setMetricsLoading(false)
+    }
+  }
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value)
+  }
 
   const getRoleIcon = (role: string) => {
     switch (role) {
@@ -131,7 +196,7 @@ export default function DashboardPage() {
 
             {/* Quick Stats - Only show when organization is ready */}
             {isReady && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card>
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
@@ -174,6 +239,59 @@ export default function DashboardPage() {
                     <div className="mt-2 text-xs text-muted-foreground">
                       Sistema isolado por organização
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card de Faturamento com Régua de Conversão */}
+                <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200">
+                  <CardContent className="pt-6">
+                    {metricsLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <p className="text-sm text-orange-700">Faturamento</p>
+                            <p className="text-2xl font-bold text-orange-900">
+                              {formatCurrency(salesMetrics.valor_arrecadado)}
+                            </p>
+                          </div>
+                          <DollarSign className="w-8 h-8 text-orange-500" />
+                        </div>
+
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between text-xs text-orange-700 mb-1">
+                            <span>Meta: {formatCurrency(500000)}</span>
+                            <span>{salesMetrics.taxa_conversao.toFixed(1)}% conversão</span>
+                          </div>
+
+                          {/* Régua de Conversão */}
+                          <div className="h-2 bg-orange-200 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-500 ${
+                                salesMetrics.taxa_conversao > 55 ? 'bg-blue-500' :
+                                salesMetrics.taxa_conversao >= 40 ? 'bg-green-500' :
+                                salesMetrics.taxa_conversao >= 25 ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}
+                              style={{ width: `${Math.min(salesMetrics.taxa_conversao, 100)}%` }}
+                            />
+                          </div>
+
+                          <div className="flex justify-between text-[8px] text-orange-600 mt-1">
+                            <span>🔴 &lt;25%</span>
+                            <span>🟡 25-40%</span>
+                            <span>🟢 40-55%</span>
+                            <span>🔵 &gt;55%</span>
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-orange-600">
+                          {salesMetrics.total_vendas} vendas de {salesMetrics.total_leads} leads
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               </div>
