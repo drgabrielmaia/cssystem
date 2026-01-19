@@ -660,7 +660,19 @@ export default function LeadsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Gráfico de Taxa de Conversão */}
         <div className="lg:col-span-2">
-          <ChartCard title="Evolução da Taxa de Conversão" subtitle="Últimos 6 meses">
+          <ChartCard title="Evolução da Taxa de Conversão e Volume de Leads" subtitle="Últimos 6 meses">
+            {/* Legenda */}
+            <div className="flex items-center justify-center gap-6 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-[#059669] rounded"></div>
+                <span className="text-sm text-muted-foreground">Taxa de Conversão (%)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-[#3B82F6] rounded"></div>
+                <span className="text-sm text-muted-foreground">Volume de Leads</span>
+              </div>
+            </div>
+
             <div className="h-80">
               {conversionChartLoading ? (
                 <div className="flex items-center justify-center h-full">
@@ -674,10 +686,30 @@ export default function LeadsPage() {
                         <stop offset="5%" stopColor="#059669" stopOpacity={0.3}/>
                         <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
                       </linearGradient>
+                      <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                      </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="month" className="stroke-muted-foreground" fontSize={12} />
-                    <YAxis className="stroke-muted-foreground" fontSize={12} />
+
+                    {/* Dois eixos Y - um para taxa (%) e outro para leads (quantidade) */}
+                    <YAxis
+                      yAxisId="taxa"
+                      orientation="left"
+                      className="stroke-muted-foreground"
+                      fontSize={12}
+                      label={{ value: 'Taxa (%)', angle: -90, position: 'insideLeft' }}
+                    />
+                    <YAxis
+                      yAxisId="leads"
+                      orientation="right"
+                      className="stroke-muted-foreground"
+                      fontSize={12}
+                      label={{ value: 'Leads', angle: 90, position: 'insideRight' }}
+                    />
+
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
@@ -685,11 +717,29 @@ export default function LeadsPage() {
                         borderRadius: '12px',
                         boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
                       }}
+                      formatter={(value, name) => [
+                        name === 'taxa' ? `${Number(value).toFixed(1)}%` : `${value} leads`,
+                        name === 'taxa' ? 'Taxa de Conversão' : 'Total de Leads'
+                      ]}
                     />
+
+                    {/* Área para quantidade de leads */}
                     <Area
+                      yAxisId="leads"
+                      type="monotone"
+                      dataKey="leads"
+                      stroke="#3B82F6"
+                      fillOpacity={1}
+                      fill="url(#colorLeads)"
+                      strokeWidth={2}
+                    />
+
+                    {/* Linha para taxa de conversão */}
+                    <Area
+                      yAxisId="taxa"
                       type="monotone"
                       dataKey="taxa"
-                      stroke="hsl(var(--primary))"
+                      stroke="#059669"
                       fillOpacity={1}
                       fill="url(#colorConversion)"
                       strokeWidth={3}
