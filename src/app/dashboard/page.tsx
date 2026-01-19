@@ -379,49 +379,71 @@ export default function DashboardPage() {
                           <DollarSign className="w-6 h-6 text-orange-500" />
                         </div>
 
-                        {/* Valor Principal */}
-                        <div className="mb-4">
-                          <div className="text-3xl font-bold text-orange-900 mb-2">
-                            {formatCurrency(salesMetrics.valor_vendido)}
+                        {/* Valores Principais - Lado a lado */}
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          {/* Valor Vendido (Faturamento) */}
+                          <div>
+                            <div className="text-3xl font-bold text-orange-900 mb-2">
+                              {formatCurrency(salesMetrics.valor_vendido)}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Mês atual • Meta de faturamento: {formatCurrency(500000)}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-600">
-                            Mês atual • Meta: {formatCurrency(500000)}
-                          </div>
-                        </div>
 
-                        {/* Valor Arrecadado */}
-                        <div className="bg-orange-100 p-3 rounded border border-orange-300 mb-4">
-                          <div className="text-sm font-semibold text-orange-800">Valor Arrecadado</div>
-                          <div className="text-xl font-bold text-orange-900">
-                            {formatCurrency(salesMetrics.valor_arrecadado || 0)}
+                          {/* Valor Arrecadado */}
+                          <div className="bg-orange-100 p-3 rounded border border-orange-300">
+                            <div className="text-sm font-semibold text-orange-800">Valor Arrecadado</div>
+                            <div className="text-3xl font-bold text-orange-900">
+                              {formatCurrency(salesMetrics.valor_arrecadado || 0)}
+                            </div>
                           </div>
                         </div>
 
                         {/* Régua de Conversão - Taxa de Calls */}
-                        <div className="bg-white p-4 rounded-lg border border-gray-200">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-semibold text-gray-700">Taxa de Conversão</span>
-                            <span className="text-lg font-bold text-gray-900">{(callsMetrics.taxa_conversao_calls || 0).toFixed(1)}%</span>
+                        <div className="bg-white p-4 rounded-lg border-2 border-gray-200 shadow-sm">
+                          <div className="flex items-center justify-between mb-4">
+                            <span className="text-sm font-semibold text-gray-700">Taxa de Conversão (Calls)</span>
+                            <span className="text-2xl font-bold text-gray-900">{(callsMetrics.taxa_conversao_calls || 0).toFixed(1)}%</span>
                           </div>
 
-                          {/* Barra de Progresso */}
-                          <div className="h-4 bg-gray-200 rounded-full overflow-hidden mb-3">
+                          {/* Barra de Progresso Melhorada */}
+                          <div className="h-6 bg-gray-200 rounded-full overflow-hidden mb-4 relative">
                             <div
-                              className={`h-full transition-all duration-500 ${
-                                (callsMetrics.taxa_conversao_calls || 0) > 55 ? 'bg-blue-500' :
-                                (callsMetrics.taxa_conversao_calls || 0) >= 40 ? 'bg-green-500' :
-                                (callsMetrics.taxa_conversao_calls || 0) >= 25 ? 'bg-yellow-500' : 'bg-red-500'
-                              }`}
+                              className={`h-full transition-all duration-700 ease-out ${
+                                (callsMetrics.taxa_conversao_calls || 0) > 55 ? 'bg-blue-500 shadow-blue-200' :
+                                (callsMetrics.taxa_conversao_calls || 0) >= 40 ? 'bg-green-500 shadow-green-200' :
+                                (callsMetrics.taxa_conversao_calls || 0) >= 25 ? 'bg-yellow-500 shadow-yellow-200' : 'bg-red-500 shadow-red-200'
+                              } shadow-lg`}
                               style={{ width: `${Math.min(callsMetrics.taxa_conversao_calls || 0, 100)}%` }}
                             />
+                            {/* Marcadores de faixas */}
+                            <div className="absolute inset-0 flex">
+                              <div className="w-1/4 border-r border-white/50"></div>
+                              <div className="w-1/4 border-r border-white/50"></div>
+                              <div className="w-1/4 border-r border-white/50"></div>
+                              <div className="w-1/4"></div>
+                            </div>
                           </div>
 
-                          {/* Legenda com cores */}
-                          <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-600">
-                            <span>🔴 Ruim &lt; 25%</span>
-                            <span>🟡 Normal 25% – 40%</span>
-                            <span>🟢 Bom 40% – 55%</span>
-                            <span>🔵 Excelente &gt; 55%</span>
+                          {/* Legenda com cores - Mais visível */}
+                          <div className="grid grid-cols-2 gap-3 text-xs font-medium">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                              <span>🔴 Ruim &lt; 25%</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                              <span>🟡 Normal 25% – 40%</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                              <span>🟢 Bom 40% – 55%</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                              <span>🔵 Excelente &gt; 55%</span>
+                            </div>
                           </div>
                         </div>
 
