@@ -17,6 +17,15 @@ interface SalesMetrics {
   total_vendas: number
 }
 
+interface CallsMetrics {
+  total_calls: number
+  calls_vendidas: number
+  calls_nao_vendidas: number
+  no_shows: number
+  total_vendas_calls: number
+  taxa_conversao_calls: number
+}
+
 export default function DashboardPage() {
   const {
     activeOrganization,
@@ -36,11 +45,20 @@ export default function DashboardPage() {
     total_leads: 0,
     total_vendas: 0
   })
+  const [callsMetrics, setCallsMetrics] = useState<CallsMetrics>({
+    total_calls: 0,
+    calls_vendidas: 0,
+    calls_nao_vendidas: 0,
+    no_shows: 0,
+    total_vendas_calls: 0,
+    taxa_conversao_calls: 0
+  })
   const [metricsLoading, setMetricsLoading] = useState(true)
 
   useEffect(() => {
     if (isReady && activeOrganizationId) {
       loadSalesMetrics()
+      loadCallsMetrics()
     }
   }, [isReady, activeOrganizationId])
 
@@ -130,6 +148,49 @@ export default function DashboardPage() {
       console.error('Erro ao carregar métricas de vendas:', error)
     } finally {
       setMetricsLoading(false)
+    }
+  }
+
+  const loadCallsMetrics = async () => {
+    try {
+      console.log('📞 Debug Dashboard - Carregando métricas de calls...')
+
+      // Buscar métricas do mês atual da view social_seller_metrics
+      const now = new Date()
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+      const { data: callsData, error: callsError } = await supabase
+        .from('social_seller_metrics')
+        .select('*')
+        .gte('month_year', startOfMonth.toISOString())
+        .single()
+
+      if (callsError) {
+        console.log('⚠️ Nenhuma métrica de calls encontrada para o mês atual:', callsError)
+        setCallsMetrics({
+          total_calls: 0,
+          calls_vendidas: 0,
+          calls_nao_vendidas: 0,
+          no_shows: 0,
+          total_vendas_calls: 0,
+          taxa_conversao_calls: 0
+        })
+        return
+      }
+
+      console.log('📞 Debug Dashboard - Métricas de calls:', callsData)
+
+      setCallsMetrics({
+        total_calls: callsData.total_calls || 0,
+        calls_vendidas: callsData.calls_vendidas || 0,
+        calls_nao_vendidas: callsData.calls_nao_vendidas || 0,
+        no_shows: callsData.no_shows || 0,
+        total_vendas_calls: callsData.total_vendas || 0,
+        taxa_conversao_calls: callsData.taxa_conversao || 0
+      })
+
+    } catch (error) {
+      console.error('Erro ao carregar métricas de calls:', error)
     }
   }
 
@@ -361,7 +422,46 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        <div className="text-xs text-orange-600">
+                        {/* Métricas de Calls */}
+                        <div className="mt-4 pt-3 border-t border-orange-200">
+                          <h4 className="text-sm font-semibold text-orange-700 mb-2">📞 Calls do Mês</h4>
+
+                          <div className="grid grid-cols-2 gap-2 mb-3">
+                            <div className="bg-orange-100 p-2 rounded text-center">
+                              <div className="text-lg font-bold text-orange-900">{callsMetrics.total_calls}</div>
+                              <div className="text-xs text-orange-700">Total Calls</div>
+                            </div>
+                            <div className="bg-green-100 p-2 rounded text-center">
+                              <div className="text-lg font-bold text-green-900">{callsMetrics.calls_vendidas}</div>
+                              <div className="text-xs text-green-700">Vendidas</div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-1 text-xs">
+                            <div className="text-center">
+                              <div className="font-semibold text-red-700">{callsMetrics.calls_nao_vendidas}</div>
+                              <div className="text-red-600">Não Vendidas</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="font-semibold text-gray-700">{callsMetrics.no_shows}</div>
+                              <div className="text-gray-600">No-Shows</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="font-semibold text-orange-700">{callsMetrics.taxa_conversao_calls.toFixed(1)}%</div>
+                              <div className="text-orange-600">Taxa Calls</div>
+                            </div>
+                          </div>
+
+                          {callsMetrics.total_vendas_calls > 0 && (
+                            <div className="mt-2 text-center">
+                              <span className="text-xs text-orange-600">
+                                Vendas calls: {formatCurrency(callsMetrics.total_vendas_calls)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="text-xs text-orange-600 mt-2">
                           {salesMetrics.total_vendas} vendas de {salesMetrics.total_leads} leads
                         </div>
                       </>

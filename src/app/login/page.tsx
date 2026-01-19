@@ -102,17 +102,17 @@ export default function LoginPage() {
       <div className="relative z-10 min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-3xl font-extrabold text-black">
             Customer Success
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-black">
             Faça login para acessar o sistema
           </p>
         </div>
 
         <Card className="rounded-2xl shadow-xl border border-white/20 bg-white/70 backdrop-blur-xl">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-gray-900">Login</CardTitle>
+            <CardTitle className="text-lg font-semibold text-black">Login</CardTitle>
             <CardDescription>
               Digite suas credenciais para acessar
             </CardDescription>
