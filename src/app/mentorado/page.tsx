@@ -413,7 +413,7 @@ function MentoradoPageContent() {
                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                           />
                           <img
-                            src="/rolex.jpg"
+                            src="/rolex.png"
                             alt="Relógio de luxo"
                             className="w-6 h-6 rounded object-cover border border-yellow-400/50"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
@@ -724,7 +724,7 @@ function MentoradoPageContent() {
                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                               />
                               <img
-                                src="/rolex.jpg"
+                                src="/rolex.png"
                                 alt="Relógio de luxo"
                                 className="w-4 h-4 rounded object-cover border border-yellow-400/50"
                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}

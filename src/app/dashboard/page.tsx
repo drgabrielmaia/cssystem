@@ -384,7 +384,7 @@ export default function DashboardPage() {
                           <div className="text-3xl font-bold text-orange-900 mb-2">
                             {formatCurrency(salesMetrics.valor_vendido)}
                           </div>
-                          <div className="text-sm text-gray-600 mb-3">
+                          <div className="text-sm text-gray-600">
                             Arrecadado: {formatCurrency(salesMetrics.valor_arrecadado || 0)} • Meta de faturamento: {formatCurrency(500000)}
                           </div>
                         </div>
