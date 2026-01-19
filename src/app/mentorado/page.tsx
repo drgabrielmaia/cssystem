@@ -76,7 +76,6 @@ function MentoradoPageContent() {
       const { data: allMentorados, error: mentoradosError } = await supabase
         .from('mentorados')
         .select('id, nome_completo, organization_id')
-        .eq('excluido', false)
         .eq('organization_id', '9c8c0033-15ea-4e33-a55f-28d81a19693b')
         .order('nome_completo')
 

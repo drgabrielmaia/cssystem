@@ -93,7 +93,6 @@ export default function VideoAccessControlPage() {
       const { data: mentoradosData } = await supabase
         .from('mentorados')
         .select('id, nome_completo, email, turma, status_login')
-        .eq('excluido', false)
         .eq('status_login', 'ativo')
         .order('nome_completo')
 

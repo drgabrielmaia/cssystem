@@ -53,10 +53,11 @@ export default function CheckInsPage() {
     try {
       console.log('🔍 Carregando dados de checkin...')
 
-      // Buscar todos os mentorados ativos
-      const { data: mentoradosData, error: mentoradosError } = await supabase
+      // Buscar todos os mentorados ativos (excluindo churn e verificando prazo de 12 meses)
+      const { data: allMentorados, error: mentoradosError } = await supabase
         .from('mentorados')
         .select('*')
+        .neq('estado_atual', 'churn') // Excluir churn
         .neq('estado_atual', 'inativo')
         .order('nome_completo')
 
@@ -65,8 +66,20 @@ export default function CheckInsPage() {
         return
       }
 
-      console.log('📊 Mentorados encontrados:', mentoradosData?.length || 0)
-      setMentorados(mentoradosData || [])
+      // Filtrar mentorados que ainda têm acesso (dentro de 12 meses)
+      const mentoradosData = allMentorados?.filter(mentorado => {
+        if (!mentorado.data_entrada) return true // Se não tem data_entrada, permitir
+
+        const dataEntrada = new Date(mentorado.data_entrada)
+        const agora = new Date()
+        const diferencaEmMeses = (agora.getFullYear() - dataEntrada.getFullYear()) * 12 + (agora.getMonth() - dataEntrada.getMonth())
+
+        return diferencaEmMeses < 12 // Bloquear se passou de 12 meses
+      }) || []
+
+      console.log('📊 Mentorados encontrados:', mentoradosData.length)
+      console.log('📊 Mentorados com acesso ativo:', mentoradosData.filter(m => m.estado_atual === 'ativo').length)
+      setMentorados(mentoradosData)
 
       // Buscar check-ins para determinar status
       const { data: checkinsData, error: checkinsError } = await supabase

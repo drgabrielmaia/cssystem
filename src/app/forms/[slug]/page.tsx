@@ -268,7 +268,6 @@ export default function FormPage() {
             .from('mentorados')
             .select('id')
             .eq('email', formData.email)
-            .eq('excluido', false)
             .single()
 
           if (mentorado) {

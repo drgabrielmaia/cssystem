@@ -48,27 +48,29 @@ export default function ConfiguracoesPage() {
   return (
     <div className="min-h-screen bg-[#F7F9FB]">
       {/* Header */}
-      <div className="bg-white border-b border-[#E5E7EB] px-8 py-6">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-[#111827] flex items-center gap-3">
-              <div className="bg-gradient-to-r from-[#2563EB] to-[#3B82F6] p-2 rounded-lg">
-                <Settings className="h-6 w-6 text-white" />
-              </div>
-              Configurações
-            </h1>
-            <p className="text-[#6B7280] mt-1">Gerencie suas preferências e metas</p>
-          </div>
+      <div className="bg-white border-b border-[#E5E7EB] px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-[#111827] flex items-center gap-2 sm:gap-3">
+                <div className="bg-gradient-to-r from-[#2563EB] to-[#3B82F6] p-1.5 sm:p-2 rounded-lg">
+                  <Settings className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                </div>
+                <span className="truncate">Configurações</span>
+              </h1>
+              <p className="text-[#6B7280] mt-1 text-sm sm:text-base">Gerencie suas preferências e metas</p>
+            </div>
 
-          <div className="flex items-center gap-2 text-sm text-green-600">
-            <Save className="h-4 w-4" />
-            <span>Salvo automaticamente</span>
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-green-600 self-start sm:self-center">
+              <Save className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span>Salvo automaticamente</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="p-8">
-        <div className="max-w-7xl mx-auto space-y-8">
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
 
       {message && (
         <div className={`p-4 rounded-lg text-center font-medium ${
@@ -88,7 +90,7 @@ export default function ConfiguracoesPage() {
                 Metas Mensais
               </CardTitle>
             </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
           <div className="space-y-2">
             <Label htmlFor="meta-leads">Meta de Leads</Label>
             <Input
@@ -184,10 +186,10 @@ export default function ConfiguracoesPage() {
               </CardTitle>
             </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-base font-medium">Notificações por Email</Label>
-              <p className="text-sm text-gray-500">Receber alertas e relatórios por email</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+            <div className="flex-1">
+              <Label className="text-sm sm:text-base font-medium">Notificações por Email</Label>
+              <p className="text-xs sm:text-sm text-gray-500">Receber alertas e relatórios por email</p>
             </div>
             <Switch
               checked={settings.notificacao_email}
@@ -197,10 +199,10 @@ export default function ConfiguracoesPage() {
 
           <Separator />
 
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-base font-medium">Notificações WhatsApp</Label>
-              <p className="text-sm text-gray-500">Receber alertas via WhatsApp</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+            <div className="flex-1">
+              <Label className="text-sm sm:text-base font-medium">Notificações WhatsApp</Label>
+              <p className="text-xs sm:text-sm text-gray-500">Receber alertas via WhatsApp</p>
             </div>
             <Switch
               checked={settings.notificacao_whatsapp}
@@ -210,10 +212,10 @@ export default function ConfiguracoesPage() {
 
           <Separator />
 
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-base font-medium">Follow-ups Automáticos</Label>
-              <p className="text-sm text-gray-500">Notificações de follow-ups pendentes</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+            <div className="flex-1">
+              <Label className="text-sm sm:text-base font-medium">Follow-ups Automáticos</Label>
+              <p className="text-xs sm:text-sm text-gray-500">Notificações de follow-ups pendentes</p>
             </div>
             <Switch
               checked={settings.notificacao_follow_ups}
@@ -232,10 +234,10 @@ export default function ConfiguracoesPage() {
               </CardTitle>
             </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-base font-medium">Criar Follow-ups Automaticamente</Label>
-              <p className="text-sm text-gray-500">Quando uma call for agendada, criar follow-ups automáticos</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+            <div className="flex-1">
+              <Label className="text-sm sm:text-base font-medium">Criar Follow-ups Automaticamente</Label>
+              <p className="text-xs sm:text-sm text-gray-500">Quando uma call for agendada, criar follow-ups automáticos</p>
             </div>
             <Switch
               checked={settings.auto_create_follow_ups}
@@ -253,7 +255,7 @@ export default function ConfiguracoesPage() {
                 Aparência
               </CardTitle>
             </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <div className="space-y-2">
             <Label htmlFor="tema">Tema</Label>
             <Select

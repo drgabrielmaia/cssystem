@@ -137,14 +137,14 @@ export default function OrganizationManagementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Configurações da Organização</h1>
-            <p className="text-gray-600 mt-2">
-              Gerencie as configurações da organização: {organization.name}
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Configurações da Organização</h1>
+            <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">
+              Gerencie as configurações da organização: <span className="font-medium">{organization.name}</span>
             </p>
             <div className="mt-1">
               <Badge className={getRoleBadgeColor(currentUserRole || '')}>
@@ -154,70 +154,71 @@ export default function OrganizationManagementPage() {
             </div>
           </div>
 
-          <Link href="/admin/users">
-            <Button variant="outline">
-              <Users className="w-4 h-4 mr-2" />
-              Gerenciar Usuários
-              <ExternalLink className="w-4 h-4 ml-1" />
+          <Link href="/admin/users" className="self-start">
+            <Button variant="outline" size="sm" className="text-xs sm:text-sm">
+              <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Gerenciar Usuários</span>
+              <span className="sm:hidden">Usuários</span>
+              <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
             </Button>
           </Link>
         </div>
 
         {/* Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total de Membros</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats?.totalMembers || 0}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Total de Membros</p>
+                  <p className="text-lg sm:text-2xl font-bold text-gray-900">{stats?.totalMembers || 0}</p>
                 </div>
-                <Users className="w-6 h-6 text-blue-500" />
+                <Users className="w-4 h-4 sm:w-6 sm:h-6 text-blue-500" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Membros Ativos</p>
-                  <p className="text-2xl font-bold text-green-600">{stats?.activeMembers || 0}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Membros Ativos</p>
+                  <p className="text-lg sm:text-2xl font-bold text-green-600">{stats?.activeMembers || 0}</p>
                 </div>
-                <UserCheck className="w-6 h-6 text-green-500" />
+                <UserCheck className="w-4 h-4 sm:w-6 sm:h-6 text-green-500" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Convites Pendentes</p>
-                  <p className="text-2xl font-bold text-orange-600">{stats?.pendingMembers || 0}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Convites Pendentes</p>
+                  <p className="text-lg sm:text-2xl font-bold text-orange-600">{stats?.pendingMembers || 0}</p>
                 </div>
-                <Mail className="w-6 h-6 text-orange-500" />
+                <Mail className="w-4 h-4 sm:w-6 sm:h-6 text-orange-500" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Data de Criação</p>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-xs sm:text-sm text-gray-600">Data de Criação</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-900">
                     {stats?.createdAt ? new Date(stats.createdAt).toLocaleDateString('pt-BR') : 'N/A'}
                   </p>
                 </div>
-                <CalendarDays className="w-6 h-6 text-purple-500" />
+                <CalendarDays className="w-4 h-4 sm:w-6 sm:h-6 text-purple-500" />
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Detalhes da Organização */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Informações Básicas */}
           <Card>
             <CardHeader>

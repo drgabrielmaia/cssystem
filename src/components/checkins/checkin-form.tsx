@@ -116,7 +116,23 @@ export function CheckinForm({ mentorados, onSave, onCancel }: CheckinFormProps) 
                           <SelectValue placeholder="Selecione um mentorado" />
                         </SelectTrigger>
                         <SelectContent>
-                          {mentorados.map(mentorado => (
+                          {mentorados
+                            .filter(mentorado => {
+                              // Filtrar apenas mentorados com acesso válido
+                              if (mentorado.estado_atual === 'churn') return false
+
+                              // Verificar prazo de 12 meses
+                              if (mentorado.data_entrada) {
+                                const dataEntrada = new Date(mentorado.data_entrada)
+                                const agora = new Date()
+                                const diferencaEmMeses = (agora.getFullYear() - dataEntrada.getFullYear()) * 12 + (agora.getMonth() - dataEntrada.getMonth())
+
+                                if (diferencaEmMeses >= 12) return false
+                              }
+
+                              return true
+                            })
+                            .map(mentorado => (
                             <SelectItem key={mentorado.id} value={mentorado.id}>
                               {mentorado.nome_completo} • {mentorado.estado_atual}
                             </SelectItem>

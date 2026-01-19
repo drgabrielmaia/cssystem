@@ -153,22 +153,22 @@ export default function CreateUserPage() {
 
   return (
     <OrganizationGuard requiredRoles={['owner', 'manager']}>
-      <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col gap-4">
           <div>
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
               <Link href="/admin/users">
-                <Button variant="outline" size="sm">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Voltar
+                <Button variant="outline" size="sm" className="self-start">
+                  <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="text-xs sm:text-sm">Voltar</span>
                 </Button>
               </Link>
-              <h1 className="text-3xl font-bold text-gray-900">Criar Novo Usuário</h1>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Criar Novo Usuário</h1>
             </div>
-            <p className="text-gray-600 mt-2">
-              Adicione um novo membro à organização: {organization.name}
+            <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">
+              Adicione um novo membro à organização: <span className="font-medium">{organization.name}</span>
             </p>
             <div className="mt-1">
               <Badge className={getRoleBadgeColor(currentUserRole || '')}>

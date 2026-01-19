@@ -18,7 +18,10 @@ import {
   UserCheck,
   UserX,
   Edit,
-  Trash2
+  Trash2,
+  Lock,
+  Unlock,
+  Clock
 } from 'lucide-react'
 
 interface Mentorado {
@@ -28,6 +31,7 @@ interface Mentorado {
   telefone?: string
   data_entrada: string
   estado_atual: string
+  status_login?: string
   pontuacao?: number
   observacoes_privadas?: string
   created_at: string
@@ -85,7 +89,6 @@ export default function MentoradosPage() {
       let query = supabase
         .from('mentorados')
         .select('*')
-        .eq('excluido', false) // Apenas mentorados não excluídos
 
       if (statusFilter !== 'todos') {
         query = query.eq('estado_atual', statusFilter)
@@ -105,7 +108,9 @@ export default function MentoradosPage() {
 
   const loadStats = async () => {
     try {
-      const { data: mentorados } = await supabase.from('mentorados').select('*')
+      const { data: mentorados } = await supabase
+        .from('mentorados')
+        .select('*')
 
       if (mentorados) {
         const ativos = mentorados.filter(m => m.estado_atual === 'ativo').length
@@ -168,6 +173,68 @@ export default function MentoradosPage() {
     loadStats()
   }
 
+  const handleToggleAccess = async (mentorado: Mentorado) => {
+    // Não permitir ativar se for churn
+    if (mentorado.estado_atual === 'churn') {
+      alert('Não é possível ativar mentorados marcados como churn.')
+      return
+    }
+
+    const isAtivo = mentorado.status_login === 'ativo'
+    const novoStatus = isAtivo ? 'bloqueado' : 'ativo'
+
+    const confirmacao = confirm(
+      `Tem certeza que deseja ${isAtivo ? 'bloquear' : 'ativar'} o acesso de ${mentorado.nome_completo}?`
+    )
+
+    if (!confirmacao) return
+
+    try {
+      setIsLoadingData(true)
+
+      const { error } = await supabase
+        .from('mentorados')
+        .update({ status_login: novoStatus })
+        .eq('id', mentorado.id)
+
+      if (error) throw error
+
+      alert(`Acesso ${isAtivo ? 'bloqueado' : 'ativado'} com sucesso!`)
+      loadMentorados()
+      loadStats()
+    } catch (error) {
+      console.error('Erro ao alterar status de acesso:', error)
+      alert('Erro ao alterar status de acesso')
+    } finally {
+      setIsLoadingData(false)
+    }
+  }
+
+  const getAccessStatus = (mentorado: any) => {
+    // Verificar se é churn
+    if (mentorado.estado_atual === 'churn') {
+      return { blocked: true, reason: 'Churn', icon: UserX, color: 'text-red-500' }
+    }
+
+    // Verificar prazo de 12 meses
+    if (mentorado.data_entrada) {
+      const dataEntrada = new Date(mentorado.data_entrada)
+      const agora = new Date()
+      const diferencaEmMeses = (agora.getFullYear() - dataEntrada.getFullYear()) * 12 + (agora.getMonth() - dataEntrada.getMonth())
+
+      if (diferencaEmMeses >= 12) {
+        return { blocked: true, reason: 'Expirado (12m)', icon: Clock, color: 'text-orange-500' }
+      }
+    }
+
+    // Verificar status manual
+    if (mentorado.status_login !== 'ativo') {
+      return { blocked: true, reason: 'Bloqueado', icon: Lock, color: 'text-gray-500' }
+    }
+
+    return { blocked: false, reason: 'Ativo', icon: Unlock, color: 'text-green-500' }
+  }
+
   const handleDelete = async (mentorado: Mentorado) => {
     // Perguntar o motivo da exclusão
     const motivo = prompt(`Por que você está excluindo o mentorado "${mentorado.nome_completo}"?\n\nEscolha:\n1 - Erro (foi adicionado por engano)\n2 - Reembolso (desistiu e pediu reembolso)\n\nDigite 1 ou 2:`);
@@ -189,14 +256,10 @@ export default function MentoradosPage() {
     try {
       setIsLoadingData(true)
 
-      // Usar soft delete ao invés de deletar permanentemente
+      // Deletar permanentemente do banco de dados
       const { error } = await supabase
         .from('mentorados')
-        .update({
-          excluido: true,
-          motivo_exclusao: motivoExclusao,
-          data_exclusao: new Date().toISOString().split('T')[0]
-        })
+        .delete()
         .eq('id', mentorado.id)
 
       if (error) throw error
@@ -287,25 +350,61 @@ export default function MentoradosPage() {
       )
     },
     {
+      header: 'Acesso',
+      render: (mentorado: any) => {
+        const accessStatus = getAccessStatus(mentorado)
+        const Icon = accessStatus.icon
+        return (
+          <div className="flex items-center gap-2">
+            <Icon className={`w-4 h-4 ${accessStatus.color}`} />
+            <span className={`text-xs font-medium ${accessStatus.color}`}>
+              {accessStatus.reason}
+            </span>
+          </div>
+        )
+      }
+    },
+    {
       header: 'Ações',
-      render: (mentorado: any) => (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleEdit(mentorado)}
-            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Editar mentorado"
-          >
-            <Edit className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => handleDelete(mentorado)}
-            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-            title="Excluir mentorado"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      )
+      render: (mentorado: any) => {
+        const accessStatus = getAccessStatus(mentorado)
+        const canToggleAccess = mentorado.estado_atual !== 'churn' // Não permitir ativar churn
+
+        return (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleEdit(mentorado)}
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Editar mentorado"
+            >
+              <Edit className="w-4 h-4" />
+            </button>
+
+            {canToggleAccess && (
+              <button
+                onClick={() => handleToggleAccess(mentorado)}
+                className={`p-2 rounded-lg transition-colors ${
+                  accessStatus.blocked
+                    ? 'text-green-600 hover:bg-green-50'
+                    : 'text-orange-600 hover:bg-orange-50'
+                }`}
+                title={accessStatus.blocked ? 'Ativar acesso' : 'Bloquear acesso'}
+                disabled={isLoadingData}
+              >
+                {accessStatus.blocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+              </button>
+            )}
+
+            <button
+              onClick={() => handleDelete(mentorado)}
+              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              title="Excluir mentorado"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        )
+      }
     }
   ]
 

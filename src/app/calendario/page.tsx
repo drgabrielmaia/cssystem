@@ -495,12 +495,12 @@ export default function CalendarioPage() {
 
       {/* Alerta para eventos de hoje */}
       {todayEvents.length > 0 && (
-        <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-2xl p-4 mb-6">
-          <div className="flex items-center gap-3">
-            <CalendarIcon className="w-5 h-5 text-blue-500" />
+        <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-xl sm:rounded-2xl p-3 sm:p-4 mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />
             <div>
-              <p className="font-semibold text-blue-800">Agenda de Hoje</p>
-              <p className="text-sm text-blue-700">
+              <p className="font-semibold text-blue-800 text-sm sm:text-base">Agenda de Hoje</p>
+              <p className="text-xs sm:text-sm text-blue-700">
                 Você tem {todayEvents.length} evento{todayEvents.length > 1 ? 's' : ''} agendado{todayEvents.length > 1 ? 's' : ''} para hoje
               </p>
             </div>
@@ -508,47 +508,49 @@ export default function CalendarioPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
         {/* Calendário Principal */}
         <div className="lg:col-span-2">
           <ChartCard
             title="Calendário"
             subtitle={`${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`}
             actions={
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <button
                   onClick={goToToday}
-                  className="px-3 py-1 text-xs bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-lg transition-colors"
+                  className="px-2 sm:px-3 py-1 text-xs bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-lg transition-colors"
                 >
-                  Hoje
+                  <span className="hidden sm:inline">Hoje</span>
+                  <span className="sm:hidden">•</span>
                 </button>
                 <button
                   onClick={goToPreviousMonth}
-                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors"
+                  className="p-1.5 sm:p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
                 </button>
                 <button
                   onClick={goToNextMonth}
-                  className="p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors"
+                  className="p-1.5 sm:p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
                 </button>
               </div>
             }
           >
-            <div className="p-4">
+            <div className="p-2 sm:p-4">
               {/* Dias da semana */}
-              <div className="grid grid-cols-7 gap-1 mb-2">
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
                 {DAYS.map(day => (
-                  <div key={day} className="h-8 flex items-center justify-center text-xs font-medium text-[#94A3B8]">
-                    {day}
+                  <div key={day} className="h-6 sm:h-8 flex items-center justify-center text-xs font-medium text-[#94A3B8]">
+                    <span className="hidden sm:inline">{day}</span>
+                    <span className="sm:hidden">{day.charAt(0)}</span>
                   </div>
                 ))}
               </div>
 
               {/* Dias do mês */}
-              <div className="grid grid-cols-7 gap-1">
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
                 {days.map((day, index) => {
                   const isToday = day && day.toDateString() === today.toDateString()
                   const isSelected = day && selectedDate && day.toDateString() === selectedDate.toDateString()
@@ -558,10 +560,10 @@ export default function CalendarioPage() {
                     <div
                       key={index}
                       className={`
-                        h-16 p-1 border border-[#E2E8F0] cursor-pointer transition-colors relative
+                        h-12 sm:h-16 p-1 border border-[#E2E8F0] cursor-pointer transition-colors relative text-center
                         ${day ? 'hover:bg-[#F8FAFC]' : 'bg-[#F8FAFC]'}
                         ${isToday ? 'bg-[#059669] text-white' : ''}
-                        ${isSelected ? 'ring-2 ring-[#059669] ring-offset-1' : ''}
+                        ${isSelected ? 'ring-1 sm:ring-2 ring-[#059669] ring-offset-1' : ''}
                       `}
                       onClick={() => day && setSelectedDate(day)}
                     >
@@ -571,16 +573,16 @@ export default function CalendarioPage() {
                             {day.getDate()}
                           </div>
                           {dayEvents.length > 0 && (
-                            <div className="absolute bottom-1 left-1 right-1">
-                              <div className="flex gap-1">
+                            <div className="absolute bottom-0.5 sm:bottom-1 left-0.5 sm:left-1 right-0.5 sm:right-1">
+                              <div className="flex gap-0.5 sm:gap-1">
                                 {dayEvents.slice(0, 2).map((event, i) => (
                                   <div
                                     key={i}
-                                    className="h-1 flex-1 bg-[#059669] rounded-full"
+                                    className="h-0.5 sm:h-1 flex-1 bg-[#059669] rounded-full"
                                   />
                                 ))}
                                 {dayEvents.length > 2 && (
-                                  <div className="text-xs text-[#059669] font-medium">
+                                  <div className="text-[10px] sm:text-xs text-[#059669] font-medium">
                                     +{dayEvents.length - 2}
                                   </div>
                                 )}
@@ -598,21 +600,22 @@ export default function CalendarioPage() {
         </div>
 
         {/* Sidebar - Eventos */}
-        <div className="space-y-6">
+        <div className="space-y-4 lg:space-y-6">
           {/* Ações */}
           <div className="flex gap-2">
             <button
               onClick={handleNewEvent}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors text-sm"
             >
-              <Plus className="w-4 h-4" />
-              Novo Evento
+              <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Novo Evento</span>
+              <span className="sm:hidden">Novo</span>
             </button>
             <button
               onClick={fetchEvents}
               className="p-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
             </button>
           </div>
 
@@ -765,18 +768,18 @@ export default function CalendarioPage() {
 
       {/* Modal de Novo Evento */}
       <Dialog open={showNewEventModal} onOpenChange={setShowNewEventModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <div className="p-2 bg-[#059669] rounded-lg">
-                <Plus className="w-5 h-5 text-white" />
+            <DialogTitle className="flex items-center gap-2 sm:gap-3 text-base sm:text-lg">
+              <div className="p-1.5 sm:p-2 bg-[#059669] rounded-lg">
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              Criar Novo Evento
+              <span className="truncate">Criar Novo Evento</span>
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4 sm:space-y-6 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="event-title">Título *</Label>
                 <Input
@@ -853,8 +856,8 @@ export default function CalendarioPage() {
               <Label htmlFor="all-day">Evento de dia inteiro</Label>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="start-date">Data de Início *</Label>
                 <Input
                   id="start-date"
@@ -885,16 +888,6 @@ export default function CalendarioPage() {
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="end-date">Data de Fim</Label>
-                <Input
-                  id="end-date"
-                  type="date"
-                  value={newEventForm.end_date}
-                  onChange={(e) => setNewEventForm({ ...newEventForm, end_date: e.target.value })}
-                />
-              </div>
-
               {!newEventForm.all_day && (
                 <div className="space-y-2">
                   <Label htmlFor="end-time">Hora de Fim</Label>
@@ -906,6 +899,16 @@ export default function CalendarioPage() {
                   />
                 </div>
               )}
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="end-date">Data de Fim (Opcional)</Label>
+                <Input
+                  id="end-date"
+                  type="date"
+                  value={newEventForm.end_date}
+                  onChange={(e) => setNewEventForm({ ...newEventForm, end_date: e.target.value })}
+                />
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t">

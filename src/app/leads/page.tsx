@@ -566,7 +566,6 @@ export default function LeadsPage() {
         data_entrada: lead.data_venda || new Date().toISOString().split('T')[0],
         estado_atual: 'ativo',
         lead_id: lead.id,
-        excluido: false,
         turma: 'Turma 1', // Valor padrão para turma
         organization_id: organizationId // Necessário para RLS
       }

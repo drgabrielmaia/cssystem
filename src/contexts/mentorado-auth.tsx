@@ -115,6 +115,32 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Função para verificar se o mentorado deve ter acesso bloqueado
+  const shouldBlockAccess = (mentoradoData: any): { blocked: boolean, reason?: string } => {
+    // 1. Verificar se foi marcado como churn ou excluído
+    if (mentoradoData.estado_atual === 'churn') {
+      return { blocked: true, reason: 'Conta marcada como churn' }
+    }
+
+    // 2. Verificar se completou 12 meses desde a data de entrada
+    if (mentoradoData.data_entrada) {
+      const dataEntrada = new Date(mentoradoData.data_entrada)
+      const agora = new Date()
+      const diferencaEmMeses = (agora.getFullYear() - dataEntrada.getFullYear()) * 12 + (agora.getMonth() - dataEntrada.getMonth())
+
+      if (diferencaEmMeses >= 12) {
+        return { blocked: true, reason: 'Período de acesso expirado (12 meses)' }
+      }
+    }
+
+    // 3. Verificar se status_login está inativo
+    if (mentoradoData.status_login !== 'ativo') {
+      return { blocked: true, reason: 'Status de login inativo' }
+    }
+
+    return { blocked: false }
+  }
+
   // Função para verificar autenticação (reutilizável)
   const checkAuth = async () => {
     try {
@@ -135,16 +161,26 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
           .from('mentorados')
           .select('*')
           .eq('id', mentoradoId)
-          .eq('status_login', 'ativo')
           .single()
 
         if (fetchError || !mentoradoData) {
-          // Cookie inválido ou usuário inativo
+          // Cookie inválido ou usuário não encontrado
           removeCookie(COOKIE_NAME)
           localStorage.removeItem('mentorado') // Limpar localStorage legado
           setMentorado(null)
         } else {
-          setMentorado(mentoradoData)
+          // Verificar se deve ter acesso bloqueado
+          const accessCheck = shouldBlockAccess(mentoradoData)
+
+          if (accessCheck.blocked) {
+            console.log('🚫 Acesso bloqueado:', accessCheck.reason)
+            setError(accessCheck.reason || 'Acesso bloqueado')
+            removeCookie(COOKIE_NAME)
+            localStorage.removeItem('mentorado')
+            setMentorado(null)
+          } else {
+            setMentorado(mentoradoData)
+          }
         }
       } else {
         // Migrar do localStorage para cookie se existir
@@ -236,11 +272,17 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
         .from('mentorados')
         .select('*')
         .eq('email', email)
-        .eq('status_login', 'ativo')
         .single()
 
       if (fetchError || !mentoradoData) {
-        setError('Email não encontrado ou conta inativa')
+        setError('Email não encontrado')
+        return false
+      }
+
+      // Verificar se deve ter acesso bloqueado ANTES de validar senha
+      const accessCheck = shouldBlockAccess(mentoradoData)
+      if (accessCheck.blocked) {
+        setError(accessCheck.reason || 'Acesso bloqueado')
         return false
       }
 

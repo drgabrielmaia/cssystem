@@ -11,19 +11,21 @@ import {
   TrendingUp,
   DollarSign,
   Target,
-  Brain
+  Brain,
+  CheckCircle
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const menuItems = [
   { icon: Users, href: '/lista-mentorados', label: 'Visão Geral' },
+  { icon: Calendar, href: '/calendario', label: 'Calendário' },
   { icon: Home, href: '/dashboard', label: 'Dashboard' },
   { icon: Brain, href: '/admin/mapas-mentais', label: 'Mapas Mentais' },
   { icon: FileText, href: '/cases', label: 'Cases' },
   { icon: BarChart3, href: '/analytics', label: 'Analytics' },
   { icon: MessageSquare, href: '/formularios', label: 'Formulários' },
-  { icon: Calendar, href: '/checkins', label: 'Check-ins' },
+  { icon: CheckCircle, href: '/checkins', label: 'Check-ins' },
   { icon: DollarSign, href: '/pendencias', label: 'Pendências' },
   { icon: Target, href: '/metas', label: 'Metas' },
   { icon: TrendingUp, href: '/relatorios', label: 'Relatórios' },

@@ -142,7 +142,7 @@ export default function AdminVideosPage() {
       const [modulesResult, lessonsResult, studentsResult, progressResult] = await Promise.all([
         supabase.from('video_modules').select('id', { count: 'exact' }),
         supabase.from('video_lessons').select('id', { count: 'exact' }),
-        supabase.from('mentorados').select('id', { count: 'exact' }).eq('excluido', false),
+        supabase.from('mentorados').select('id', { count: 'exact' }),
         supabase.from('lesson_progress').select('is_completed', { count: 'exact' })
       ])
 
