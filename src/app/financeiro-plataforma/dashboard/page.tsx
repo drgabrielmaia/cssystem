@@ -39,7 +39,7 @@ interface FinanceMetrics {
   variacao_entradas: number
   variacao_saidas: number
   valor_total_arrecadado: number
-  taxa_conversao: number
+  taxa_conversao_real: number
 }
 
 interface Transaction {
@@ -65,7 +65,7 @@ export default function FinanceiroPlataformaDashboard() {
     variacao_entradas: 0,
     variacao_saidas: 0,
     valor_total_arrecadado: 0,
-    taxa_conversao: 0
+    taxa_conversao_real: 0
   })
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -183,9 +183,23 @@ export default function FinanceiroPlataformaDashboard() {
         .eq('status', 'vendido')
         .not('valor_arrecadado', 'is', null)
 
+      // Calcular taxa de conversão real (leads → vendas)
+      const { data: totalLeadsData } = await supabase
+        .from('leads')
+        .select('id')
+
+      const { data: vendasConversao } = await supabase
+        .from('leads')
+        .select('id')
+        .eq('status', 'vendido')
+        .not('valor_arrecadado', 'is', null)
+        .gt('valor_arrecadado', 0)
+
       const valor_total_arrecadado = vendasData?.reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0) || 0
       const meta_mensal = 500000 // Meta fixa de 500K
-      const taxa_conversao = (valor_total_arrecadado / meta_mensal) * 100
+      const total_leads = totalLeadsData?.length || 0
+      const total_vendas = vendasConversao?.length || 0
+      const taxa_conversao_real = total_leads > 0 ? (total_vendas / total_leads) * 100 : 0
 
       return {
         caixa_atual,
@@ -197,7 +211,7 @@ export default function FinanceiroPlataformaDashboard() {
         variacao_entradas: Math.random() * 20 - 10, // Placeholder - implementar lógica real
         variacao_saidas: Math.random() * 20 - 10,     // Placeholder - implementar lógica real
         valor_total_arrecadado,
-        taxa_conversao
+        taxa_conversao_real
       }
     } catch (error) {
       console.error('Erro ao calcular métricas:', error)
@@ -211,7 +225,7 @@ export default function FinanceiroPlataformaDashboard() {
         variacao_entradas: 0,
         variacao_saidas: 0,
         valor_total_arrecadado: 0,
-        taxa_conversao: 0
+        taxa_conversao_real: 0
       }
     }
   }
@@ -544,47 +558,45 @@ export default function FinanceiroPlataformaDashboard() {
             <div className="md:col-span-2 bg-gradient-to-r from-[#D4AF37] to-[#FFD700] rounded-[20px] p-8 text-[#1A1A1A] relative overflow-hidden">
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[#1A1A1A]/80 text-[14px] font-medium">Desempenho de Vendas</h3>
+                  <h3 className="text-[#1A1A1A]/80 text-[14px] font-medium">Performance de Vendas</h3>
                   <Target className="w-5 h-5 text-[#1A1A1A]/60" />
                 </div>
 
-                {/* Faturamento vs Meta */}
-                <div className="mb-4">
-                  <div className="flex items-baseline justify-between mb-2">
-                    <span className="text-[14px] text-[#1A1A1A]/70">Faturamento:</span>
-                    <span className="text-[28px] font-bold text-[#1A1A1A]">
+                {/* Faturamento e Meta lado a lado */}
+                <div className="flex items-end justify-between mb-4">
+                  <div>
+                    <div className="text-[32px] font-bold text-[#1A1A1A]">
                       {formatCurrency(metrics.valor_total_arrecadado || 0)}
-                    </span>
+                    </div>
+                    <div className="text-[14px] text-[#1A1A1A]/70">Valor Arrecadado</div>
                   </div>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-[14px] text-[#1A1A1A]/70">Meta:</span>
-                    <span className="text-[20px] font-semibold text-[#1A1A1A]/60">
-                      {formatCurrency(500000)}
-                    </span>
+                  <div className="text-right">
+                    <div className="text-[16px] text-[#1A1A1A]/60">Meta: {formatCurrency(500000)}</div>
+                    <div className="text-[12px] text-[#1A1A1A]/50">Mensal</div>
                   </div>
                 </div>
 
-                {/* Régua de Conversão */}
+                {/* Régua de Taxa de Conversão Real */}
                 <div className="mb-3">
                   <div className="flex items-center justify-between text-[12px] text-[#1A1A1A]/70 mb-1">
                     <span>Taxa de Conversão</span>
-                    <span>{((metrics.valor_total_arrecadado || 0) / 500000 * 100).toFixed(1)}%</span>
+                    <span>{(metrics.taxa_conversao_real || 0).toFixed(1)}%</span>
                   </div>
-                  <div className="h-2 bg-[#1A1A1A]/20 rounded-full overflow-hidden">
+                  <div className="h-3 bg-[#1A1A1A]/20 rounded-full overflow-hidden">
                     <div
                       className={`h-full transition-all duration-500 ${
-                        ((metrics.valor_total_arrecadado || 0) / 500000 * 100) >= 55 ? 'bg-green-600' :
-                        ((metrics.valor_total_arrecadado || 0) / 500000 * 100) >= 35 ? 'bg-yellow-600' :
-                        ((metrics.valor_total_arrecadado || 0) / 500000 * 100) >= 20 ? 'bg-orange-600' : 'bg-red-600'
+                        (metrics.taxa_conversao_real || 0) > 55 ? 'bg-blue-500' :
+                        (metrics.taxa_conversao_real || 0) >= 40 ? 'bg-green-500' :
+                        (metrics.taxa_conversao_real || 0) >= 25 ? 'bg-yellow-500' : 'bg-red-500'
                       }`}
-                      style={{ width: `${Math.min(((metrics.valor_total_arrecadado || 0) / 500000 * 100), 100)}%` }}
+                      style={{ width: `${Math.min((metrics.taxa_conversao_real || 0), 100)}%` }}
                     />
                   </div>
                   <div className="flex justify-between text-[10px] text-[#1A1A1A]/60 mt-1">
-                    <span>0-19.9% (Ruim)</span>
-                    <span>20-35% (Normal)</span>
-                    <span>35-55% (Bom)</span>
-                    <span>55%+ (Elite)</span>
+                    <span>🔴 Ruim (&lt;25%)</span>
+                    <span>🟡 Normal (25-40%)</span>
+                    <span>🟢 Bom (40-55%)</span>
+                    <span>🔵 Excelente (&gt;55%)</span>
                   </div>
                 </div>
 
