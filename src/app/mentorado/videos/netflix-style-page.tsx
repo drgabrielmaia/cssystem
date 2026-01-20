@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Play, BookOpen, Clock, CheckCircle, Lock, Search, Star, Trophy, Medal, Award, FileText, MessageSquare, ThumbsUp } from 'lucide-react'
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
+import { PandaVideoPlayer } from '@/components/PandaVideoPlayer'
 
 interface VideoModule {
   id: string
@@ -60,6 +61,20 @@ export default function NetflixStyleVideosPage() {
   const [lessonNote, setLessonNote] = useState('')
   const [npsScore, setNpsScore] = useState<number | null>(null)
   const [npsFeedback, setNpsFeedback] = useState('')
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detectar dispositivo móvel
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      const isSmallScreen = window.innerWidth <= 768
+      setIsMobile(isMobileDevice || isSmallScreen)
+    }
+
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     if (mentorado && !authLoading) {
@@ -895,13 +910,10 @@ export default function NetflixStyleVideosPage() {
           {selectedLesson && (
             <div className="space-y-0">
               <div className="aspect-video bg-[#1A1A1A] rounded-t-[8px] overflow-hidden">
-                <iframe
-                  src={`https://player-vz-00efd930-2fc.tv.pandavideo.com.br/embed/?v=${selectedLesson.panda_video_embed_url}`}
-                  className="w-full h-full"
-                  style={{border: 'none'}}
-                  allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture"
-                  allowFullScreen={true}
+                <PandaVideoPlayer
+                  embedUrl={selectedLesson.panda_video_embed_url}
                   title={selectedLesson.title}
+                  className="w-full h-full rounded-t-[8px]"
                 />
               </div>
 
