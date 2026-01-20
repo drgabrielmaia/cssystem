@@ -43,6 +43,11 @@ const navigation = [
     name: 'Comissões',
     href: '/mentorado/comissoes',
     icon: DollarSign
+  },
+  {
+    name: 'Perfil',
+    href: '/mentorado/perfil',
+    icon: User
   }
 ]
 
@@ -205,20 +210,26 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
 
             {/* Avatar e Menu */}
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-[#E879F9] rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-white" />
-              </div>
-              <div className="hidden sm:block">
-                <p className="text-sm font-medium text-[#1A1A1A]">
-                  {mentorado?.nome_completo?.split(' ')[0]}
-                </p>
-                <p className="text-xs text-[#6B7280]">
-                  {mentorado?.turma || 'Mentorado'}
-                </p>
-              </div>
+              <Link
+                href="/mentorado/perfil"
+                className="flex items-center space-x-3 hover:bg-[#F3F3F5] rounded-lg p-2 transition-colors"
+              >
+                <div className="w-8 h-8 bg-[#E879F9] rounded-full flex items-center justify-center">
+                  <User className="w-4 h-4 text-white" />
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-sm font-medium text-[#1A1A1A]">
+                    {mentorado?.nome_completo?.split(' ')[0]}
+                  </p>
+                  <p className="text-xs text-[#6B7280]">
+                    {mentorado?.turma || 'Mentorado'}
+                  </p>
+                </div>
+              </Link>
               <button
                 onClick={handleLogout}
                 className="p-1 text-[#6B7280] hover:text-[#1A1A1A] transition-colors"
+                title="Sair"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -259,7 +270,10 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
 
           {/* Rodapé do Menu */}
           <div className="p-6 border-t border-[#F3F3F5]">
-            <div className="flex items-center">
+            <Link
+              href="/mentorado/perfil"
+              className="flex items-center hover:bg-[#F3F3F5] rounded-lg p-3 transition-colors"
+            >
               <div className="w-10 h-10 bg-[#E879F9] rounded-full flex items-center justify-center">
                 <User className="w-5 h-5 text-white" />
               </div>
@@ -271,7 +285,7 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
                   {mentorado?.turma || 'Mentorado'}
                 </p>
               </div>
-            </div>
+            </Link>
           </div>
         </aside>
 
