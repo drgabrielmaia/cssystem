@@ -87,13 +87,15 @@ export function GeneroEspecialidadeModal({
     setError('')
 
     try {
+      // Primeiro, tentar sem updated_at
+      const updateData: any = {
+        genero: genero,
+        especialidade: especialidade.trim()
+      }
+
       const { error: updateError } = await supabase
         .from('mentorados')
-        .update({
-          genero: genero,
-          especialidade: especialidade.trim(),
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', mentoradoId)
 
       if (updateError) {
@@ -113,10 +115,14 @@ export function GeneroEspecialidadeModal({
       })
 
       // Mensagem mais específica
-      if (error.code === '42703') {
+      if (error.code === '42703' || error.code === 'PGRST204') {
         setError('❌ Campos não encontrados no banco. Execute o SQL add-genero-especialidade-fields.sql primeiro.')
       } else if (error.code === '23514') {
         setError('❌ Valor inválido para gênero. Use: masculino, feminino, outro ou nao_informado.')
+      } else if (error.message?.includes('updated_at')) {
+        setError('❌ Campo updated_at não existe. Execute o SQL add-genero-especialidade-fields.sql no Supabase.')
+      } else if (error.message?.includes('genero') || error.message?.includes('especialidade')) {
+        setError('❌ Campos genero/especialidade não existem. Execute o SQL add-genero-especialidade-fields.sql no Supabase.')
       } else {
         setError(`❌ Erro ao salvar: ${error.message}`)
       }
