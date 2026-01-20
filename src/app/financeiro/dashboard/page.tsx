@@ -45,6 +45,15 @@ interface Transaction {
   data: string
   status: 'pendente' | 'liquidado' | 'atrasado'
   fornecedor?: string
+  projeto_id?: string
+}
+
+interface Projeto {
+  id: string
+  codigo: string
+  nome: string
+  cor_tema: string
+  ativo: boolean
 }
 
 export default function FinanceiroDashboard() {
@@ -65,6 +74,8 @@ export default function FinanceiroDashboard() {
   const [chartType, setChartType] = useState('entradas')
   const [chartData, setChartData] = useState<number[]>([])
   const { user, organizationId } = useAuth()
+  const [projetos, setProjetos] = useState<Projeto[]>([])
+  const [projetoSelecionado, setProjetoSelecionado] = useState<string>('todos')
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionForm, setTransactionForm] = useState({
     tipo: 'entrada' as 'entrada' | 'saida',
@@ -72,33 +83,73 @@ export default function FinanceiroDashboard() {
     descricao: '',
     categoria: '',
     data: new Date().toISOString().split('T')[0],
-    fornecedor: ''
+    fornecedor: '',
+    projeto_id: ''
   })
 
   useEffect(() => {
     if (user && organizationId) {
+      loadProjetos()
       loadFinanceData()
     }
   }, [user, organizationId])
+
+  useEffect(() => {
+    if (user && organizationId && projetos.length > 0) {
+      loadFinanceData()
+    }
+  }, [projetoSelecionado])
+
+  const loadProjetos = async () => {
+    try {
+      if (!organizationId) return
+
+      const { data, error } = await supabase
+        .from('projetos_organizacao')
+        .select('id, codigo, nome, cor_tema, ativo')
+        .eq('organization_id', organizationId)
+        .eq('ativo', true)
+        .order('codigo')
+
+      if (error) throw error
+
+      setProjetos(data || [])
+      console.log('📂 Projetos carregados:', data?.length)
+    } catch (error) {
+      console.error('Erro ao carregar projetos:', error)
+    }
+  }
 
   const loadFinanceData = async () => {
     try {
       setLoading(true)
 
-      // Verificar se temos organização
       if (!organizationId) {
         console.log('🔄 Aguardando organização do usuário...')
         return
       }
 
-      console.log('💰 Carregando dados financeiros para organização:', organizationId)
+      console.log('💰 Carregando dados financeiros para organização:', organizationId, 'projeto:', projetoSelecionado)
 
-      // Buscar métricas financeiras do Supabase com filtro organizacional
+      // Query base para transações
+      let transactionsQuery = supabase
+        .from('transacoes_financeiras')
+        .select(`
+          *,
+          projeto:projetos_organizacao(id, codigo, nome, cor_tema)
+        `)
+        .eq('organization_id', organizationId)
+
+      // Filtrar por projeto se selecionado
+      if (projetoSelecionado !== 'todos') {
+        const projetoId = projetos.find(p => p.codigo === projetoSelecionado)?.id
+        if (projetoId) {
+          transactionsQuery = transactionsQuery.eq('projeto_id', projetoId)
+        }
+      }
+
       const [transactionsResult, metricsResult, chartDataResult] = await Promise.all([
-        supabase
-          .from('transacoes_financeiras')
-          .select('*')
-          .eq('organization_id', organizationId)
+        transactionsQuery
           .order('data_transacao', { ascending: false })
           .limit(10),
         calculateMetrics(),
@@ -136,20 +187,40 @@ export default function FinanceiroDashboard() {
         }
       }
 
-      // Buscar transações do mês atual com filtro organizacional
-      const { data: monthlyTransactions } = await supabase
+      // Query base para transações do mês
+      let monthlyQuery = supabase
         .from('transacoes_financeiras')
         .select('*')
         .eq('organization_id', organizationId)
         .gte('data_transacao', `${currentMonth}-01`)
         .lt('data_transacao', `${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString()}`)
 
-      // Buscar todas as transações para caixa atual com filtro organizacional
-      const { data: allTransactions } = await supabase
+      // Filtrar por projeto se selecionado
+      if (projetoSelecionado !== 'todos') {
+        const projetoId = projetos.find(p => p.codigo === projetoSelecionado)?.id
+        if (projetoId) {
+          monthlyQuery = monthlyQuery.eq('projeto_id', projetoId)
+        }
+      }
+
+      const { data: monthlyTransactions } = await monthlyQuery
+
+      // Query para todas as transações (caixa atual)
+      let allQuery = supabase
         .from('transacoes_financeiras')
         .select('*')
         .eq('organization_id', organizationId)
         .eq('status', 'pago')
+
+      // Filtrar por projeto se selecionado
+      if (projetoSelecionado !== 'todos') {
+        const projetoId = projetos.find(p => p.codigo === projetoSelecionado)?.id
+        if (projetoId) {
+          allQuery = allQuery.eq('projeto_id', projetoId)
+        }
+      }
+
+      const { data: allTransactions } = await allQuery
 
       // ADICIONAR VALORES DOS LEADS ARRECADADOS
       // Buscar leads arrecadados do mês atual
@@ -364,7 +435,8 @@ export default function FinanceiroDashboard() {
       descricao: '',
       categoria: '',
       data: new Date().toISOString().split('T')[0],
-      fornecedor: ''
+      fornecedor: '',
+      projeto_id: ''
     })
     setShowTransactionModal(true)
   }
@@ -390,7 +462,8 @@ export default function FinanceiroDashboard() {
           status: 'pago',
           fornecedor: transactionForm.fornecedor,
           referencia_tipo: 'manual',
-          organization_id: organizationId
+          organization_id: organizationId,
+          projeto_id: transactionForm.projeto_id || null
         }])
 
       if (error) throw error
@@ -486,6 +559,24 @@ export default function FinanceiroDashboard() {
           </div>
 
           <div className="flex items-center space-x-4">
+            {/* Filtro por Projeto */}
+            <select
+              value={projetoSelecionado}
+              onChange={(e) => setProjetoSelecionado(e.target.value)}
+              className="px-4 py-2 bg-white rounded-2xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+            >
+              <option value="todos">🏢 Todos os Projetos</option>
+              {projetos.map((projeto) => (
+                <option key={projeto.id} value={projeto.codigo}>
+                  {projeto.codigo === 'MENTORIA' && '🎓'}
+                  {projeto.codigo === 'CLUB' && '👑'}
+                  {projeto.codigo === 'CLINICA' && '🏥'}
+                  {projeto.codigo === 'GERAL' && '📊'}
+                  {' '}{projeto.nome}
+                </option>
+              ))}
+            </select>
+
             <select className="px-4 py-2 bg-white rounded-2xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option>Últimos 30 dias</option>
               <option>Últimos 7 dias</option>
@@ -761,6 +852,27 @@ export default function FinanceiroDashboard() {
                   placeholder="Descrição da transação"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Projeto *</label>
+                <select
+                  value={transactionForm.projeto_id}
+                  onChange={(e) => setTransactionForm({ ...transactionForm, projeto_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37]"
+                  required
+                >
+                  <option value="">Selecione um projeto</option>
+                  {projetos.map((projeto) => (
+                    <option key={projeto.id} value={projeto.id}>
+                      {projeto.codigo === 'MENTORIA' && '🎓'}
+                      {projeto.codigo === 'CLUB' && '👑'}
+                      {projeto.codigo === 'CLINICA' && '🏥'}
+                      {projeto.codigo === 'GERAL' && '📊'}
+                      {' '}{projeto.nome}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
