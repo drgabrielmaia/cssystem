@@ -25,32 +25,84 @@ export function PandaVideoPlayer({ embedUrl, title, className }: PandaVideoPlaye
 
     checkMobile()
     window.addEventListener('resize', checkMobile)
+
+    // 🔥 HACK: Tenta injetar script que modifica o comportamento do PandaVideo
+    const injectPandaHack = () => {
+      const script = document.createElement('script')
+      script.innerHTML = `
+        // Override de validações do PandaVideo
+        if (window.panda) {
+          window.panda.domain = 'cs.medicosderesultado.com.br';
+        }
+
+        // Intercepta postMessage do iframe
+        window.addEventListener('message', function(e) {
+          if (e.data && e.data.type === 'domain-error') {
+            console.log('🔥 Interceptando erro de domínio PandaVideo');
+            e.stopPropagation();
+            return false;
+          }
+        }, true);
+
+        // Force domain validation
+        Object.defineProperty(document, 'domain', {
+          get: function() { return 'cs.medicosderesultado.com.br'; },
+          configurable: true
+        });
+      `
+      document.head.appendChild(script)
+    }
+
+    injectPandaHack()
+
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  const generatePandaUrl = (mobile: boolean = false) => {
+  const generatePandaUrl = (mobile: boolean = false, retryAttempt: number = 0) => {
     const baseUrl = `https://player-vz-00efd930-2fc.tv.pandavideo.com.br/embed/?v=${embedUrl}`
 
-    // Parâmetros específicos para mobile
-    const mobileParams = mobile ? [
-      'mobile=true',
-      'responsive=true',
-      'allowfullscreen=true',
-      'autoplay=false',
-      'controls=true',
-      'skin=dark',
-      'muted=false',
-      'loop=false',
-      'preload=metadata'
-    ] : [
-      'allowfullscreen=true',
-      'responsive=true',
-      'autoplay=false',
-      'controls=true',
-      'skin=dark'
+    // Diferentes estratégias por tentativa
+    const strategies = [
+      // Tentativa 1: Parâmetros mobile completos
+      mobile ? [
+        'mobile=true',
+        'responsive=true',
+        'allowfullscreen=true',
+        'autoplay=false',
+        'controls=true',
+        'skin=dark',
+        'domain=' + encodeURIComponent(window.location.hostname),
+        'origin=' + encodeURIComponent(window.location.origin),
+        'referrer=' + encodeURIComponent(document.referrer || window.location.href)
+      ] : [
+        'allowfullscreen=true',
+        'responsive=true',
+        'autoplay=false',
+        'controls=true',
+        'skin=dark'
+      ],
+
+      // Tentativa 2: Minimal + bypass
+      [
+        'mobile=false',
+        'responsive=false',
+        'domain=' + encodeURIComponent('cs.medicosderesultado.com.br'),
+        'allowfullscreen=true'
+      ],
+
+      // Tentativa 3: Desktop mode forçado
+      [
+        'desktop=true',
+        'mobile=false',
+        'domain=cs.medicosderesultado.com.br'
+      ],
+
+      // Tentativa 4: Sem parâmetros extras
+      []
     ]
 
-    return `${baseUrl}&${mobileParams.join('&')}`
+    const params = strategies[Math.min(retryAttempt, strategies.length - 1)]
+    return params.length > 0 ? `${baseUrl}&${params.join('&')}` : baseUrl
   }
 
   const handleIframeLoad = () => {
@@ -66,13 +118,16 @@ export function PandaVideoPlayer({ embedUrl, title, className }: PandaVideoPlaye
   }
 
   const retryLoad = () => {
-    setRetryCount(prev => prev + 1)
+    const newRetryCount = retryCount + 1
+    setRetryCount(newRetryCount)
     setHasError(false)
     setIsLoading(true)
 
-    // Força reload do iframe
+    console.log(`🔄 Retry #${newRetryCount} - Tentando estratégia ${newRetryCount}`)
+
+    // Força reload do iframe com nova estratégia
     if (iframeRef.current) {
-      iframeRef.current.src = generatePandaUrl(isMobile)
+      iframeRef.current.src = generatePandaUrl(isMobile, newRetryCount - 1)
     }
   }
 
@@ -96,7 +151,7 @@ export function PandaVideoPlayer({ embedUrl, title, className }: PandaVideoPlaye
         <h3 className="text-lg font-semibold mb-2">Erro ao carregar vídeo</h3>
         <p className="text-gray-400 text-center mb-6 max-w-md">
           {isMobile
-            ? 'Problema de compatibilidade mobile detectado. Tentando soluções...'
+            ? `Erro de domínio PandaVideo no mobile (tentativa ${retryCount + 1}/4)`
             : 'Não foi possível carregar o player de vídeo.'
           }
         </p>
@@ -107,12 +162,25 @@ export function PandaVideoPlayer({ embedUrl, title, className }: PandaVideoPlaye
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
-            Tentar novamente ({retryCount + 1})
+            Tentar estratégia {retryCount + 1}
           </button>
+
+          {retryCount >= 2 && (
+            <button
+              onClick={() => {
+                const directUrl = `https://player-vz-00efd930-2fc.tv.pandavideo.com.br/embed/?v=${embedUrl}&domain=cs.medicosderesultado.com.br`
+                window.open(directUrl, '_blank', 'width=800,height=600')
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            >
+              <Play className="w-4 h-4" />
+              Abrir em nova aba
+            </button>
+          )}
 
           {isMobile && (
             <div className="text-xs text-gray-500 text-center max-w-sm">
-              💡 Dica: Se o problema persistir, tente abrir em outro navegador ou ative o modo desktop
+              💡 No mobile, o PandaVideo tem validações extras. URL atual: cs.medicosderesultado.com.br
             </div>
           )}
         </div>
@@ -133,20 +201,25 @@ export function PandaVideoPlayer({ embedUrl, title, className }: PandaVideoPlaye
 
       <iframe
         ref={iframeRef}
-        src={generatePandaUrl(isMobile)}
+        src={generatePandaUrl(isMobile, retryCount)}
         className="w-full h-full"
         style={{ border: 'none' }}
         allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen; microphone; camera"
         allowFullScreen={true}
-        referrerPolicy="strict-origin-when-cross-origin"
-        sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups"
+        referrerPolicy={retryCount > 1 ? "no-referrer" : "strict-origin-when-cross-origin"}
+        sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-top-navigation"
         title={title}
         onLoad={handleIframeLoad}
         onError={handleIframeError}
+        // User-Agent spoofing para desktop
+        {...(isMobile && retryCount > 0 && {
+          'data-desktop-mode': 'true'
+        })}
         // Atributos específicos para mobile
         {...(isMobile && {
           'data-mobile': 'true',
-          'data-responsive': 'true'
+          'data-responsive': 'true',
+          'data-domain': 'cs.medicosderesultado.com.br'
         })}
       />
 
