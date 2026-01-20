@@ -121,19 +121,25 @@ export function GeneroEspecialidadeModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={() => !loading && onClose()}>
-      <DialogContent className="sm:max-w-[500px] bg-white border-gray-200">
-        <DialogHeader className="text-center pb-4">
-          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            <User className="h-8 w-8 text-blue-600" />
-          </div>
-          <DialogTitle className="text-2xl text-gray-900">
-            Complete seu perfil
-          </DialogTitle>
-          <DialogDescription className="text-gray-600 text-base">
-            Olá, <strong>{mentoradoNome?.split(' ')[0]}</strong>! Para melhor personalização
-            da sua experiência e rankings por categoria, precisamos de algumas informações adicionais.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] bg-white border-gray-200 p-0 flex flex-col">
+        {/* Header Fixo */}
+        <div className="flex-shrink-0 p-6 pb-4 border-b border-gray-100">
+          <DialogHeader className="text-center">
+            <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+              <User className="h-8 w-8 text-blue-600" />
+            </div>
+            <DialogTitle className="text-2xl text-gray-900">
+              Complete seu perfil
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 text-base">
+              Olá, <strong>{mentoradoNome?.split(' ')[0]}</strong>! Para melhor personalização
+              da sua experiência e rankings por categoria, precisamos de algumas informações adicionais.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+
+        {/* Conteúdo Scrollável */}
+        <div className="flex-1 overflow-y-auto p-6">
 
         <div className="space-y-6">
           {/* Seleção de Gênero */}
@@ -212,13 +218,17 @@ export function GeneroEspecialidadeModal({
               </div>
             </div>
           </div>
+        </div>
+        </div>
 
+        {/* Footer Fixo */}
+        <div className="flex-shrink-0 p-6 pt-4 border-t border-gray-100 bg-gray-50">
           {/* Botões */}
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 mb-3">
             <Button
               onClick={handleSubmit}
               disabled={loading || !genero || !especialidade.trim()}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white min-h-[48px]"
             >
               {loading ? (
                 <div className="flex items-center gap-2">
