@@ -202,26 +202,26 @@ export default function FinanceiroDashboard() {
         .not('valor_arrecadado', 'is', null)
         .gt('valor_arrecadado', 0)
 
-      // ADICIONAR VENDAS DE MENTORIA
-      // Buscar vendas de mentoria do mês atual
+      // ADICIONAR RECEITAS DE MENTORIA (direto das transações sincronizadas)
+      // Buscar receitas de mentoria do mês atual
       const { data: monthlyMentorias } = await supabase
-        .from('mentoria_vendas')
-        .select('valor_mentoria, data_venda, organization_id')
+        .from('transacoes_financeiras')
+        .select('valor, data_transacao')
         .eq('organization_id', organizationId)
-        .eq('status_pagamento', 'pago')
-        .gte('data_venda', `${currentMonth}-01`)
-        .lt('data_venda', `${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0]}`)
+        .eq('referencia_tipo', 'mentorado_receita')
+        .gte('data_transacao', `${currentMonth}-01`)
+        .lt('data_transacao', `${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0]}`)
 
-      // Buscar todas as vendas de mentoria para caixa atual
+      // Buscar todas as receitas de mentoria para caixa atual
       const { data: allMentorias } = await supabase
-        .from('mentoria_vendas')
-        .select('valor_mentoria, organization_id')
+        .from('transacoes_financeiras')
+        .select('valor')
         .eq('organization_id', organizationId)
-        .eq('status_pagamento', 'pago')
+        .eq('referencia_tipo', 'mentorado_receita')
 
       const entradas_transacoes = monthlyTransactions?.filter(t => t.tipo === 'entrada').reduce((acc, t) => acc + t.valor, 0) || 0
       const entradas_leads = monthlyLeads?.reduce((acc, lead) => acc + (lead.valor_arrecadado || 0), 0) || 0
-      const entradas_mentorias = monthlyMentorias?.reduce((acc, mentoria) => acc + (mentoria.valor_mentoria || 0), 0) || 0
+      const entradas_mentorias = monthlyMentorias?.reduce((acc, mentoria) => acc + (mentoria.valor || 0), 0) || 0
       const entradas_mes = entradas_transacoes + entradas_leads + entradas_mentorias
 
       const saidas_mes = monthlyTransactions?.filter(t => t.tipo === 'saida').reduce((acc, t) => acc + t.valor, 0) || 0
@@ -231,7 +231,7 @@ export default function FinanceiroDashboard() {
       }, 0) || 0
 
       const caixa_leads = allLeads?.reduce((acc, lead) => acc + (lead.valor_arrecadado || 0), 0) || 0
-      const caixa_mentorias = allMentorias?.reduce((acc, mentoria) => acc + (mentoria.valor_mentoria || 0), 0) || 0
+      const caixa_mentorias = allMentorias?.reduce((acc, mentoria) => acc + (mentoria.valor || 0), 0) || 0
       const caixa_atual = caixa_transacoes + caixa_leads + caixa_mentorias
 
       // Buscar contas a pagar e receber com filtro organizacional
@@ -484,7 +484,7 @@ export default function FinanceiroDashboard() {
       const result = await response.json()
 
       if (response.ok) {
-        alert(`✅ ${result.message}\n\nResumo:\n• ${result.statistics.vendas_pagas} vendas de mentoria\n• R$ ${result.statistics.receita_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em receitas\n• ${result.statistics.transacoes_sincronizadas} transações sincronizadas`)
+        alert(`✅ ${result.message}\n\nResumo:\n• ${result.statistics.total_mentorados_ativos} mentorados ativos\n• R$ ${result.statistics.valor_sincronizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em receitas\n• ${result.statistics.transacoes_sincronizadas} transações sincronizadas`)
         loadFinanceData() // Recarregar dados
       } else {
         throw new Error(result.error || 'Erro na sincronização')

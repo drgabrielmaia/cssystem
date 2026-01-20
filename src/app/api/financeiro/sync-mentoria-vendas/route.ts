@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
 
     // Executar a função de sincronização no banco
     const { data: syncResult, error: syncError } = await supabase
-      .rpc('sync_mentoria_vendas_to_financeiro')
+      .rpc('sync_mentorados_to_financeiro')
 
     if (syncError) {
       console.error('❌ Erro na sincronização:', syncError)
@@ -19,40 +19,32 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Resultado da sincronização:', syncResult)
 
-    // Buscar estatísticas atualizadas
-    const { data: stats, error: statsError } = await supabase
-      .from('mentoria_vendas')
-      .select(`
-        id,
-        valor_mentoria,
-        status_pagamento,
-        organization_id
-      `)
+    // Buscar estatísticas atualizadas - mentorados ativos
+    const { data: mentoradosAtivos, error: mentoradosError } = await supabase
+      .from('mentorados')
+      .select('id, organization_id, estado_atual')
+      .in('estado_atual', ['ativo', 'engajado', 'pausado'])
 
     const { data: syncedTransactions, error: transactionsError } = await supabase
       .from('transacoes_financeiras')
       .select('valor')
-      .eq('referencia_tipo', 'mentoria_venda')
+      .eq('referencia_tipo', 'mentorado_receita')
 
-    if (statsError || transactionsError) {
-      console.warn('⚠️ Erro ao buscar estatísticas:', { statsError, transactionsError })
+    if (mentoradosError || transactionsError) {
+      console.warn('⚠️ Erro ao buscar estatísticas:', { mentoradosError, transactionsError })
     }
 
-    const totalVendas = stats?.length || 0
-    const vendasPagas = stats?.filter(v => v.status_pagamento === 'pago').length || 0
-    const receituTotal = stats?.reduce((acc, v) => acc + (v.status_pagamento === 'pago' ? v.valor_mentoria : 0), 0) || 0
+    const totalMentorados = mentoradosAtivos?.length || 0
     const transacoesSincronizadas = syncedTransactions?.length || 0
     const valorSincronizado = syncedTransactions?.reduce((acc, t) => acc + t.valor, 0) || 0
 
     return NextResponse.json({
       message: syncResult || 'Sincronização concluída',
       statistics: {
-        total_vendas_mentoria: totalVendas,
-        vendas_pagas: vendasPagas,
-        receita_total: receituTotal,
+        total_mentorados_ativos: totalMentorados,
         transacoes_sincronizadas: transacoesSincronizadas,
         valor_sincronizado: valorSincronizado,
-        organizacoes_com_vendas: Array.from(new Set(stats?.map(s => s.organization_id) || []))
+        organizacoes_com_mentorados: Array.from(new Set(mentoradosAtivos?.map(m => m.organization_id) || []))
       }
     })
 
@@ -67,24 +59,24 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Verificar status da sincronização sem executar
-    const { data: vendasMentoria, error: vendasError } = await supabase
-      .from('mentoria_vendas')
+    // Verificar status da sincronização sem executar - usar mentorados diretamente
+    const { data: mentoradosAtivos, error: mentoradosError } = await supabase
+      .from('mentorados')
       .select(`
         id,
-        valor_mentoria,
-        status_pagamento,
-        data_venda,
+        nome_completo,
+        turma,
+        estado_atual,
         organization_id,
-        plano_mentoria,
-        mentorados:mentorados!inner(nome_completo, organization_id)
+        data_entrada,
+        created_at
       `)
-      .eq('status_pagamento', 'pago')
-      .order('data_venda', { ascending: false })
+      .in('estado_atual', ['ativo', 'engajado', 'pausado'])
+      .order('created_at', { ascending: false })
       .limit(50)
 
-    if (vendasError) {
-      return NextResponse.json({ error: 'Erro ao buscar vendas de mentoria' }, { status: 500 })
+    if (mentoradosError) {
+      return NextResponse.json({ error: 'Erro ao buscar mentorados ativos' }, { status: 500 })
     }
 
     const { data: transacoesSincronizadas, error: transacoesError } = await supabase
@@ -97,7 +89,7 @@ export async function GET(request: NextRequest) {
         descricao,
         referencia_id
       `)
-      .eq('referencia_tipo', 'mentoria_venda')
+      .eq('referencia_tipo', 'mentorado_receita')
       .order('data_transacao', { ascending: false })
       .limit(50)
 
@@ -106,23 +98,21 @@ export async function GET(request: NextRequest) {
     }
 
     // Calcular estatísticas por organização
-    const orgStats = vendasMentoria?.reduce((acc, venda) => {
-      const orgId = venda.organization_id
+    const orgStats = mentoradosAtivos?.reduce((acc, mentorado) => {
+      const orgId = mentorado.organization_id
       if (!acc[orgId]) {
         acc[orgId] = {
-          total_vendas: 0,
-          receita_total: 0,
-          vendas_sincronizadas: 0
+          total_mentorados: 0,
+          mentorados_sincronizados: 0
         }
       }
 
-      acc[orgId].total_vendas += 1
-      acc[orgId].receita_total += venda.valor_mentoria
+      acc[orgId].total_mentorados += 1
 
-      // Verificar se está sincronizada
-      const sincronizada = transacoesSincronizadas?.find(t => t.referencia_id === venda.id)
-      if (sincronizada) {
-        acc[orgId].vendas_sincronizadas += 1
+      // Verificar se está sincronizado
+      const sincronizado = transacoesSincronizadas?.find(t => t.referencia_id === mentorado.id)
+      if (sincronizado) {
+        acc[orgId].mentorados_sincronizados += 1
       }
 
       return acc
@@ -130,13 +120,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       status: 'ok',
-      vendas_mentoria: vendasMentoria || [],
+      mentorados_ativos: mentoradosAtivos || [],
       transacoes_sincronizadas: transacoesSincronizadas || [],
       estatisticas_por_organizacao: orgStats,
       resumo: {
-        total_vendas: vendasMentoria?.length || 0,
+        total_mentorados: mentoradosAtivos?.length || 0,
         total_transacoes_sincronizadas: transacoesSincronizadas?.length || 0,
-        receita_total_vendas: vendasMentoria?.reduce((acc, v) => acc + v.valor_mentoria, 0) || 0,
         receita_total_sincronizada: transacoesSincronizadas?.reduce((acc, t) => acc + t.valor, 0) || 0
       }
     })
