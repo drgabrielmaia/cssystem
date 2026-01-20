@@ -105,7 +105,21 @@ export function GeneroEspecialidadeModal({
       onClose()
     } catch (error: any) {
       console.error('Erro ao atualizar dados:', error)
-      setError('Erro ao salvar as informações. Tente novamente.')
+      console.error('Detalhes do erro:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      })
+
+      // Mensagem mais específica
+      if (error.code === '42703') {
+        setError('❌ Campos não encontrados no banco. Execute o SQL add-genero-especialidade-fields.sql primeiro.')
+      } else if (error.code === '23514') {
+        setError('❌ Valor inválido para gênero. Use: masculino, feminino, outro ou nao_informado.')
+      } else {
+        setError(`❌ Erro ao salvar: ${error.message}`)
+      }
     } finally {
       setLoading(false)
     }
