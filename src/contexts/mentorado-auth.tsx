@@ -21,6 +21,8 @@ interface Mentorado {
   data_inicio_mentoria?: string
   password_hash?: string
   status_login?: string
+  genero?: string
+  especialidade?: string
   created_at: string
 }
 

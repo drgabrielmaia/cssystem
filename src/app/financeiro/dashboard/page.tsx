@@ -202,9 +202,27 @@ export default function FinanceiroDashboard() {
         .not('valor_arrecadado', 'is', null)
         .gt('valor_arrecadado', 0)
 
+      // ADICIONAR VENDAS DE MENTORIA
+      // Buscar vendas de mentoria do mês atual
+      const { data: monthlyMentorias } = await supabase
+        .from('mentoria_vendas')
+        .select('valor_mentoria, data_venda, organization_id')
+        .eq('organization_id', organizationId)
+        .eq('status_pagamento', 'pago')
+        .gte('data_venda', `${currentMonth}-01`)
+        .lt('data_venda', `${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0]}`)
+
+      // Buscar todas as vendas de mentoria para caixa atual
+      const { data: allMentorias } = await supabase
+        .from('mentoria_vendas')
+        .select('valor_mentoria, organization_id')
+        .eq('organization_id', organizationId)
+        .eq('status_pagamento', 'pago')
+
       const entradas_transacoes = monthlyTransactions?.filter(t => t.tipo === 'entrada').reduce((acc, t) => acc + t.valor, 0) || 0
       const entradas_leads = monthlyLeads?.reduce((acc, lead) => acc + (lead.valor_arrecadado || 0), 0) || 0
-      const entradas_mes = entradas_transacoes + entradas_leads
+      const entradas_mentorias = monthlyMentorias?.reduce((acc, mentoria) => acc + (mentoria.valor_mentoria || 0), 0) || 0
+      const entradas_mes = entradas_transacoes + entradas_leads + entradas_mentorias
 
       const saidas_mes = monthlyTransactions?.filter(t => t.tipo === 'saida').reduce((acc, t) => acc + t.valor, 0) || 0
 
@@ -213,7 +231,8 @@ export default function FinanceiroDashboard() {
       }, 0) || 0
 
       const caixa_leads = allLeads?.reduce((acc, lead) => acc + (lead.valor_arrecadado || 0), 0) || 0
-      const caixa_atual = caixa_transacoes + caixa_leads
+      const caixa_mentorias = allMentorias?.reduce((acc, mentoria) => acc + (mentoria.valor_mentoria || 0), 0) || 0
+      const caixa_atual = caixa_transacoes + caixa_leads + caixa_mentorias
 
       // Buscar contas a pagar e receber com filtro organizacional
       const { data: contasPagar } = await supabase
@@ -251,7 +270,12 @@ export default function FinanceiroDashboard() {
 
       console.log('📊 Métricas calculadas para organização', organizationId, {
         caixa_atual,
-        entradas_mes,
+        entradas_mes: {
+          total: entradas_mes,
+          transacoes: entradas_transacoes,
+          leads: entradas_leads,
+          mentorias: entradas_mentorias
+        },
         saidas_mes,
         variacao_entradas: Math.round(variacao_entradas * 100) / 100,
         variacao_saidas: Math.round(variacao_saidas * 100) / 100
@@ -445,6 +469,29 @@ export default function FinanceiroDashboard() {
     } catch (error: any) {
       console.error('Erro ao sincronizar comissões:', error)
       alert('❌ Erro ao sincronizar comissões: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSyncMentoriaVendas = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/financeiro/sync-mentoria-vendas', {
+        method: 'POST'
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        alert(`✅ ${result.message}\n\nResumo:\n• ${result.statistics.vendas_pagas} vendas de mentoria\n• R$ ${result.statistics.receita_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em receitas\n• ${result.statistics.transacoes_sincronizadas} transações sincronizadas`)
+        loadFinanceData() // Recarregar dados
+      } else {
+        throw new Error(result.error || 'Erro na sincronização')
+      }
+    } catch (error: any) {
+      console.error('Erro ao sincronizar vendas de mentoria:', error)
+      alert('❌ Erro ao sincronizar vendas de mentoria: ' + error.message)
     } finally {
       setLoading(false)
     }
@@ -663,13 +710,14 @@ export default function FinanceiroDashboard() {
         <div className="mt-8 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
           <h3 className="text-lg font-semibold text-slate-800 mb-6">Ações Rápidas</h3>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
             {[
               { icon: Plus, label: 'Novo Lançamento', color: 'blue', action: () => handleNewTransaction() },
               { icon: RefreshCw, label: 'Transferir', color: 'green', action: () => handleTransfer() },
               { icon: Receipt, label: 'Criar Cobrança', color: 'purple', action: () => handleCreateInvoice() },
               { icon: Download, label: 'Importar', color: 'orange', action: () => handleImport() },
-              { icon: DollarSign, label: 'Sync Comissões', color: 'gold', action: () => handleSyncComissoes() }
+              { icon: DollarSign, label: 'Sync Comissões', color: 'gold', action: () => handleSyncComissoes() },
+              { icon: TrendingUp, label: 'Sync Mentorias', color: 'teal', action: () => handleSyncMentoriaVendas() }
             ].map((action, index) => (
               <button
                 key={index}
@@ -681,6 +729,7 @@ export default function FinanceiroDashboard() {
                   action.color === 'green' ? 'bg-[#DAA520]/10 text-[#DAA520]' :
                   action.color === 'purple' ? 'bg-[#B8860B]/10 text-[#B8860B]' :
                   action.color === 'gold' ? 'bg-[#FFD700]/10 text-[#FFD700]' :
+                  action.color === 'teal' ? 'bg-teal-500/10 text-teal-600' :
                   'bg-[#CD853F]/10 text-[#CD853F]'
                 }`}>
                   <action.icon className="w-6 h-6" />
