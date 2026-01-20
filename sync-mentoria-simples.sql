@@ -8,6 +8,14 @@ UPDATE mentorados
 SET organization_id = '9c8c0033-15ea-4e33-a55f-28d81a19693b'
 WHERE organization_id IS NULL;
 
+-- 1.5. Adicionar organization_id à tabela transacoes_financeiras se não existir
+ALTER TABLE transacoes_financeiras
+ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES organizations(id);
+
+-- Criar índice para performance
+CREATE INDEX IF NOT EXISTS idx_transacoes_financeiras_organization_id
+ON transacoes_financeiras(organization_id);
+
 -- 2. Função para sincronizar mentorados como receitas no financeiro
 CREATE OR REPLACE FUNCTION sync_mentorados_to_financeiro()
 RETURNS TEXT AS $$
@@ -34,7 +42,7 @@ BEGIN
         -- Verificar se já existe transação financeira para este mentorado
         SELECT id INTO transacao_existente
         FROM transacoes_financeiras
-        WHERE referencia_id = mentorado_record.id::text
+        WHERE referencia_id = mentorado_record.id
           AND referencia_tipo = 'mentorado_receita'
         LIMIT 1;
 
@@ -68,7 +76,7 @@ BEGIN
                 COALESCE(mentorado_record.data_entrada::date, mentorado_record.created_at::date),
                 'pago',
                 mentorado_record.nome_completo,
-                mentorado_record.id::text,
+                mentorado_record.id,
                 'mentorado_receita',
                 mentorado_record.created_at
             );
