@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/auth'
 import {
   UserPlus,
   Edit,
@@ -28,6 +29,7 @@ interface FinanceUser {
 }
 
 export default function FinanceiroUsuarios() {
+  const { user, organizationId } = useAuth()
   const [users, setUsers] = useState<FinanceUser[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -48,19 +50,55 @@ export default function FinanceiroUsuarios() {
   })
 
   useEffect(() => {
-    loadUsers()
-  }, [])
+    if (user && organizationId) {
+      loadUsers()
+    }
+  }, [user, organizationId])
 
   const loadUsers = async () => {
     try {
       setLoading(true)
+
+      if (!organizationId) {
+        console.warn('❌ loadUsers: organizationId não definido')
+        return
+      }
+
       const { data, error } = await supabase
-        .from('usuarios_financeiro')
-        .select('*')
+        .from('organization_users')
+        .select(`
+          id,
+          email,
+          role,
+          is_active,
+          created_at,
+          updated_at,
+          organization:organizations(name)
+        `)
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setUsers(data || [])
+
+      // Mapear para o formato esperado
+      const mappedUsers = data?.map(user => ({
+        id: user.id,
+        nome: user.email.split('@')[0], // Use email como nome base
+        email: user.email,
+        cargo: user.role || 'Usuário',
+        permissoes: {
+          dashboard: true,
+          transacoes: user.role === 'admin',
+          orcamentos: user.role === 'admin',
+          relatorios: true,
+          usuarios: user.role === 'admin'
+        },
+        ativo: user.is_active,
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      })) || []
+
+      setUsers(mappedUsers)
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
     } finally {

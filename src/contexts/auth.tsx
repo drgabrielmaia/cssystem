@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 interface AuthContextType {
   user: User | null
   loading: boolean
+  organizationId: string | null
   signOut: () => Promise<void>
 }
 
@@ -23,6 +24,7 @@ export function useAuth() {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -46,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           user_metadata: { role: 'admin' }
         } as User
         setUser(mockAdminUser)
+        setOrganizationId('9c8c0033-15ea-4e33-a55f-28d81a19693b')
         setLoading(false)
         return true
       }
@@ -61,7 +64,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Then check Supabase session
       const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+
+      // Get organization for the user
+      if (currentUser) {
+        await getOrganizationForUser(currentUser)
+      }
       setLoading(false)
     }
 
@@ -70,10 +79,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       // Only update if no admin cookie exists
       if (!document.cookie.includes('admin_auth=true')) {
-        setUser(session?.user ?? null)
+        const currentUser = session?.user ?? null
+        setUser(currentUser)
+
+        // Get organization for the user
+        if (currentUser) {
+          await getOrganizationForUser(currentUser)
+        } else {
+          setOrganizationId(null)
+        }
       }
       setLoading(false)
     })
@@ -120,8 +137,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const getOrganizationForUser = async (user: User) => {
+    try {
+      const { data: orgUser } = await supabase
+        .from('organization_users')
+        .select('organization_id')
+        .eq('email', user.email)
+        .eq('is_active', true)
+        .single()
+
+      if (orgUser) {
+        setOrganizationId(orgUser.organization_id)
+      } else {
+        console.warn('Usuário sem organização:', user.email)
+        setOrganizationId(null)
+      }
+    } catch (error) {
+      console.error('Erro ao buscar organização:', error)
+      setOrganizationId(null)
+    }
+  }
+
   const value = {
     user,
+    organizationId,
     loading,
     signOut,
   }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/auth'
 import {
   DollarSign,
   TrendingUp,
@@ -63,8 +64,7 @@ export default function FinanceiroDashboard() {
   const [chartPeriod, setChartPeriod] = useState('7d')
   const [chartType, setChartType] = useState('entradas')
   const [chartData, setChartData] = useState<number[]>([])
-  const [financeUser, setFinanceUser] = useState<any>(null)
-  const [organizationId, setOrganizationId] = useState<string | null>(null)
+  const { user, organizationId } = useAuth()
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionForm, setTransactionForm] = useState({
     tipo: 'entrada' as 'entrada' | 'saida',
@@ -76,42 +76,10 @@ export default function FinanceiroDashboard() {
   })
 
   useEffect(() => {
-    checkAuth().then(() => loadFinanceData())
-  }, [])
-
-  // Recarregar dados quando organização for identificada
-  useEffect(() => {
-    if (organizationId) {
+    if (user && organizationId) {
       loadFinanceData()
     }
-  }, [organizationId])
-
-  const checkAuth = async () => {
-    const savedUser = localStorage.getItem('finance_user')
-    if (savedUser) {
-      const user = JSON.parse(savedUser)
-      setFinanceUser(user)
-
-      // Buscar organization_id do usuário
-      try {
-        const { data: orgUser } = await supabase
-          .from('organization_users')
-          .select('organization_id')
-          .eq('email', user.email)
-          .eq('is_active', true)
-          .single()
-
-        if (orgUser) {
-          setOrganizationId(orgUser.organization_id)
-          console.log('✅ Organização financeira encontrada:', orgUser.organization_id)
-        } else {
-          console.warn('⚠️ Usuário financeiro sem organização!')
-        }
-      } catch (error) {
-        console.error('❌ Erro ao buscar organização do usuário financeiro:', error)
-      }
-    }
-  }
+  }, [user, organizationId])
 
   const loadFinanceData = async () => {
     try {
@@ -512,7 +480,7 @@ export default function FinanceiroDashboard() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 mb-1">
-              Olá, {financeUser?.nome || 'Financeiro'} 👋
+              Olá, {user?.email?.split('@')[0] || 'Financeiro'} 👋
             </h1>
             <p className="text-slate-600">Aqui está um resumo das suas finanças hoje</p>
           </div>
