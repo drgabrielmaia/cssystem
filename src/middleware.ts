@@ -8,6 +8,24 @@ export async function middleware(request: NextRequest) {
     },
   })
 
+  // Skip authentication for static assets and API routes that don't need auth
+  const staticRoutes = [
+    '/_next/static',
+    '/_next/image',
+    '/favicon.ico',
+    '/api/checkout',
+    '/api/pix-qr',
+    '/api/instagram/webhook'
+  ]
+
+  const isStaticRoute = staticRoutes.some(route =>
+    request.nextUrl.pathname.startsWith(route)
+  )
+
+  if (isStaticRoute) {
+    return response
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -82,6 +100,13 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - Static files (images, etc)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|js|css|woff|woff2|ttf|eot)$).*)',
   ],
 }
