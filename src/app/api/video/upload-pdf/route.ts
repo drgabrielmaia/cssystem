@@ -43,12 +43,48 @@ export async function POST(request: NextRequest) {
     const fileBuffer = await file.arrayBuffer()
     const fileName = `lesson-pdfs/${lessonId}-${Date.now()}-${file.name}`
 
-    // Fazer upload para o Supabase Storage
+    // Fazer upload para o Supabase Storage usando service role
     const { createClient } = await import('@supabase/supabase-js')
     const serviceClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
     )
+
+    // Verificar se a aula existe e buscar dados atuais
+    const { data: lessonData, error: lessonError } = await serviceClient
+      .from('video_lessons')
+      .select('id, title, pdf_url')
+      .eq('id', lessonId)
+      .single()
+
+    if (lessonError) {
+      console.error('Error fetching lesson:', lessonError)
+      return NextResponse.json(
+        { error: 'Aula não encontrada' },
+        { status: 404 }
+      )
+    }
+
+    // Se já existe um PDF, remover o anterior do storage
+    if (lessonData.pdf_url) {
+      try {
+        const oldFileName = lessonData.pdf_url.split('/').pop()
+        if (oldFileName && oldFileName.includes('lesson-pdfs')) {
+          await serviceClient.storage
+            .from('lesson-materials')
+            .remove([`lesson-pdfs/${oldFileName}`])
+          console.log('Arquivo PDF anterior removido:', oldFileName)
+        }
+      } catch (removeError) {
+        console.warn('Aviso: Não foi possível remover PDF anterior:', removeError)
+      }
+    }
 
     const { data: uploadData, error: uploadError } = await serviceClient.storage
       .from('lesson-materials')
@@ -100,13 +136,15 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'PDF enviado e aula atualizada com sucesso',
+      message: `PDF "${file.name}" enviado com sucesso para a aula "${lessonData.title}"`,
       data: {
         lesson_id: lessonId,
+        lesson_title: lessonData.title,
         pdf_url: pdfUrl,
         pdf_filename: file.name,
         pdf_size_bytes: file.size,
-        upload_path: fileName
+        upload_path: fileName,
+        replaced_previous: !!lessonData.pdf_url
       }
     })
 
