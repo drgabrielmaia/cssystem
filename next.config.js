@@ -18,8 +18,30 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value: "default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https: wss: https://api.medicosderesultado.com.br https://udzmlnnztzzwrphhizol.supabase.co;"
+          },
+          {
+            key: 'CF-RUM',
+            value: 'off'
+          },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
           }
         ]
+      }
+    ]
+  },
+  async redirects() {
+    return [
+      {
+        source: '/cdn-cgi/rum',
+        destination: '/',
+        permanent: false
+      },
+      {
+        source: '/cdn-cgi/:path*',
+        destination: '/',
+        permanent: false
       }
     ]
   }

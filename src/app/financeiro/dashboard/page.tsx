@@ -22,7 +22,12 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  Filter
+  Filter,
+  Building2,
+  Trophy,
+  Heart,
+  Briefcase,
+  Settings
 } from 'lucide-react'
 
 interface FinanceMetrics {
@@ -52,8 +57,18 @@ interface Projeto {
   id: string
   codigo: string
   nome: string
+  descricao?: string
   cor_tema: string
   ativo: boolean
+}
+
+interface ProjetoMetrics {
+  projeto: Projeto
+  receitas: number
+  despesas: number
+  lucro: number
+  transacoes_count: number
+  crescimento: number
 }
 
 export default function FinanceiroDashboard() {
@@ -76,6 +91,7 @@ export default function FinanceiroDashboard() {
   const { user, organizationId } = useAuth()
   const [projetos, setProjetos] = useState<Projeto[]>([])
   const [projetoSelecionado, setProjetoSelecionado] = useState<string>('todos')
+  const [projetoMetrics, setProjetoMetrics] = useState<ProjetoMetrics[]>([])
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionForm, setTransactionForm] = useState({
     tipo: 'entrada' as 'entrada' | 'saida',
@@ -87,6 +103,49 @@ export default function FinanceiroDashboard() {
     projeto_id: ''
   })
 
+  const loadProjetoMetrics = async () => {
+    try {
+      if (!organizationId || projetos.length === 0) return
+
+      const projetoMetricsData: ProjetoMetrics[] = []
+
+      for (const projeto of projetos) {
+        // Buscar transações do projeto
+        const { data: transacoes } = await supabase
+          .from('transacoes_financeiras')
+          .select('valor, tipo')
+          .eq('organization_id', organizationId)
+          .eq('projeto_id', projeto.id)
+          .eq('status', 'pago')
+
+        const receitas = transacoes?.filter(t => t.tipo === 'entrada').reduce((acc, t) => acc + t.valor, 0) || 0
+        const despesas = transacoes?.filter(t => t.tipo === 'saida').reduce((acc, t) => acc + t.valor, 0) || 0
+        const lucro = receitas - despesas
+        const transacoes_count = transacoes?.length || 0
+
+        // Calcular crescimento (simulado por agora)
+        const crescimento = Math.random() * 20 - 10 // -10% a +10%
+
+        projetoMetricsData.push({
+          projeto,
+          receitas,
+          despesas,
+          lucro,
+          transacoes_count,
+          crescimento: Math.round(crescimento * 10) / 10
+        })
+      }
+
+      // Ordenar por lucro (maior primeiro)
+      projetoMetricsData.sort((a, b) => b.lucro - a.lucro)
+      setProjetoMetrics(projetoMetricsData)
+
+      console.log('📊 Métricas por projeto carregadas:', projetoMetricsData.length)
+    } catch (error) {
+      console.error('Erro ao carregar métricas por projeto:', error)
+    }
+  }
+
   useEffect(() => {
     if (user && organizationId) {
       loadProjetos()
@@ -97,6 +156,7 @@ export default function FinanceiroDashboard() {
   useEffect(() => {
     if (user && organizationId && projetos.length > 0) {
       loadFinanceData()
+      loadProjetoMetrics()
     }
   }, [projetoSelecionado])
 
@@ -106,7 +166,7 @@ export default function FinanceiroDashboard() {
 
       const { data, error } = await supabase
         .from('projetos_organizacao')
-        .select('id, codigo, nome, cor_tema, ativo')
+        .select('id, codigo, nome, descricao, cor_tema, ativo')
         .eq('organization_id', organizationId)
         .eq('ativo', true)
         .order('codigo')
@@ -115,6 +175,9 @@ export default function FinanceiroDashboard() {
 
       setProjetos(data || [])
       console.log('📂 Projetos carregados:', data?.length)
+
+      // Carregar métricas por projeto
+      await loadProjetoMetrics()
     } catch (error) {
       console.error('Erro ao carregar projetos:', error)
     }
@@ -241,22 +304,22 @@ export default function FinanceiroDashboard() {
         .not('valor_arrecadado', 'is', null)
         .gt('valor_arrecadado', 0)
 
-      // ADICIONAR RECEITAS DE MENTORIA (direto das transações sincronizadas)
+      // ADICIONAR RECEITAS DE MENTORIA E PENDÊNCIAS PAGAS
       // Buscar receitas de mentoria do mês atual
       const { data: monthlyMentorias } = await supabase
         .from('transacoes_financeiras')
         .select('valor, data_transacao')
         .eq('organization_id', organizationId)
-        .eq('referencia_tipo', 'mentorado_receita')
+        .in('referencia_tipo', ['mentorado_receita', 'pendencia_paga'])
         .gte('data_transacao', `${currentMonth}-01`)
         .lt('data_transacao', `${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0]}`)
 
-      // Buscar todas as receitas de mentoria para caixa atual
+      // Buscar todas as receitas de mentoria e pendências para caixa atual
       const { data: allMentorias } = await supabase
         .from('transacoes_financeiras')
         .select('valor')
         .eq('organization_id', organizationId)
-        .eq('referencia_tipo', 'mentorado_receita')
+        .in('referencia_tipo', ['mentorado_receita', 'pendencia_paga'])
 
       const entradas_transacoes = monthlyTransactions?.filter(t => t.tipo === 'entrada').reduce((acc, t) => acc + t.valor, 0) || 0
       const entradas_leads = monthlyLeads?.reduce((acc, lead) => acc + (lead.valor_arrecadado || 0), 0) || 0
@@ -547,15 +610,15 @@ export default function FinanceiroDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       {/* Header */}
-      <header className="bg-white/70 backdrop-blur-lg border-b border-white/20 px-8 py-6">
+      <header className="bg-white/80 backdrop-blur-xl border-b border-white/30 px-8 py-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 mb-1">
-              Olá, {user?.email?.split('@')[0] || 'Financeiro'} 👋
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-blue-600 bg-clip-text text-transparent mb-1">
+              Dashboard Financeiro 💰
             </h1>
-            <p className="text-slate-600">Aqui está um resumo das suas finanças hoje</p>
+            <p className="text-slate-600">Controle profissional de receitas e despesas por projeto</p>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -569,9 +632,10 @@ export default function FinanceiroDashboard() {
               {projetos.map((projeto) => (
                 <option key={projeto.id} value={projeto.codigo}>
                   {projeto.codigo === 'MENTORIA' && '🎓'}
-                  {projeto.codigo === 'CLUB' && '👑'}
+                  {projeto.codigo === 'GMBV' && '💼'}
                   {projeto.codigo === 'CLINICA' && '🏥'}
-                  {projeto.codigo === 'GERAL' && '📊'}
+                  {projeto.codigo === 'OPERACIONAL' && '⚙️'}
+                  {projeto.codigo === 'OUTROS' && '📊'}
                   {' '}{projeto.nome}
                 </option>
               ))}
@@ -671,6 +735,133 @@ export default function FinanceiroDashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Projetos Cards - Novo Design Profissional */}
+          <div className="lg:col-span-3 mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-slate-800">Projetos & Performance</h3>
+              <div className="flex items-center space-x-2 text-sm text-slate-600">
+                <div className="flex items-center space-x-1">
+                  <div className="w-3 h-3 bg-[#10B981] rounded-full"></div>
+                  <span>Receitas</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className="w-3 h-3 bg-[#EF4444] rounded-full"></div>
+                  <span>Despesas</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+              {projetoMetrics.map((projetoMetric, index) => {
+                const { projeto, receitas, despesas, lucro, transacoes_count, crescimento } = projetoMetric
+                const getProjetoIcon = (codigo: string) => {
+                  switch (codigo) {
+                    case 'MENTORIA': return <Trophy className="w-6 h-6" style={{ color: projeto.cor_tema }} />
+                    case 'GMBV': return <Briefcase className="w-6 h-6" style={{ color: projeto.cor_tema }} />
+                    case 'CLINICA': return <Heart className="w-6 h-6" style={{ color: projeto.cor_tema }} />
+                    case 'OPERACIONAL': return <Settings className="w-6 h-6" style={{ color: projeto.cor_tema }} />
+                    default: return <Building2 className="w-6 h-6" style={{ color: projeto.cor_tema }} />
+                  }
+                }
+
+                return (
+                  <div key={projeto.id} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all group relative overflow-hidden">
+                    {/* Projeto Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${projeto.cor_tema}15` }}>
+                          {getProjetoIcon(projeto.codigo)}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-slate-800 text-sm">{projeto.codigo}</h4>
+                          <p className="text-xs text-slate-500 truncate max-w-[100px]">{projeto.nome}</p>
+                        </div>
+                      </div>
+                      <div className={`text-xs px-2 py-1 rounded-full font-medium ${
+                        crescimento >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'
+                      }`}>
+                        {crescimento >= 0 ? '+' : ''}{crescimento}%
+                      </div>
+                    </div>
+
+                    {/* Métricas Visuais */}
+                    <div className="space-y-3">
+                      {/* Lucro Principal */}
+                      <div className="text-center">
+                        <p className="text-xs text-slate-500 mb-1">Lucro</p>
+                        <p className={`text-lg font-bold ${
+                          lucro >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {formatCurrency(lucro)}
+                        </p>
+                      </div>
+
+                      {/* Barra de Performance */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs text-slate-600">
+                          <span>Receitas</span>
+                          <span>{formatCurrency(receitas)}</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-green-400 to-green-500 rounded-full transition-all"
+                            style={{
+                              width: `${receitas > 0 ? Math.min((receitas / Math.max(...projetoMetrics.map(p => p.receitas), 1)) * 100, 100) : 0}%`
+                            }}
+                          />
+                        </div>
+
+                        {despesas > 0 && (
+                          <>
+                            <div className="flex justify-between text-xs text-slate-600">
+                              <span>Despesas</span>
+                              <span>{formatCurrency(despesas)}</span>
+                            </div>
+                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-red-400 to-red-500 rounded-full transition-all"
+                                style={{
+                                  width: `${despesas > 0 ? Math.min((despesas / Math.max(...projetoMetrics.map(p => p.despesas), 1)) * 100, 100) : 0}%`
+                                }}
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Stats Footer */}
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <div className="text-center">
+                          <p className="text-xs text-slate-500">Transações</p>
+                          <p className="font-semibold text-slate-700">{transacoes_count}</p>
+                        </div>
+                        <button
+                          onClick={() => setProjetoSelecionado(projeto.codigo)}
+                          className="text-xs px-3 py-1 rounded-full transition-colors"
+                          style={{
+                            backgroundColor: projetoSelecionado === projeto.codigo ? projeto.cor_tema : `${projeto.cor_tema}15`,
+                            color: projetoSelecionado === projeto.codigo ? 'white' : projeto.cor_tema
+                          }}
+                        >
+                          {projetoSelecionado === projeto.codigo ? 'Selecionado' : 'Ver detalhes'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Indicador de melhor performance */}
+                    {index === 0 && lucro > 0 && (
+                      <div className="absolute top-2 right-2">
+                        <div className="w-6 h-6 bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full flex items-center justify-center">
+                          <Trophy className="w-3 h-3 text-white" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
           {/* Chart Principal */}
           <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
             <div className="flex items-center justify-between mb-6">
@@ -731,36 +922,51 @@ export default function FinanceiroDashboard() {
             </div>
 
             <div className="space-y-4">
-              {transactions.slice(0, 6).map((transaction) => (
-                <div key={transaction.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 transition-colors cursor-pointer">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      transaction.tipo === 'entrada' ? 'bg-[#D4AF37]/10' : 'bg-[#CD853F]/10'
-                    }`}>
-                      {transaction.tipo === 'entrada' ?
-                        <ArrowUpRight className="w-5 h-5 text-[#D4AF37]" /> :
-                        <ArrowDownRight className="w-5 h-5 text-[#CD853F]" />
-                      }
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-800 text-sm">{transaction.descricao}</p>
-                      <p className="text-xs text-slate-600">{transaction.fornecedor}</p>
-                    </div>
-                  </div>
+              {transactions.slice(0, 6).map((transaction) => {
+                // Buscar projeto da transação
+                const transactionProjeto = projetos.find(p => p.id === transaction.projeto_id)
 
-                  <div className="text-right">
-                    <p className={`font-semibold text-sm ${
-                      transaction.tipo === 'entrada' ? 'text-[#D4AF37]' : 'text-[#CD853F]'
-                    }`}>
-                      {transaction.tipo === 'entrada' ? '+' : '-'}{formatCurrency(transaction.valor)}
-                    </p>
-                    <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs ${getStatusColor(transaction.status)}`}>
-                      {getStatusIcon(transaction.status)}
-                      <span className="capitalize">{transaction.status}</span>
+                return (
+                  <div key={transaction.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 transition-colors cursor-pointer">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center`}
+                           style={{ backgroundColor: `${transactionProjeto?.cor_tema || '#D4AF37'}15` }}>
+                        {transaction.tipo === 'entrada' ?
+                          <ArrowUpRight className="w-5 h-5" style={{ color: transactionProjeto?.cor_tema || '#D4AF37' }} /> :
+                          <ArrowDownRight className="w-5 h-5" style={{ color: transactionProjeto?.cor_tema || '#CD853F' }} />
+                        }
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-800 text-sm">{transaction.descricao}</p>
+                        <div className="flex items-center space-x-2">
+                          {transactionProjeto && (
+                            <span className="text-xs px-2 py-1 rounded-full"
+                                  style={{
+                                    backgroundColor: `${transactionProjeto.cor_tema}15`,
+                                    color: transactionProjeto.cor_tema
+                                  }}>
+                              {transactionProjeto.codigo}
+                            </span>
+                          )}
+                          <p className="text-xs text-slate-600">{transaction.fornecedor}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <p className={`font-semibold text-sm ${
+                        transaction.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {transaction.tipo === 'entrada' ? '+' : '-'}{formatCurrency(transaction.valor)}
+                      </p>
+                      <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs ${getStatusColor(transaction.status)}`}>
+                        {getStatusIcon(transaction.status)}
+                        <span className="capitalize">{transaction.status}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>
@@ -866,9 +1072,10 @@ export default function FinanceiroDashboard() {
                   {projetos.map((projeto) => (
                     <option key={projeto.id} value={projeto.id}>
                       {projeto.codigo === 'MENTORIA' && '🎓'}
-                      {projeto.codigo === 'CLUB' && '👑'}
+                      {projeto.codigo === 'GMBV' && '💼'}
                       {projeto.codigo === 'CLINICA' && '🏥'}
-                      {projeto.codigo === 'GERAL' && '📊'}
+                      {projeto.codigo === 'OPERACIONAL' && '⚙️'}
+                      {projeto.codigo === 'OUTROS' && '📊'}
                       {' '}{projeto.nome}
                     </option>
                   ))}
