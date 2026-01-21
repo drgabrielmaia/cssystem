@@ -17,6 +17,14 @@ export async function POST(request: NextRequest) {
     console.log('  - file size:', file?.size)
     console.log('  - file type:', file?.type)
     console.log('  - FormData keys:', Array.from(formData.keys()))
+    console.log('  - Todos os valores do FormData:')
+    formData.forEach((value, key) => {
+      if (typeof value === 'string') {
+        console.log(`    ${key}: "${value}"`)
+      } else {
+        console.log(`    ${key}: [File] ${value.name}`)
+      }
+    })
 
     // Validar dados obrigatórios
     if (!file) {
