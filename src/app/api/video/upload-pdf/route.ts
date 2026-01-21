@@ -115,23 +115,17 @@ export async function POST(request: NextRequest) {
     console.log('📤 Resultado upload:', {
       data: uploadData,
       error: uploadError,
-      errorDetails: uploadError ? {
-        message: uploadError.message,
-        details: uploadError.details,
-        hint: uploadError.hint,
-        code: uploadError.code
-      } : null
+      errorMessage: uploadError?.message || null
     })
 
     if (uploadError) {
       console.error('Error uploading PDF:', uploadError)
-      console.error('Error details:', JSON.stringify(uploadError, null, 2))
+      console.error('Full error object:', JSON.stringify(uploadError, null, 2))
       return NextResponse.json(
         {
           error: 'Erro ao fazer upload do PDF',
           details: uploadError.message,
-          code: uploadError.code,
-          hint: uploadError.hint
+          fullError: uploadError
         },
         { status: 500 }
       )
