@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData()
     const file = formData.get('file') as File
-    const lessonId = formData.get('lesson_id') as string
+    const lessonId = formData.get('id') as string
 
     console.log('📝 Dados recebidos:')
     console.log('  - lesson_id:', lessonId)

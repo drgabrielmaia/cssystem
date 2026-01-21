@@ -97,7 +97,7 @@ export default function CadastrarAulaPage() {
 
       const formData = new FormData()
       formData.append('file', selectedFile)
-      formData.append('lesson_id', lessonId)
+      formData.append('id', lessonId)
 
       const response = await fetch('/api/video/upload-pdf', {
         method: 'POST',

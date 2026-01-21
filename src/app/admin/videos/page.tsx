@@ -380,7 +380,7 @@ export default function AdminVideosPage() {
 
       const formData = new FormData()
       formData.append('file', selectedFile)
-      formData.append('lesson_id', selectedLesson.id)
+      formData.append('id', selectedLesson.id)
 
       const response = await fetch('/api/video/upload-pdf-fallback', {
         method: 'POST',

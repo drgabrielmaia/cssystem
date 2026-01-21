@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File
-    const lessonId = formData.get('lesson_id') as string
+    const lessonId = formData.get('id') as string
 
     // Validar dados obrigatórios
     if (!file) {
