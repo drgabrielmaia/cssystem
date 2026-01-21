@@ -66,13 +66,12 @@ export async function middleware(request: NextRequest) {
   const publicRoutes = ['/login', '/formulario', '/forms', '/api/chat-ai', '/api/analyze-form', '/api/analisar-formulario', '/api/checkout', '/api/pix-qr', '/agendar', '/mentorado', '/api/instagram', '/financeiro/login', '/financeiro-plataforma']
   const isPublicRoute = publicRoutes.some(route => request.nextUrl.pathname.startsWith(route))
 
-  // API routes that need authentication but should not redirect (return 401 instead)
-  const protectedApiRoutes = ['/api/video', '/api/mentorados', '/api/financeiro', '/api/admin', '/api/whatsapp']
-  const isProtectedApiRoute = protectedApiRoutes.some(route => request.nextUrl.pathname.startsWith(route))
+  // ALL API routes should return 401 instead of redirect
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
 
   // If user is not authenticated and trying to access protected routes
   if (!user && !hasCustomAuth && !isPublicRoute) {
-    if (isProtectedApiRoute) {
+    if (isApiRoute) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     return NextResponse.redirect(new URL('/login', request.url))
