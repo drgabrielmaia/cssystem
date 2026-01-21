@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { Play, BookOpen, Clock, CheckCircle, Lock, Search, Star, Trophy, Medal, Award, FileText, MessageSquare, ThumbsUp } from 'lucide-react'
+import { Play, BookOpen, Clock, CheckCircle, Lock, Search, Star, Trophy, Medal, Award, FileText, MessageSquare, ThumbsUp, Download } from 'lucide-react'
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { PandaVideoPlayer } from '@/components/PandaVideoPlayer'
 
@@ -27,6 +27,10 @@ interface VideoLesson {
   duration_minutes: number
   order_index: number
   is_active: boolean
+  pdf_url?: string
+  pdf_filename?: string
+  pdf_size_bytes?: number
+  pdf_uploaded_at?: string
   progress?: LessonProgress
 }
 
@@ -671,7 +675,21 @@ export default function NetflixStyleVideosPage() {
                                 {lesson.title}
                               </h3>
                               <div className="flex items-center justify-between text-[11px] md:text-[12px] text-gray-500">
-                                <span>{formatDuration(lesson.duration_minutes)}</span>
+                                <div className="flex items-center space-x-2">
+                                  <span>{formatDuration(lesson.duration_minutes)}</span>
+                                  {lesson.pdf_url && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        window.open(lesson.pdf_url, '_blank')
+                                      }}
+                                      className="text-[#E879F9] hover:text-white transition-colors"
+                                      title="Baixar PDF"
+                                    >
+                                      <Download className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
                                 {isCompleted && (
                                   <span className="text-green-400 text-xs">Concluída</span>
                                 )}
@@ -925,7 +943,7 @@ export default function NetflixStyleVideosPage() {
                   {selectedLesson.description}
                 </p>
 
-                {/* Botões de Anotações e NPS */}
+                {/* Botões de Anotações, NPS e PDF */}
                 <div className="flex gap-3 mb-4">
                   <button
                     onClick={() => setShowNotesModal(true)}
@@ -941,6 +959,16 @@ export default function NetflixStyleVideosPage() {
                     <Star className="w-4 h-4" />
                     Avaliar Aula
                   </button>
+                  {selectedLesson.pdf_url && (
+                    <button
+                      onClick={() => window.open(selectedLesson.pdf_url, '_blank')}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-[4px] text-[14px] font-medium hover:bg-green-700 transition-colors"
+                      title={selectedLesson.pdf_filename || 'Material de apoio em PDF'}
+                    >
+                      <Download className="w-4 h-4" />
+                      PDF Material
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between">

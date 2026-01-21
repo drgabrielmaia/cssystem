@@ -116,24 +116,115 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase.auth])
 
   const signOut = async () => {
+    console.log('🚪 Iniciando logout...')
+
     try {
-      await supabase.auth.signOut()
+      // 1. Tentar logout do Supabase (mas não esperar se travar)
+      const logoutPromise = supabase.auth.signOut()
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout')), 2000)
+      )
 
-      // Limpar cookies customizados
-      document.cookie = 'admin_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
+      try {
+        await Promise.race([logoutPromise, timeoutPromise])
+        console.log('✅ Logout Supabase OK')
+      } catch (e) {
+        console.log('⏰ Logout Supabase timeout/erro, continuando...')
+      }
 
-      // Limpar localStorage (se existir algo)
+      // 2. Limpar TODOS os cookies possíveis (agressivo)
+      const cookies = document.cookie.split(";")
+      cookies.forEach(cookie => {
+        const eqPos = cookie.indexOf("=")
+        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim()
+
+        // Limpar em todos os paths e domínios possíveis
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.${window.location.hostname}`
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;secure`
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;samesite=strict`
+      })
+
+      // Cookies específicos conhecidos (incluindo o token Supabase real)
+      const knownCookies = [
+        'admin_auth',
+        'mentorado',
+        'supabase-auth-token',
+        'sb-udzmlnnztzzwrphhizol-auth-token',
+        'sb-udzmlnnztzzwrphhizol-auth-token.0',
+        'sb-udzmlnnztzzwrphhizol-auth-token.1'
+      ]
+      knownCookies.forEach(name => {
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.${window.location.hostname}`
+        // Extra cleanup para o cookie Supabase específico
+        if (name.includes('sb-udzmlnnztzzwrphhizol')) {
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.medicosderesultado.com.br`
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=medicosderesultado.com.br`
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;secure;samesite=lax`
+        }
+      })
+
+      // 3. Limpar TODOS os storages
       localStorage.clear()
+      sessionStorage.clear()
 
-      // Redirecionar para página de login após logout
-      router.push('/login')
+      // Limpeza específica Supabase (caso localStorage.clear() não pegue tudo)
+      const supabaseKeys = [
+        'supabase.auth.token',
+        'sb-udzmlnnztzzwrphhizol-auth-token',
+        'supabase.auth.refreshToken',
+        'supabase.auth.expiresAt'
+      ]
+      supabaseKeys.forEach(key => {
+        localStorage.removeItem(key)
+        sessionStorage.removeItem(key)
+      })
+
+      // 4. Limpar indexedDB se existir
+      if ('indexedDB' in window) {
+        try {
+          const databases = await indexedDB.databases?.()
+          databases?.forEach(db => {
+            if (db.name) indexedDB.deleteDatabase(db.name)
+          })
+        } catch (e) {
+          console.log('Erro ao limpar indexedDB:', e)
+        }
+      }
+
+      // 5. Atualizar estado local
+      setUser(null)
+      setOrganizationId(null)
+
+      console.log('✅ Logout completo - redirecionando...')
+
+      // 6. Forçar redirect imediato
+      window.location.href = '/login'
+
     } catch (error) {
-      console.error('Erro ao fazer logout:', error)
+      console.error('❌ Erro no logout:', error)
 
-      // Mesmo com erro, limpar cookies e redirecionar
-      document.cookie = 'admin_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
-      localStorage.clear()
-      router.push('/login')
+      // FALLBACK: Se tudo falhar, ainda assim limpar e redirecionar
+      console.log('🔥 Executando logout de emergência...')
+
+      // Limpar o que conseguir
+      try {
+        localStorage.clear()
+        sessionStorage.clear()
+        document.cookie.split(";").forEach(cookie => {
+          const eqPos = cookie.indexOf("=")
+          const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim()
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
+        })
+      } catch (e) {
+        console.log('Erro na limpeza de emergência:', e)
+      }
+
+      // Forçar redirect mesmo com erro
+      window.location.href = '/login'
     }
   }
 

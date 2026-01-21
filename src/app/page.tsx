@@ -688,7 +688,7 @@ export default function DashboardPage() {
           value={kpiData.total_mentorados.toString()}
           icon={Users}
           iconColor="blue"
-          link="/mentorados"
+          link="/lista-mentorados"
         />
         <MetricCard
           title="Check-ins Agendados"

@@ -6,6 +6,7 @@ import { SettingsProvider } from '@/contexts/settings'
 import { OrganizationProvider } from '@/contexts/organization'
 import { AppContent } from '@/components/app-content'
 import { PendingInvitesProvider } from '@/components/pending-invites-provider'
+import { ForceLogout } from '@/components/ForceLogout'
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -28,6 +29,7 @@ export default function RootLayout({
             <SettingsProvider>
               <PendingInvitesProvider>
                 <AppContent>{children}</AppContent>
+                <ForceLogout />
                 <Toaster
                   theme="dark"
                   position="top-right"

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -40,7 +41,7 @@ const navigation = [
   { name: 'Follow-ups', href: '/follow-ups', icon: Clock, description: 'Acompanhamentos' },
   { name: 'Comissões', href: '/comissoes', icon: DollarSign, description: 'Gestão de comissões' },
   { name: 'Cadastro', href: '/cadastro', icon: UserCheck, description: 'Mentorados indicadores' },
-  { name: 'Mentorados', href: '/mentorados', icon: Users, description: 'Gerenciar pessoas' },
+  { name: 'Mentorados', href: '/lista-mentorados', icon: Users, description: 'Gerenciar pessoas' },
   { name: 'Calendário', href: '/calendario', icon: Calendar, description: 'Agendar eventos' },
   { name: 'Performance', href: '/social-seller', icon: TrendingUp, description: 'Métricas de vendas' },
   { name: 'Check-ins', href: '/checkins', icon: BarChart3, description: 'Acompanhamento' },
@@ -56,6 +57,17 @@ const navigation = [
 
 function UserSection() {
   const { user, signOut } = useAuth()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      await signOut()
+    } finally {
+      // Se chegou aqui sem redirect, force um reset
+      setTimeout(() => setIsLoggingOut(false), 3000)
+    }
+  }
 
   return (
     <div className="flex items-center justify-between p-3 rounded-xl bg-[#F8FAFC] border border-gray-100">
@@ -69,17 +81,24 @@ function UserSection() {
           <p className="text-sm font-bold text-[#0F172A] truncate">
             {user?.email?.split('@')[0] || 'Usuário'}
           </p>
-          <p className="text-xs text-[#94A3B8]">Administrador</p>
+          <p className="text-xs text-[#94A3B8]">
+            {isLoggingOut ? 'Saindo...' : 'Administrador'}
+          </p>
         </div>
       </div>
       <Button
         variant="ghost"
         size="sm"
-        onClick={signOut}
-        className="h-8 w-8 p-0 hover:bg-red-50 text-[#94A3B8] hover:text-red-600 transition-all duration-200"
-        title="Sair"
+        onClick={handleLogout}
+        disabled={isLoggingOut}
+        className="h-8 w-8 p-0 hover:bg-red-50 text-[#94A3B8] hover:text-red-600 transition-all duration-200 disabled:opacity-50"
+        title={isLoggingOut ? 'Saindo...' : 'Sair'}
       >
-        <LogOut className="h-4 w-4" />
+        {isLoggingOut ? (
+          <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <LogOut className="h-4 w-4" />
+        )}
       </Button>
     </div>
   )

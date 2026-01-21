@@ -21,7 +21,10 @@ import {
   ChevronDown,
   ChevronRight,
   X,
-  Save
+  Save,
+  Upload,
+  Download,
+  FileText
 } from 'lucide-react'
 
 interface VideoModule {
@@ -47,6 +50,10 @@ interface VideoLesson {
   duration_minutes: number
   order_index: number
   is_active: boolean
+  pdf_url?: string
+  pdf_filename?: string
+  pdf_size_bytes?: number
+  pdf_uploaded_at?: string
   created_at: string
   updated_at: string
 }
@@ -78,6 +85,8 @@ export default function AdminVideosPage() {
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set())
   const [moduleForm, setModuleForm] = useState({ title: '', description: '', cover_image_url: '', order_index: 1, is_active: true })
   const [lessonForm, setLessonForm] = useState({ title: '', description: '', panda_video_embed_url: '', duration_minutes: 0, order_index: 1, module_id: '', is_active: true })
+  const [uploadingPdf, setUploadingPdf] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   useEffect(() => {
     loadData()
@@ -363,6 +372,74 @@ export default function AdminVideosPage() {
     setShowLessonModal(true)
   }
 
+  const handleUploadPdf = async () => {
+    if (!selectedFile || !selectedLesson) return
+
+    try {
+      setUploadingPdf(true)
+
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+      formData.append('lesson_id', selectedLesson.id)
+
+      const response = await fetch('/api/video/upload-pdf', {
+        method: 'POST',
+        body: formData
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        alert('PDF enviado com sucesso!')
+        setSelectedFile(null)
+        // Recarregar dados para mostrar o novo PDF
+        await loadLessons()
+
+        // Atualizar o selectedLesson para mostrar o novo PDF
+        const updatedLesson = lessons.find(l => l.id === selectedLesson.id)
+        if (updatedLesson) {
+          setSelectedLesson(updatedLesson)
+        }
+      } else {
+        alert(`Erro ao enviar PDF: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Erro no upload do PDF:', error)
+      alert('Erro ao enviar PDF')
+    } finally {
+      setUploadingPdf(false)
+    }
+  }
+
+  const handleRemovePdf = async (lessonId: string) => {
+    if (!confirm('Tem certeza que deseja remover o PDF desta aula?')) return
+
+    try {
+      const response = await fetch(`/api/video/upload-pdf?lesson_id=${lessonId}`, {
+        method: 'DELETE'
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        alert('PDF removido com sucesso!')
+        // Recarregar dados
+        await loadLessons()
+
+        // Atualizar o selectedLesson
+        const updatedLesson = lessons.find(l => l.id === lessonId)
+        if (updatedLesson) {
+          setSelectedLesson(updatedLesson)
+        }
+      } else {
+        alert(`Erro ao remover PDF: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Erro ao remover PDF:', error)
+      alert('Erro ao remover PDF')
+    }
+  }
+
   const moduleColumns = [
     {
       header: 'Módulo',
@@ -610,6 +687,17 @@ export default function AdminVideosPage() {
               >
                 <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
               </button>
+
+              {activeTab === 'lessons' && (
+                <a
+                  href="/admin/videos/cadastrar"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#E879F9] hover:bg-[#D865E8] text-white rounded-xl font-medium transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Criar Aula Fácil
+                </a>
+              )}
+
               <button
                 onClick={activeTab === 'modules' ? handleNewModule : handleNewLesson}
                 className="flex items-center gap-2 px-4 py-2 bg-[#D4AF37] hover:bg-[#B8860B] text-white rounded-xl font-medium transition-colors"
@@ -921,6 +1009,89 @@ export default function AdminVideosPage() {
                   className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
                   placeholder="https://player.pandavideo.com.br/embed/?v=..."
                 />
+              </div>
+
+              {/* Seção de Upload/Gerenciamento de PDF */}
+              <div className="border-t border-[#E2E8F0] pt-4">
+                <label className="block text-sm font-medium text-[#374151] mb-2">Material de Apoio (PDF)</label>
+
+                {/* Mostrar PDF atual se existir */}
+                {selectedLesson?.pdf_url && (
+                  <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-green-600" />
+                        <span className="text-sm text-green-800">
+                          {selectedLesson.pdf_filename || 'Material anexado'}
+                        </span>
+                        {selectedLesson.pdf_size_bytes && (
+                          <span className="text-xs text-green-600">
+                            ({Math.round(selectedLesson.pdf_size_bytes / 1024)} KB)
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => window.open(selectedLesson.pdf_url, '_blank')}
+                          className="text-green-600 hover:text-green-800 transition-colors"
+                          title="Visualizar PDF"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleRemovePdf(selectedLesson.id)}
+                          className="text-red-600 hover:text-red-800 transition-colors"
+                          title="Remover PDF"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload de novo PDF */}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                    id="pdf-upload"
+                  />
+                  <label
+                    htmlFor="pdf-upload"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer text-sm"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {selectedLesson?.pdf_url ? 'Substituir PDF' : 'Adicionar PDF'}
+                  </label>
+
+                  {selectedFile && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-[#64748B]">
+                        {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
+                      </span>
+                      <button
+                        onClick={handleUploadPdf}
+                        disabled={uploadingPdf || !selectedLesson}
+                        className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
+                      >
+                        {uploadingPdf ? 'Enviando...' : 'Enviar'}
+                      </button>
+                      <button
+                        onClick={() => setSelectedFile(null)}
+                        className="text-red-600 hover:text-red-800 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs text-[#64748B] mt-2">
+                  Arquivo PDF com material de apoio da aula (máximo 50MB)
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
