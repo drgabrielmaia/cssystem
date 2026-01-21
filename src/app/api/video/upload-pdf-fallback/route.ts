@@ -39,40 +39,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Converter file para buffer
-    const fileBuffer = await file.arrayBuffer()
-    const fileName = `lesson-pdfs/${lessonId}-${Date.now()}-${file.name}`
-
-    // Debug: Verificar variáveis de ambiente
-    console.log('🔍 Verificando env vars:')
-    console.log('NEXT_PUBLIC_SUPABASE_URL:', !!process.env.NEXT_PUBLIC_SUPABASE_URL)
-    console.log('SUPABASE_SERVICE_ROLE_KEY:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
-
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      console.error('❌ NEXT_PUBLIC_SUPABASE_URL não definida')
-      return NextResponse.json({ error: 'Configuração do Supabase URL não encontrada' }, { status: 500 })
-    }
-
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.error('❌ SUPABASE_SERVICE_ROLE_KEY não definida')
-      return NextResponse.json({ error: 'Configuração do Supabase Service Key não encontrada' }, { status: 500 })
-    }
-
-    // Fazer upload para o Supabase Storage usando service role
-    const { createClient } = await import('@supabase/supabase-js')
-    const serviceClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
-
-    // Verificar se a aula existe e buscar dados atuais
-    const { data: lessonData, error: lessonError } = await serviceClient
+    // Verificar se a aula existe
+    const { data: lessonData, error: lessonError } = await supabase
       .from('video_lessons')
       .select('id, title, pdf_url')
       .eq('id', lessonId)
@@ -86,32 +54,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Se já existe um PDF, remover o anterior do storage
-    if (lessonData.pdf_url) {
-      try {
-        const oldFileName = lessonData.pdf_url.split('/').pop()
-        if (oldFileName && oldFileName.includes('lesson-pdfs')) {
-          await serviceClient.storage
-            .from('lesson-materials')
-            .remove([`lesson-pdfs/${oldFileName}`])
-          console.log('Arquivo PDF anterior removido:', oldFileName)
-        }
-      } catch (removeError) {
-        console.warn('Aviso: Não foi possível remover PDF anterior:', removeError)
-      }
-    }
+    // Converter file para buffer
+    const fileBuffer = await file.arrayBuffer()
+    const fileName = `lesson-pdfs/${lessonId}-${Date.now()}-${file.name}`
 
-    console.log('📤 Iniciando upload:', fileName)
-
-    const { data: uploadData, error: uploadError } = await serviceClient.storage
+    // Upload usando o cliente padrão (com anon key)
+    const { data: uploadData, error: uploadError } = await supabase.storage
       .from('lesson-materials')
       .upload(fileName, fileBuffer, {
         contentType: 'application/pdf',
-        upsert: true, // Permite sobrescrever se arquivo já existe
-        cacheControl: '3600'
+        upsert: false
       })
-
-    console.log('📤 Resultado upload:', { data: uploadData, error: uploadError })
 
     if (uploadError) {
       console.error('Error uploading PDF:', uploadError)
@@ -122,11 +75,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Obter URL pública do arquivo
-    const { data: publicUrlData } = serviceClient.storage
+    const { data: publicUrlData } = supabase.storage
       .from('lesson-materials')
       .getPublicUrl(fileName)
-
-    console.log('🔗 URL pública gerada:', publicUrlData.publicUrl)
 
     const pdfUrl = publicUrlData.publicUrl
 
@@ -138,20 +89,16 @@ export async function POST(request: NextRequest) {
       pdf_uploaded_at: new Date().toISOString()
     }
 
-    console.log('💾 Atualizando aula com dados do PDF:', updateData)
-
-    const { data: updateResult, error: updateError } = await serviceClient
+    const { data: updateResult, error: updateError } = await supabase
       .from('video_lessons')
       .update(updateData)
       .eq('id', lessonId)
-
-    console.log('💾 Resultado da atualização:', { data: updateResult, error: updateError })
 
     if (updateError) {
       console.error('Error updating lesson with PDF data:', updateError)
 
       // Se falhar ao atualizar, tentar deletar o arquivo enviado
-      await serviceClient.storage
+      await supabase.storage
         .from('lesson-materials')
         .remove([fileName])
 
@@ -196,14 +143,8 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const { createClient } = await import('@supabase/supabase-js')
-    const serviceClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
     // Buscar dados atuais da aula
-    const { data: lessonData, error: fetchError } = await serviceClient
+    const { data: lessonData, error: fetchError } = await supabase
       .from('video_lessons')
       .select('pdf_url')
       .eq('id', lessonId)
@@ -223,14 +164,14 @@ export async function DELETE(request: NextRequest) {
       const fileName = urlParts[urlParts.length - 1]
 
       if (fileName.startsWith('lesson-pdfs/')) {
-        await serviceClient.storage
+        await supabase.storage
           .from('lesson-materials')
           .remove([fileName])
       }
     }
 
     // Remover dados do PDF da aula
-    const { error: updateError } = await serviceClient
+    const { error: updateError } = await supabase
       .from('video_lessons')
       .update({
         pdf_url: null,
