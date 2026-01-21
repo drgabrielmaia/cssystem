@@ -7,7 +7,6 @@ import { OrganizationProvider } from '@/contexts/organization'
 import { AppContent } from '@/components/app-content'
 import { PendingInvitesProvider } from '@/components/pending-invites-provider'
 import { Toaster } from 'sonner'
-import OptimizedPreloader from '@/components/OptimizedPreloader'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -24,7 +23,6 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="h-full">
       <body className={`${inter.className} h-full bg-gray-900 text-white dark`}>
-        <OptimizedPreloader />
         <AuthProvider>
           <OrganizationProvider>
             <SettingsProvider>

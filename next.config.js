@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Configuração mínima para produção
   images: {
     unoptimized: true
   },
@@ -15,6 +14,32 @@ const nextConfig = {
   },
   async headers() {
     return [
+      {
+        source: '/_next/static/css/(.*)',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'text/css'
+          },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
+          }
+        ]
+      },
+      {
+        source: '/_next/static/chunks/(.*)',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/javascript'
+          },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
+          }
+        ]
+      },
       {
         source: '/(.*)',
         headers: [
