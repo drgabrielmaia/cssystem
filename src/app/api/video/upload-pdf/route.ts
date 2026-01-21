@@ -45,8 +45,9 @@ export async function POST(request: NextRequest) {
 
     // Debug: Verificar variáveis de ambiente
     console.log('🔍 Verificando env vars:')
-    console.log('NEXT_PUBLIC_SUPABASE_URL:', !!process.env.NEXT_PUBLIC_SUPABASE_URL)
-    console.log('SUPABASE_SERVICE_ROLE_KEY:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+    console.log('NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+    console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'EXISTE' : 'NÃO EXISTE')
+    console.log('Todas as env vars:', Object.keys(process.env).filter(key => key.includes('SUPABASE')))
 
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
       console.error('❌ NEXT_PUBLIC_SUPABASE_URL não definida')
