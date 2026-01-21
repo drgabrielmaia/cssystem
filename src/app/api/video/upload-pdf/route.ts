@@ -3,12 +3,24 @@ import { supabase } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🚀 === INÍCIO UPLOAD PDF ===')
+    console.log('📊 Headers da requisição:', Object.fromEntries(request.headers.entries()))
+    console.log('🌐 URL da requisição:', request.url)
+
     const formData = await request.formData()
     const file = formData.get('file') as File
     const lessonId = formData.get('lesson_id') as string
 
+    console.log('📝 Dados recebidos:')
+    console.log('  - lesson_id:', lessonId)
+    console.log('  - file name:', file?.name)
+    console.log('  - file size:', file?.size)
+    console.log('  - file type:', file?.type)
+    console.log('  - FormData keys:', Array.from(formData.keys()))
+
     // Validar dados obrigatórios
     if (!file) {
+      console.log('❌ Erro: Arquivo PDF é obrigatório')
       return NextResponse.json(
         { error: 'Arquivo PDF é obrigatório' },
         { status: 400 }
@@ -16,6 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!lessonId) {
+      console.log('❌ Erro: ID da aula é obrigatório')
       return NextResponse.json(
         { error: 'ID da aula é obrigatório' },
         { status: 400 }
@@ -73,19 +86,31 @@ export async function POST(request: NextRequest) {
     )
 
     // Verificar se a aula existe e buscar dados atuais
+    console.log('🔍 Buscando aula no banco...')
+    console.log('  - Buscando aula com ID:', lessonId)
+    console.log('  - Tipo do ID:', typeof lessonId)
+
     const { data: lessonData, error: lessonError } = await serviceClient
       .from('video_lessons')
       .select('id, title, pdf_url')
       .eq('id', lessonId)
       .single()
 
+    console.log('📋 Resultado da busca:')
+    console.log('  - Dados encontrados:', lessonData)
+    console.log('  - Erro:', lessonError)
+
     if (lessonError) {
-      console.error('Error fetching lesson:', lessonError)
+      console.error('❌ Error fetching lesson:', lessonError)
+      console.error('  - Mensagem:', lessonError.message)
+      console.error('  - Código:', lessonError.code)
       return NextResponse.json(
-        { error: 'Aula não encontrada' },
+        { error: 'Aula não encontrada', debug: { lessonId, lessonError } },
         { status: 404 }
       )
     }
+
+    console.log('✅ Aula encontrada:', lessonData.title)
 
     // Se já existe um PDF, remover o anterior do storage
     if (lessonData.pdf_url) {
