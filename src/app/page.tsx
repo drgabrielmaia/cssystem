@@ -151,6 +151,25 @@ export default function DashboardPage() {
       const { data: mentoradosPeriod } = await mentoradosQuery
       const { data: vendasPeriod } = await vendasQuery
 
+      // Buscar dados de calls do calendar_events
+      let callsQuery = supabase
+        .from('calendar_events')
+        .select('call_status, sale_value, updated_at')
+        .not('call_status', 'is', null)
+
+      let callsVendidasQuery = supabase
+        .from('calendar_events')
+        .select('call_status, sale_value, updated_at')
+        .eq('call_status', 'vendida')
+
+      if (dateRange.start && dateRange.end) {
+        callsQuery = callsQuery.gte('updated_at', dateRange.start).lte('updated_at', dateRange.end)
+        callsVendidasQuery = callsVendidasQuery.gte('updated_at', dateRange.start).lte('updated_at', dateRange.end)
+      }
+
+      const { data: callsPeriod } = await callsQuery
+      const { data: callsVendidasPeriod } = await callsVendidasQuery
+
       // Buscar eventos agendados baseado no período selecionado
       // Se for período atual, usar apenas eventos futuros
       // Caso contrário, usar eventos do período específico
@@ -183,15 +202,15 @@ export default function DashboardPage() {
       // Calcular valor arrecadado (aproximadamente 50% do vendido)
       const valorArrecadado = vendasPeriod?.reduce((sum, lead) => sum + (lead.valor_arrecadado || (lead.valor_vendido || 0) * 0.5), 0) || 0
 
-      // Calcular taxa de conversão
-      const taxaConversao = (leadsPeriod?.length || 0) > 0 ? ((vendasPeriod?.length || 0) / (leadsPeriod?.length || 0)) * 100 : 0
+      // Calcular taxa de conversão usando dados de calls
+      const taxaConversao = (callsPeriod?.length || 0) > 0 ? ((callsVendidasPeriod?.length || 0) / (callsPeriod?.length || 0)) * 100 : 0
 
       const newKpiData = {
         total_vendas: totalVendasPeriod,
         valor_arrecadado: valorArrecadado,
         meta_vendas: 500000,
-        total_leads: leadsPeriod?.length || 0,
-        leads_vendidos: vendasPeriod?.length || 0,
+        total_leads: callsPeriod?.length || 0, // Total de calls
+        leads_vendidos: callsVendidasPeriod?.length || 0, // Calls vendidas
         total_mentorados: mentoradosPeriod?.length || 0,
         checkins_agendados: eventosAgendados?.length || 0,
         pendencias: 16, // TODO: calcular baseado no período
@@ -206,7 +225,7 @@ export default function DashboardPage() {
         calculatePercentageChange(newKpiData.total_mentorados, 'mentorados'),
         calculatePercentageChange(newKpiData.checkins_agendados, 'events'), // assumindo tabela events para checkins
         calculatePercentageChange(newKpiData.pendencias, 'pendencias'), // assumindo tabela pendencias
-        calculatePercentageChange(newKpiData.total_leads, 'leads')
+        calculatePercentageChange(newKpiData.total_leads, 'calendar_events')
       ]).then(([vendasChange, mentoradosChange, checkinsChange, pendenciasChange, leadsChange]) => {
         setPercentageChanges({
           vendas: vendasChange,
@@ -657,6 +676,51 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* Régua de Arrecadação */}
+            <div className="space-y-2 mt-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-blue-700">% Arrecadado do Vendido</span>
+                <span className="text-xs font-bold text-blue-900">
+                  {kpiData.total_vendas > 0 ? ((kpiData.valor_arrecadado / kpiData.total_vendas) * 100).toFixed(1) : '0.0'}%
+                </span>
+              </div>
+
+              <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
+                {/* Faixas de cores de fundo */}
+                <div className="absolute inset-0 flex">
+                  <div className="w-1/5 bg-red-200"></div>
+                  <div className="w-3/20 bg-yellow-200"></div>
+                  <div className="w-3/20 bg-blue-200"></div>
+                  <div className="flex-1 bg-green-200"></div>
+                </div>
+
+                {/* Barra de progresso */}
+                <div
+                  className={`h-full transition-all duration-500 ${
+                    kpiData.total_vendas > 0
+                      ? (() => {
+                          const percentage = (kpiData.valor_arrecadado / kpiData.total_vendas) * 100;
+                          if (percentage < 20) return 'bg-red-500';
+                          if (percentage < 35) return 'bg-yellow-500';
+                          if (percentage < 50) return 'bg-blue-500';
+                          return 'bg-green-500';
+                        })()
+                      : 'bg-gray-400'
+                  }`}
+                  style={{
+                    width: `${Math.min(kpiData.total_vendas > 0 ? (kpiData.valor_arrecadado / kpiData.total_vendas) * 100 : 0, 100)}%`
+                  }}
+                />
+              </div>
+
+              <div className="flex justify-between text-xs">
+                <span className="text-red-600">Ruim</span>
+                <span className="text-yellow-600">Normal</span>
+                <span className="text-blue-600">Bom</span>
+                <span className="text-green-600">Ótimo</span>
+              </div>
+            </div>
+
             {/* Taxa de Conversão */}
             <div className="pt-2 border-t border-orange-200">
               <div className="flex items-center justify-between">
@@ -664,13 +728,13 @@ export default function DashboardPage() {
                 <span className="text-xs font-bold text-orange-900">{kpiData.taxa_conversao.toFixed(1)}%</span>
               </div>
               <div className="text-xs text-orange-600 mt-1">
-                {kpiData.leads_vendidos} vendas de {kpiData.total_leads} leads
+                {kpiData.leads_vendidos} vendas de {kpiData.total_leads} calls
               </div>
             </div>
           </div>
         </div>
         <KPICardVibrant
-          title="Leads Vendidos"
+          title="Calls Vendidas"
           value={kpiData.leads_vendidos.toString()}
           subtitle={`${currentPeriodLabel} • Taxa de conversão: ${percentualConversao}%`}
           percentage={percentualConversao}
@@ -706,7 +770,7 @@ export default function DashboardPage() {
           link="/pendencias"
         />
         <MetricCard
-          title={`Leads (${currentPeriodLabel.toLowerCase()})`}
+          title={`Calls (${currentPeriodLabel.toLowerCase()})`}
           value={kpiData.total_leads.toString()}
           changeType="increase"
           icon={UserPlus}
