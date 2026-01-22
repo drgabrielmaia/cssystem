@@ -151,52 +151,31 @@ export default function DashboardPage() {
       const { data: mentoradosPeriod } = await mentoradosQuery
       const { data: vendasPeriod } = await vendasQuery
 
-      // Buscar dados de calls da view social_seller_metrics (igual ao dashboard)
-      let callsMetrics = { calls_vendidas: 0, total_calls: 0, calls_nao_vendidas: 0 }
+      // Buscar dados de calls da tabela leads (igual ao social-seller)
+      // Calls realizadas = vendidos + perdidos (não vendidos)
+      let leadsForCallsQuery = supabase
+        .from('leads')
+        .select('id, status, convertido_em, status_updated_at, data_primeiro_contato')
 
-      if (selectedPeriod === 'current_month') {
-        // Para mês atual, usar a view
-        const now = new Date()
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      // Aplicar filtro de data apenas se for um período específico
+      if (dateRange.start && dateRange.end && selectedPeriod !== 'all') {
+        // Para leads vendidos, usar convertido_em; para outros usar status_updated_at ou data_primeiro_contato
+        leadsForCallsQuery = leadsForCallsQuery.or(
+          `and(status.eq.vendido,convertido_em.gte.${dateRange.start},convertido_em.lte.${dateRange.end}),` +
+          `and(status.neq.vendido,status_updated_at.gte.${dateRange.start},status_updated_at.lte.${dateRange.end}),` +
+          `and(status_updated_at.is.null,data_primeiro_contato.gte.${dateRange.start},data_primeiro_contato.lte.${dateRange.end})`
+        )
+      }
 
-        const { data: callsData, error: callsError } = await supabase
-          .from('social_seller_metrics')
-          .select('*')
-          .gte('month_year', startOfMonth.toISOString())
-          .single()
+      const { data: leadsForCalls } = await leadsForCallsQuery
 
-        if (!callsError && callsData) {
-          callsMetrics = {
-            calls_vendidas: callsData.calls_vendidas || 0,
-            total_calls: callsData.total_calls || 0,
-            calls_nao_vendidas: callsData.calls_nao_vendidas || 0
-          }
-        }
-      } else {
-        // Para outros períodos, buscar do calendar_events
-        let callsRealizadasQuery = supabase
-          .from('calendar_events')
-          .select('call_status')
-          .in('call_status', ['vendida', 'nao_vendida'])
+      const callsVendidas = leadsForCalls?.filter(lead => lead.status === 'vendido').length || 0
+      const callsNaoVendidas = leadsForCalls?.filter(lead => lead.status === 'perdido').length || 0
 
-        let callsVendidasQuery = supabase
-          .from('calendar_events')
-          .select('call_status')
-          .eq('call_status', 'vendida')
-
-        if (dateRange.start && dateRange.end) {
-          callsRealizadasQuery = callsRealizadasQuery.gte('updated_at', dateRange.start).lte('updated_at', dateRange.end)
-          callsVendidasQuery = callsVendidasQuery.gte('updated_at', dateRange.start).lte('updated_at', dateRange.end)
-        }
-
-        const { data: callsRealizadas } = await callsRealizadasQuery
-        const { data: callsVendidas } = await callsVendidasQuery
-
-        callsMetrics = {
-          calls_vendidas: callsVendidas?.length || 0,
-          total_calls: callsRealizadas?.length || 0,
-          calls_nao_vendidas: (callsRealizadas?.length || 0) - (callsVendidas?.length || 0)
-        }
+      const callsMetrics = {
+        calls_vendidas: callsVendidas,
+        total_calls: callsVendidas + callsNaoVendidas, // Total de calls realizadas
+        calls_nao_vendidas: callsNaoVendidas
       }
 
       console.log('🔍 Debug calls metrics:', {
@@ -237,14 +216,14 @@ export default function DashboardPage() {
       const valorArrecadado = vendasPeriod?.reduce((sum, lead) => sum + (lead.valor_arrecadado || (lead.valor_vendido || 0) * 0.5), 0) || 0
 
       // Calcular taxa de conversão usando calls realizadas (vendidas + não vendidas)
-      const callsRealizadas = callsMetrics.calls_vendidas + callsMetrics.calls_nao_vendidas
-      const taxaConversao = callsRealizadas > 0 ? (callsMetrics.calls_vendidas / callsRealizadas) * 100 : 0
+      const totalCallsRealizadas = callsMetrics.calls_vendidas + callsMetrics.calls_nao_vendidas
+      const taxaConversao = totalCallsRealizadas > 0 ? (callsMetrics.calls_vendidas / totalCallsRealizadas) * 100 : 0
 
       const newKpiData = {
         total_vendas: totalVendasPeriod,
         valor_arrecadado: valorArrecadado,
         meta_vendas: 500000,
-        total_leads: callsRealizadas, // Total de calls realizadas (vendidas + não vendidas)
+        total_leads: totalCallsRealizadas, // Total de calls realizadas (vendidas + não vendidas)
         leads_vendidos: callsMetrics.calls_vendidas, // Calls vendidas
         total_mentorados: mentoradosPeriod?.length || 0,
         checkins_agendados: eventosAgendados?.length || 0,
@@ -729,12 +708,12 @@ export default function DashboardPage() {
               </div>
 
               <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
-                {/* Faixas de cores de fundo */}
+                {/* Faixas de cores de fundo proporcionais */}
                 <div className="absolute inset-0 flex">
-                  <div className="w-1/5 bg-red-200"></div>
-                  <div className="w-3/20 bg-yellow-200"></div>
-                  <div className="w-3/20 bg-blue-200"></div>
-                  <div className="flex-1 bg-green-200"></div>
+                  <div style={{ width: '20%' }} className="bg-red-200"></div>
+                  <div style={{ width: '15%' }} className="bg-yellow-200"></div>
+                  <div style={{ width: '15%' }} className="bg-blue-200"></div>
+                  <div style={{ width: '50%' }} className="bg-green-200"></div>
                 </div>
 
                 {/* Barra de progresso */}
