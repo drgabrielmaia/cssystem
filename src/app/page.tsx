@@ -152,10 +152,11 @@ export default function DashboardPage() {
       const { data: vendasPeriod } = await vendasQuery
 
       // Buscar dados de calls do calendar_events
-      let callsQuery = supabase
+      // Calls realizadas = vendidas + não vendidas (excluir agendadas, no_show, etc)
+      let callsRealizadasQuery = supabase
         .from('calendar_events')
         .select('call_status, sale_value, updated_at')
-        .not('call_status', 'is', null)
+        .in('call_status', ['vendida', 'nao_vendida'])
 
       let callsVendidasQuery = supabase
         .from('calendar_events')
@@ -163,11 +164,11 @@ export default function DashboardPage() {
         .eq('call_status', 'vendida')
 
       if (dateRange.start && dateRange.end) {
-        callsQuery = callsQuery.gte('updated_at', dateRange.start).lte('updated_at', dateRange.end)
+        callsRealizadasQuery = callsRealizadasQuery.gte('updated_at', dateRange.start).lte('updated_at', dateRange.end)
         callsVendidasQuery = callsVendidasQuery.gte('updated_at', dateRange.start).lte('updated_at', dateRange.end)
       }
 
-      const { data: callsPeriod } = await callsQuery
+      const { data: callsRealizadasPeriod } = await callsRealizadasQuery
       const { data: callsVendidasPeriod } = await callsVendidasQuery
 
       // Buscar eventos agendados baseado no período selecionado
@@ -202,14 +203,14 @@ export default function DashboardPage() {
       // Calcular valor arrecadado (aproximadamente 50% do vendido)
       const valorArrecadado = vendasPeriod?.reduce((sum, lead) => sum + (lead.valor_arrecadado || (lead.valor_vendido || 0) * 0.5), 0) || 0
 
-      // Calcular taxa de conversão usando dados de calls
-      const taxaConversao = (callsPeriod?.length || 0) > 0 ? ((callsVendidasPeriod?.length || 0) / (callsPeriod?.length || 0)) * 100 : 0
+      // Calcular taxa de conversão usando calls realizadas (vendidas + não vendidas)
+      const taxaConversao = (callsRealizadasPeriod?.length || 0) > 0 ? ((callsVendidasPeriod?.length || 0) / (callsRealizadasPeriod?.length || 0)) * 100 : 0
 
       const newKpiData = {
         total_vendas: totalVendasPeriod,
         valor_arrecadado: valorArrecadado,
         meta_vendas: 500000,
-        total_leads: callsPeriod?.length || 0, // Total de calls
+        total_leads: callsRealizadasPeriod?.length || 0, // Total de calls realizadas
         leads_vendidos: callsVendidasPeriod?.length || 0, // Calls vendidas
         total_mentorados: mentoradosPeriod?.length || 0,
         checkins_agendados: eventosAgendados?.length || 0,
@@ -639,16 +640,24 @@ export default function DashboardPage() {
             </div>
 
             {/* Valor Arrecadado e Meta (Pequeno) */}
-            <div className="text-sm text-gray-600">
-              Arrecadado: {new Intl.NumberFormat('pt-BR', {
+            <div className="text-sm">
+              <span className="text-gray-600">Arrecadado: </span>
+              <span className={`font-semibold ${
+                ((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100) >= 100 ? 'text-green-600' :
+                ((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100) >= 80 ? 'text-blue-600' :
+                ((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100) >= 50 ? 'text-yellow-600' : 'text-red-600'
+              }`}>
+                {new Intl.NumberFormat('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL',
+                  minimumFractionDigits: 0
+                }).format(kpiData.valor_arrecadado)}
+              </span>
+              <span className="text-gray-600"> • Meta: {new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL',
                 minimumFractionDigits: 0
-              }).format(kpiData.valor_arrecadado)} • Meta: {new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-                minimumFractionDigits: 0
-              }).format(kpiData.meta_vendas)}
+              }).format(kpiData.meta_vendas)}</span>
             </div>
 
             {/* Régua de Progresso */}
@@ -728,7 +737,7 @@ export default function DashboardPage() {
                 <span className="text-xs font-bold text-orange-900">{kpiData.taxa_conversao.toFixed(1)}%</span>
               </div>
               <div className="text-xs text-orange-600 mt-1">
-                {kpiData.leads_vendidos} vendas de {kpiData.total_leads} calls
+                {kpiData.leads_vendidos} vendas de {kpiData.total_leads} calls realizadas
               </div>
             </div>
           </div>
