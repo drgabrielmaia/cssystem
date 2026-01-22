@@ -22,7 +22,8 @@ import {
   Trash2,
   Lock,
   Unlock,
-  Clock
+  Clock,
+  Download
 } from 'lucide-react'
 
 interface Mentorado {
@@ -65,6 +66,7 @@ export default function MentoradosClientPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingMentorado, setEditingMentorado] = useState<Mentorado | null>(null)
+  const [exportingPDF, setExportingPDF] = useState(false)
 
   useEffect(() => {
     if (organizationId) {
@@ -270,6 +272,117 @@ export default function MentoradosClientPage() {
     }
   ]
 
+  const exportToPDF = async () => {
+    try {
+      setExportingPDF(true)
+
+      // Criar conteúdo HTML para o PDF
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Lista de Mentorados</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .stats { display: flex; justify-content: space-between; margin-bottom: 30px; }
+            .stat { text-align: center; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+            th { background-color: #f4f4f4; font-weight: bold; }
+            .status-active { color: green; font-weight: bold; }
+            .status-inactive { color: red; font-weight: bold; }
+            .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Lista de Mentorados</h1>
+            <p>Relatório gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
+          </div>
+
+          <div class="stats">
+            <div class="stat">
+              <h3>${stats.total_mentorados}</h3>
+              <p>Total</p>
+            </div>
+            <div class="stat">
+              <h3>${stats.ativos}</h3>
+              <p>Ativos</p>
+            </div>
+            <div class="stat">
+              <h3>${stats.inativos}</h3>
+              <p>Inativos</p>
+            </div>
+            <div class="stat">
+              <h3>${stats.novos_mes}</h3>
+              <p>Novos no Mês</p>
+            </div>
+            <div class="stat">
+              <h3>${stats.taxa_retencao.toFixed(1)}%</h3>
+              <p>Taxa Retenção</p>
+            </div>
+            <div class="stat">
+              <h3>${stats.pontuacao_media.toFixed(1)}</h3>
+              <p>Pontuação Média</p>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Telefone</th>
+                <th>Data Entrada</th>
+                <th>Status</th>
+                <th>Pontuação</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredMentorados.map(mentorado => `
+                <tr>
+                  <td>${mentorado.nome_completo}</td>
+                  <td>${mentorado.email}</td>
+                  <td>${mentorado.telefone || '-'}</td>
+                  <td>${new Date(mentorado.data_entrada).toLocaleDateString('pt-BR')}</td>
+                  <td class="status-${mentorado.estado_atual}">${mentorado.estado_atual === 'ativo' ? 'Ativo' : 'Inativo'}</td>
+                  <td>${mentorado.pontuacao || 0}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <p>Relatório gerado automaticamente pelo sistema de gestão de mentorados</p>
+          </div>
+        </body>
+        </html>
+      `
+
+      // Criar blob e fazer download
+      const blob = new Blob([htmlContent], { type: 'text/html' })
+      const url = URL.createObjectURL(blob)
+
+      // Criar link temporário para download
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `mentorados-${new Date().toISOString().split('T')[0]}.html`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      console.log('✅ Arquivo HTML gerado com sucesso')
+
+    } catch (error) {
+      console.error('❌ Erro ao exportar PDF:', error)
+    } finally {
+      setExportingPDF(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -337,6 +450,14 @@ export default function MentoradosClientPage() {
         </div>
 
         <div className="flex space-x-3">
+          <button
+            onClick={exportToPDF}
+            disabled={exportingPDF || filteredMentorados.length === 0}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center disabled:bg-gray-600 disabled:cursor-not-allowed"
+          >
+            <Download className={`w-4 h-4 mr-2 ${exportingPDF ? 'animate-spin' : ''}`} />
+            {exportingPDF ? 'Exportando...' : 'Exportar PDF'}
+          </button>
           <button
             onClick={loadMentorados}
             className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center"
