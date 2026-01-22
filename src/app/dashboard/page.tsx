@@ -5,8 +5,9 @@ import { Navbar } from '@/components/dashboard/Navbar'
 import { Sidebar } from '@/components/dashboard/Sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Building2, Crown, Shield, User2, Users, Loader2, DollarSign, Target } from 'lucide-react'
+import { Building2, Crown, Shield, User2, Users, Loader2, DollarSign, Target, RefreshCw, AlertCircle } from 'lucide-react'
 import { useOrganizationFilter } from '@/hooks/use-organization-filter'
+import { useRetryRequest } from '@/hooks/use-retry-request'
 import { supabase } from '@/lib/supabase'
 
 interface SalesMetrics {
@@ -54,20 +55,49 @@ export default function DashboardPage() {
     taxa_conversao_calls: 0
   })
   const [metricsLoading, setMetricsLoading] = useState(true)
+  const [loadingStage, setLoadingStage] = useState('Iniciando...')
+  const salesRetry = useRetryRequest<SalesMetrics>()
+  const callsRetry = useRetryRequest<CallsMetrics>()
 
   useEffect(() => {
     if (isReady && activeOrganizationId) {
-      loadSalesMetrics()
-      loadCallsMetrics()
+      loadAllMetrics()
     }
   }, [isReady, activeOrganizationId])
 
-  const loadSalesMetrics = async () => {
-    try {
-      setMetricsLoading(true)
+  const loadAllMetrics = async () => {
+    setMetricsLoading(true)
+    setLoadingStage('Carregando métricas de vendas...')
 
-      console.log('🏢 Debug Dashboard - Organization ID:', activeOrganizationId)
-      console.log('🏢 Debug Dashboard - isReady:', isReady)
+    // Carregar métricas de vendas com retry
+    const salesResult = await salesRetry.executeWithRetry(
+      () => loadSalesMetricsData(),
+      { maxAttempts: 3, delay: 1000 }
+    )
+
+    if (salesResult) {
+      setSalesMetrics(salesResult)
+    }
+
+    setLoadingStage('Carregando métricas de calls...')
+
+    // Carregar métricas de calls com retry
+    const callsResult = await callsRetry.executeWithRetry(
+      () => loadCallsMetricsData(),
+      { maxAttempts: 3, delay: 1000 }
+    )
+
+    if (callsResult) {
+      setCallsMetrics(callsResult)
+    }
+
+    setMetricsLoading(false)
+    setLoadingStage('')
+  }
+
+  const loadSalesMetricsData = async (): Promise<SalesMetrics> => {
+    console.log('🏢 Debug Dashboard - Organization ID:', activeOrganizationId)
+    console.log('🏢 Debug Dashboard - isReady:', isReady)
 
       // Calcular data do mês atual
       const now = new Date()
@@ -137,60 +167,49 @@ export default function DashboardPage() {
         taxa_conversao
       })
 
-      setSalesMetrics({
+      return {
         valor_vendido,
         valor_arrecadado,
         taxa_conversao,
         total_leads,
         total_vendas
-      })
-    } catch (error) {
-      console.error('Erro ao carregar métricas de vendas:', error)
-    } finally {
-      setMetricsLoading(false)
-    }
+      }
   }
 
-  const loadCallsMetrics = async () => {
-    try {
-      console.log('📞 Debug Dashboard - Carregando métricas de calls...')
+  const loadCallsMetricsData = async (): Promise<CallsMetrics> => {
+    console.log('📞 Debug Dashboard - Carregando métricas de calls...')
 
-      // Buscar métricas do mês atual da view social_seller_metrics
-      const now = new Date()
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    // Buscar métricas do mês atual da view social_seller_metrics
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-      const { data: callsData, error: callsError } = await supabase
-        .from('social_seller_metrics')
-        .select('*')
-        .gte('month_year', startOfMonth.toISOString())
-        .single()
+    const { data: callsData, error: callsError } = await supabase
+      .from('social_seller_metrics')
+      .select('*')
+      .gte('month_year', startOfMonth.toISOString())
+      .single()
 
-      if (callsError) {
-        console.log('⚠️ Nenhuma métrica de calls encontrada para o mês atual:', callsError)
-        setCallsMetrics({
-          total_calls: 0,
-          calls_vendidas: 0,
-          calls_nao_vendidas: 0,
-          no_shows: 0,
-          total_vendas_calls: 0,
-          taxa_conversao_calls: 0
-        })
-        return
+    if (callsError) {
+      console.log('⚠️ Nenhuma métrica de calls encontrada para o mês atual:', callsError)
+      return {
+        total_calls: 0,
+        calls_vendidas: 0,
+        calls_nao_vendidas: 0,
+        no_shows: 0,
+        total_vendas_calls: 0,
+        taxa_conversao_calls: 0
       }
+    }
 
-      console.log('📞 Debug Dashboard - Métricas de calls:', callsData)
+    console.log('📞 Debug Dashboard - Métricas de calls:', callsData)
 
-      setCallsMetrics({
-        total_calls: callsData.total_calls || 0,
-        calls_vendidas: callsData.calls_vendidas || 0,
-        calls_nao_vendidas: callsData.calls_nao_vendidas || 0,
-        no_shows: callsData.no_shows || 0,
-        total_vendas_calls: callsData.total_vendas || 0,
-        taxa_conversao_calls: callsData.taxa_conversao || 0
-      })
-
-    } catch (error) {
-      console.error('Erro ao carregar métricas de calls:', error)
+    return {
+      total_calls: callsData.total_calls || 0,
+      calls_vendidas: callsData.calls_vendidas || 0,
+      calls_nao_vendidas: callsData.calls_nao_vendidas || 0,
+      no_shows: callsData.no_shows || 0,
+      total_vendas_calls: callsData.total_vendas || 0,
+      taxa_conversao_calls: callsData.taxa_conversao || 0
     }
   }
 
@@ -363,8 +382,44 @@ export default function DashboardPage() {
                 <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200">
                   <CardContent className="pt-6">
                     {metricsLoading ? (
-                      <div className="flex items-center justify-center py-8">
+                      <div className="flex flex-col items-center justify-center py-8 space-y-3">
                         <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+                        <div className="text-sm text-gray-600">{loadingStage}</div>
+                        {(salesRetry.loading || callsRetry.loading) && (
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            {salesRetry.attempt > 1 && (
+                              <span className="flex items-center gap-1">
+                                <RefreshCw className="w-3 h-3" />
+                                Vendas: tentativa {salesRetry.attempt}/3
+                              </span>
+                            )}
+                            {callsRetry.attempt > 1 && (
+                              <span className="flex items-center gap-1">
+                                <RefreshCw className="w-3 h-3" />
+                                Calls: tentativa {callsRetry.attempt}/3
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {(salesRetry.error || callsRetry.error) && (
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="flex items-center gap-2 text-xs text-red-600">
+                              <AlertCircle className="w-3 h-3" />
+                              <span>
+                                {salesRetry.error && "Erro ao carregar vendas"}
+                                {salesRetry.error && callsRetry.error && " • "}
+                                {callsRetry.error && "Erro ao carregar calls"}
+                              </span>
+                            </div>
+                            <button
+                              onClick={loadAllMetrics}
+                              className="px-3 py-1 text-xs bg-orange-100 text-orange-700 rounded hover:bg-orange-200 flex items-center gap-1"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                              Tentar novamente
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <>
@@ -407,7 +462,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {/* Taxa de Conversão - Calls */}
+                        {/* Taxa de Conversão */}
                         <div className="bg-white p-3 rounded border">
                           <div className="text-sm font-semibold text-gray-700 mb-1">Taxa de Conversão</div>
                           <div className="text-lg font-bold text-gray-900 mb-2">
