@@ -462,6 +462,63 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
+                        {/* Régua de Arrecadação */}
+                        <div className="bg-white p-3 rounded border mb-4">
+                          <div className="text-sm font-semibold text-gray-700 mb-2">% Arrecadado do Vendido</div>
+                          <div className="text-lg font-bold text-gray-900 mb-2">
+                            {salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100).toFixed(1) : '0.0'}%
+                          </div>
+                          <div className="text-xs text-gray-600 mb-2">
+                            {formatCurrency(salesMetrics.valor_arrecadado)} de {formatCurrency(salesMetrics.valor_vendido)} vendido
+                          </div>
+
+                          {/* Régua com cores dinâmicas */}
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs text-gray-500">
+                              <span>0%</span>
+                              <span>20%</span>
+                              <span>35%</span>
+                              <span>50%</span>
+                              <span>100%</span>
+                            </div>
+                            <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden">
+                              {/* Faixas de cores de fundo */}
+                              <div className="absolute inset-0 flex">
+                                <div className="w-1/5 bg-red-200"></div>
+                                <div className="w-3/20 bg-yellow-200"></div>
+                                <div className="w-3/20 bg-blue-200"></div>
+                                <div className="flex-1 bg-green-200"></div>
+                              </div>
+
+                              {/* Barra de progresso */}
+                              <div
+                                className={`h-full transition-all duration-500 ${
+                                  salesMetrics.valor_vendido > 0
+                                    ? (() => {
+                                        const percentage = (salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100;
+                                        if (percentage < 20) return 'bg-red-500';
+                                        if (percentage < 35) return 'bg-yellow-500';
+                                        if (percentage < 50) return 'bg-blue-500';
+                                        return 'bg-green-500';
+                                      })()
+                                    : 'bg-gray-400'
+                                }`}
+                                style={{
+                                  width: `${Math.min(salesMetrics.valor_vendido > 0 ? (salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100 : 0, 100)}%`
+                                }}
+                              />
+                            </div>
+
+                            {/* Labels das faixas */}
+                            <div className="flex justify-between text-xs">
+                              <span className="text-red-600">Ruim</span>
+                              <span className="text-yellow-600">Normal</span>
+                              <span className="text-blue-600">Bom</span>
+                              <span className="text-green-600">Ótimo</span>
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Taxa de Conversão */}
                         <div className="bg-white p-3 rounded border">
                           <div className="text-sm font-semibold text-gray-700 mb-1">Taxa de Conversão</div>
