@@ -709,7 +709,7 @@ export default function DashboardPage() {
 
               <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
                 {/* Faixas de cores de fundo proporcionais */}
-                <div className="absolute inset-0 flex">
+                <div className="absolute inset-0 flex z-0">
                   <div style={{ width: '20%' }} className="bg-red-200"></div>
                   <div style={{ width: '15%' }} className="bg-yellow-200"></div>
                   <div style={{ width: '15%' }} className="bg-blue-200"></div>
@@ -718,7 +718,7 @@ export default function DashboardPage() {
 
                 {/* Barra de progresso */}
                 <div
-                  className={`h-full transition-all duration-500 ${
+                  className={`h-full transition-all duration-500 relative z-10 ${
                     kpiData.total_vendas > 0
                       ? (() => {
                           const percentage = (kpiData.valor_arrecadado / kpiData.total_vendas) * 100;

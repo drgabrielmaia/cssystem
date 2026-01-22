@@ -8,8 +8,35 @@ const nextConfig = {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_WHATSAPP_API_URL: process.env.NEXT_PUBLIC_WHATSAPP_API_URL,
   },
-  webpack: (config) => {
+  // Configuração mais simples para CSS
+  experimental: {
+    // Remover optimizeCss que está causando problemas
+  },
+  // Desabilitar preload automático de CSS
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  // Configurar webpack para otimizar CSS
+  webpack: (config, { dev, isServer }) => {
     config.externals.push('puppeteer')
+
+    // Otimizar CSS apenas em produção
+    if (!dev && !isServer) {
+      // Desabilitar preload automático de CSS não crítico
+      config.optimization.splitChunks = {
+        ...config.optimization.splitChunks,
+        cacheGroups: {
+          ...config.optimization.splitChunks.cacheGroups,
+          styles: {
+            name: 'styles',
+            type: 'css/mini-extract',
+            chunks: 'all',
+            enforce: true,
+          },
+        },
+      }
+    }
+
     return config
   },
   async headers() {

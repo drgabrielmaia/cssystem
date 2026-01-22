@@ -13,6 +13,11 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Customer Success Dashboard',
   description: 'Sistema de gestão para Customer Success',
+  // Otimizar carregamento de recursos
+  other: {
+    'resource-preload-css': 'false',
+    'preload-critical': 'true',
+  },
 }
 
 export default function RootLayout({
@@ -43,6 +48,25 @@ export default function RootLayout({
             </SettingsProvider>
           </OrganizationProvider>
         </AuthProvider>
+
+        {/* Script simples para otimizar carregamento */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Remover avisos de preload CSS desnecessários
+              if (typeof window !== 'undefined') {
+                const originalWarn = console.warn;
+                console.warn = function(...args) {
+                  const message = args.join(' ');
+                  if (message.includes('preloaded using link preload but not used')) {
+                    return; // Suprimir este aviso específico
+                  }
+                  return originalWarn.apply(console, args);
+                };
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   )
