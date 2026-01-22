@@ -171,6 +171,15 @@ export default function DashboardPage() {
       const { data: callsRealizadasPeriod } = await callsRealizadasQuery
       const { data: callsVendidasPeriod } = await callsVendidasQuery
 
+      console.log('🔍 Debug calls:', {
+        selectedPeriod,
+        dateRange,
+        callsRealizadas: callsRealizadasPeriod?.length || 0,
+        callsVendidas: callsVendidasPeriod?.length || 0,
+        callsRealizadasData: callsRealizadasPeriod?.slice(0, 3),
+        callsVendidasData: callsVendidasPeriod?.slice(0, 3)
+      })
+
       // Buscar eventos agendados baseado no período selecionado
       // Se for período atual, usar apenas eventos futuros
       // Caso contrário, usar eventos do período específico
@@ -688,45 +697,43 @@ export default function DashboardPage() {
             {/* Régua de Arrecadação */}
             <div className="space-y-2 mt-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-blue-700">% Arrecadado do Vendido</span>
+                <span className="text-xs font-medium text-blue-700">% Arrecadado da Meta</span>
                 <span className="text-xs font-bold text-blue-900">
-                  {kpiData.total_vendas > 0 ? ((kpiData.valor_arrecadado / kpiData.total_vendas) * 100).toFixed(1) : '0.0'}%
+                  {((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100).toFixed(1)}%
                 </span>
               </div>
 
               <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
                 {/* Faixas de cores de fundo */}
                 <div className="absolute inset-0 flex">
-                  <div className="w-1/5 bg-red-200"></div>
-                  <div className="w-3/20 bg-yellow-200"></div>
-                  <div className="w-3/20 bg-blue-200"></div>
+                  <div className="w-1/2 bg-red-200"></div>
+                  <div className="w-3/10 bg-yellow-200"></div>
+                  <div className="w-1/5 bg-blue-200"></div>
                   <div className="flex-1 bg-green-200"></div>
                 </div>
 
                 {/* Barra de progresso */}
                 <div
                   className={`h-full transition-all duration-500 ${
-                    kpiData.total_vendas > 0
-                      ? (() => {
-                          const percentage = (kpiData.valor_arrecadado / kpiData.total_vendas) * 100;
-                          if (percentage < 20) return 'bg-red-500';
-                          if (percentage < 35) return 'bg-yellow-500';
-                          if (percentage < 50) return 'bg-blue-500';
-                          return 'bg-green-500';
-                        })()
-                      : 'bg-gray-400'
+                    (() => {
+                      const percentage = (kpiData.valor_arrecadado / kpiData.meta_vendas) * 100;
+                      if (percentage < 50) return 'bg-red-500';
+                      if (percentage < 80) return 'bg-yellow-500';
+                      if (percentage < 100) return 'bg-blue-500';
+                      return 'bg-green-500';
+                    })()
                   }`}
                   style={{
-                    width: `${Math.min(kpiData.total_vendas > 0 ? (kpiData.valor_arrecadado / kpiData.total_vendas) * 100 : 0, 100)}%`
+                    width: `${Math.min((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100, 100)}%`
                   }}
                 />
               </div>
 
               <div className="flex justify-between text-xs">
-                <span className="text-red-600">Ruim</span>
-                <span className="text-yellow-600">Normal</span>
-                <span className="text-blue-600">Bom</span>
-                <span className="text-green-600">Ótimo</span>
+                <span className="text-red-600">0-49%</span>
+                <span className="text-yellow-600">50-79%</span>
+                <span className="text-blue-600">80-99%</span>
+                <span className="text-green-600">100%+</span>
               </div>
             </div>
 
