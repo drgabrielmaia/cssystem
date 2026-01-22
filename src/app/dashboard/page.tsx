@@ -381,48 +381,7 @@ export default function DashboardPage() {
                 {/* Card de Faturamento com Régua de Conversão */}
                 <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200">
                   <CardContent className="pt-6">
-                    {metricsLoading ? (
-                      <div className="flex flex-col items-center justify-center py-8 space-y-3">
-                        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
-                        <div className="text-sm text-gray-600">{loadingStage}</div>
-                        {(salesRetry.loading || callsRetry.loading) && (
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
-                            {salesRetry.attempt > 1 && (
-                              <span className="flex items-center gap-1">
-                                <RefreshCw className="w-3 h-3" />
-                                Vendas: tentativa {salesRetry.attempt}/3
-                              </span>
-                            )}
-                            {callsRetry.attempt > 1 && (
-                              <span className="flex items-center gap-1">
-                                <RefreshCw className="w-3 h-3" />
-                                Calls: tentativa {callsRetry.attempt}/3
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {(salesRetry.error || callsRetry.error) && (
-                          <div className="flex flex-col items-center gap-2">
-                            <div className="flex items-center gap-2 text-xs text-red-600">
-                              <AlertCircle className="w-3 h-3" />
-                              <span>
-                                {salesRetry.error && "Erro ao carregar vendas"}
-                                {salesRetry.error && callsRetry.error && " • "}
-                                {callsRetry.error && "Erro ao carregar calls"}
-                              </span>
-                            </div>
-                            <button
-                              onClick={loadAllMetrics}
-                              className="px-3 py-1 text-xs bg-orange-100 text-orange-700 rounded hover:bg-orange-200 flex items-center gap-1"
-                            >
-                              <RefreshCw className="w-3 h-3" />
-                              Tentar novamente
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <>
+                    <>
                         {/* Header com crescimento */}
                         <div className="flex items-center justify-between mb-3">
                           <div>
@@ -532,7 +491,6 @@ export default function DashboardPage() {
 
 
                       </>
-                    )}
                   </CardContent>
                 </Card>
               </div>
