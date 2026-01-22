@@ -523,7 +523,7 @@ export default function DashboardPage() {
                         <div className="bg-white p-3 rounded border">
                           <div className="text-sm font-semibold text-gray-700 mb-1">Taxa de Conversão</div>
                           <div className="text-lg font-bold text-gray-900 mb-2">
-                            {(callsMetrics.taxa_conversao_calls || 0).toFixed(1)}%
+                            {callsMetrics.total_calls > 0 ? ((callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100).toFixed(1) : '0.0'}%
                           </div>
                           <div className="text-xs text-gray-600">
                             {callsMetrics.calls_vendidas || 0} vendas de {callsMetrics.total_calls || 0} calls
