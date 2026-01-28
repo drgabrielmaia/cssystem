@@ -57,7 +57,14 @@ export async function POST(request: NextRequest) {
 
     // Converter file para buffer
     const fileBuffer = await file.arrayBuffer()
-    const fileName = `lesson-pdfs/${lessonId}-${Date.now()}-${file.name}`
+
+    // Sanitizar nome do arquivo - remover caracteres especiais e espaços
+    const sanitizedName = file.name
+      .replace(/[^a-zA-Z0-9.-]/g, '_') // Substitui caracteres especiais por _
+      .replace(/_+/g, '_') // Remove múltiplos _ consecutivos
+      .replace(/^_|_$/g, '') // Remove _ do início e fim
+
+    const fileName = `lesson-pdfs/${lessonId}-${Date.now()}-${sanitizedName}`
 
     // Upload usando o cliente padrão (com anon key)
     console.log('🔄 Tentando upload do arquivo:', fileName)
