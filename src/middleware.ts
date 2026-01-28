@@ -8,35 +8,62 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  // Expanded list of static routes and API routes that don't need authentication
+  // Static assets and internal Next.js routes - no auth needed
   const staticRoutes = [
     '/_next',
     '/favicon.ico',
-    '/api/checkout',
-    '/api/pix-qr',
-    '/api/instagram/webhook',
-    '/api/whatsapp/send-message',
-    '/api/whatsapp/disconnect-all',
-    '/api/notify-followup'
+    '/public'
   ]
+
+  // Additional check for static file extensions
+  const staticExtensions = ['.js', '.css', '.map', '.ico', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.woff', '.woff2', '.ttf', '.eot', '.json']
+  const isStaticFile = staticExtensions.some(ext => request.nextUrl.pathname.endsWith(ext))
 
   const isStaticRoute = staticRoutes.some(route =>
     request.nextUrl.pathname.startsWith(route)
   )
 
-  if (isStaticRoute) {
+  // Return early for any static content
+  if (isStaticRoute || isStaticFile) {
     return response
   }
 
-  // Allow access to public routes without authentication
-  const publicRoutes = ['/login', '/formulario', '/forms', '/api/chat-ai', '/api/analyze-form', '/api/analisar-formulario', '/api/checkout', '/api/pix-qr', '/agendar', '/mentorado', '/api/instagram', '/financeiro/login', '/financeiro-plataforma']
-  const isPublicRoute = publicRoutes.some(route => request.nextUrl.pathname.startsWith(route))
+  // Public API routes that don't need authentication
+  const publicApiRoutes = [
+    '/api/checkout',
+    '/api/pix-qr',
+    '/api/instagram/webhook',
+    '/api/whatsapp/send-message',
+    '/api/whatsapp/disconnect-all',
+    '/api/notify-followup',
+    '/api/chat-ai',
+    '/api/analyze-form',
+    '/api/analisar-formulario'
+  ]
+
+  // Public pages that don't need authentication
+  const publicRoutes = [
+    '/login',
+    '/formulario',
+    '/forms',
+    '/agendar',
+    '/financeiro/login',
+    '/financeiro-plataforma'
+  ]
+
+  const isPublicApiRoute = publicApiRoutes.some(route =>
+    request.nextUrl.pathname.startsWith(route)
+  )
+
+  const isPublicRoute = publicRoutes.some(route =>
+    request.nextUrl.pathname.startsWith(route)
+  )
 
   // Check for custom admin authentication (no DB query needed)
   const hasCustomAuth = request.cookies.get('admin_auth')?.value === 'true'
 
-  // If it's a public route, skip authentication entirely
-  if (isPublicRoute) {
+  // If it's a public route or public API, skip authentication entirely
+  if (isPublicRoute || isPublicApiRoute) {
     return response
   }
 
@@ -92,8 +119,7 @@ export async function middleware(request: NextRequest) {
     // Admin routes that mentorados cannot access
     const adminRoutes = ['/', '/leads', '/configuracoes', '/cadastro']
     const isAdminRoute = adminRoutes.some(route =>
-      request.nextUrl.pathname === route ||
-      (route === '/' && request.nextUrl.pathname === '/')
+      request.nextUrl.pathname === route
     )
 
     if (isMentorado) {
@@ -116,11 +142,11 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except:
-     * - _next (all Next.js internal paths)
+     * - _next (all Next.js internal paths including static, chunks, etc)
      * - favicon.ico (favicon file)
-     * - Static files (images, fonts, etc)
-     * - API webhooks and public APIs
+     * - Static files (images, fonts, CSS, JS, etc)
+     * - Public folder assets
      */
-    '/((?!_next|favicon.ico|api/checkout|api/pix-qr|api/instagram/webhook|api/whatsapp|api/notify-followup|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|js|css|woff|woff2|ttf|eot|map)$).*)',
+    '/((?!_next|favicon\\.ico|public|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|js|css|woff|woff2|ttf|eot|map|json)$).*)',
   ],
 }
