@@ -2,31 +2,36 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  // IMMEDIATELY RETURN FOR ALL STATIC ASSETS - NO PROCESSING
+  if (
+    pathname.startsWith('/_next/') ||
+    pathname.startsWith('/favicon') ||
+    pathname.startsWith('/public/') ||
+    pathname.includes('.js') ||
+    pathname.includes('.css') ||
+    pathname.includes('.map') ||
+    pathname.includes('.ico') ||
+    pathname.includes('.png') ||
+    pathname.includes('.jpg') ||
+    pathname.includes('.jpeg') ||
+    pathname.includes('.gif') ||
+    pathname.includes('.webp') ||
+    pathname.includes('.svg') ||
+    pathname.includes('.woff') ||
+    pathname.includes('.ttf') ||
+    pathname.includes('.eot') ||
+    pathname.includes('.json')
+  ) {
+    return NextResponse.next()
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   })
-
-  // Static assets and internal Next.js routes - no auth needed
-  const staticRoutes = [
-    '/_next',
-    '/favicon.ico',
-    '/public'
-  ]
-
-  // Additional check for static file extensions
-  const staticExtensions = ['.js', '.css', '.map', '.ico', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.woff', '.woff2', '.ttf', '.eot', '.json']
-  const isStaticFile = staticExtensions.some(ext => request.nextUrl.pathname.endsWith(ext))
-
-  const isStaticRoute = staticRoutes.some(route =>
-    request.nextUrl.pathname.startsWith(route)
-  )
-
-  // Return early for any static content
-  if (isStaticRoute || isStaticFile) {
-    return response
-  }
 
   // Public API routes that don't need authentication
   const publicApiRoutes = [
@@ -141,12 +146,8 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
-     * - _next (all Next.js internal paths including static, chunks, etc)
-     * - favicon.ico (favicon file)
-     * - Static files (images, fonts, CSS, JS, etc)
-     * - Public folder assets
+     * Exclude ALL _next paths completely from middleware
      */
-    '/((?!_next|favicon\\.ico|public|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|js|css|woff|woff2|ttf|eot|map|json)$).*)',
+    '/((?!_next)(?!favicon.ico)(?!.*\\.).*)',
   ],
 }
