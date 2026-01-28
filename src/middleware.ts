@@ -8,14 +8,16 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  // Skip authentication for static assets and API routes that don't need auth
+  // Expanded list of static routes and API routes that don't need authentication
   const staticRoutes = [
-    '/_next/static',
-    '/_next/image',
+    '/_next',
     '/favicon.ico',
     '/api/checkout',
     '/api/pix-qr',
-    '/api/instagram/webhook'
+    '/api/instagram/webhook',
+    '/api/whatsapp/send-message',
+    '/api/whatsapp/disconnect-all',
+    '/api/notify-followup'
   ]
 
   const isStaticRoute = staticRoutes.some(route =>
@@ -26,6 +28,22 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
+  // Allow access to public routes without authentication
+  const publicRoutes = ['/login', '/formulario', '/forms', '/api/chat-ai', '/api/analyze-form', '/api/analisar-formulario', '/api/checkout', '/api/pix-qr', '/agendar', '/mentorado', '/api/instagram', '/financeiro/login', '/financeiro-plataforma']
+  const isPublicRoute = publicRoutes.some(route => request.nextUrl.pathname.startsWith(route))
+
+  // Check for custom admin authentication (no DB query needed)
+  const hasCustomAuth = request.cookies.get('admin_auth')?.value === 'true'
+
+  // If it's a public route, skip authentication entirely
+  if (isPublicRoute) {
+    return response
+  }
+
+  // ALL API routes should return 401 instead of redirect
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
+
+  // Only create Supabase client and check authentication for protected routes
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -56,21 +74,11 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Check if user is authenticated
+  // Only check authentication for protected routes
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Check for custom admin authentication
-  const hasCustomAuth = request.cookies.get('admin_auth')?.value === 'true'
-
-  // Allow access to public routes without authentication
-  const publicRoutes = ['/login', '/formulario', '/forms', '/api/chat-ai', '/api/analyze-form', '/api/analisar-formulario', '/api/checkout', '/api/pix-qr', '/agendar', '/mentorado', '/api/instagram', '/financeiro/login', '/financeiro-plataforma']
-  const isPublicRoute = publicRoutes.some(route => request.nextUrl.pathname.startsWith(route))
-
-  // ALL API routes should return 401 instead of redirect
-  const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
-
   // If user is not authenticated and trying to access protected routes
-  if (!user && !hasCustomAuth && !isPublicRoute) {
+  if (!user && !hasCustomAuth) {
     if (isApiRoute) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -108,11 +116,11 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
+     * - _next (all Next.js internal paths)
      * - favicon.ico (favicon file)
-     * - Static files (images, etc)
+     * - Static files (images, fonts, etc)
+     * - API webhooks and public APIs
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|js|css|woff|woff2|ttf|eot)$).*)',
+    '/((?!_next|favicon.ico|api/checkout|api/pix-qr|api/instagram/webhook|api/whatsapp|api/notify-followup|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|js|css|woff|woff2|ttf|eot|map)$).*)',
   ],
 }

@@ -378,114 +378,137 @@ export default function DashboardPage() {
                   </CardContent>
                 </Card>
 
-                {/* Card de Faturamento com Régua de Conversão */}
-                <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200">
-                  <CardContent className="pt-6">
+                {/* Card de Faturamento Premium com Design Luxuoso */}
+                <Card className="relative overflow-hidden bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 border-2 border-yellow-400 shadow-2xl transform hover:scale-105 transition-all duration-300">
+                  <CardContent className="pt-6 relative z-10">
                     <>
-                        {/* Header com crescimento */}
-                        <div className="flex items-center justify-between mb-3">
+                        {/* Efeito de brilho no fundo */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 animate-pulse"></div>
+
+                        {/* Header Premium */}
+                        <div className="flex items-center justify-between mb-4">
                           <div>
-                            <h3 className="text-lg font-bold text-orange-700">Faturamento</h3>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-sm font-medium text-green-600">↑ 155%</span>
-                            </div>
+                            <h3 className="text-xl font-extrabold text-gray-900 flex items-center gap-2">
+                              💰 FATURAMENTO
+                              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-bounce">
+                                ↑ 155%
+                              </span>
+                            </h3>
+                            <p className="text-sm text-gray-700 font-medium">Centro de Resultados • Mês Atual</p>
                           </div>
-                          <DollarSign className="w-6 h-6 text-orange-500" />
+                          <div className="bg-white/20 p-3 rounded-full shadow-lg">
+                            <DollarSign className="w-8 h-8 text-gray-900" />
+                          </div>
                         </div>
 
-                        {/* Valor Principal */}
-                        <div className="mb-4">
-                          <div className="text-3xl font-bold text-orange-900 mb-2">
+                        {/* Valor Principal Destacado */}
+                        <div className="text-center mb-6 bg-black/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                          <div className="text-4xl md:text-5xl font-black text-gray-900 mb-2 drop-shadow-lg">
                             {formatCurrency(salesMetrics.valor_vendido)}
                           </div>
-                          <div className="text-sm text-gray-600">
-                            Arrecadado: {formatCurrency(salesMetrics.valor_arrecadado || 0)} • Meta de faturamento: {formatCurrency(500000)}
+                          <div className="text-lg font-bold text-gray-800">
+                            💎 Valor Total Vendido
+                          </div>
+                          <div className="text-sm text-gray-700 mt-2 bg-white/50 rounded-lg px-3 py-1 inline-block">
+                            💳 Arrecadado: <span className="font-bold">{formatCurrency(salesMetrics.valor_arrecadado || 0)}</span> •
+                            🎯 Meta: <span className="font-bold">{formatCurrency(500000)}</span>
                           </div>
                         </div>
 
-                        {/* Progresso da Meta */}
-                        <div className="bg-gray-50 p-3 rounded border mb-4">
-                          <div className="text-sm font-semibold text-gray-700 mb-2">Progresso da Meta de Faturamento</div>
-                          <div className="text-lg font-bold text-gray-900 mb-2">
-                            {salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_vendido / 500000) * 100).toFixed(1) : '0.0'}%
+                        {/* Métricas em Grid Elegante */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+
+                          {/* Progresso da Meta */}
+                          <div className="bg-black/20 backdrop-blur-sm p-4 rounded-xl border border-white/30">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-gray-900 mb-1">
+                                🎯 {salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_vendido / 500000) * 100).toFixed(1) : '0.0'}%
+                              </div>
+                              <div className="text-sm font-semibold text-gray-800 mb-2">Meta Atingida</div>
+                              <div className="h-2 bg-gray-900/30 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full transition-all duration-1000 ${
+                                    (salesMetrics.valor_vendido / 500000) > 0.8 ? 'bg-green-400' :
+                                    (salesMetrics.valor_vendido / 500000) >= 0.5 ? 'bg-yellow-300' : 'bg-red-400'
+                                  }`}
+                                  style={{ width: `${Math.min((salesMetrics.valor_vendido / 500000) * 100, 100)}%` }}
+                                />
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between text-xs text-gray-600 mb-2">
-                            <span>R$ 0</span>
-                            <span>R$ 500.000</span>
+
+                          {/* Taxa de Conversão */}
+                          <div className="bg-black/20 backdrop-blur-sm p-4 rounded-xl border border-white/30">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-gray-900 mb-1">
+                                📈 {callsMetrics.total_calls > 0 ? ((callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100).toFixed(1) : '0.0'}%
+                              </div>
+                              <div className="text-sm font-semibold text-gray-800 mb-1">Conversão</div>
+                              <div className="text-xs text-gray-700">
+                                {callsMetrics.calls_vendidas || 0}/{callsMetrics.total_calls || 0} calls
+                              </div>
+                            </div>
                           </div>
-                          <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+
+                          {/* % Arrecadado */}
+                          <div className="bg-black/20 backdrop-blur-sm p-4 rounded-xl border border-white/30">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-gray-900 mb-1">
+                                💳 {salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100).toFixed(1) : '0.0'}%
+                              </div>
+                              <div className="text-sm font-semibold text-gray-800 mb-1">Arrecadado</div>
+                              <div className="text-xs text-gray-700">
+                                do total vendido
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* Régua de Arrecadação Premium */}
+                        <div className="bg-black/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-lg font-bold text-gray-900">🏆 Performance de Arrecadação</h4>
+                            <div className="text-2xl font-black text-gray-900">
+                              {salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100).toFixed(1) : '0.0'}%
+                            </div>
+                          </div>
+
+                          {/* Barra de Progresso Melhorada */}
+                          <div className="relative h-6 bg-gray-900/30 rounded-full overflow-hidden mb-3 shadow-inner">
+                            {/* Faixas de cores de fundo */}
+                            <div className="absolute inset-0 flex z-0">
+                              <div style={{ width: '20%' }} className="bg-red-300/60"></div>
+                              <div style={{ width: '15%' }} className="bg-yellow-300/60"></div>
+                              <div style={{ width: '15%' }} className="bg-blue-300/60"></div>
+                              <div style={{ width: '50%' }} className="bg-green-300/60"></div>
+                            </div>
+
+                            {/* Barra de progresso */}
                             <div
-                              className="h-full bg-orange-500 transition-all duration-500"
-                              style={{ width: `${Math.min((salesMetrics.valor_vendido / 500000) * 100, 100)}%` }}
+                              className={`h-full transition-all duration-1000 relative z-10 shadow-lg ${
+                                salesMetrics.valor_vendido > 0
+                                  ? (() => {
+                                      const percentage = (salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100;
+                                      if (percentage < 20) return 'bg-gradient-to-r from-red-500 to-red-600';
+                                      if (percentage < 35) return 'bg-gradient-to-r from-yellow-500 to-yellow-600';
+                                      if (percentage < 50) return 'bg-gradient-to-r from-blue-500 to-blue-600';
+                                      return 'bg-gradient-to-r from-green-500 to-green-600';
+                                    })()
+                                  : 'bg-gray-400'
+                              }`}
+                              style={{
+                                width: `${Math.min(salesMetrics.valor_vendido > 0 ? (salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100 : 0, 100)}%`
+                              }}
                             />
                           </div>
-                        </div>
 
-                        {/* Régua de Arrecadação */}
-                        <div className="bg-white p-3 rounded border mb-4">
-                          <div className="text-sm font-semibold text-gray-700 mb-2">% Arrecadado do Vendido</div>
-                          <div className="text-lg font-bold text-gray-900 mb-2">
-                            {salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100).toFixed(1) : '0.0'}%
-                          </div>
-                          <div className="text-xs text-gray-600 mb-2">
-                            {formatCurrency(salesMetrics.valor_arrecadado)} de {formatCurrency(salesMetrics.valor_vendido)} vendido
-                          </div>
-
-                          {/* Régua com cores dinâmicas */}
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-xs text-gray-500">
-                              <span>0%</span>
-                              <span>20%</span>
-                              <span>35%</span>
-                              <span>50%</span>
-                              <span>100%</span>
-                            </div>
-                            <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden">
-                              {/* Faixas de cores de fundo */}
-                              <div className="absolute inset-0 flex">
-                                <div className="w-1/5 bg-red-200"></div>
-                                <div className="w-3/20 bg-yellow-200"></div>
-                                <div className="w-3/20 bg-blue-200"></div>
-                                <div className="flex-1 bg-green-200"></div>
-                              </div>
-
-                              {/* Barra de progresso */}
-                              <div
-                                className={`h-full transition-all duration-500 ${
-                                  salesMetrics.valor_vendido > 0
-                                    ? (() => {
-                                        const percentage = (salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100;
-                                        if (percentage < 20) return 'bg-red-500';
-                                        if (percentage < 35) return 'bg-yellow-500';
-                                        if (percentage < 50) return 'bg-blue-500';
-                                        return 'bg-green-500';
-                                      })()
-                                    : 'bg-gray-400'
-                                }`}
-                                style={{
-                                  width: `${Math.min(salesMetrics.valor_vendido > 0 ? (salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100 : 0, 100)}%`
-                                }}
-                              />
-                            </div>
-
-                            {/* Labels das faixas */}
-                            <div className="flex justify-between text-xs">
-                              <span className="text-red-600">Ruim</span>
-                              <span className="text-yellow-600">Normal</span>
-                              <span className="text-blue-600">Bom</span>
-                              <span className="text-green-600">Ótimo</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Taxa de Conversão */}
-                        <div className="bg-white p-3 rounded border">
-                          <div className="text-sm font-semibold text-gray-700 mb-1">Taxa de Conversão</div>
-                          <div className="text-lg font-bold text-gray-900 mb-2">
-                            {callsMetrics.total_calls > 0 ? ((callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100).toFixed(1) : '0.0'}%
-                          </div>
-                          <div className="text-xs text-gray-600">
-                            {callsMetrics.calls_vendidas || 0} vendas de {callsMetrics.total_calls || 0} calls
+                          {/* Labels das faixas */}
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-red-600">🔴 Crítico</span>
+                            <span className="text-yellow-600">🟡 Regular</span>
+                            <span className="text-blue-600">🔵 Bom</span>
+                            <span className="text-green-600">🟢 Excelente</span>
                           </div>
                         </div>
 
