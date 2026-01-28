@@ -29,6 +29,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { useDraggable } from '@/hooks/use-draggable'
 import { supabase } from '@/lib/supabase'
 
 const mentoradoSchema = z.object({
@@ -57,6 +58,10 @@ interface AddMentoradoModalProps {
 
 export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoModalProps) {
   const [loading, setLoading] = useState(false)
+  const { ref: draggableRef, isDragging } = useDraggable({
+    enabled: isOpen,
+    handle: '[data-drag-handle="mentorado-modal"]'
+  })
 
   const form = useForm<MentoradoFormData>({
     resolver: zodResolver(mentoradoSchema),
@@ -185,9 +190,18 @@ Vamos com tudo. 🔥`
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        ref={draggableRef}
+        className={`max-w-2xl max-h-[90vh] overflow-y-auto ${isDragging ? 'select-none' : ''}`}
+      >
         <DialogHeader>
-          <DialogTitle>Adicionar Novo Mentorado</DialogTitle>
+          <DialogTitle
+            data-drag-handle="mentorado-modal"
+            className="cursor-move flex items-center gap-2"
+          >
+            <span className="text-gray-400">⋮⋮</span>
+            Adicionar Novo Mentorado
+          </DialogTitle>
           <DialogDescription>
             Preencha os dados do novo mentorado.
           </DialogDescription>

@@ -6,6 +6,7 @@ import { MetricCard } from '@/components/ui/metric-card'
 import { DataTable } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { supabase } from '@/lib/supabase'
+import { useDraggable } from '@/hooks/use-draggable'
 import {
   Play,
   BookOpen,
@@ -87,6 +88,16 @@ export default function AdminVideosPage() {
   const [lessonForm, setLessonForm] = useState({ title: '', description: '', panda_video_embed_url: '', duration_minutes: 0, order_index: 1, module_id: '', is_active: true })
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+
+  // Draggable hooks for modals
+  const { ref: draggableModuleRef, isDragging: isModuleDragging } = useDraggable({
+    enabled: showModuleModal,
+    handle: '[data-drag-handle="module-modal"]'
+  })
+  const { ref: draggableLessonRef, isDragging: isLessonDragging } = useDraggable({
+    enabled: showLessonModal,
+    handle: '[data-drag-handle="lesson-modal"]'
+  })
 
   useEffect(() => {
     loadData()
@@ -851,9 +862,16 @@ export default function AdminVideosPage() {
       {/* Modal para Módulos */}
       {showModuleModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+          <div
+            ref={draggableModuleRef}
+            className={`bg-white rounded-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto ${isModuleDragging ? 'select-none' : ''}`}
+          >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-[#0F172A]">
+              <h3
+                data-drag-handle="module-modal"
+                className="text-lg font-semibold text-[#0F172A] cursor-move flex items-center gap-2"
+              >
+                <span className="text-gray-400">⋮⋮</span>
                 {selectedModule ? 'Editar Módulo' : 'Novo Módulo'}
               </h3>
               <button
@@ -950,9 +968,16 @@ export default function AdminVideosPage() {
       {/* Modal para Aulas */}
       {showLessonModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+          <div
+            ref={draggableLessonRef}
+            className={`bg-white rounded-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto ${isLessonDragging ? 'select-none' : ''}`}
+          >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-[#0F172A]">
+              <h3
+                data-drag-handle="lesson-modal"
+                className="text-lg font-semibold text-[#0F172A] cursor-move flex items-center gap-2"
+              >
+                <span className="text-gray-400">⋮⋮</span>
                 {selectedLesson ? 'Editar Aula' : 'Nova Aula'}
               </h3>
               <button

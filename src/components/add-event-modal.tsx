@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useDraggable } from '@/hooks/use-draggable'
 
 import { type Mentorado } from '@/lib/supabase'
 
@@ -45,6 +46,10 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate, selecte
   const [loading, setLoading] = useState(false)
   const [mentorados, setMentorados] = useState<Mentorado[]>([])
   const [leads, setLeads] = useState<Lead[]>([])
+  const { ref: draggableRef, isDragging } = useDraggable({
+    enabled: isOpen,
+    handle: '[data-drag-handle="event-modal"]'
+  })
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -229,9 +234,18 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate, selecte
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[525px]">
+      <DialogContent
+        ref={draggableRef}
+        className={`sm:max-w-[525px] ${isDragging ? 'select-none' : ''}`}
+      >
         <DialogHeader>
-          <DialogTitle>Novo Evento</DialogTitle>
+          <DialogTitle
+            data-drag-handle="event-modal"
+            className="cursor-move flex items-center gap-2"
+          >
+            <span className="text-gray-400">⋮⋮</span>
+            Novo Evento
+          </DialogTitle>
           <DialogDescription>
             Agendar um novo evento no calendário.
           </DialogDescription>
