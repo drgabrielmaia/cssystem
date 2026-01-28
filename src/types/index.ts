@@ -15,6 +15,9 @@ export interface Mentorado {
   rg?: string
   origem_conhecimento?: string
   data_inicio_mentoria?: string
+  pontuacao_total?: number // Nova: pontuação total do mentorado
+  genero?: string // Para ranking por gênero
+  especialidade?: string
   created_at: string
 }
 
@@ -47,6 +50,31 @@ export type FormularioTipo =
   | 'feedback-sessao'
   | 'avaliacao-final'
   | 'observacoes-gerais'
+
+// Interface para sistema de pontuação
+export interface PontuacaoMentorado {
+  id: string
+  mentorado_id: string
+  tipo_acao: 'indicacao' | 'aula_completa' | 'meta_atingida' | 'participacao_evento' | 'custom'
+  pontos: number
+  descricao: string
+  data_acao: string
+  criado_por?: string // ID do admin que adicionou
+  meta_data?: Record<string, any> // Dados extras como ID da indicação, etc.
+  mentorado?: { nome_completo: string } // Quando incluído via select
+  created_at: string
+}
+
+// Interface para ranking atualizada
+export interface RankingMentorado {
+  mentorado_id: string
+  nome_completo: string
+  pontuacao_total: number
+  total_indicacoes: number // Manter para compatibilidade
+  genero: string
+  especialidade?: string
+  posicao?: number
+}
 
 export interface DespesaMensal {
   id: string

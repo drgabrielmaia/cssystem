@@ -24,8 +24,11 @@ interface VideoModule {
 interface RankingMentorado {
   mentorado_id: string
   nome_completo: string
-  total_indicacoes: number
+  pontuacao_total: number
+  total_indicacoes: number // Manter para retrocompatibilidade
   genero: string
+  especialidade?: string
+  posicao?: number
 }
 
 
@@ -85,59 +88,44 @@ function MentoradoPageContent() {
 
   const loadRankingData = async () => {
     try {
-      console.log('🏆 Carregando ranking de indicações...')
+      console.log('🏆 Carregando ranking de pontuação...')
 
-      const { data: allMentorados, error: mentoradosError } = await supabase
-        .from('mentorados')
-        .select('id, nome_completo, organization_id, genero')
-        .eq('organization_id', '9c8c0033-15ea-4e33-a55f-28d81a19693b')
-        .order('nome_completo')
-
-      if (mentoradosError) {
-        console.error('❌ Erro ao carregar mentorados:', mentoradosError)
-        return
-      }
-
-      const { data: viewData, error: viewError } = await supabase
-        .from('view_dashboard_comissoes_mentorado')
-        .select(`
-          mentorado_id,
-          total_indicacoes
-        `)
-
-      if (viewError) {
-        console.error('❌ Erro ao carregar dados do ranking:', viewError)
-      }
-
-      const rankingFormatted = allMentorados?.map((mentoradoItem: any) => {
-        const rankingData = viewData?.find(item => item.mentorado_id === mentoradoItem.id)
-
-        return {
-          mentorado_id: mentoradoItem.id,
-          nome_completo: mentoradoItem.nome_completo,
-          total_indicacoes: rankingData?.total_indicacoes || 0,
-          genero: mentoradoItem.genero || 'nao_informado'
+      // Usar nova API de ranking baseada em pontuação
+      const response = await fetch('/api/ranking', {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
         }
-      }).sort((a, b) => b.total_indicacoes - a.total_indicacoes) || []
-
-      // Separar por gênero
-      const rankingMasc = rankingFormatted.filter(item => item.genero === 'masculino')
-        .sort((a, b) => b.total_indicacoes - a.total_indicacoes)
-
-      const rankingFem = rankingFormatted.filter(item => item.genero === 'feminino')
-        .sort((a, b) => b.total_indicacoes - a.total_indicacoes)
-
-      setRanking(rankingFormatted)
-      setRankingMasculino(rankingMasc)
-      setRankingFeminino(rankingFem)
-
-      console.log('✅ Ranking carregado:', {
-        total: rankingFormatted.length,
-        masculino: rankingMasc.length,
-        feminino: rankingFem.length
       })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const result = await response.json()
+
+      if (result.success) {
+        const { ranking } = result
+
+        // Usar dados da nova API
+        setRanking(ranking.geral)
+        setRankingMasculino(ranking.masculino)
+        setRankingFeminino(ranking.feminino)
+
+        console.log('✅ Ranking carregado:', {
+          total: ranking.geral.length,
+          masculino: ranking.masculino.length,
+          feminino: ranking.feminino.length,
+          total_pontos: result.stats.total_pontos
+        })
+      } else {
+        throw new Error(result.error || 'Erro na API')
+      }
+
     } catch (error) {
       console.error('❌ Erro ao carregar ranking:', error)
+      setRanking([])
+      setRankingMasculino([])
+      setRankingFeminino([])
     }
   }
 
@@ -392,8 +380,8 @@ function MentoradoPageContent() {
               <div className="flex items-center space-x-3">
                 <Trophy className="w-8 h-8 text-yellow-500" />
                 <div>
-                  <h2 className="text-2xl font-bold text-white">🏆 Ranking de Indicações por Categoria</h2>
-                  <p className="text-gray-400">Competição separada por gênero - prêmios para cada categoria!</p>
+                  <h2 className="text-2xl font-bold text-white">🏆 Ranking de Pontuação por Categoria</h2>
+                  <p className="text-gray-400">Competição por pontos: indicações, metas e participações!</p>
                 </div>
               </div>
               <button
@@ -449,7 +437,7 @@ function MentoradoPageContent() {
                             {mentoradoRank.nome_completo}
                           </div>
                           <div className="text-gray-400 text-xs">
-                            {mentoradoRank.total_indicacoes} indicação{mentoradoRank.total_indicacoes !== 1 ? 'ões' : ''}
+                            {mentoradoRank.pontuacao_total} pontos
                           </div>
                         </div>
 
@@ -459,7 +447,7 @@ function MentoradoPageContent() {
                           index === 2 ? 'text-amber-500' :
                           'text-white'
                         }`}>
-                          {mentoradoRank.total_indicacoes}
+                          {mentoradoRank.pontuacao_total}
                         </div>
                       </div>
                     ))}
@@ -511,7 +499,7 @@ function MentoradoPageContent() {
                             {mentoradoRank.nome_completo}
                           </div>
                           <div className="text-gray-400 text-xs">
-                            {mentoradoRank.total_indicacoes} indicação{mentoradoRank.total_indicacoes !== 1 ? 'ões' : ''}
+                            {mentoradoRank.pontuacao_total} pontos
                           </div>
                         </div>
 
@@ -521,7 +509,7 @@ function MentoradoPageContent() {
                           index === 2 ? 'text-amber-500' :
                           'text-white'
                         }`}>
-                          {mentoradoRank.total_indicacoes}
+                          {mentoradoRank.pontuacao_total}
                         </div>
                       </div>
                     ))}
@@ -553,8 +541,8 @@ function MentoradoPageContent() {
             >
               <Trophy className="w-8 h-8 text-yellow-500" />
               <div>
-                <h3 className="text-lg font-bold text-white">Mostrar Ranking de Indicações</h3>
-                <p className="text-gray-400 text-sm">Clique para ver o ranking competitivo</p>
+                <h3 className="text-lg font-bold text-white">Mostrar Ranking de Pontuação</h3>
+                <p className="text-gray-400 text-sm">Clique para ver o ranking por pontos</p>
               </div>
             </button>
           </div>
@@ -783,7 +771,7 @@ function MentoradoPageContent() {
                               {mentoradoRank.nome_completo}
                             </div>
                             <div className="text-gray-400 text-xs">
-                              {mentoradoRank.total_indicacoes} indicação{mentoradoRank.total_indicacoes !== 1 ? 'ões' : ''}
+                              {mentoradoRank.pontuacao_total} pontos
                             </div>
                           </div>
                         </div>
@@ -793,7 +781,7 @@ function MentoradoPageContent() {
                           index === 2 ? 'text-amber-400' :
                           'text-white'
                         }`}>
-                          {mentoradoRank.total_indicacoes}
+                          {mentoradoRank.pontuacao_total}
                         </div>
                       </div>
                     ))}
@@ -835,7 +823,7 @@ function MentoradoPageContent() {
                               {mentoradoRank.nome_completo}
                             </div>
                             <div className="text-gray-400 text-xs">
-                              {mentoradoRank.total_indicacoes} indicação{mentoradoRank.total_indicacoes !== 1 ? 'ões' : ''}
+                              {mentoradoRank.pontuacao_total} pontos
                             </div>
                           </div>
                         </div>
@@ -845,7 +833,7 @@ function MentoradoPageContent() {
                           index === 2 ? 'text-amber-400' :
                           'text-white'
                         }`}>
-                          {mentoradoRank.total_indicacoes}
+                          {mentoradoRank.pontuacao_total}
                         </div>
                       </div>
                     ))}
