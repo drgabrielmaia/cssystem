@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('📤 Iniciando upload de PDF fallback')
     const formData = await request.formData()
     const file = formData.get('file') as File
     const lessonId = formData.get('id') as string
@@ -59,6 +60,7 @@ export async function POST(request: NextRequest) {
     const fileName = `lesson-pdfs/${lessonId}-${Date.now()}-${file.name}`
 
     // Upload usando o cliente padrão (com anon key)
+    console.log('🔄 Tentando upload do arquivo:', fileName)
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('lesson-materials')
       .upload(fileName, fileBuffer, {
