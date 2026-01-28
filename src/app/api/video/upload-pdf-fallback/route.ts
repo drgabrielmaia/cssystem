@@ -90,7 +90,8 @@ export async function POST(request: NextRequest) {
 
     const pdfUrl = publicUrlData.publicUrl
 
-    // Atualizar a aula com os dados do PDF
+    // Atualizar a aula com os dados do PDF (retrocompatibilidade)
+    // Se a aula já tem um PDF, mantenha-o e adicione este como adicional
     const updateData = {
       pdf_url: pdfUrl,
       pdf_filename: file.name,

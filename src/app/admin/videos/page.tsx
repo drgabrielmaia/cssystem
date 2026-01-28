@@ -88,6 +88,8 @@ export default function AdminVideosPage() {
   const [lessonForm, setLessonForm] = useState({ title: '', description: '', panda_video_embed_url: '', duration_minutes: 0, order_index: 1, module_id: '', is_active: true })
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [lessonPdfs, setLessonPdfs] = useState<any[]>([])
+  const [loadingPdfs, setLoadingPdfs] = useState(false)
 
   // Draggable hooks for modals
   const { ref: draggableModuleRef, isDragging: isModuleDragging } = useDraggable({
@@ -356,6 +358,32 @@ export default function AdminVideosPage() {
     setShowModuleModal(true)
   }
 
+  // Carregar PDFs de uma aula
+  const loadLessonPdfs = async (lessonId: string) => {
+    setLoadingPdfs(true)
+    try {
+      // Primeiro, verificar se existe PDF no campo antigo (retrocompatibilidade)
+      const lesson = lessons.find(l => l.id === lessonId)
+      const pdfs = []
+
+      if (lesson?.pdf_url) {
+        pdfs.push({
+          id: 'legacy-pdf',
+          filename: lesson.pdf_filename || 'Material de apoio',
+          url: lesson.pdf_url,
+          size_bytes: lesson.pdf_size_bytes || 0,
+          uploaded_at: lesson.pdf_uploaded_at || new Date().toISOString()
+        })
+      }
+
+      setLessonPdfs(pdfs)
+    } catch (error) {
+      console.error('Erro ao carregar PDFs:', error)
+    } finally {
+      setLoadingPdfs(false)
+    }
+  }
+
   const openLessonModal = (lesson?: VideoLesson) => {
     if (lesson) {
       setSelectedLesson(lesson)
@@ -368,6 +396,7 @@ export default function AdminVideosPage() {
         module_id: lesson.module_id,
         is_active: lesson.is_active
       })
+      loadLessonPdfs(lesson.id)
     } else {
       setSelectedLesson(null)
       setLessonForm({
@@ -379,6 +408,7 @@ export default function AdminVideosPage() {
         module_id: modules[0]?.id || '',
         is_active: true
       })
+      setLessonPdfs([])
     }
     setShowLessonModal(true)
   }
@@ -405,6 +435,7 @@ export default function AdminVideosPage() {
         setSelectedFile(null)
         // Recarregar dados para mostrar o novo PDF
         await loadLessons()
+        await loadLessonPdfs(selectedLesson.id)
 
         // Atualizar o selectedLesson para mostrar o novo PDF
         const updatedLesson = lessons.find(l => l.id === selectedLesson.id)
@@ -448,6 +479,37 @@ export default function AdminVideosPage() {
     } catch (error) {
       console.error('Erro ao remover PDF:', error)
       alert('Erro ao remover PDF')
+    }
+  }
+
+  const handleRemoveSpecificPdf = async (pdfId: string, pdfUrl: string) => {
+    if (!selectedLesson) return
+
+    if (!confirm('Tem certeza que deseja remover este PDF?')) return
+
+    try {
+      setLoadingPdfs(true)
+
+      if (pdfId === 'legacy-pdf') {
+        // Remover PDF do campo antigo
+        const response = await fetch(`/api/video/upload-pdf-fallback?lesson_id=${selectedLesson.id}`, {
+          method: 'DELETE'
+        })
+
+        if (response.ok) {
+          alert('PDF removido com sucesso!')
+          await loadLessonPdfs(selectedLesson.id)
+          await loadLessons()
+        } else {
+          alert('Erro ao remover PDF')
+        }
+      }
+      // Aqui você pode adicionar remoção para novos PDFs quando implementar a tabela
+    } catch (error) {
+      console.error('Erro ao remover PDF:', error)
+      alert('Erro ao remover PDF')
+    } finally {
+      setLoadingPdfs(false)
     }
   }
 
@@ -1038,41 +1100,58 @@ export default function AdminVideosPage() {
 
               {/* Seção de Upload/Gerenciamento de PDF */}
               <div className="border-t border-[#E2E8F0] pt-4">
-                <label className="block text-sm font-medium text-[#374151] mb-2">Material de Apoio (PDF)</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-[#374151]">Materiais de Apoio (PDFs)</label>
+                  <span className="text-xs text-[#64748B]">
+                    {lessonPdfs.length > 0 ? `${lessonPdfs.length} arquivo(s)` : 'Nenhum arquivo'}
+                  </span>
+                </div>
 
-                {/* Mostrar PDF atual se existir */}
-                {selectedLesson?.pdf_url && (
-                  <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-green-600" />
-                        <span className="text-sm text-green-800">
-                          {selectedLesson.pdf_filename || 'Material anexado'}
-                        </span>
-                        {selectedLesson.pdf_size_bytes && (
-                          <span className="text-xs text-green-600">
-                            ({Math.round(selectedLesson.pdf_size_bytes / 1024)} KB)
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => window.open(selectedLesson.pdf_url, '_blank')}
-                          className="text-green-600 hover:text-green-800 transition-colors"
-                          title="Visualizar PDF"
-                        >
-                          <Download className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleRemovePdf(selectedLesson.id)}
-                          className="text-red-600 hover:text-red-800 transition-colors"
-                          title="Remover PDF"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
+                {/* Lista de PDFs existentes */}
+                {loadingPdfs ? (
+                  <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm text-gray-600">Carregando PDFs...</span>
                     </div>
                   </div>
+                ) : (
+                  lessonPdfs.map((pdf, index) => (
+                    <div key={pdf.id} className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-green-600" />
+                          <div className="flex flex-col">
+                            <span className="text-sm text-green-800 font-medium">
+                              {pdf.filename}
+                            </span>
+                            <div className="flex items-center gap-2 text-xs text-green-600">
+                              <span>({Math.round(pdf.size_bytes / 1024)} KB)</span>
+                              <span>•</span>
+                              <span>PDF {index + 1}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => window.open(pdf.url, '_blank')}
+                            className="text-green-600 hover:text-green-800 transition-colors p-1"
+                            title="Visualizar PDF"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleRemoveSpecificPdf(pdf.id, pdf.url)}
+                            className="text-red-600 hover:text-red-800 transition-colors p-1"
+                            title="Remover PDF"
+                            disabled={loadingPdfs}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
                 )}
 
                 {/* Upload de novo PDF */}
@@ -1089,7 +1168,7 @@ export default function AdminVideosPage() {
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer text-sm"
                   >
                     <Upload className="w-4 h-4" />
-                    {selectedLesson?.pdf_url ? 'Substituir PDF' : 'Adicionar PDF'}
+                    {lessonPdfs.length > 0 ? '+ Adicionar outro PDF' : 'Adicionar PDF'}
                   </label>
 
                   {selectedFile && (
@@ -1115,7 +1194,7 @@ export default function AdminVideosPage() {
                 </div>
 
                 <p className="text-xs text-[#64748B] mt-2">
-                  Arquivo PDF com material de apoio da aula (máximo 50MB)
+                  Adicione quantos PDFs de apoio desejar (máximo 50MB por arquivo)
                 </p>
               </div>
 
