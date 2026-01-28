@@ -42,13 +42,7 @@ export class ChunkErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.warn('ChunkErrorBoundary capturou erro:', error, errorInfo)
-
-    // Auto-reload se for erro de chunk
-    if (this.state.hasError && this.state.errorCount <= 3) {
-      this.retryTimeout = setTimeout(() => {
-        window.location.reload()
-      }, 1500)
-    }
+    // Não fazer nada - deixar erro aparecer normalmente
   }
 
   componentWillUnmount() {
@@ -63,9 +57,9 @@ export class ChunkErrorBoundary extends React.Component<
         this.props.fallback || (
           <div className="flex items-center justify-center min-h-[200px] p-4">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+              <div className="text-red-500 mb-4">⚠️</div>
               <p className="text-gray-400 text-sm">
-                Recarregando aplicação...
+                Erro ao carregar componente
               </p>
             </div>
           </div>
