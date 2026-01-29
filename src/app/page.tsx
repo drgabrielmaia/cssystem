@@ -238,8 +238,8 @@ export default function DashboardPage() {
       Promise.all([
         calculatePercentageChange(totalVendasPeriod, 'leads', 'valor_vendido'),
         calculatePercentageChange(newKpiData.total_mentorados, 'mentorados'),
-        calculatePercentageChange(newKpiData.checkins_agendados, 'events'), // assumindo tabela events para checkins
-        calculatePercentageChange(newKpiData.pendencias, 'pendencias'), // assumindo tabela pendencias
+        calculatePercentageChange(newKpiData.checkins_agendados, 'calendar_events'), // corrigido para calendar_events
+        calculatePercentageChange(newKpiData.pendencias, 'calendar_events'), // corrigido para calendar_events - não há tabela pendencias
         calculatePercentageChange(newKpiData.total_leads, 'calendar_events')
       ]).then(([vendasChange, mentoradosChange, checkinsChange, pendenciasChange, leadsChange]) => {
         setPercentageChanges({
@@ -438,7 +438,7 @@ export default function DashboardPage() {
 
       const { data: recentMentorados } = await supabase
         .from('mentorados')
-        .select('nome, email, created_at, updated_at')
+        .select('nome_completo, email, created_at, updated_at')
         .order('updated_at', { ascending: false })
         .limit(3)
 
@@ -462,8 +462,8 @@ export default function DashboardPage() {
       // Adicionar mentorados recentes
       recentMentorados?.forEach(mentorado => {
         activities.push({
-          id: `mentorado-${mentorado.nome}`,
-          name: mentorado.nome,
+          id: `mentorado-${mentorado.nome_completo}`,
+          name: mentorado.nome_completo,
           email: mentorado.email || 'Sem email',
           type: 'Check-in',
           date: formatTimeAgo(mentorado.updated_at),

@@ -58,12 +58,16 @@ export default function LoginPage() {
 
       // Login bem-sucedido - verificar se é usuário do financeiro
       try {
-        const { data: financeUser } = await supabase
+        const { data: financeUser, error: financeError } = await supabase
           .from('usuarios_financeiro')
           .select('*')
           .eq('email', email)
           .eq('ativo', true)
-          .single()
+          .maybeSingle()
+
+        if (financeError) {
+          console.log('Erro ao buscar usuário financeiro:', financeError.message)
+        }
 
         if (financeUser) {
           // É usuário do financeiro - salvar dados e redirecionar
