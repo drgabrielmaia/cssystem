@@ -1,3 +1,3 @@
 Force redeploy - fixing chunk loading issues
-Date: 2026-01-21
-Issue: Next.js chunks not loading properly on Bohr
+Date: 2026-01-29 15:42
+Issue: Next.js chunks 404 errors resolved with clean rebuild
