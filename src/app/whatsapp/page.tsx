@@ -64,7 +64,15 @@ export default function WhatsAppPage() {
     try {
       console.log('🔍 Verificando conexão WhatsApp...');
 
-      const response = await whatsappCoreAPI.getStatus();
+      // Timeout de 10 segundos
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout: API não respondeu')), 10000)
+      );
+
+      const response = await Promise.race([
+        whatsappCoreAPI.getStatus(),
+        timeoutPromise
+      ]);
 
       if (response.success && response.data?.isReady) {
         console.log('✅ WhatsApp CONECTADO!');
@@ -806,7 +814,7 @@ export default function WhatsAppPage() {
                       disabled={isSyncingChat}
                       title="Atualizar conversa"
                     >
-                      <RefreshCw className={`h-5 w-5 ${isSyncingChat ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={isSyncingChat ? 'spinner-sync' : 'h-5 w-5'} />
                     </Button>
                     <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 rounded-full h-10 w-10 p-0">
                       <Phone className="h-5 w-5" />
@@ -847,7 +855,7 @@ export default function WhatsAppPage() {
 
                               {/* Mensagem */}
                               <div
-                                className={`flex mb-1 ${message.isFromMe ? 'justify-end' : 'justify-start'}`}
+                                className={message.isFromMe ? 'message-me' : 'message-other'}
                               >
                                 <div className="flex flex-col max-w-xs lg:max-w-md">
                                   <div

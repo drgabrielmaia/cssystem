@@ -1,6 +1,6 @@
 'use client'
 
-type StatusType = 'confirmed' | 'pending' | 'cancelled' | 'completed' | 'new' | 'contacted' | 'scheduled' | 'hot' | 'converted' | 'lost'
+type StatusType = 'confirmed' | 'pending' | 'cancelled' | 'completed' | 'new' | 'contacted' | 'scheduled' | 'hot' | 'converted' | 'lost' | 'leaked'
 
 interface StatusBadgeProps {
   status: StatusType
@@ -19,6 +19,7 @@ export const StatusBadge = ({ status, label }: StatusBadgeProps) => {
     hot: { label: 'Quente', bg: 'bg-orange-100', text: 'text-orange-700', dot: 'bg-orange-500' },
     converted: { label: 'Convertido', bg: 'bg-[#DCFCE7]', text: 'text-[#22C55E]', dot: 'bg-[#22C55E]' },
     lost: { label: 'Perdido', bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-500' },
+    leaked: { label: 'Vazado', bg: 'bg-pink-100', text: 'text-pink-700', dot: 'bg-pink-500' },
   }
 
   const config = statusConfig[status] || statusConfig.pending

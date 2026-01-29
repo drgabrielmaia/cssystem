@@ -33,17 +33,7 @@ export async function POST(request: NextRequest) {
       // If RLS is blocking, try with service role client
       if (result.error.code === '42501') {
         // Create service role client to bypass RLS
-        const { createClient } = await import('@supabase/supabase-js')
-        const serviceClient = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!, // Service role key bypasses RLS
-          {
-            auth: {
-              autoRefreshToken: false,
-              persistSession: false
-            }
-          }
-        )
+        const { serviceClient } = await import('@/lib/supabase-service')
 
         const serviceResult = await serviceClient
           .from('lesson_notes')

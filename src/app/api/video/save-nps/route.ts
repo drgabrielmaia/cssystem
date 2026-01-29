@@ -18,17 +18,7 @@ async function ensureTemplateExists() {
     }
 
     // Se não existir, criar usando service role
-    const { createClient } = await import('@supabase/supabase-js')
-    const serviceClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
+    const { serviceClient } = await import('@/lib/supabase-service')
 
     const { data: newTemplate, error } = await serviceClient
       .from('video_form_templates')
@@ -131,17 +121,7 @@ export async function POST(request: NextRequest) {
       // If RLS is still blocking, try with service role client
       if (result.error.code === '42501') {
         // Create service role client to bypass RLS
-        const { createClient } = await import('@supabase/supabase-js')
-        const serviceClient = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!, // Service role key bypasses RLS
-          {
-            auth: {
-              autoRefreshToken: false,
-              persistSession: false
-            }
-          }
-        )
+        const { serviceClient } = await import('@/lib/supabase-service')
 
         let serviceResult
         if (existing) {

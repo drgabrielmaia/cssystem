@@ -86,6 +86,83 @@
   }
 }
 
+@layer components {
+  /* Classes estáticas para spinners e estados */
+  .spinner-sync {
+    @apply h-5 w-5 animate-spin;
+  }
+
+  .spinner-loading {
+    @apply animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500;
+  }
+
+  .message-me {
+    @apply flex mb-1 justify-end;
+  }
+
+  .message-other {
+    @apply flex mb-1 justify-start;
+  }
+
+  .status-hot {
+    @apply w-3 h-3 rounded-full bg-red-500 animate-pulse;
+  }
+
+  .status-warm {
+    @apply w-3 h-3 rounded-full bg-yellow-500;
+  }
+
+  .status-cold {
+    @apply w-3 h-3 rounded-full bg-blue-500;
+  }
+
+  .input-error {
+    @apply h-14 text-lg border-2 rounded-xl border-red-500 bg-red-50;
+  }
+
+  .input-normal {
+    @apply h-14 text-lg border-2 rounded-xl border-gray-200;
+  }
+
+  .drag-active {
+    @apply select-none;
+  }
+
+  .permission-admin {
+    @apply w-2 h-2 rounded-full bg-green-500;
+  }
+
+  .permission-limited {
+    @apply w-2 h-2 rounded-full bg-yellow-500;
+  }
+
+  /* Themes pré-definidos estáticos */
+  .theme-rolex {
+    --primary-color: #D4AF37;
+    --primary-rgb: 212, 175, 55;
+  }
+
+  .theme-dark {
+    --primary-color: #3B82F6;
+    --primary-rgb: 59, 130, 246;
+  }
+
+  .theme-light {
+    --primary-color: #10B981;
+    --primary-rgb: 16, 185, 129;
+  }
+
+  .theme-blue {
+    --primary-color: #2563EB;
+    --primary-rgb: 37, 99, 235;
+  }
+
+  .theme-green {
+    --primary-color: #059669;
+    --primary-rgb: 5, 150, 105;
+  }
+}
+
 /* ====== SEÇÃO METAS EXATA ====== */
 
 .goals-section {

@@ -173,7 +173,7 @@ export default function LeadsPage() {
     quente: 'hot',
     vendido: 'converted',
     perdido: 'lost',
-    vazado: 'cancelled'
+    vazado: 'leaked'
   }
 
   const origemColors = {
@@ -1633,6 +1633,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
             <option value="call_agendada">Call Agendada</option>
             <option value="proposta_enviada">Proposta Enviada</option>
             <option value="perdido">Perdido</option>
+            <option value="vazado">Vazado</option>
           </select>
         </div>
 
