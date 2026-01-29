@@ -20,7 +20,8 @@ import {
   LogOut,
   Menu,
   X,
-  Target
+  Target,
+  Trophy
 } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
@@ -40,6 +41,7 @@ const menuItems = [
   { icon: FileText, label: 'Respostas Forms', path: '/form-responses', badge: null },
   { icon: MessageCircle, label: 'WhatsApp', path: '/whatsapp', badge: 3 },
   { icon: Target, label: 'Metas', path: '/metas', badge: null },
+  { icon: Trophy, label: 'Pontuação', path: '/admin/pontuacao', badge: null },
 ]
 
 export const Sidebar = () => {

@@ -66,30 +66,10 @@ export default function FormResponsesPage() {
 
   const fetchSubmissions = async () => {
     try {
-      // Primeiro, obter a organização do usuário atual
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      console.log('🔍 Buscando respostas de formulários...')
 
-      if (userError || !user) {
-        console.error('Erro ao obter usuário:', userError)
-        setLoading(false)
-        return
-      }
-
-      // Buscar organization_id do usuário
-      const { data: orgUser, error: orgError } = await supabase
-        .from('organization_users')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single()
-
-      if (orgError || !orgUser) {
-        console.error('Usuário não pertence a nenhuma organização:', orgError)
-        setLoading(false)
-        return
-      }
-
-      // Buscar respostas apenas da organização do usuário
-      const { data, error } = await supabase
+      // Primeiro tentar buscar sem filtro de organização para ver se há dados
+      const { data: allSubmissions, error: allError } = await supabase
         .from('form_submissions')
         .select(`
           *,
@@ -97,8 +77,40 @@ export default function FormResponsesPage() {
           lead:leads(nome_completo, email, telefone),
           mentorado:mentorados(nome_completo, email)
         `)
-        .eq('organization_id', orgUser.organization_id)
         .order('created_at', { ascending: false })
+        .limit(50)
+
+      console.log('📊 Total de respostas encontradas:', allSubmissions?.length || 0)
+
+      if (allError) {
+        console.error('❌ Erro ao buscar todas as respostas:', allError)
+
+        // Fallback: tentar buscar apenas a tabela principal
+        const { data: simpleData, error: simpleError } = await supabase
+          .from('form_submissions')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(20)
+
+        if (simpleError) {
+          console.error('❌ Erro na busca simples:', simpleError)
+        } else {
+          console.log('✅ Busca simples encontrou:', simpleData?.length || 0, 'registros')
+          setSubmissions(simpleData || [])
+        }
+      } else {
+        setSubmissions(allSubmissions || [])
+      }
+
+      // Extrair templates únicos
+      if (allSubmissions && allSubmissions.length > 0) {
+        const templateSlugs = allSubmissions
+          .map(s => s.template_slug)
+          .filter(slug => slug && slug.trim() !== '')
+        const uniqueTemplates = templateSlugs.filter((slug, index) => templateSlugs.indexOf(slug) === index)
+        setTemplates(uniqueTemplates)
+        console.log('📝 Templates encontrados:', uniqueTemplates)
+      }
 
       if (error) {
         console.error('Erro ao buscar respostas:', error)
