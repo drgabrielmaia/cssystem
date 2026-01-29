@@ -12,6 +12,7 @@ import { useDateFilters } from '@/hooks/useDateFilters'
 import { DateFilters } from '@/components/date-filters'
 import {
   TrendingUp,
+  TrendingDown,
   Users,
   PhoneOff,
   DollarSign,
@@ -37,6 +38,7 @@ interface LeadsMetrics {
   total_leads: number
   leads_vendidos: number
   leads_nao_vendidos: number
+  leads_vazados: number
   leads_no_show: number
   leads_qualificados: number
   leads_agendados: number
@@ -143,6 +145,7 @@ export default function SocialSellerPage() {
       const totalLeads = leadsParaContar.length
       const leadsVendidos = leadsParaContar.filter(l => l.status === 'vendido').length
       const leadsNaoVendidos = leadsParaContar.filter(l => l.status === 'perdido').length
+      const leadsVazados = leadsParaContar.filter(l => l.status === 'vazado').length
       const leadsNoShow = leadsParaContar.filter(l => l.status === 'no-show').length
       const leadsQualificados = leadsParaContar.filter(l => l.status === 'qualificado').length
       const leadsAgendados = leadsParaContar.filter(l => l.status === 'agendado').length
@@ -162,6 +165,7 @@ export default function SocialSellerPage() {
         total_leads: totalLeads,
         leads_vendidos: leadsVendidos,
         leads_nao_vendidos: leadsNaoVendidos,
+        leads_vazados: leadsVazados,
         leads_no_show: leadsNoShow,
         leads_qualificados: leadsQualificados,
         leads_agendados: leadsAgendados,
@@ -242,6 +246,8 @@ export default function SocialSellerPage() {
           return lead.status === 'vendido'
         case 'nao-vendido':
           return lead.status === 'perdido'
+        case 'vazado':
+          return lead.status === 'vazado'
         case 'no-show':
           return lead.status === 'no-show'
         case 'qualificado':
@@ -286,6 +292,7 @@ export default function SocialSellerPage() {
       { name: 'Vendidos', value: metrics.leads_vendidos, color: '#10b981' },
       { name: 'Quentes', value: metrics.leads_quentes, color: '#f59e0b' },
       { name: 'Não Vendidos', value: metrics.leads_nao_vendidos, color: '#ef4444' },
+      { name: 'Vazados', value: metrics.leads_vazados, color: '#6366f1' },
     ].filter(item => item.value > 0)
   }
 
@@ -521,6 +528,23 @@ export default function SocialSellerPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="border-indigo-200 bg-indigo-50/50">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Vazados</p>
+                  <p className="text-2xl font-bold text-indigo-600">
+                    {metrics?.leads_vazados || 0}
+                  </p>
+                  <p className="text-xs text-indigo-500 font-medium">
+                    {metrics?.total_leads ? ((metrics.leads_vazados / metrics.total_leads) * 100).toFixed(1) : 0}% do total
+                  </p>
+                </div>
+                <TrendingDown className="h-8 w-8 text-indigo-500" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Cards de Valores */}
@@ -695,6 +719,11 @@ export default function SocialSellerPage() {
                     <div className="text-2xl font-bold text-red-600">{metrics?.leads_nao_vendidos || 0}</div>
                     <div className="text-sm text-gray-600">Não Vendidos</div>
                   </div>
+                  {/* 7. Vazados */}
+                  <div className="text-center p-4 bg-indigo-50 rounded-lg">
+                    <div className="text-2xl font-bold text-indigo-600">{metrics?.leads_vazados || 0}</div>
+                    <div className="text-sm text-gray-600">Vazados</div>
+                  </div>
                 </div>
                 <div className="text-center p-4 bg-purple-50 rounded-lg">
                   <div className="text-3xl font-bold text-purple-600">{metrics?.taxa_conversao || 0}%</div>
@@ -764,6 +793,8 @@ export default function SocialSellerPage() {
                                 ? 'bg-green-100 text-green-800'
                                 : lead.status === 'perdido'
                                 ? 'bg-red-100 text-red-800'
+                                : lead.status === 'vazado'
+                                ? 'bg-blue-100 text-blue-800'
                                 : lead.status === 'no-show'
                                 ? 'bg-orange-100 text-orange-800'
                                 : lead.status === 'quente'

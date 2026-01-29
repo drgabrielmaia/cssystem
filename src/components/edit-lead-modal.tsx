@@ -132,7 +132,8 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
     { value: 'proposta', label: 'Proposta' },
     { value: 'negociacao', label: 'Negociação' },
     { value: 'vendido', label: 'Vendido' },
-    { value: 'perdido', label: 'Perdido' }
+    { value: 'perdido', label: 'Perdido' },
+    { value: 'vazado', label: 'Vazado' }
   ]
 
   if (!lead) return null

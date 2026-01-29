@@ -172,7 +172,8 @@ export default function LeadsPage() {
     agendado: 'scheduled',
     quente: 'hot',
     vendido: 'converted',
-    perdido: 'lost'
+    perdido: 'lost',
+    vazado: 'cancelled'
   }
 
   const origemColors = {

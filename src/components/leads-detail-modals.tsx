@@ -101,6 +101,7 @@ export function LeadsDetailModal({ isOpen, onClose, title, status, leads: allLea
       'proposta_enviada': 'bg-amber-500',
       'vendido': 'bg-green-600',
       'perdido': 'bg-red-500',
+      'vazado': 'bg-blue-500',
       'no_show': 'bg-gray-500'
     }
     return colors[status] || 'bg-gray-400'
