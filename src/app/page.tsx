@@ -172,6 +172,7 @@ export default function DashboardPage() {
 
       const callsVendidas = leadsForCalls?.filter(lead => lead.status === 'vendido').length || 0
       const callsNaoVendidas = leadsForCalls?.filter(lead => lead.status === 'perdido').length || 0
+      // Vazado não conta nas calls realizadas
 
       const callsMetrics = {
         calls_vendidas: callsVendidas,

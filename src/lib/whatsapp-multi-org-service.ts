@@ -44,11 +44,14 @@ class MultiOrgWhatsAppService {
   private readonly CONNECTION_TIMEOUT = 10000; // 10 seconds
 
   async getOrCreateConnection(organizationId: string): Promise<WhatsAppOrgConnection> {
+    console.log(`🔍 [DEBUG] getOrCreateConnection chamado para org: ${organizationId}`);
     let connection = this.connections.get(organizationId);
+    console.log(`🔍 [DEBUG] Conexão existente encontrada: ${connection ? 'SIM' : 'NÃO'}`);
 
     if (!connection) {
-      console.log(`🚀 Criando nova conexão WhatsApp para organização: ${organizationId}`);
+      console.log(`🚀 [DEBUG] Criando nova conexão WhatsApp para organização: ${organizationId}`);
 
+      console.log(`🔧 [DEBUG] Configurando cliente WhatsApp para org: ${organizationId}`);
       const client = new Client({
         authStrategy: new LocalAuth({
           clientId: `whatsapp-org-${organizationId}`,
@@ -68,6 +71,7 @@ class MultiOrgWhatsAppService {
           ]
         }
       });
+      console.log(`✅ [DEBUG] Cliente WhatsApp criado para org: ${organizationId}`);
 
       connection = {
         organizationId,
@@ -80,10 +84,13 @@ class MultiOrgWhatsAppService {
         contacts: []
       };
 
+      console.log(`🔗 [DEBUG] Configurando event listeners para org: ${organizationId}`);
       this.setupEventListeners(connection);
       this.connections.set(organizationId, connection);
+      console.log(`💾 [DEBUG] Conexão armazenada para org: ${organizationId}`);
     }
 
+    console.log(`🔄 [DEBUG] Retornando conexão para org: ${organizationId}, status: ready=${connection.isReady}, connecting=${connection.isConnecting}`);
     return connection;
   }
 
@@ -91,14 +98,17 @@ class MultiOrgWhatsAppService {
     const { client, organizationId } = connection;
 
     client.on('qr', (qr) => {
-      console.log(`📱 QR Code gerado para organização ${organizationId}`);
+      console.log(`📱 [DEBUG] QR Code gerado para organização ${organizationId}`);
+      console.log(`🔍 [DEBUG] QR Code length: ${qr.length}, starting with: ${qr.substring(0, 20)}...`);
       connection.qrCode = qr;
       connection.isConnecting = true;
 
       // Set timeout for connection
+      console.log(`⏰ [DEBUG] Configurando timeout de conexão para org: ${organizationId}`);
       this.setConnectionTimeout(connection);
 
       QRCode.generate(qr, { small: true });
+      console.log(`📡 [DEBUG] Notificando listeners sobre QR gerado para org: ${organizationId}`);
       this.notifyStatusListeners(organizationId, 'qr_generated', { qr });
     });
 
@@ -176,14 +186,17 @@ class MultiOrgWhatsAppService {
   }
 
   private setConnectionTimeout(connection: WhatsAppOrgConnection) {
+    console.log(`⏰ [DEBUG] setConnectionTimeout iniciado para org: ${connection.organizationId}`);
     this.clearConnectionTimeout(connection);
 
     connection.connectionTimeout = setTimeout(() => {
+      console.log(`⏰ [DEBUG] Timeout executado para org: ${connection.organizationId}, isConnecting: ${connection.isConnecting}, isReady: ${connection.isReady}`);
       if (connection.isConnecting && !connection.isReady) {
-        console.log(`⏰ Timeout de conexão para organização ${connection.organizationId} - reconectando...`);
+        console.log(`⏰ [DEBUG] Timeout de conexão para organização ${connection.organizationId} - reconectando...`);
         this.reconnect(connection.organizationId);
       }
     }, this.CONNECTION_TIMEOUT);
+    console.log(`⏰ [DEBUG] Timeout configurado para org: ${connection.organizationId} com ${this.CONNECTION_TIMEOUT}ms`);
   }
 
   private clearConnectionTimeout(connection: WhatsAppOrgConnection) {
@@ -291,27 +304,31 @@ class MultiOrgWhatsAppService {
 
   // Public Methods
   async connect(organizationId: string): Promise<void> {
+    console.log(`🚀 [DEBUG] connect() chamado para org: ${organizationId}`);
     const connection = await this.getOrCreateConnection(organizationId);
+    console.log(`🔍 [DEBUG] Conexão obtida, status: ready=${connection.isReady}, connecting=${connection.isConnecting}`);
 
     if (connection.isReady) {
-      console.log(`✅ WhatsApp já está conectado para organização: ${organizationId}`);
+      console.log(`✅ [DEBUG] WhatsApp já está conectado para organização: ${organizationId}`);
       return;
     }
 
     if (connection.isConnecting) {
-      console.log(`⏳ Conexão já em andamento para organização: ${organizationId}`);
+      console.log(`⏳ [DEBUG] Conexão já em andamento para organização: ${organizationId}`);
       return;
     }
 
     try {
-      console.log(`🚀 Conectando WhatsApp para organização: ${organizationId}`);
+      console.log(`🚀 [DEBUG] Conectando WhatsApp para organização: ${organizationId}`);
       connection.isConnecting = true;
       connection.lastConnectionAttempt = Date.now();
+      console.log(`⏰ [DEBUG] LastConnectionAttempt atualizado para: ${connection.lastConnectionAttempt}`);
 
+      console.log(`🔄 [DEBUG] Chamando client.initialize() para org: ${organizationId}`);
       await connection.client.initialize();
-      console.log(`📱 Cliente WhatsApp inicializado para ${organizationId} - aguardando conexão...`);
+      console.log(`📱 [DEBUG] Cliente WhatsApp inicializado para ${organizationId} - aguardando conexão...`);
     } catch (error) {
-      console.error(`❌ Erro ao conectar WhatsApp para ${organizationId}:`, error);
+      console.error(`❌ [DEBUG] Erro ao conectar WhatsApp para ${organizationId}:`, error);
       connection.isConnecting = false;
       throw error;
     }

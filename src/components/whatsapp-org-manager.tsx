@@ -36,10 +36,17 @@ export function WhatsAppOrgManager({ organizationId, organizationName }: WhatsAp
 
   const checkConnectionStatus = async () => {
     try {
+      console.log(`🔍 [DEBUG-REACT] checkConnectionStatus para org: ${organizationId}`);
       const response = await fetch(`/api/whatsapp/connect?organizationId=${organizationId}`);
       const data = await response.json();
+      console.log(`📊 [DEBUG-REACT] Response status: ${response.status}, data:`, data);
 
       if (response.ok) {
+        console.log(`✅ [DEBUG-REACT] Status OK, atualizando state:`, {
+          isReady: data.isReady,
+          isConnecting: data.isConnecting,
+          hasQrCode: !!data.qrCode
+        });
         setConnection({
           organizationId,
           isReady: data.isReady,
@@ -54,10 +61,12 @@ export function WhatsAppOrgManager({ organizationId, organizationName }: WhatsAp
   };
 
   const connect = async () => {
+    console.log(`🚀 [DEBUG-REACT] connect() iniciado para org: ${organizationId}`);
     setLoading(true);
     setError(null);
 
     try {
+      console.log(`📡 [DEBUG-REACT] Enviando POST para /api/whatsapp/connect`);
       const response = await fetch('/api/whatsapp/connect', {
         method: 'POST',
         headers: {
@@ -67,16 +76,21 @@ export function WhatsAppOrgManager({ organizationId, organizationName }: WhatsAp
       });
 
       const data = await response.json();
+      console.log(`📊 [DEBUG-REACT] POST Response status: ${response.status}, data:`, data);
 
       if (response.ok) {
+        console.log(`✅ [DEBUG-REACT] Conexão iniciada, atualizando state para isConnecting: true`);
         setConnection(prev => ({ ...prev, isConnecting: true }));
 
         // Aguardar um pouco e verificar o QR code
+        console.log(`⏰ [DEBUG-REACT] Agendando checkConnectionStatus em 2s`);
         setTimeout(checkConnectionStatus, 2000);
       } else {
+        console.error(`❌ [DEBUG-REACT] Erro na resposta:`, data);
         setError(data.message || 'Erro ao conectar');
       }
     } catch (error) {
+      console.error(`❌ [DEBUG-REACT] Erro no fetch:`, error);
       setError('Erro ao conectar WhatsApp');
       console.error('Erro:', error);
     } finally {
