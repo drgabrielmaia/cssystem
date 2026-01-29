@@ -9,7 +9,7 @@ import { Loader2, Smartphone, CheckCircle, AlertCircle, RefreshCw } from 'lucide
 
 export function WhatsAppQRReader() {
   const searchParams = useSearchParams();
-  const userId = searchParams.get('userId') || 'kellybsantoss@icloud.com';
+  const userId = searchParams.get('userId') || 'default';
 
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
   const [qrData, setQRData] = useState<QRCodeData | null>(null);
@@ -18,61 +18,92 @@ export function WhatsAppQRReader() {
 
   const fetchStatus = async () => {
     try {
-      const response = await whatsappCoreAPI.getStatus();
-      if (response.success && response.data) {
-        setStatus(response.data);
+      console.log('🔍 [DEBUG-QR] Buscando status para userId:', userId);
+
+      // Usar API direta do Baileys
+      const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br';
+      const response = await fetch(`${apiUrl}/users/${userId}/status`);
+      const data = await response.json();
+
+      console.log('📊 [DEBUG-QR] Response status API:', response.status, data);
+
+      if (data.success && data.data) {
+        setStatus(data.data);
         setError(null);
 
         // Se usuário não está registrado, registrar automaticamente
-        if (!response.data.registered) {
-          console.log('Usuário não registrado. Registrando automaticamente...');
+        if (!data.data.registered) {
+          console.log('🔄 [DEBUG-QR] Usuário não registrado. Registrando automaticamente...');
           await registerUser();
         }
       } else {
-        setError(response.error || 'Erro ao buscar status');
+        setError(data.error || 'Erro ao buscar status');
       }
     } catch (err) {
+      console.error('❌ [DEBUG-QR] Erro ao buscar status:', err);
       setError('Erro de conexão com a API');
     }
   };
 
   const registerUser = async () => {
     try {
-      console.log('Registrando usuário:', userId);
-      const response = await whatsappCoreAPI.registerUser();
-      if (response.success) {
-        console.log('Usuário registrado com sucesso');
+      console.log('🔄 [DEBUG-QR] Registrando usuário:', userId);
+
+      // Usar API direta do Baileys
+      const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br';
+      const response = await fetch(`${apiUrl}/users/${userId}/register`, {
+        method: 'POST'
+      });
+      const data = await response.json();
+
+      console.log('📊 [DEBUG-QR] Response register API:', response.status, data);
+
+      if (data.success) {
+        console.log('✅ [DEBUG-QR] Usuário registrado com sucesso');
         // Aguardar um pouco antes de buscar status novamente
         setTimeout(() => {
           fetchStatus();
         }, 1000);
       } else {
-        setError(response.error || 'Erro ao registrar usuário');
+        setError(data.error || 'Erro ao registrar usuário');
       }
     } catch (err) {
+      console.error('❌ [DEBUG-QR] Erro ao registrar:', err);
       setError('Erro ao registrar usuário');
     }
   };
 
   const fetchQRCode = async () => {
     try {
+      console.log('🔍 [DEBUG-QR] Buscando QR Code para userId:', userId);
+
       // Só buscar QR se o usuário estiver registrado e não conectado
       if (!status?.registered || status?.isReady) {
+        console.log('🔍 [DEBUG-QR] Usuário não registrado ou já conectado, pulando QR');
         return;
       }
 
-      const response = await whatsappCoreAPI.getQRCode();
-      if (response.success && response.data) {
-        setQRData(response.data);
+      // Usar API direta do Baileys
+      const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br';
+      const response = await fetch(`${apiUrl}/users/${userId}/qr`);
+      const data = await response.json();
+
+      console.log('📊 [DEBUG-QR] Response QR API:', response.status, data);
+
+      if (data.success && data.data) {
+        console.log('✅ [DEBUG-QR] QR Code obtido com sucesso, length:', data.data.qr?.length);
+        setQRData(data.data);
         setError(null);
       } else {
+        console.log('⚠️ [DEBUG-QR] Sem QR disponível:', data.error);
         setQRData(null);
         // Não definir como erro se não há QR disponível
-        if (response.error !== 'QR Code não disponível') {
-          setError(response.error || 'Erro ao buscar QR Code');
+        if (data.error !== 'QR Code não disponível') {
+          setError(data.error || 'Erro ao buscar QR Code');
         }
       }
     } catch (err) {
+      console.error('❌ [DEBUG-QR] Erro ao buscar QR:', err);
       setError('Erro de conexão com a API');
     }
   };
