@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+// Force redeploy 2026-01-29 15:47 - Fixing 404 chunks
 const nextConfig = {
   images: {
     unoptimized: true
