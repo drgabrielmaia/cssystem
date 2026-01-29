@@ -108,6 +108,7 @@ const modules = [
     color: '#DAA520',
     items: [
       { name: 'Calendário', href: '/calendario', icon: Calendar, description: 'Agendar eventos' },
+      { name: 'Config. Agenda', href: '/calendar-settings', icon: Settings, description: 'Configurar horários disponíveis' },
       { name: 'Form Builder', href: '/form-builder', icon: Wrench, description: 'Criar formulários' },
       { name: 'Respostas Forms', href: '/form-responses', icon: Eye, description: 'Ver respostas' },
     ]

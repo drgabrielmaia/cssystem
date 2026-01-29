@@ -49,10 +49,9 @@ export function CalendarSettingsComponent() {
   const [settings, setSettings] = useState<CalendarSettings>({
     available_days: [1, 2, 3, 4, 5], // Seg a Sex por padrão
     time_slots: [
-      { start: '09:00', end: '12:00', duration: 60 },
-      { start: '14:00', end: '19:00', duration: 60 }
+      { start: '09:00', end: '18:00', duration: 60 } // Horário corrido sem almoço
     ],
-    lunch_break: { start: '12:00', end: '14:00' },
+    lunch_break: { start: '', end: '' }, // Sem almoço por padrão
     advance_booking_days: 1, // min 1 dia de antecedência
     max_booking_days: 30, // máx 30 dias no futuro
     timezone: 'America/Sao_Paulo'
@@ -127,14 +126,18 @@ export function CalendarSettingsComponent() {
       }
     }
 
-    // Filtrar horários durante o almoço
-    const lunchStart = new Date(`2000-01-01T${settings.lunch_break.start}:00`)
-    const lunchEnd = new Date(`2000-01-01T${settings.lunch_break.end}:00`)
+    // Filtrar horários durante o almoço (só se estiver configurado)
+    if (settings.lunch_break.start && settings.lunch_break.end) {
+      const lunchStart = new Date(`2000-01-01T${settings.lunch_break.start}:00`)
+      const lunchEnd = new Date(`2000-01-01T${settings.lunch_break.end}:00`)
 
-    return slots.filter(slot => {
-      const slotTime = new Date(`2000-01-01T${slot}:00`)
-      return slotTime < lunchStart || slotTime >= lunchEnd
-    })
+      return slots.filter(slot => {
+        const slotTime = new Date(`2000-01-01T${slot}:00`)
+        return slotTime < lunchStart || slotTime >= lunchEnd
+      })
+    }
+
+    return slots
   }
 
   const addTimeSlot = () => {
@@ -258,7 +261,9 @@ export function CalendarSettingsComponent() {
 
           {/* Horário de Almoço */}
           <div>
-            <Label className="text-base font-medium mb-3 block">Horário de Almoço</Label>
+            <Label className="text-base font-medium mb-3 block">
+              Horário de Almoço <span className="text-sm text-gray-500 font-normal">(opcional)</span>
+            </Label>
             <div className="flex items-center space-x-3">
               <Input
                 type="time"
@@ -369,14 +374,13 @@ export function useCalendarSettings() {
       if (userSettings?.calendar_settings) {
         setSettings(userSettings.calendar_settings)
       } else {
-        // Configurações padrão
+        // Configurações padrão (sem almoço)
         setSettings({
           available_days: [1, 2, 3, 4, 5],
           time_slots: [
-            { start: '09:00', end: '12:00', duration: 60 },
-            { start: '14:00', end: '19:00', duration: 60 }
+            { start: '09:00', end: '18:00', duration: 60 }
           ],
-          lunch_break: { start: '12:00', end: '14:00' },
+          lunch_break: { start: '', end: '' },
           advance_booking_days: 1,
           max_booking_days: 30,
           timezone: 'America/Sao_Paulo'
@@ -407,14 +411,18 @@ export function useCalendarSettings() {
       }
     }
 
-    // Filtrar horários durante o almoço
-    const lunchStart = new Date(`2000-01-01T${settings.lunch_break.start}:00`)
-    const lunchEnd = new Date(`2000-01-01T${settings.lunch_break.end}:00`)
+    // Filtrar horários durante o almoço (só se estiver configurado)
+    if (settings.lunch_break.start && settings.lunch_break.end) {
+      const lunchStart = new Date(`2000-01-01T${settings.lunch_break.start}:00`)
+      const lunchEnd = new Date(`2000-01-01T${settings.lunch_break.end}:00`)
 
-    return slots.filter(slot => {
-      const slotTime = new Date(`2000-01-01T${slot}:00`)
-      return slotTime < lunchStart || slotTime >= lunchEnd
-    })
+      return slots.filter(slot => {
+        const slotTime = new Date(`2000-01-01T${slot}:00`)
+        return slotTime < lunchStart || slotTime >= lunchEnd
+      })
+    }
+
+    return slots
   }
 
   return {

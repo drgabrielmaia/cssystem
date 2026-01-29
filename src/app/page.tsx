@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { AuthGuard } from '@/components/AuthGuard'
 import { PageLayout } from '@/components/ui/page-layout'
 import { KPICardVibrant } from '@/components/ui/kpi-card-vibrant'
 import { MetricCard } from '@/components/ui/metric-card'
@@ -621,7 +622,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <PageLayout title="Dashboard" subtitle="Visão geral do Customer Success">
+    <AuthGuard>
+      <PageLayout title="Dashboard" subtitle="Visão geral do Customer Success">
       {/* Filtros de Período */}
       <div className="mb-8">
         <PeriodFilter selected={selectedPeriod} onChange={setSelectedPeriod} />
@@ -971,5 +973,6 @@ export default function DashboardPage() {
         data={recentActivity}
       />
     </PageLayout>
+    </AuthGuard>
   )
 }

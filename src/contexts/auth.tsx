@@ -22,16 +22,85 @@ export function useAuth() {
   return context
 }
 
+const AUTH_STORAGE_KEY = 'customer_success_auth'
+const ORG_STORAGE_KEY = 'customer_success_org'
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isInitialized, setIsInitialized] = useState(false)
   const router = useRouter()
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
+
+  // Função para salvar dados de auth no localStorage
+  const saveAuthData = (user: User, orgId?: string) => {
+    try {
+      const authData = {
+        user: {
+          id: user.id,
+          email: user.email,
+          created_at: user.created_at,
+          app_metadata: user.app_metadata,
+          user_metadata: user.user_metadata
+        },
+        organization_id: orgId,
+        timestamp: Date.now(),
+        expires_at: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 dias
+      }
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData))
+      if (orgId) {
+        localStorage.setItem(ORG_STORAGE_KEY, orgId)
+      }
+      console.log('💾 Auth data salva no localStorage')
+    } catch (error) {
+      console.error('❌ Erro ao salvar auth data:', error)
+    }
+  }
+
+  // Função para carregar dados de auth do localStorage
+  const loadAuthData = (): { user: User | null, organizationId: string | null } => {
+    try {
+      const stored = localStorage.getItem(AUTH_STORAGE_KEY)
+      const storedOrg = localStorage.getItem(ORG_STORAGE_KEY)
+
+      if (!stored) return { user: null, organizationId: null }
+
+      const authData = JSON.parse(stored)
+
+      // Verificar se não expirou
+      if (authData.expires_at && Date.now() > authData.expires_at) {
+        console.log('🕒 Auth data expirada, removendo...')
+        localStorage.removeItem(AUTH_STORAGE_KEY)
+        localStorage.removeItem(ORG_STORAGE_KEY)
+        return { user: null, organizationId: null }
+      }
+
+      console.log('📂 Auth data carregada do localStorage')
+      return {
+        user: authData.user as User,
+        organizationId: authData.organization_id || storedOrg
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar auth data:', error)
+      return { user: null, organizationId: null }
+    }
+  }
+
+  // Função para limpar dados de auth
+  const clearAuthData = () => {
+    try {
+      localStorage.removeItem(AUTH_STORAGE_KEY)
+      localStorage.removeItem(ORG_STORAGE_KEY)
+      console.log('🗑️ Auth data removida do localStorage')
+    } catch (error) {
+      console.error('❌ Erro ao limpar auth data:', error)
+    }
+  }
 
   useEffect(() => {
     // Check for custom admin auth cookie
@@ -57,21 +126,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Get initial session
     const getInitialSession = async () => {
-      // First check for admin cookie
-      if (checkAdminAuth()) {
-        return
-      }
+      try {
+        console.log('🔍 Verificando sessão inicial...')
 
-      // Then check Supabase session
-      const { data: { session } } = await supabase.auth.getSession()
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
+        // 1. First check for admin cookie
+        if (checkAdminAuth()) {
+          setIsInitialized(true)
+          return
+        }
 
-      // Get organization for the user
-      if (currentUser) {
-        await getOrganizationForUser(currentUser)
+        // 2. Check localStorage primeiro (mais rápido)
+        const { user: storedUser, organizationId: storedOrg } = loadAuthData()
+
+        if (storedUser) {
+          console.log('⚡ Carregando do localStorage (rápido)')
+          setUser(storedUser)
+          setOrganizationId(storedOrg)
+          setLoading(false)
+          setIsInitialized(true)
+
+          // Verificar sessão do Supabase em background para validar
+          supabase.auth.getSession().then(({ data: { session }, error }) => {
+            if (error || !session) {
+              console.log('🔄 Sessão Supabase inválida, fazendo login...')
+              clearAuthData()
+              setUser(null)
+              setOrganizationId(null)
+            }
+          })
+          return
+        }
+
+        // 3. Fallback: Check Supabase session (mais lento)
+        console.log('🔄 Verificando sessão Supabase...')
+        const { data: { session }, error } = await supabase.auth.getSession()
+
+        if (error) {
+          console.error('❌ Erro ao buscar sessão:', error)
+          setUser(null)
+          setOrganizationId(null)
+          setLoading(false)
+          setIsInitialized(true)
+          return
+        }
+
+        const currentUser = session?.user ?? null
+        console.log('👤 Usuário Supabase encontrado:', currentUser ? 'SIM' : 'NÃO')
+
+        if (currentUser) {
+          setUser(currentUser)
+
+          // Get organization for the user
+          const orgId = await getOrganizationForUser(currentUser)
+
+          // Salvar no localStorage para próximas vezes
+          saveAuthData(currentUser, orgId || undefined)
+        } else {
+          setUser(null)
+          setOrganizationId(null)
+        }
+
+        setLoading(false)
+        setIsInitialized(true)
+
+      } catch (error) {
+        console.error('❌ Erro na verificação inicial:', error)
+        clearAuthData()
+        setUser(null)
+        setOrganizationId(null)
+        setLoading(false)
+        setIsInitialized(true)
       }
-      setLoading(false)
     }
 
     getInitialSession()
@@ -79,156 +204,86 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Auth state changed:', event, 'Initialized:', isInitialized)
+
+      // Skip if not initialized yet
+      if (!isInitialized) return
+
       // Only update if no admin cookie exists
       if (!document.cookie.includes('admin_auth=true')) {
         const currentUser = session?.user ?? null
-        setUser(currentUser)
+        console.log('👤 Usuário atualizado:', currentUser ? 'SIM' : 'NÃO')
 
-        // Get organization for the user
         if (currentUser) {
-          await getOrganizationForUser(currentUser)
+          setUser(currentUser)
+
+          // Get organization for the user
+          const orgId = await getOrganizationForUser(currentUser)
+
+          // Salvar no localStorage
+          saveAuthData(currentUser, orgId || undefined)
         } else {
+          setUser(null)
           setOrganizationId(null)
+
+          // Limpar localStorage quando logout
+          if (event === 'SIGNED_OUT') {
+            clearAuthData()
+          }
         }
       }
+
       setLoading(false)
     })
 
-    // Listen for cookie changes (for admin login)
-    const handleStorageChange = () => {
-      checkAdminAuth()
-    }
-
-    // Check for cookie changes periodically (fallback)
-    const intervalId = setInterval(checkAdminAuth, 1000)
-
-    // Listen for custom events (we'll dispatch these on login)
-    window.addEventListener('adminLoginSuccess', checkAdminAuth)
-    window.addEventListener('storage', handleStorageChange)
-
+    // Cleanup para evitar memory leaks
     return () => {
       subscription.unsubscribe()
-      clearInterval(intervalId)
-      window.removeEventListener('adminLoginSuccess', checkAdminAuth)
-      window.removeEventListener('storage', handleStorageChange)
     }
-  }, [supabase.auth])
+  }, [supabase.auth, isInitialized])
 
   const signOut = async () => {
     console.log('🚪 Iniciando logout...')
+    setLoading(true)
 
     try {
-      // 1. Tentar logout do Supabase (mas não esperar se travar)
-      const logoutPromise = supabase.auth.signOut()
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), 2000)
-      )
-
-      try {
-        await Promise.race([logoutPromise, timeoutPromise])
-        console.log('✅ Logout Supabase OK')
-      } catch (e) {
-        console.log('⏰ Logout Supabase timeout/erro, continuando...')
-      }
-
-      // 2. Limpar TODOS os cookies possíveis (agressivo)
-      const cookies = document.cookie.split(";")
-      cookies.forEach(cookie => {
-        const eqPos = cookie.indexOf("=")
-        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim()
-
-        // Limpar em todos os paths e domínios possíveis
-        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
-        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`
-        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.${window.location.hostname}`
-        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;secure`
-        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;samesite=strict`
-      })
-
-      // Cookies específicos conhecidos (incluindo o token Supabase real)
-      const knownCookies = [
-        'admin_auth',
-        'mentorado',
-        'supabase-auth-token',
-        'sb-udzmlnnztzzwrphhizol-auth-token',
-        'sb-udzmlnnztzzwrphhizol-auth-token.0',
-        'sb-udzmlnnztzzwrphhizol-auth-token.1'
-      ]
-      knownCookies.forEach(name => {
-        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
-        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`
-        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.${window.location.hostname}`
-        // Extra cleanup para o cookie Supabase específico
-        if (name.includes('sb-udzmlnnztzzwrphhizol')) {
-          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.medicosderesultado.com.br`
-          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=medicosderesultado.com.br`
-          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;secure;samesite=lax`
-        }
-      })
-
-      // 3. Limpar TODOS os storages
-      localStorage.clear()
-      sessionStorage.clear()
-
-      // Limpeza específica Supabase (caso localStorage.clear() não pegue tudo)
-      const supabaseKeys = [
-        'supabase.auth.token',
-        'sb-udzmlnnztzzwrphhizol-auth-token',
-        'supabase.auth.refreshToken',
-        'supabase.auth.expiresAt'
-      ]
-      supabaseKeys.forEach(key => {
-        localStorage.removeItem(key)
-        sessionStorage.removeItem(key)
-      })
-
-      // 4. Limpar indexedDB se existir
-      if ('indexedDB' in window) {
-        try {
-          const databases = await indexedDB.databases?.()
-          databases?.forEach(db => {
-            if (db.name) indexedDB.deleteDatabase(db.name)
-          })
-        } catch (e) {
-          console.log('Erro ao limpar indexedDB:', e)
-        }
-      }
-
-      // 5. Atualizar estado local
+      // 1. Limpar estado local PRIMEIRO
       setUser(null)
       setOrganizationId(null)
 
-      console.log('✅ Logout completo - redirecionando...')
+      // 2. Limpar localStorage de auth
+      clearAuthData()
 
-      // 6. Forçar redirect imediato
-      window.location.href = '/login'
+      // 3. Logout do Supabase
+      await supabase.auth.signOut()
+      console.log('✅ Logout Supabase OK')
+
+      // 4. Limpeza básica de cookies
+      const cookiesToClear = ['admin_auth', 'mentorado']
+      cookiesToClear.forEach(name => {
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
+      })
+
+      console.log('✅ Logout completo')
+
+      // 5. Redirect sem forçar
+      router.push('/login')
 
     } catch (error) {
       console.error('❌ Erro no logout:', error)
 
-      // FALLBACK: Se tudo falhar, ainda assim limpar e redirecionar
-      console.log('🔥 Executando logout de emergência...')
-
-      // Limpar o que conseguir
-      try {
-        localStorage.clear()
-        sessionStorage.clear()
-        document.cookie.split(";").forEach(cookie => {
-          const eqPos = cookie.indexOf("=")
-          const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim()
-          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
-        })
-      } catch (e) {
-        console.log('Erro na limpeza de emergência:', e)
-      }
-
-      // Forçar redirect mesmo com erro
-      window.location.href = '/login'
+      // Fallback simples
+      clearAuthData()
+      setUser(null)
+      setOrganizationId(null)
+      router.push('/login')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const getOrganizationForUser = async (user: User) => {
+  const getOrganizationForUser = async (user: User): Promise<string | null> => {
     try {
       const { data: orgUser } = await supabase
         .from('organization_users')
@@ -239,13 +294,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (orgUser) {
         setOrganizationId(orgUser.organization_id)
+        return orgUser.organization_id
       } else {
         console.warn('Usuário sem organização:', user.email)
         setOrganizationId(null)
+        return null
       }
     } catch (error) {
       console.error('Erro ao buscar organização:', error)
       setOrganizationId(null)
+      return null
     }
   }
 
