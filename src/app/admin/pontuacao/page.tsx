@@ -53,14 +53,89 @@ export default function PontuacaoAdminPage() {
     descricao: '',
     data_acao: new Date().toISOString().split('T')[0]
   })
+  const [processingIndicacoes, setProcessingIndicacoes] = useState(false)
+  const [indicacoesPendentes, setIndicacoesPendentes] = useState(0)
 
   useEffect(() => {
     loadData()
+    checkIndicacoesPendentes()
   }, [])
 
   const loadData = async () => {
     await Promise.all([loadMentorados(), loadPontuacoes()])
     setLoading(false)
+  }
+
+  const checkIndicacoesPendentes = async () => {
+    try {
+      const response = await fetch('/api/indicacao-pontos')
+      const result = await response.json()
+      if (result.success) {
+        setIndicacoesPendentes(result.pending_count)
+      }
+    } catch (error) {
+      console.error('Erro ao verificar indicações pendentes:', error)
+    }
+  }
+
+  const processarIndicacoesPendentes = async () => {
+    if (!confirm('Processar todas as indicações pendentes para adicionar pontos automaticamente?')) {
+      return
+    }
+
+    setProcessingIndicacoes(true)
+    try {
+      // Primeiro verificar pendentes
+      const checkResponse = await fetch('/api/indicacao-pontos')
+      const checkResult = await checkResponse.json()
+
+      if (!checkResult.success || !checkResult.pending_leads?.length) {
+        alert('Nenhuma indicação pendente encontrada')
+        return
+      }
+
+      let processados = 0
+      let erros = 0
+
+      // Processar cada lead pendente
+      for (const lead of checkResult.pending_leads) {
+        try {
+          const processResponse = await fetch('/api/indicacao-pontos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lead_id: lead.lead_id,
+              indicado_por_id: lead.indicado_por
+            })
+          })
+
+          const result = await processResponse.json()
+          if (result.success) {
+            processados++
+          } else {
+            console.warn(`Erro ao processar ${lead.lead_nome}:`, result.message)
+            if (!result.message?.includes('não encontrado') && !result.message?.includes('já foram atribuídos')) {
+              erros++
+            }
+          }
+        } catch (error) {
+          console.error(`Erro ao processar lead ${lead.lead_nome}:`, error)
+          erros++
+        }
+      }
+
+      alert(`Processamento concluído!\n✅ ${processados} pontos adicionados\n❌ ${erros} erros\n📋 Total verificado: ${checkResult.pending_leads.length}`)
+
+      // Recarregar dados
+      await loadData()
+      await checkIndicacoesPendentes()
+
+    } catch (error) {
+      console.error('Erro no processamento:', error)
+      alert('Erro durante o processamento')
+    } finally {
+      setProcessingIndicacoes(false)
+    }
   }
 
   const loadMentorados = async () => {
@@ -184,10 +259,23 @@ export default function PontuacaoAdminPage() {
             <h1 className="text-2xl font-bold text-gray-900">Sistema de Pontuação</h1>
             <p className="text-gray-600">Gerencie pontos e ranking dos mentorados</p>
           </div>
-          <Button onClick={() => setShowAddModal(true)} className="flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Adicionar Pontos
-          </Button>
+          <div className="flex items-center gap-2">
+            {indicacoesPendentes > 0 && (
+              <Button
+                onClick={processarIndicacoesPendentes}
+                disabled={processingIndicacoes}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <User className="w-4 h-4" />
+                {processingIndicacoes ? 'Processando...' : `Processar ${indicacoesPendentes} Indicações`}
+              </Button>
+            )}
+            <Button onClick={() => setShowAddModal(true)} className="flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Adicionar Pontos
+            </Button>
+          </div>
         </div>
 
         {/* Cards de estatísticas */}

@@ -111,20 +111,6 @@ export default function FormResponsesPage() {
         setTemplates(uniqueTemplates)
         console.log('📝 Templates encontrados:', uniqueTemplates)
       }
-
-      if (error) {
-        console.error('Erro ao buscar respostas:', error)
-        return
-      }
-
-      if (data) {
-        setSubmissions(data)
-
-        // Extrair templates únicos
-        const templateSlugs = data.map(s => s.template_slug)
-        const uniqueTemplates = templateSlugs.filter((slug, index) => templateSlugs.indexOf(slug) === index)
-        setTemplates(uniqueTemplates)
-      }
     } catch (error) {
       console.error('Erro:', error)
     } finally {
