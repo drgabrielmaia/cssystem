@@ -72,7 +72,7 @@ export default function WhatsAppPage() {
       const response = await Promise.race([
         whatsappCoreAPI.getStatus(),
         timeoutPromise
-      ]);
+      ]) as any;
 
       if (response.success && response.data?.isReady) {
         console.log('✅ WhatsApp CONECTADO!');

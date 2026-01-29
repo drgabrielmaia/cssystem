@@ -244,19 +244,17 @@ export default function LeadsPage() {
       }
 
 
-      // Aplicar filtro de data (inteligente baseado no status)
+      // Aplicar filtro de data (inteligente: sempre usar data_venda para leads vendidos)
       const dateRange = getDateRange(dateFilter)
       if (dateRange) {
         if (statusFilter === 'vendido') {
-          // Para leads vendidos, filtrar por data_venda
+          // Para filtro "vendido", usar data_venda
           query = query
             .gte('data_venda', dateRange.start)
             .lte('data_venda', dateRange.end)
         } else {
-          // Para outros leads, filtrar por data_primeiro_contato (data do lead)
-          query = query
-            .gte('data_primeiro_contato', dateRange.start)
-            .lte('data_primeiro_contato', dateRange.end)
+          // Para outros filtros, usar query complexa que considera ambas as datas
+          query = query.or(`and(status.eq.vendido,data_venda.gte.${dateRange.start},data_venda.lte.${dateRange.end}),and(status.neq.vendido,data_primeiro_contato.gte.${dateRange.start},data_primeiro_contato.lte.${dateRange.end})`)
         }
       }
 
@@ -274,13 +272,12 @@ export default function LeadsPage() {
 
   const loadStats = async () => {
     try {
-      // Query para leads totais (usar data_primeiro_contato - data do lead)
+      // Query para leads totais (usar data inteligente baseada no status)
       let queryTotal = supabase.from('leads').select('*')
       const dateRange = getDateRange(dateFilter)
       if (dateRange) {
-        queryTotal = queryTotal
-          .gte('data_primeiro_contato', dateRange.start)
-          .lte('data_primeiro_contato', dateRange.end)
+        // Usar data_venda para vendidos e data_primeiro_contato para outros
+        queryTotal = queryTotal.or(`and(status.eq.vendido,data_venda.gte.${dateRange.start},data_venda.lte.${dateRange.end}),and(status.neq.vendido,data_primeiro_contato.gte.${dateRange.start},data_primeiro_contato.lte.${dateRange.end})`)
       }
 
       // Query para vendas (usar data_venda para leads vendidos) - apenas com valor arrecadado
