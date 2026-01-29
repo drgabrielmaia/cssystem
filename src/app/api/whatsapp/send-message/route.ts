@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
+import { multiOrgWhatsAppService } from '@/lib/whatsapp-multi-org-service'
 import { whatsappCoreAPI } from '@/lib/whatsapp-core-api'
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { phoneNumber, message, sender } = body
+    const { phoneNumber, message, organizationId, sender, useMultiOrg } = body
 
     if (!phoneNumber || !message) {
       return NextResponse.json({
@@ -13,9 +14,30 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    // Enviar via WhatsApp Core API
+    // Se useMultiOrg for true, usar o serviço multi-organização
+    if (useMultiOrg && organizationId) {
+      try {
+        console.log(`🔄 Enviando mensagem via WhatsApp multi-org (${organizationId})...`)
+        const success = await multiOrgWhatsAppService.sendMessage(organizationId, phoneNumber, message)
+
+        if (success) {
+          return NextResponse.json({
+            success: true,
+            message: 'Mensagem enviada com sucesso via WhatsApp Web',
+            organizationId
+          })
+        } else {
+          throw new Error('Falha ao enviar mensagem via WhatsApp Web')
+        }
+      } catch (error) {
+        console.error('❌ Erro no WhatsApp Web, tentando API externa...', error)
+        // Se falhar, tenta a API externa como fallback
+      }
+    }
+
+    // Enviar via WhatsApp Core API (fallback ou método principal)
     try {
-      console.log('🔄 Enviando mensagem via WhatsApp API...')
+      console.log('🔄 Enviando mensagem via WhatsApp API externa...')
       const response = await whatsappCoreAPI.sendMessage(phoneNumber, message)
 
       if (response.success && response.data) {
@@ -23,7 +45,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json({
           success: true,
-          message: 'Mensagem enviada com sucesso',
+          message: 'Mensagem enviada com sucesso via API externa',
           data: response.data
         })
       } else {

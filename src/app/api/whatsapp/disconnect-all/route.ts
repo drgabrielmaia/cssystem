@@ -1,25 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { whatsappService } from '@/lib/whatsapp-service'
+import { multiOrgWhatsAppService } from '@/lib/whatsapp-multi-org-service'
 
 export async function POST(request: NextRequest) {
   try {
     console.log('🔌 Recebida solicitação para desconectar todos os WhatsApps')
 
-    // Verificar se o serviço está ativo
-    const isConnected = whatsappService.isClientReady()
+    // Desconectar todas as organizações
+    await multiOrgWhatsAppService.disconnectAll()
 
-    if (!isConnected) {
-      return NextResponse.json({
-        success: true,
-        message: 'WhatsApp já estava desconectado',
-        status: 'already_disconnected'
-      })
-    }
-
-    // Desconectar e destruir o cliente
-    await whatsappService.destroy()
-
-    console.log('✅ WhatsApp desconectado com sucesso')
+    console.log('✅ Todos os WhatsApps foram desconectados com sucesso')
 
     return NextResponse.json({
       success: true,
@@ -29,11 +18,11 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro ao desconectar WhatsApp:', error)
+    console.error('❌ Erro ao desconectar WhatsApps:', error)
 
     return NextResponse.json({
       success: false,
-      message: 'Erro ao desconectar WhatsApp',
+      message: 'Erro ao desconectar WhatsApps',
       error: error instanceof Error ? error.message : 'Erro desconhecido'
     }, { status: 500 })
   }
@@ -41,21 +30,27 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const isConnected = whatsappService.isClientReady()
+    const connections = multiOrgWhatsAppService.getAllConnections()
+
+    const totalConnected = connections.filter(c => c.isReady).length
+    const totalConnecting = connections.filter(c => c.isConnecting).length
 
     return NextResponse.json({
-      connected: isConnected,
-      status: isConnected ? 'connected' : 'disconnected',
-      message: isConnected ? 'WhatsApp está conectado' : 'WhatsApp está desconectado'
+      connections,
+      totalConnected,
+      totalConnecting,
+      totalConnections: connections.length,
+      message: `${totalConnected} conexões ativas, ${totalConnecting} conectando`
     })
 
   } catch (error) {
-    console.error('❌ Erro ao verificar status WhatsApp:', error)
+    console.error('❌ Erro ao verificar status WhatsApps:', error)
 
     return NextResponse.json({
-      connected: false,
-      status: 'error',
-      message: 'Erro ao verificar status',
+      connections: [],
+      totalConnected: 0,
+      totalConnecting: 0,
+      totalConnections: 0,
       error: error instanceof Error ? error.message : 'Erro desconhecido'
     }, { status: 500 })
   }
