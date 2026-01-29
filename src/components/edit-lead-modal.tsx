@@ -57,7 +57,8 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
     observacoes: '',
     valor_vendido: '',
     data_venda: '',
-    desistiu: false
+    desistiu: false,
+    indicado_por: ''
   })
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
@@ -75,7 +76,8 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
         observacoes: lead.observacoes || '',
         valor_vendido: lead.valor_vendido?.toString() || '',
         data_venda: lead.data_venda ? new Date(lead.data_venda).toISOString().split('T')[0] : '',
-        desistiu: lead.desistiu || false
+        desistiu: lead.desistiu || false,
+        indicado_por: (lead as any).indicado_por || ''
       })
       setMessage(null)
     }
@@ -89,6 +91,9 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
     setMessage(null)
 
     try {
+      const previousIndicadoPor = (lead as any).indicado_por
+      const newIndicadoPor = formData.indicado_por
+
       const updateData: any = {
         nome_completo: formData.nome_completo,
         email: formData.email || null,
@@ -101,6 +106,7 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
         valor_vendido: formData.valor_vendido ? parseFloat(formData.valor_vendido) : null,
         data_venda: formData.data_venda || null,
         desistiu: formData.desistiu,
+        indicado_por: formData.indicado_por || null,
         updated_at: new Date().toISOString()
       }
 
@@ -111,7 +117,31 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
 
       if (error) throw error
 
-      setMessage({ type: 'success', text: 'Lead atualizado com sucesso!' })
+      // Verificar se indicado_por foi adicionado e processar pontos
+      if (!previousIndicadoPor && newIndicadoPor) {
+        try {
+          const response = await fetch('/api/indicacao-pontos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lead_id: lead.id,
+              indicado_por_id: newIndicadoPor
+            })
+          })
+          const result = await response.json()
+          if (result.success) {
+            setMessage({ type: 'success', text: `Lead atualizado com sucesso! ${result.message}` })
+          } else {
+            setMessage({ type: 'success', text: 'Lead atualizado com sucesso!' })
+          }
+        } catch (error) {
+          console.log('❌ Erro ao processar pontos de indicação:', error)
+          setMessage({ type: 'success', text: 'Lead atualizado com sucesso!' })
+        }
+      } else {
+        setMessage({ type: 'success', text: 'Lead atualizado com sucesso!' })
+      }
+
       onSuccess()
 
       setTimeout(() => {
@@ -230,6 +260,19 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
                   onChange={(e) => setFormData({ ...formData, origem: e.target.value })}
                 />
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="indicado_por">Indicado por (ID do mentorado)</Label>
+              <Input
+                id="indicado_por"
+                value={formData.indicado_por}
+                onChange={(e) => setFormData({ ...formData, indicado_por: e.target.value })}
+                placeholder="ID ou nome do mentorado que indicou"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Ao adicionar um indicador, será automaticamente creditado 1 ponto para o mentorado
+              </p>
             </div>
           </div>
 

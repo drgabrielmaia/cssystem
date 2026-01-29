@@ -408,6 +408,28 @@ export default function FormPage() {
           setCurrentLeadId(data.id) // Salvar ID no estado
           console.log('✅ CRIOU LEAD PRIMEIRA PERGUNTA:', data.id)
 
+          // Processar pontos de indicação automaticamente se tiver indicado_por
+          if (initialLeadData.indicado_por || initialLeadData.quem_indicou) {
+            try {
+              const response = await fetch('/api/indicacao-pontos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  lead_id: data.id,
+                  indicado_por_id: initialLeadData.indicado_por || initialLeadData.quem_indicou
+                })
+              })
+              const result = await response.json()
+              if (result.success) {
+                console.log('✅ Pontos de indicação adicionados automaticamente:', result.message)
+              } else {
+                console.log('⚠️ Não foi possível adicionar pontos:', result.message)
+              }
+            } catch (error) {
+              console.log('❌ Erro ao processar pontos de indicação:', error)
+            }
+          }
+
           // TAMBÉM criar form_submission imediatamente
           const submissionData = {
             template_id: template?.id,

@@ -30,7 +30,8 @@ import {
   PlayCircle,
   Video,
   Shield,
-  Building2
+  Building2,
+  Trophy
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -79,6 +80,7 @@ const modules = [
       { name: 'Performance', href: '/social-seller', icon: TrendingUp, description: 'Métricas de vendas' },
       { name: 'Check-ins', href: '/checkins', icon: BarChart3, description: 'Acompanhamento' },
       { name: 'Metas', href: '/metas', icon: Target, description: 'Performance e Metas' },
+      { name: 'Pontuação', href: '/admin/pontuacao', icon: Trophy, description: 'Sistema de pontuação e ranking' },
     ]
   },
   {
