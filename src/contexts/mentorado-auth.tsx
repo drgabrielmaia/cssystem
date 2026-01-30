@@ -269,21 +269,43 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null)
 
-      // Buscar mentorado pelo email
+      console.log('🔍 Tentando login com email:', email)
+
+      // Buscar mentorado pelo email (case-insensitive)
       const { data: mentoradoData, error: fetchError } = await supabase
         .from('mentorados')
         .select('*')
-        .eq('email', email)
+        .ilike('email', email)
         .single()
 
-      if (fetchError || !mentoradoData) {
+      console.log('📊 Resultado da busca:', { mentoradoData, fetchError })
+
+      if (fetchError) {
+        console.error('❌ Erro na busca:', fetchError)
+        if (fetchError.code === 'PGRST116') {
+          setError('Email não encontrado')
+        } else {
+          setError('Erro ao buscar usuário: ' + fetchError.message)
+        }
+        return false
+      }
+
+      if (!mentoradoData) {
         setError('Email não encontrado')
         return false
       }
 
+      console.log('👤 Mentorado encontrado:', {
+        nome: mentoradoData.nome,
+        email: mentoradoData.email,
+        status_login: mentoradoData.status_login,
+        estado_atual: mentoradoData.estado_atual
+      })
+
       // Verificar se deve ter acesso bloqueado ANTES de validar senha
       const accessCheck = shouldBlockAccess(mentoradoData)
       if (accessCheck.blocked) {
+        console.log('🚫 Acesso bloqueado:', accessCheck.reason)
         setError(accessCheck.reason || 'Acesso bloqueado')
         return false
       }
