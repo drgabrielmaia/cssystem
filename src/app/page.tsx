@@ -44,6 +44,20 @@ export default function DashboardPage() {
   const [monthlyData, setMonthlyData] = useState<{month: string, value: number}[]>([])
   const [recentActivity, setRecentActivity] = useState<any[]>([])
   const [showValues, setShowValues] = useState(false)
+  const [visibilityControls, setVisibilityControls] = useState({
+    valorVendido: false,
+    valorArrecadado: false,
+    meta: false,
+    percentualMeta: false,
+    percentualArrecadacao: false
+  })
+
+  const toggleVisibility = (key: keyof typeof visibilityControls) => {
+    setVisibilityControls(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }))
+  }
 
   // Função para obter range de datas baseado no período selecionado
   const getDateRange = (period: string) => {
@@ -661,48 +675,106 @@ export default function DashboardPage() {
             </div>
 
             {/* Valor Vendido (Grande) */}
-            <div className={`text-3xl font-bold text-orange-900 transition-all duration-300 ${
-              !showValues ? 'blur-sm select-none' : ''
-            }`}>
-              {showValues ? new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-                minimumFractionDigits: 0
-              }).format(kpiData.total_vendas) : 'R$ •••.•••,••'}
-            </div>
-
-            {/* Valor Arrecadado e Meta (Pequeno) */}
-            <div className={`text-sm transition-all duration-300 ${
-              !showValues ? 'blur-sm select-none' : ''
-            }`}>
-              <span className="text-gray-600">Arrecadado: </span>
-              <span className={`font-semibold ${
-                ((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100) >= 100 ? 'text-green-600' :
-                ((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100) >= 80 ? 'text-blue-600' :
-                ((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100) >= 50 ? 'text-yellow-600' : 'text-red-600'
+            <div className="flex items-center gap-2">
+              <div className={`text-3xl font-bold text-orange-900 transition-all duration-300 ${
+                !visibilityControls.valorVendido ? 'blur-sm select-none' : ''
               }`}>
-                {showValues ? new Intl.NumberFormat('pt-BR', {
+                {visibilityControls.valorVendido ? new Intl.NumberFormat('pt-BR', {
                   style: 'currency',
                   currency: 'BRL',
                   minimumFractionDigits: 0
-                }).format(kpiData.valor_arrecadado) : 'R$ •••.•••,••'}
-              </span>
-              <span className="text-gray-600"> • Meta: {showValues ? new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-                minimumFractionDigits: 0
-              }).format(kpiData.meta_vendas) : 'R$ •••.•••,••'}</span>
+                }).format(kpiData.total_vendas) : 'R$ •••.•••,••'}
+              </div>
+              <button
+                onClick={() => toggleVisibility('valorVendido')}
+                className="p-1 hover:bg-orange-100 rounded-full transition-colors"
+                title={visibilityControls.valorVendido ? "Ocultar valor vendido" : "Mostrar valor vendido"}
+              >
+                {visibilityControls.valorVendido ? (
+                  <EyeOff className="w-3 h-3 text-orange-600" />
+                ) : (
+                  <Eye className="w-3 h-3 text-orange-600" />
+                )}
+              </button>
+            </div>
+
+            {/* Valor Arrecadado e Meta (Pequeno) */}
+            <div className="text-sm space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600">Arrecadado: </span>
+                <span className={`font-semibold transition-all duration-300 ${
+                  !visibilityControls.valorArrecadado ? 'blur-sm select-none' : ''
+                } ${
+                  ((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100) >= 100 ? 'text-green-600' :
+                  ((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100) >= 80 ? 'text-blue-600' :
+                  ((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100) >= 50 ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {visibilityControls.valorArrecadado ? new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
+                    minimumFractionDigits: 0
+                  }).format(kpiData.valor_arrecadado) : 'R$ •••.•••,••'}
+                </span>
+                <button
+                  onClick={() => toggleVisibility('valorArrecadado')}
+                  className="p-1 hover:bg-orange-100 rounded-full transition-colors"
+                  title={visibilityControls.valorArrecadado ? "Ocultar valor arrecadado" : "Mostrar valor arrecadado"}
+                >
+                  {visibilityControls.valorArrecadado ? (
+                    <EyeOff className="w-3 h-3 text-orange-600" />
+                  ) : (
+                    <Eye className="w-3 h-3 text-orange-600" />
+                  )}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600">Meta: </span>
+                <span className={`font-semibold text-gray-900 transition-all duration-300 ${
+                  !visibilityControls.meta ? 'blur-sm select-none' : ''
+                }`}>
+                  {visibilityControls.meta ? new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
+                    minimumFractionDigits: 0
+                  }).format(kpiData.meta_vendas) : 'R$ •••.•••,••'}
+                </span>
+                <button
+                  onClick={() => toggleVisibility('meta')}
+                  className="p-1 hover:bg-orange-100 rounded-full transition-colors"
+                  title={visibilityControls.meta ? "Ocultar meta" : "Mostrar meta"}
+                >
+                  {visibilityControls.meta ? (
+                    <EyeOff className="w-3 h-3 text-orange-600" />
+                  ) : (
+                    <Eye className="w-3 h-3 text-orange-600" />
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Régua de Progresso */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-orange-700">Progresso da Meta</span>
-                <span className={`text-xs font-bold text-orange-900 transition-all duration-300 ${
-                  !showValues ? 'blur-sm select-none' : ''
-                }`}>
-                  {showValues ? ((kpiData.total_vendas / kpiData.meta_vendas) * 100).toFixed(1) : '••.•'}%
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className={`text-xs font-bold text-orange-900 transition-all duration-300 ${
+                    !visibilityControls.percentualMeta ? 'blur-sm select-none' : ''
+                  }`}>
+                    {visibilityControls.percentualMeta ? ((kpiData.total_vendas / kpiData.meta_vendas) * 100).toFixed(1) : '••.•'}%
+                  </span>
+                  <button
+                    onClick={() => toggleVisibility('percentualMeta')}
+                    className="p-0.5 hover:bg-orange-100 rounded-full transition-colors"
+                    title={visibilityControls.percentualMeta ? "Ocultar percentual da meta" : "Mostrar percentual da meta"}
+                  >
+                    {visibilityControls.percentualMeta ? (
+                      <EyeOff className="w-2.5 h-2.5 text-orange-600" />
+                    ) : (
+                      <Eye className="w-2.5 h-2.5 text-orange-600" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="h-3 bg-orange-200 rounded-full overflow-hidden">
@@ -715,11 +787,13 @@ export default function DashboardPage() {
                 />
               </div>
 
-              <div className={`flex justify-between text-xs text-orange-600 transition-all duration-300 ${
-                !showValues ? 'blur-sm select-none' : ''
-              }`}>
+              <div className="flex justify-between text-xs text-orange-600">
                 <span>R$ 0</span>
-                <span>{showValues ? `R$ ${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0 }).format(kpiData.meta_vendas)}` : 'R$ •••.•••'}</span>
+                <span className={`transition-all duration-300 ${
+                  !visibilityControls.meta ? 'blur-sm select-none' : ''
+                }`}>
+                  {visibilityControls.meta ? `R$ ${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0 }).format(kpiData.meta_vendas)}` : 'R$ •••.•••'}
+                </span>
               </div>
             </div>
 
@@ -727,11 +801,24 @@ export default function DashboardPage() {
             <div className="space-y-2 mt-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-blue-700">% Arrecadado do Faturado</span>
-                <span className={`text-xs font-bold text-blue-900 transition-all duration-300 ${
-                  !showValues ? 'blur-sm select-none' : ''
-                }`}>
-                  {showValues ? (kpiData.total_vendas > 0 ? ((kpiData.valor_arrecadado / kpiData.total_vendas) * 100).toFixed(1) : '0.0') : '••.•'}%
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className={`text-xs font-bold text-blue-900 transition-all duration-300 ${
+                    !visibilityControls.percentualArrecadacao ? 'blur-sm select-none' : ''
+                  }`}>
+                    {visibilityControls.percentualArrecadacao ? (kpiData.total_vendas > 0 ? ((kpiData.valor_arrecadado / kpiData.total_vendas) * 100).toFixed(1) : '0.0') : '••.•'}%
+                  </span>
+                  <button
+                    onClick={() => toggleVisibility('percentualArrecadacao')}
+                    className="p-0.5 hover:bg-blue-100 rounded-full transition-colors"
+                    title={visibilityControls.percentualArrecadacao ? "Ocultar percentual de arrecadação" : "Mostrar percentual de arrecadação"}
+                  >
+                    {visibilityControls.percentualArrecadacao ? (
+                      <EyeOff className="w-2.5 h-2.5 text-blue-600" />
+                    ) : (
+                      <Eye className="w-2.5 h-2.5 text-blue-600" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
@@ -746,7 +833,7 @@ export default function DashboardPage() {
                 {/* Barra de progresso */}
                 <div
                   className={`h-full transition-all duration-500 relative z-10 ${
-                    showValues ? (
+                    visibilityControls.percentualArrecadacao ? (
                       kpiData.total_vendas > 0
                         ? (() => {
                             const percentage = (kpiData.valor_arrecadado / kpiData.total_vendas) * 100;
@@ -759,7 +846,7 @@ export default function DashboardPage() {
                     ) : 'bg-gray-400'
                   }`}
                   style={{
-                    width: `${showValues ? (
+                    width: `${visibilityControls.percentualArrecadacao ? (
                       kpiData.total_vendas > 0
                         ? Math.min(((kpiData.valor_arrecadado / kpiData.total_vendas) * 100) * 2, 100)
                         : 0
