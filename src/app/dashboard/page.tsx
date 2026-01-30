@@ -553,7 +553,7 @@ export default function DashboardPage() {
                                 ) : 'bg-gray-400'
                               }`}
                               style={{
-                                width: `${showValues ? Math.min(salesMetrics.valor_vendido > 0 ? (salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100 : 0, 100) : 40}%`
+                                width: `${showValues ? Math.min(salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100) / 50 * 100 : 0, 100) : 40}%`
                               }}
                             />
                           </div>
