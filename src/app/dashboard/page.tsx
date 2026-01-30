@@ -428,8 +428,8 @@ export default function DashboardPage() {
                           <div className={`text-sm text-gray-700 mt-2 bg-white/50 rounded-lg px-3 py-1 inline-block transition-all duration-300 ${
                             !showValues ? 'blur-sm select-none' : ''
                           }`}>
-                            💳 Arrecadado: <span className="font-bold">{showValues ? formatCurrency(salesMetrics.valor_arrecadado || 0) : 'R$ •••.•••,••'}</span> •
-                            🎯 Meta: <span className="font-bold">{showValues ? formatCurrency(500000) : 'R$ •••.•••,••'}</span>
+                            🎯 Meta: <span className="font-bold">{showValues ? formatCurrency(500000) : 'R$ •••.•••,••'}</span> •
+                            💳 {showValues ? `${salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100).toFixed(1) : '0.0'}% arrecadado` : '••.•% arrecadado'}
                           </div>
                         </div>
 
@@ -553,7 +553,11 @@ export default function DashboardPage() {
                                 ) : 'bg-gray-400'
                               }`}
                               style={{
-                                width: `${showValues ? Math.min(salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100) / 50 * 100 : 0, 100) : 40}%`
+                                width: `${showValues ? (
+                                  salesMetrics.valor_vendido > 0
+                                    ? Math.min(((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100) * 2, 100)
+                                    : 0
+                                ) : 40}%`
                               }}
                             />
                           </div>
