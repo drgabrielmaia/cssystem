@@ -5,7 +5,7 @@ import { Navbar } from '@/components/dashboard/Navbar'
 import { Sidebar } from '@/components/dashboard/Sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Building2, Crown, Shield, User2, Users, Loader2, DollarSign, Target, RefreshCw, AlertCircle } from 'lucide-react'
+import { Building2, Crown, Shield, User2, Users, Loader2, DollarSign, Target, RefreshCw, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { useOrganizationFilter } from '@/hooks/use-organization-filter'
 import { useRetryRequest } from '@/hooks/use-retry-request'
 import { supabase } from '@/lib/supabase'
@@ -56,6 +56,7 @@ export default function DashboardPage() {
   })
   const [metricsLoading, setMetricsLoading] = useState(true)
   const [loadingStage, setLoadingStage] = useState('Iniciando...')
+  const [showValues, setShowValues] = useState(false)
   const salesRetry = useRetryRequest<SalesMetrics>()
   const callsRetry = useRetryRequest<CallsMetrics>()
 
@@ -396,22 +397,39 @@ export default function DashboardPage() {
                             </h3>
                             <p className="text-sm text-gray-700 font-medium">Centro de Resultados • Mês Atual</p>
                           </div>
-                          <div className="bg-white/20 p-3 rounded-full shadow-lg">
-                            <DollarSign className="w-8 h-8 text-gray-900" />
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => setShowValues(!showValues)}
+                              className="bg-white/20 hover:bg-white/30 p-2 rounded-full shadow-lg transition-all duration-200 hover:scale-110"
+                              title={showValues ? "Ocultar valores" : "Mostrar valores"}
+                            >
+                              {showValues ? (
+                                <EyeOff className="w-5 h-5 text-gray-900" />
+                              ) : (
+                                <Eye className="w-5 h-5 text-gray-900" />
+                              )}
+                            </button>
+                            <div className="bg-white/20 p-3 rounded-full shadow-lg">
+                              <DollarSign className="w-8 h-8 text-gray-900" />
+                            </div>
                           </div>
                         </div>
 
                         {/* Valor Principal Destacado */}
                         <div className="text-center mb-6 bg-black/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                          <div className="text-4xl md:text-5xl font-black text-gray-900 mb-2 drop-shadow-lg">
-                            {formatCurrency(salesMetrics.valor_vendido)}
+                          <div className={`text-4xl md:text-5xl font-black text-gray-900 mb-2 drop-shadow-lg transition-all duration-300 ${
+                            !showValues ? 'blur-sm select-none' : ''
+                          }`}>
+                            {showValues ? formatCurrency(salesMetrics.valor_vendido) : 'R$ •••.•••,••'}
                           </div>
                           <div className="text-lg font-bold text-gray-800">
                             💎 Valor Total Vendido
                           </div>
-                          <div className="text-sm text-gray-700 mt-2 bg-white/50 rounded-lg px-3 py-1 inline-block">
-                            💳 Arrecadado: <span className="font-bold">{formatCurrency(salesMetrics.valor_arrecadado || 0)}</span> •
-                            🎯 Meta: <span className="font-bold">{formatCurrency(500000)}</span>
+                          <div className={`text-sm text-gray-700 mt-2 bg-white/50 rounded-lg px-3 py-1 inline-block transition-all duration-300 ${
+                            !showValues ? 'blur-sm select-none' : ''
+                          }`}>
+                            💳 Arrecadado: <span className="font-bold">{showValues ? formatCurrency(salesMetrics.valor_arrecadado || 0) : 'R$ •••.•••,••'}</span> •
+                            🎯 Meta: <span className="font-bold">{showValues ? formatCurrency(500000) : 'R$ •••.•••,••'}</span>
                           </div>
                         </div>
 
@@ -421,17 +439,21 @@ export default function DashboardPage() {
                           {/* Progresso da Meta */}
                           <div className="bg-black/20 backdrop-blur-sm p-4 rounded-xl border border-white/30">
                             <div className="text-center">
-                              <div className="text-2xl font-bold text-gray-900 mb-1">
-                                🎯 {salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_vendido / 500000) * 100).toFixed(1) : '0.0'}%
+                              <div className={`text-2xl font-bold text-gray-900 mb-1 transition-all duration-300 ${
+                                !showValues ? 'blur-sm select-none' : ''
+                              }`}>
+                                🎯 {showValues ? (salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_vendido / 500000) * 100).toFixed(1) : '0.0') : '••.•'}%
                               </div>
                               <div className="text-sm font-semibold text-gray-800 mb-2">Meta Atingida</div>
                               <div className="h-2 bg-gray-900/30 rounded-full overflow-hidden">
                                 <div
                                   className={`h-full transition-all duration-1000 ${
-                                    (salesMetrics.valor_vendido / 500000) > 0.8 ? 'bg-green-400' :
-                                    (salesMetrics.valor_vendido / 500000) >= 0.5 ? 'bg-yellow-300' : 'bg-red-400'
+                                    showValues ? (
+                                      (salesMetrics.valor_vendido / 500000) > 0.8 ? 'bg-green-400' :
+                                      (salesMetrics.valor_vendido / 500000) >= 0.5 ? 'bg-yellow-300' : 'bg-red-400'
+                                    ) : 'bg-gray-400'
                                   }`}
-                                  style={{ width: `${Math.min((salesMetrics.valor_vendido / 500000) * 100, 100)}%` }}
+                                  style={{ width: `${showValues ? Math.min((salesMetrics.valor_vendido / 500000) * 100, 100) : 30}%` }}
                                 />
                               </div>
                             </div>
@@ -440,12 +462,39 @@ export default function DashboardPage() {
                           {/* Taxa de Conversão */}
                           <div className="bg-black/20 backdrop-blur-sm p-4 rounded-xl border border-white/30">
                             <div className="text-center">
-                              <div className="text-2xl font-bold text-gray-900 mb-1">
-                                📈 {callsMetrics.total_calls > 0 ? ((callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100).toFixed(1) : '0.0'}%
+                              <div className={`text-2xl font-bold text-gray-900 mb-1 transition-all duration-300 ${
+                                !showValues ? 'blur-sm select-none' : ''
+                              }`}>
+                                📈 {showValues ? (callsMetrics.total_calls > 0 ? ((callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100).toFixed(1) : '0.0') : '••.•'}%
                               </div>
-                              <div className="text-sm font-semibold text-gray-800 mb-1">Conversão</div>
-                              <div className="text-xs text-gray-700">
-                                {callsMetrics.calls_vendidas || 0}/{callsMetrics.total_calls || 0} calls
+                              <div className="text-sm font-semibold text-gray-800 mb-2">Conversão</div>
+                              <div className="h-2 bg-gray-900/30 rounded-full overflow-hidden mb-1">
+                                <div
+                                  className={`h-full transition-all duration-1000 ${
+                                    showValues ? (
+                                      callsMetrics.total_calls > 0
+                                        ? (() => {
+                                            const conversionRate = (callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100;
+                                            if (conversionRate >= 50) return 'bg-green-400';
+                                            if (conversionRate >= 30) return 'bg-yellow-300';
+                                            return 'bg-red-400';
+                                          })()
+                                        : 'bg-gray-400'
+                                    ) : 'bg-gray-400'
+                                  }`}
+                                  style={{
+                                    width: `${showValues ? (
+                                      callsMetrics.total_calls > 0
+                                        ? Math.min(((callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100) / 50 * 100, 100)
+                                        : 0
+                                    ) : 60}%`
+                                  }}
+                                />
+                              </div>
+                              <div className={`text-xs text-gray-700 transition-all duration-300 ${
+                                !showValues ? 'blur-sm select-none' : ''
+                              }`}>
+                                {showValues ? `${callsMetrics.calls_vendidas || 0}/${callsMetrics.total_calls || 0}` : '•••/•••'} calls
                               </div>
                             </div>
                           </div>
@@ -453,8 +502,10 @@ export default function DashboardPage() {
                           {/* % Arrecadado */}
                           <div className="bg-black/20 backdrop-blur-sm p-4 rounded-xl border border-white/30">
                             <div className="text-center">
-                              <div className="text-2xl font-bold text-gray-900 mb-1">
-                                💳 {salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100).toFixed(1) : '0.0'}%
+                              <div className={`text-2xl font-bold text-gray-900 mb-1 transition-all duration-300 ${
+                                !showValues ? 'blur-sm select-none' : ''
+                              }`}>
+                                💳 {showValues ? (salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100).toFixed(1) : '0.0') : '••.•'}%
                               </div>
                               <div className="text-sm font-semibold text-gray-800 mb-1">Arrecadado</div>
                               <div className="text-xs text-gray-700">
@@ -469,8 +520,10 @@ export default function DashboardPage() {
                         <div className="bg-black/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="text-lg font-bold text-gray-900">🏆 Performance de Arrecadação</h4>
-                            <div className="text-2xl font-black text-gray-900">
-                              {salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100).toFixed(1) : '0.0'}%
+                            <div className={`text-2xl font-black text-gray-900 transition-all duration-300 ${
+                              !showValues ? 'blur-sm select-none' : ''
+                            }`}>
+                              {showValues ? (salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100).toFixed(1) : '0.0') : '••.•'}%
                             </div>
                           </div>
 
@@ -487,18 +540,20 @@ export default function DashboardPage() {
                             {/* Barra de progresso */}
                             <div
                               className={`h-full transition-all duration-1000 relative z-10 shadow-lg ${
-                                salesMetrics.valor_vendido > 0
-                                  ? (() => {
-                                      const percentage = (salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100;
-                                      if (percentage < 20) return 'bg-gradient-to-r from-red-500 to-red-600';
-                                      if (percentage < 35) return 'bg-gradient-to-r from-yellow-500 to-yellow-600';
-                                      if (percentage < 50) return 'bg-gradient-to-r from-blue-500 to-blue-600';
-                                      return 'bg-gradient-to-r from-green-500 to-green-600';
-                                    })()
-                                  : 'bg-gray-400'
+                                showValues ? (
+                                  salesMetrics.valor_vendido > 0
+                                    ? (() => {
+                                        const percentage = (salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100;
+                                        if (percentage < 20) return 'bg-gradient-to-r from-red-500 to-red-600';
+                                        if (percentage < 35) return 'bg-gradient-to-r from-yellow-500 to-yellow-600';
+                                        if (percentage < 50) return 'bg-gradient-to-r from-blue-500 to-blue-600';
+                                        return 'bg-gradient-to-r from-green-500 to-green-600';
+                                      })()
+                                    : 'bg-gray-400'
+                                ) : 'bg-gray-400'
                               }`}
                               style={{
-                                width: `${Math.min(salesMetrics.valor_vendido > 0 ? (salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100 : 0, 100)}%`
+                                width: `${showValues ? Math.min(salesMetrics.valor_vendido > 0 ? (salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100 : 0, 100) : 40}%`
                               }}
                             />
                           </div>
