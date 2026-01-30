@@ -271,19 +271,61 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
 
       console.log('🔍 Tentando login com email:', email)
 
-      // Buscar mentorado pelo email (case-insensitive)
-      const { data: mentoradoData, error: fetchError } = await supabase
-        .from('mentorados')
-        .select('*')
-        .ilike('email', email)
-        .single()
+      // Buscar mentorado pelo email (case-insensitive) com timeout maior
+      let mentoradoData = null
+      let fetchError = null
 
-      console.log('📊 Resultado da busca:', { mentoradoData, fetchError })
+      try {
+        // Primeira tentativa: busca normal com single()
+        const result = await supabase
+          .from('mentorados')
+          .select('*')
+          .ilike('email', email)
+          .abortSignal(AbortSignal.timeout(30000)) // 30 segundos de timeout
+          .single()
+
+        mentoradoData = result.data
+        fetchError = result.error
+      } catch (error: any) {
+        console.warn('⚠️ Primeira busca falhou, tentando alternativa...')
+
+        // Segunda tentativa: busca sem single() e filter manual
+        try {
+          const result = await supabase
+            .from('mentorados')
+            .select('*')
+            .ilike('email', email)
+            .limit(1)
+
+          if (result.data && result.data.length > 0) {
+            mentoradoData = result.data[0]
+            fetchError = null
+          } else {
+            fetchError = { code: 'PGRST116', message: 'No rows found' }
+          }
+        } catch (error2: any) {
+          fetchError = error2
+        }
+      }
+
+      console.log('📊 Resultado da busca:', {
+        mentoradoData: mentoradoData ? 'ENCONTRADO' : 'NÃO ENCONTRADO',
+        fetchError: fetchError ? {
+          code: fetchError.code,
+          message: fetchError.message,
+          details: fetchError.details,
+          hint: fetchError.hint
+        } : 'SEM ERRO'
+      })
 
       if (fetchError) {
         console.error('❌ Erro na busca:', fetchError)
         if (fetchError.code === 'PGRST116') {
           setError('Email não encontrado')
+        } else if (fetchError.message?.includes('AbortError') || fetchError.message?.includes('signal is aborted')) {
+          setError('Timeout na conexão. Tente novamente em alguns segundos.')
+        } else if (fetchError.message?.includes('Failed to fetch')) {
+          setError('Problema de conexão. Verifique sua internet.')
         } else {
           setError('Erro ao buscar usuário: ' + fetchError.message)
         }
