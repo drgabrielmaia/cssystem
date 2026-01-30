@@ -9,7 +9,7 @@ import { PeriodFilter } from '@/components/ui/period-filter'
 import { ChartCard } from '@/components/ui/chart-card'
 import { DataTable } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { DollarSign, Target, Users, Calendar, AlertCircle, UserPlus, Phone, MoreVertical } from 'lucide-react'
+import { DollarSign, Target, Users, Calendar, AlertCircle, UserPlus, Phone, MoreVertical, Eye, EyeOff } from 'lucide-react'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts'
 import { supabase } from '@/lib/supabase'
 
@@ -43,6 +43,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [monthlyData, setMonthlyData] = useState<{month: string, value: number}[]>([])
   const [recentActivity, setRecentActivity] = useState<any[]>([])
+  const [showValues, setShowValues] = useState(false)
 
   // Função para obter range de datas baseado no período selecionado
   const getDateRange = (period: string) => {
@@ -638,7 +639,20 @@ export default function DashboardPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-orange-700">Faturamento</h3>
-              <DollarSign className="w-6 h-6 text-orange-500" />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowValues(!showValues)}
+                  className="p-1 hover:bg-orange-100 rounded-full transition-colors"
+                  title={showValues ? "Ocultar valores" : "Mostrar valores"}
+                >
+                  {showValues ? (
+                    <EyeOff className="w-4 h-4 text-orange-600" />
+                  ) : (
+                    <Eye className="w-4 h-4 text-orange-600" />
+                  )}
+                </button>
+                <DollarSign className="w-6 h-6 text-orange-500" />
+              </div>
             </div>
 
             {/* Percentual de crescimento */}
@@ -647,41 +661,47 @@ export default function DashboardPage() {
             </div>
 
             {/* Valor Vendido (Grande) */}
-            <div className="text-3xl font-bold text-orange-900">
-              {new Intl.NumberFormat('pt-BR', {
+            <div className={`text-3xl font-bold text-orange-900 transition-all duration-300 ${
+              !showValues ? 'blur-sm select-none' : ''
+            }`}>
+              {showValues ? new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL',
                 minimumFractionDigits: 0
-              }).format(kpiData.total_vendas)}
+              }).format(kpiData.total_vendas) : 'R$ •••.•••,••'}
             </div>
 
             {/* Valor Arrecadado e Meta (Pequeno) */}
-            <div className="text-sm">
+            <div className={`text-sm transition-all duration-300 ${
+              !showValues ? 'blur-sm select-none' : ''
+            }`}>
               <span className="text-gray-600">Arrecadado: </span>
               <span className={`font-semibold ${
                 ((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100) >= 100 ? 'text-green-600' :
                 ((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100) >= 80 ? 'text-blue-600' :
                 ((kpiData.valor_arrecadado / kpiData.meta_vendas) * 100) >= 50 ? 'text-yellow-600' : 'text-red-600'
               }`}>
-                {new Intl.NumberFormat('pt-BR', {
+                {showValues ? new Intl.NumberFormat('pt-BR', {
                   style: 'currency',
                   currency: 'BRL',
                   minimumFractionDigits: 0
-                }).format(kpiData.valor_arrecadado)}
+                }).format(kpiData.valor_arrecadado) : 'R$ •••.•••,••'}
               </span>
-              <span className="text-gray-600"> • Meta: {new Intl.NumberFormat('pt-BR', {
+              <span className="text-gray-600"> • Meta: {showValues ? new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL',
                 minimumFractionDigits: 0
-              }).format(kpiData.meta_vendas)}</span>
+              }).format(kpiData.meta_vendas) : 'R$ •••.•••,••'}</span>
             </div>
 
             {/* Régua de Progresso */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-orange-700">Progresso da Meta</span>
-                <span className="text-xs font-bold text-orange-900">
-                  {((kpiData.total_vendas / kpiData.meta_vendas) * 100).toFixed(1)}%
+                <span className={`text-xs font-bold text-orange-900 transition-all duration-300 ${
+                  !showValues ? 'blur-sm select-none' : ''
+                }`}>
+                  {showValues ? ((kpiData.total_vendas / kpiData.meta_vendas) * 100).toFixed(1) : '••.•'}%
                 </span>
               </div>
 
@@ -695,9 +715,11 @@ export default function DashboardPage() {
                 />
               </div>
 
-              <div className="flex justify-between text-xs text-orange-600">
+              <div className={`flex justify-between text-xs text-orange-600 transition-all duration-300 ${
+                !showValues ? 'blur-sm select-none' : ''
+              }`}>
                 <span>R$ 0</span>
-                <span>R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0 }).format(kpiData.meta_vendas)}</span>
+                <span>{showValues ? `R$ ${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0 }).format(kpiData.meta_vendas)}` : 'R$ •••.•••'}</span>
               </div>
             </div>
 
@@ -705,8 +727,10 @@ export default function DashboardPage() {
             <div className="space-y-2 mt-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-blue-700">% Arrecadado do Faturado</span>
-                <span className="text-xs font-bold text-blue-900">
-                  {kpiData.total_vendas > 0 ? ((kpiData.valor_arrecadado / kpiData.total_vendas) * 100).toFixed(1) : '0.0'}%
+                <span className={`text-xs font-bold text-blue-900 transition-all duration-300 ${
+                  !showValues ? 'blur-sm select-none' : ''
+                }`}>
+                  {showValues ? (kpiData.total_vendas > 0 ? ((kpiData.valor_arrecadado / kpiData.total_vendas) * 100).toFixed(1) : '0.0') : '••.•'}%
                 </span>
               </div>
 
@@ -722,18 +746,24 @@ export default function DashboardPage() {
                 {/* Barra de progresso */}
                 <div
                   className={`h-full transition-all duration-500 relative z-10 ${
-                    kpiData.total_vendas > 0
-                      ? (() => {
-                          const percentage = (kpiData.valor_arrecadado / kpiData.total_vendas) * 100;
-                          if (percentage < 20) return 'bg-red-500';
-                          if (percentage < 35) return 'bg-yellow-500';
-                          if (percentage < 50) return 'bg-blue-500';
-                          return 'bg-green-500';
-                        })()
-                      : 'bg-gray-400'
+                    showValues ? (
+                      kpiData.total_vendas > 0
+                        ? (() => {
+                            const percentage = (kpiData.valor_arrecadado / kpiData.total_vendas) * 100;
+                            if (percentage < 20) return 'bg-red-500';
+                            if (percentage < 35) return 'bg-yellow-500';
+                            if (percentage < 50) return 'bg-blue-500';
+                            return 'bg-green-500';
+                          })()
+                        : 'bg-gray-400'
+                    ) : 'bg-gray-400'
                   }`}
                   style={{
-                    width: `${Math.min(kpiData.total_vendas > 0 ? (kpiData.valor_arrecadado / kpiData.total_vendas) * 100 : 0, 100)}%`
+                    width: `${showValues ? (
+                      kpiData.total_vendas > 0
+                        ? Math.min(((kpiData.valor_arrecadado / kpiData.total_vendas) * 100) * 2, 100)
+                        : 0
+                    ) : 40}%`
                   }}
                 />
               </div>
