@@ -271,42 +271,36 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
 
       console.log('🔍 Tentando login com email:', email)
 
-      // Buscar mentorado pelo email (case-insensitive) com timeout maior
+      // Debug simples
+      console.log('⚙️ Supabase client inicializado:', !!supabase)
+
+      // Buscar mentorado pelo email - versão simplificada sem AbortSignal
+      console.log('📡 Testando conexão Supabase...')
+
+      // Teste simples de conexão primeiro
+      try {
+        const testResult = await supabase.from('mentorados').select('id').limit(1)
+        console.log('🔗 Teste de conexão:', testResult.error ? 'FALHOU' : 'OK')
+      } catch (testError: any) {
+        console.error('❌ Falha na conexão básica:', testError)
+        setError('Problema de conexão com o servidor')
+        return false
+      }
+
+      // Busca principal sem AbortSignal
+      console.log('🔍 Buscando mentorado...')
       let mentoradoData = null
       let fetchError = null
 
-      try {
-        // Primeira tentativa: busca normal com single()
-        const result = await supabase
-          .from('mentorados')
-          .select('*')
-          .ilike('email', email)
-          .abortSignal(AbortSignal.timeout(30000)) // 30 segundos de timeout
-          .single()
+      const result = await supabase
+        .from('mentorados')
+        .select('*')
+        .ilike('email', email)
+        .limit(1)
+        .single()
 
-        mentoradoData = result.data
-        fetchError = result.error
-      } catch (error: any) {
-        console.warn('⚠️ Primeira busca falhou, tentando alternativa...')
-
-        // Segunda tentativa: busca sem single() e filter manual
-        try {
-          const result = await supabase
-            .from('mentorados')
-            .select('*')
-            .ilike('email', email)
-            .limit(1)
-
-          if (result.data && result.data.length > 0) {
-            mentoradoData = result.data[0]
-            fetchError = null
-          } else {
-            fetchError = { code: 'PGRST116', message: 'No rows found' }
-          }
-        } catch (error2: any) {
-          fetchError = error2
-        }
-      }
+      mentoradoData = result.data
+      fetchError = result.error
 
       console.log('📊 Resultado da busca:', {
         mentoradoData: mentoradoData ? 'ENCONTRADO' : 'NÃO ENCONTRADO',
@@ -319,17 +313,45 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
       })
 
       if (fetchError) {
-        console.error('❌ Erro na busca:', fetchError)
-        if (fetchError.code === 'PGRST116') {
+        console.error('❌ Erro na busca ilike:', fetchError)
+
+        // Se ilike falhou, tentar busca exata com eq
+        if (fetchError.message?.includes('AbortError') || fetchError.message?.includes('signal is aborted')) {
+          console.log('⚠️ Tentativa com busca exata...')
+
+          try {
+            const { data: exactData, error: exactError } = await supabase
+              .from('mentorados')
+              .select('*')
+              .eq('email', email.toLowerCase()) // busca exata case sensitive
+              .limit(1)
+              .single()
+
+            if (exactError) {
+              console.error('❌ Busca exata também falhou:', exactError)
+              if (exactError.code === 'PGRST116') {
+                setError('Email não encontrado')
+              } else {
+                setError('Problema de conexão. Tente novamente.')
+              }
+              return false
+            }
+
+            // Se chegou aqui, encontrou com busca exata
+            console.log('✅ Encontrado com busca exata!')
+            mentoradoData = exactData
+          } catch (exactCatchError: any) {
+            console.error('❌ Erro na busca exata:', exactCatchError)
+            setError('Problema de conexão persistente. Contate o suporte.')
+            return false
+          }
+        } else if (fetchError.code === 'PGRST116') {
           setError('Email não encontrado')
-        } else if (fetchError.message?.includes('AbortError') || fetchError.message?.includes('signal is aborted')) {
-          setError('Timeout na conexão. Tente novamente em alguns segundos.')
-        } else if (fetchError.message?.includes('Failed to fetch')) {
-          setError('Problema de conexão. Verifique sua internet.')
+          return false
         } else {
           setError('Erro ao buscar usuário: ' + fetchError.message)
+          return false
         }
-        return false
       }
 
       if (!mentoradoData) {
