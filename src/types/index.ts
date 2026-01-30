@@ -1,10 +1,8 @@
 export interface Mentorado {
   id: string
-  nome: string
   nome_completo: string
   email: string
   telefone?: string
-  // turma: string  // Campo não existe na tabela - precisa ser adicionado
   estado_entrada: string
   estado_atual: string
   data_entrada: string
@@ -15,9 +13,19 @@ export interface Mentorado {
   rg?: string
   origem_conhecimento?: string
   data_inicio_mentoria?: string
-  pontuacao_total?: number // Nova: pontuação total do mentorado
-  genero?: string // Para ranking por gênero
+  password_hash?: string
+  status_login?: string
+  pontuacao_total?: number
+  genero?: string
   especialidade?: string
+  porcentagem_comissao?: number
+  motivo_exclusao?: string
+  data_exclusao?: string
+  excluido?: boolean
+  lead_id?: string
+  organization_id?: string
+  turma?: string
+  updated_at?: string
   created_at: string
 }
 

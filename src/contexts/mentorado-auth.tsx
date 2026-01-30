@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase'
 
 interface Mentorado {
   id: string
-  nome: string
   nome_completo: string
   email: string
   telefone?: string
@@ -268,133 +267,78 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string): Promise<boolean> => {
     try {
       setError(null)
-
       console.log('🔍 Tentando login com email:', email)
 
-      // Debug simples
-      console.log('⚙️ Supabase client inicializado:', !!supabase)
-
-      // Buscar mentorado pelo email - versão simplificada sem AbortSignal
-      console.log('📡 Testando conexão Supabase...')
-
-      // Teste simples de conexão primeiro
-      try {
-        const testResult = await supabase.from('mentorados').select('id').limit(1)
-        console.log('🔗 Teste de conexão:', testResult.error ? 'FALHOU' : 'OK')
-      } catch (testError: any) {
-        console.error('❌ Falha na conexão básica:', testError)
-        setError('Problema de conexão com o servidor')
-        return false
-      }
-
-      // Busca principal sem AbortSignal
-      console.log('🔍 Buscando mentorado...')
-      let mentoradoData = null
-      let fetchError = null
-
-      const result = await supabase
+      // Busca simplificada - primeiro tenta case-insensitive
+      const { data: mentoradoData, error: fetchError } = await supabase
         .from('mentorados')
         .select('*')
         .ilike('email', email)
-        .limit(1)
         .single()
 
-      mentoradoData = result.data
-      fetchError = result.error
-
-      console.log('📊 Resultado da busca:', {
-        mentoradoData: mentoradoData ? 'ENCONTRADO' : 'NÃO ENCONTRADO',
-        fetchError: fetchError ? {
-          code: fetchError.code,
-          message: fetchError.message,
-          details: fetchError.details,
-          hint: fetchError.hint
-        } : 'SEM ERRO'
-      })
-
       if (fetchError) {
-        console.error('❌ Erro na busca ilike:', fetchError)
+        console.log('❌ Busca case-insensitive falhou:', fetchError.code, fetchError.message)
 
-        // Se ilike falhou, tentar busca exata com eq
-        if (fetchError.message?.includes('AbortError') || fetchError.message?.includes('signal is aborted')) {
-          console.log('⚠️ Tentativa com busca exata...')
+        // Se não encontrou, tenta busca exata
+        const { data: exactData, error: exactError } = await supabase
+          .from('mentorados')
+          .select('*')
+          .eq('email', email.toLowerCase())
+          .single()
 
-          try {
-            const { data: exactData, error: exactError } = await supabase
-              .from('mentorados')
-              .select('*')
-              .eq('email', email.toLowerCase()) // busca exata case sensitive
-              .limit(1)
-              .single()
-
-            if (exactError) {
-              console.error('❌ Busca exata também falhou:', exactError)
-              if (exactError.code === 'PGRST116') {
-                setError('Email não encontrado')
-              } else {
-                setError('Problema de conexão. Tente novamente.')
-              }
-              return false
-            }
-
-            // Se chegou aqui, encontrou com busca exata
-            console.log('✅ Encontrado com busca exata!')
-            mentoradoData = exactData
-          } catch (exactCatchError: any) {
-            console.error('❌ Erro na busca exata:', exactCatchError)
-            setError('Problema de conexão persistente. Contate o suporte.')
-            return false
-          }
-        } else if (fetchError.code === 'PGRST116') {
+        if (exactError) {
+          console.log('❌ Busca exata também falhou:', exactError.code)
           setError('Email não encontrado')
           return false
-        } else {
-          setError('Erro ao buscar usuário: ' + fetchError.message)
-          return false
         }
+
+        // Usar dados da busca exata
+        console.log('✅ Encontrado com busca exata')
+        return await processLogin(exactData, password)
       }
 
-      if (!mentoradoData) {
-        setError('Email não encontrado')
-        return false
-      }
+      // Usar dados da busca case-insensitive
+      console.log('✅ Encontrado com busca case-insensitive')
+      return await processLogin(mentoradoData, password)
 
-      console.log('👤 Mentorado encontrado:', {
-        nome: mentoradoData.nome,
-        email: mentoradoData.email,
-        status_login: mentoradoData.status_login,
-        estado_atual: mentoradoData.estado_atual
-      })
-
-      // Verificar se deve ter acesso bloqueado ANTES de validar senha
-      const accessCheck = shouldBlockAccess(mentoradoData)
-      if (accessCheck.blocked) {
-        console.log('🚫 Acesso bloqueado:', accessCheck.reason)
-        setError(accessCheck.reason || 'Acesso bloqueado')
-        return false
-      }
-
-      // Verificar senha (aceita qualquer senha se password_hash for null, senão verifica)
-      if (!mentoradoData.password_hash || mentoradoData.password_hash === password) {
-        setMentorado(mentoradoData)
-        setCookie(COOKIE_NAME, mentoradoData.id)
-
-        // Limpar localStorage legado se existir
-        localStorage.removeItem('mentorado')
-
-        // Disparar evento customizado para notificar outros componentes
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('mentoradoLoginSuccess'))
-        }, 50)
-
-        return true
-      } else {
-        setError('Senha incorreta')
-        return false
-      }
     } catch (error: any) {
-      console.error('Erro no login do mentorado:', error)
+      console.error('❌ Erro no login:', error)
       setError('Erro ao fazer login')
+      return false
+    }
+  }
+
+  const processLogin = async (mentoradoData: any, password: string): Promise<boolean> => {
+    console.log('👤 Processando login para:', {
+      nome_completo: mentoradoData.nome_completo,
+      email: mentoradoData.email,
+      status_login: mentoradoData.status_login,
+      estado_atual: mentoradoData.estado_atual
+    })
+
+    // Verificar se deve ter acesso bloqueado
+    const accessCheck = shouldBlockAccess(mentoradoData)
+    if (accessCheck.blocked) {
+      console.log('🚫 Acesso bloqueado:', accessCheck.reason)
+      setError(accessCheck.reason || 'Acesso bloqueado')
+      return false
+    }
+
+    // Verificar senha (aceita qualquer senha se password_hash for null, senão verifica)
+    if (!mentoradoData.password_hash || mentoradoData.password_hash === password) {
+      setMentorado(mentoradoData)
+      setCookie(COOKIE_NAME, mentoradoData.id)
+      localStorage.removeItem('mentorado') // Limpar localStorage legado
+
+      // Disparar evento de sucesso
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('mentoradoLoginSuccess'))
+      }, 50)
+
+      console.log('✅ Login realizado com sucesso')
+      return true
+    } else {
+      setError('Senha incorreta')
       return false
     }
   }
