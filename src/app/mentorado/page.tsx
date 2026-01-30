@@ -10,6 +10,7 @@ import { UserCheck, Mail, Eye, EyeOff, LogIn, Play, BookOpen, DollarSign, Trendi
 import { MentoradoAuthProvider, useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { supabase } from '@/lib/supabase'
 import { GeneroEspecialidadeModal } from '@/components/GeneroEspecialidadeModal'
+import { CacheRefreshHelper } from '@/components/cache-refresh-helper'
 import Link from 'next/link'
 
 interface VideoModule {
@@ -873,6 +874,7 @@ function MentoradoPageContent() {
 export default function MentoradoLoginPage() {
   return (
     <MentoradoAuthProvider>
+      <CacheRefreshHelper />
       <MentoradoPageContent />
     </MentoradoAuthProvider>
   )

@@ -36,12 +36,15 @@ interface MentoradoAuthContextType {
 const MentoradoAuthContext = createContext<MentoradoAuthContextType | undefined>(undefined)
 
 const COOKIE_NAME = 'mentorado_auth'
+const AUTH_VERSION = '2.0' // Incrementar quando houver mudanças no auth
+const VERSION_KEY = 'mentorado_auth_version'
 
 export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
   const [mentorado, setMentorado] = useState<Mentorado | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mentoradoRef = useRef<Mentorado | null>(null)
+  const errorCountRef = useRef(0)
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -226,8 +229,31 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Limpar cache antigo se versão mudou
+  const clearOldCache = () => {
+    try {
+      const currentVersion = localStorage.getItem(VERSION_KEY)
+      if (currentVersion !== AUTH_VERSION) {
+        console.log('🔄 Versão do auth mudou, limpando cache...')
+
+        // Limpar todos os dados de auth antigos
+        removeCookie(COOKIE_NAME)
+        localStorage.removeItem('mentorado')
+        localStorage.removeItem(`${COOKIE_NAME}_fallback`)
+
+        // Atualizar versão
+        localStorage.setItem(VERSION_KEY, AUTH_VERSION)
+
+        console.log('✅ Cache limpo, versão atualizada para', AUTH_VERSION)
+      }
+    } catch (error) {
+      console.log('⚠️ Erro ao verificar versão do cache:', error)
+    }
+  }
+
   // Verificar autenticação no carregamento e monitorar mudanças
   useEffect(() => {
+    clearOldCache() // Limpar cache primeiro
     checkAuth()
 
     // Monitorar mudanças no cookie periodicamente
@@ -268,6 +294,7 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null)
       console.log('🔍 Tentando login com email:', email)
+      console.log('📋 Versão do auth:', AUTH_VERSION)
 
       // Busca simplificada - primeiro tenta case-insensitive
       const { data: mentoradoData, error: fetchError } = await supabase
@@ -303,6 +330,16 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
 
     } catch (error: any) {
       console.error('❌ Erro no login:', error)
+      errorCountRef.current += 1
+
+      // Se múltiplos erros consecutivos, sugerir refresh
+      if (errorCountRef.current >= 3) {
+        console.log('⚠️ Múltiplos erros detectados, sugerindo refresh...')
+        window.dispatchEvent(new CustomEvent('mentoradoLoginPersistentError', {
+          detail: { persistent: true, count: errorCountRef.current }
+        }))
+      }
+
       setError('Erro ao fazer login')
       return false
     }
@@ -336,6 +373,7 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
       }, 50)
 
       console.log('✅ Login realizado com sucesso')
+      errorCountRef.current = 0 // Reset error counter on success
       return true
     } else {
       setError('Senha incorreta')
