@@ -29,9 +29,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { useDraggable } from '@/hooks/use-draggable'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/contexts/auth'
 
 const mentoradoSchema = z.object({
   nome_completo: z.string().min(1, 'Nome completo é obrigatório'),
@@ -51,23 +49,15 @@ const mentoradoSchema = z.object({
 
 type MentoradoFormData = z.infer<typeof mentoradoSchema>
 
-interface AddMentoradoModalProps {
+interface AddMentoradoModalSafeProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  organizationId?: string | null
 }
 
-export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoModalProps) {
+export function AddMentoradoModalSafe({ isOpen, onClose, onSuccess, organizationId }: AddMentoradoModalSafeProps) {
   const [loading, setLoading] = useState(false)
-
-  // Usar useAuth de forma defensiva
-  const authContext = useAuth()
-  const organizationId = authContext?.organizationId || null
-
-  const { ref: draggableRef, isDragging } = useDraggable({
-    enabled: isOpen,
-    handle: '[data-drag-handle="mentorado-modal"]'
-  })
 
   const form = useForm<MentoradoFormData>({
     resolver: zodResolver(mentoradoSchema),
@@ -88,7 +78,6 @@ export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoMo
     }
   })
 
-
   const onSubmit = async (data: MentoradoFormData) => {
     setLoading(true)
 
@@ -105,55 +94,25 @@ export function AddMentoradoModal({ isOpen, onClose, onSuccess }: AddMentoradoMo
         estado_atual: data.estado_atual || 'ativo'
       }
 
+      console.log('📝 Criando mentorado:', mentoradoData)
+
       const { data: result, error } = await supabase
         .from('mentorados')
         .insert([mentoradoData])
         .select()
 
-      if (error) throw error
-
-      // Automatically grant access to all video modules
-      if (result && result[0]) {
-        try {
-          const newMentorado = result[0]
-
-          // Get all active modules from the organization
-          const { data: modules, error: modulesError } = await supabase
-            .from('video_modules')
-            .select('id')
-            .eq('organization_id', newMentorado.organization_id)
-            .eq('is_active', true)
-
-          if (!modulesError && modules && modules.length > 0) {
-            // Create access records for all modules
-            const accessRecords = modules.map(module => ({
-              mentorado_id: newMentorado.id,
-              module_id: module.id,
-              has_access: true,
-              granted_at: new Date().toISOString(),
-              granted_by: 'auto_grant_on_creation',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }))
-
-            const { error: accessError } = await supabase
-              .from('video_access_control')
-              .insert(accessRecords)
-
-            if (accessError) {
-              console.warn('⚠️ Erro ao criar acessos aos módulos:', accessError.message)
-            } else {
-              console.log('✅ Acessos aos módulos criados automaticamente para', newMentorado.nome_completo)
-            }
-          }
-        } catch (moduleAccessError) {
-          console.warn('⚠️ Erro ao processar acesso aos módulos:', moduleAccessError)
-        }
+      if (error) {
+        console.error('❌ Erro ao criar mentorado:', error)
+        throw error
       }
+
+      console.log('✅ Mentorado criado:', result)
 
       // Send welcome message via WhatsApp if phone number is provided
       if (data.telefone && result && result[0]) {
         try {
+          console.log('📱 Tentando enviar mensagem de boas-vindas...')
+
           const welcomeMessage = `👋 Seja muito bem-vindo(a) à mentoria!
 
 Parabéns pela decisão de estar aqui. Você acabou de dar um passo que muitos adiam — e que pode mudar completamente a forma como você atua, pensa e constrói seus resultados daqui pra frente.
@@ -188,14 +147,13 @@ Vamos com tudo. 🔥`
       alert('Mentorado criado com sucesso!')
       onSuccess()
       onClose()
-    } catch (error) {
-      console.error('Erro ao adicionar mentorado:', error)
-      alert('Erro ao adicionar mentorado')
+    } catch (error: any) {
+      console.error('💥 Erro ao adicionar mentorado:', error)
+      alert(error?.message || 'Erro ao adicionar mentorado')
     } finally {
       setLoading(false)
     }
   }
-
 
   // Reset ao abrir modal
   useEffect(() => {
@@ -209,25 +167,29 @@ Vamos com tudo. 🔥`
     onClose()
   }
 
-  // Não renderizar o modal se o contexto de auth ainda não foi carregado
-  if (!authContext) {
-    return null
+  if (!organizationId) {
+    return (
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Erro de Configuração</DialogTitle>
+            <DialogDescription>
+              Organization ID não encontrado. Faça login novamente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={handleClose}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent
-        ref={draggableRef}
-        className={`max-w-2xl max-h-[90vh] overflow-y-auto ${isDragging ? 'select-none' : ''}`}
-      >
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle
-            data-drag-handle="mentorado-modal"
-            className="cursor-move flex items-center gap-2"
-          >
-            <span className="text-gray-400">⋮⋮</span>
-            Adicionar Novo Mentorado
-          </DialogTitle>
+          <DialogTitle>Adicionar Novo Mentorado</DialogTitle>
           <DialogDescription>
             Preencha os dados do novo mentorado.
           </DialogDescription>
@@ -298,127 +260,6 @@ Vamos com tudo. 🔥`
                           <SelectItem value="cancelado">Cancelado</SelectItem>
                         </SelectContent>
                       </Select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="data_nascimento"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Data de Nascimento</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="date"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="cpf"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>CPF</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="000.000.000-00" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="rg"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>RG</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="00.000.000-0" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="crm"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>CRM</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="CRM/UF 000000" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="endereco"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Endereço</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Endereço completo" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="origem_conhecimento"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Como conheceu</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Como conheceu a mentoria" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="data_inicio_mentoria"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Data Início Mentoria</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="date"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="data_entrada"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Data de Entrada na Mentoria</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="date"
-                        {...field}
-                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

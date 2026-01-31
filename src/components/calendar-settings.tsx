@@ -366,28 +366,44 @@ export function useCalendarSettings() {
 
   const loadSettings = async () => {
     try {
-      const { data: userSettings } = await supabase
+      // Configurações padrão em caso de erro
+      const defaultSettings: CalendarSettings = {
+        available_days: [1, 2, 3, 4, 5],
+        time_slots: [
+          { start: '09:00', end: '18:00', duration: 60 }
+        ],
+        lunch_break: { start: '', end: '' },
+        advance_booking_days: 1,
+        max_booking_days: 30,
+        timezone: 'America/Sao_Paulo'
+      }
+
+      const { data: userSettings, error } = await supabase
         .from('user_settings')
         .select('calendar_settings')
         .single()
 
-      if (userSettings?.calendar_settings) {
+      if (error) {
+        console.log('Tabela user_settings não encontrada ou sem dados, usando configurações padrão')
+        setSettings(defaultSettings)
+      } else if (userSettings?.calendar_settings) {
         setSettings(userSettings.calendar_settings)
       } else {
-        // Configurações padrão (sem almoço)
-        setSettings({
-          available_days: [1, 2, 3, 4, 5],
-          time_slots: [
-            { start: '09:00', end: '18:00', duration: 60 }
-          ],
-          lunch_break: { start: '', end: '' },
-          advance_booking_days: 1,
-          max_booking_days: 30,
-          timezone: 'America/Sao_Paulo'
-        })
+        setSettings(defaultSettings)
       }
     } catch (error) {
-      console.error('Erro ao carregar configurações:', error)
+      console.error('Erro ao carregar configurações do calendário, usando padrões:', error)
+      // Sempre usar configurações padrão em caso de erro
+      setSettings({
+        available_days: [1, 2, 3, 4, 5],
+        time_slots: [
+          { start: '09:00', end: '18:00', duration: 60 }
+        ],
+        lunch_break: { start: '', end: '' },
+        advance_booking_days: 1,
+        max_booking_days: 30,
+        timezone: 'America/Sao_Paulo'
+      })
     } finally {
       setLoading(false)
     }

@@ -6,7 +6,7 @@ import { MetricCard } from '@/components/ui/metric-card'
 import { DataTable } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { supabase } from '@/lib/supabase'
-import { AddMentoradoModal } from '@/components/add-mentorado-modal'
+import { AddMentoradoModalSafe } from '@/components/add-mentorado-modal-safe'
 import { EditMentoradoModal } from '@/components/edit-mentorado-modal'
 import { useAuth } from '@/contexts/auth'
 import {
@@ -483,13 +483,14 @@ export default function MentoradosClientPage() {
       />
 
       {/* Modais */}
-      <AddMentoradoModal
+      <AddMentoradoModalSafe
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSuccess={() => {
           setShowAddModal(false)
           loadMentorados()
         }}
+        organizationId={organizationId}
       />
 
       <EditMentoradoModal

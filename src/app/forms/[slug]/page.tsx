@@ -54,49 +54,75 @@ export default function FormPage() {
   const [isAnimating, setIsAnimating] = useState(false)
   const [currentLeadId, setCurrentLeadId] = useState<string | null>(null)
   const [showCalendarBooking, setShowCalendarBooking] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
 
   const slug = params.slug as string
 
+  // Verificar se o componente foi hidratado
   useEffect(() => {
-    console.log('Entrou na página')
-    // Capturar URL de origem
-    const urlParams = new URLSearchParams(window.location.search)
-    const ref = urlParams.get('ref') || urlParams.get('source') || ''
-    const utmSource = urlParams.get('utm_source') || ''
-    const utmMedium = urlParams.get('utm_medium') || ''
-    const utmCampaign = urlParams.get('utm_campaign') || ''
+    setIsHydrated(true)
+  }, [])
 
-    // Construir string de origem
-    let source = ''
-    if (ref) {
-      source = ref
-    } else if (utmSource || utmMedium || utmCampaign) {
-      source = [utmSource, utmMedium, utmCampaign].filter(Boolean).join('/')
-    } else if (document.referrer) {
+  useEffect(() => {
+    // Só executar após hidratação completa
+    if (!isHydrated) return
+
+    console.log('Entrou na página')
+
+    // Usar setTimeout para evitar problemas de hidratação
+    const initializeForm = () => {
+      if (typeof window === 'undefined') return
+
       try {
-        const referrerUrl = new URL(document.referrer)
-        if (referrerUrl.hostname.includes('instagram.com')) {
-          source = 'instagram'
-        } else if (referrerUrl.hostname.includes('facebook.com')) {
-          source = 'facebook'
-        } else if (referrerUrl.hostname.includes('google.com')) {
-          source = 'google'
-        } else if (referrerUrl.hostname !== window.location.hostname) {
-          source = referrerUrl.hostname
+        // Capturar URL de origem
+        const urlParams = new URLSearchParams(window.location.search)
+        const ref = urlParams.get('ref') || urlParams.get('source') || ''
+        const utmSource = urlParams.get('utm_source') || ''
+        const utmMedium = urlParams.get('utm_medium') || ''
+        const utmCampaign = urlParams.get('utm_campaign') || ''
+
+        // Construir string de origem
+        let source = ''
+        if (ref) {
+          source = ref
+        } else if (utmSource || utmMedium || utmCampaign) {
+          source = [utmSource, utmMedium, utmCampaign].filter(Boolean).join('/')
+        } else if (document?.referrer) {
+          try {
+            const referrerUrl = new URL(document.referrer)
+            if (referrerUrl.hostname.includes('instagram.com')) {
+              source = 'instagram'
+            } else if (referrerUrl.hostname.includes('facebook.com')) {
+              source = 'facebook'
+            } else if (referrerUrl.hostname.includes('google.com')) {
+              source = 'google'
+            } else if (referrerUrl.hostname !== window.location.hostname) {
+              source = referrerUrl.hostname
+            }
+          } catch {
+            source = 'direct'
+          }
+        } else {
+          source = 'direct'
         }
-      } catch {
-        source = 'direct'
+
+        setSourceUrl(source)
+      } catch (error) {
+        console.warn('Erro ao capturar origem:', error)
+        setSourceUrl('direct')
       }
-    } else {
-      source = 'direct'
+
+      fetchTemplate()
     }
 
-    setSourceUrl(source)
-    fetchTemplate()
-  }, [slug])
+    // Executar após hidratação
+    setTimeout(initializeForm, 0)
+  }, [slug, isHydrated])
 
   const fetchTemplate = async () => {
     try {
+      console.log('🔍 Buscando template:', slug)
+
       const { data, error } = await supabase
         .from('form_templates')
         .select('*')
@@ -104,15 +130,21 @@ export default function FormPage() {
         .single()
 
       if (error) {
-        console.error('Erro ao buscar template:', error)
+        console.error('❌ Erro ao buscar template:', error)
+        setTemplate(null)
         return
       }
 
       if (data) {
+        console.log('✅ Template carregado:', data.name)
         setTemplate(data)
+      } else {
+        console.warn('⚠️ Template não encontrado')
+        setTemplate(null)
       }
     } catch (error) {
-      console.error('Erro:', error)
+      console.error('💥 Erro inesperado ao buscar template:', error)
+      setTemplate(null)
     } finally {
       setLoading(false)
     }
@@ -824,12 +856,15 @@ export default function FormPage() {
     }
   }
 
-  if (loading) {
+  // Não renderizar até que esteja hidratado
+  if (!isHydrated || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Carregando formulário...</p>
+          <p className="text-gray-600 font-medium">
+            {!isHydrated ? 'Inicializando...' : 'Carregando formulário...'}
+          </p>
         </div>
       </div>
     )

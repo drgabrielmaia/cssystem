@@ -108,12 +108,16 @@ export function CalendarBooking({ submission, isOpen, onClose }: CalendarBooking
     try {
       const contactInfo = submission.lead || submission.mentorado
 
+      if (!contactInfo) {
+        throw new Error('Dados de contato não encontrados')
+      }
+
       // Criar agendamento na tabela calendar_events (existente)
       const startDateTime = new Date(`${selectedDate}T${selectedTime}:00-03:00`)
       const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000) // +1 hora
 
       const eventInfo = {
-        title: `Call de Qualificação - ${contactInfo?.nome_completo}`,
+        title: `Call de Qualificação - ${contactInfo.nome_completo}`,
         description: `Agendamento via formulário: ${submission.template?.name || submission.template_slug}`,
         start_datetime: startDateTime.toISOString(),
         end_datetime: endDateTime.toISOString(),
@@ -123,14 +127,18 @@ export function CalendarBooking({ submission, isOpen, onClose }: CalendarBooking
         call_status: 'agendado',
         tipo_call: 'qualificacao',
         origem_agendamento: 'formulario_automatico',
-        nome_contato: contactInfo?.nome_completo || 'Não informado',
-        email_contato: contactInfo?.email || '',
+        nome_contato: contactInfo.nome_completo,
+        email_contato: contactInfo.email || '',
         telefone_contato: submission.lead?.telefone || '',
         whatsapp_contato: submission.lead?.telefone || '',
         objetivo_call: 'Qualificação inicial via formulário',
         status_confirmacao: 'pendente',
-        notificacao_enviada: false
+        notificacao_enviada: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
+
+      console.log('🗓️ Tentando criar agendamento:', eventInfo)
 
       const { data, error } = await supabase
         .from('calendar_events')
@@ -139,10 +147,20 @@ export function CalendarBooking({ submission, isOpen, onClose }: CalendarBooking
         .single()
 
       if (error) {
-        console.error('Erro ao criar agendamento:', error)
-        throw error
+        console.error('❌ Erro detalhado ao criar agendamento:', error)
+        console.error('📋 Dados que tentamos inserir:', eventInfo)
+
+        // Verificar se é um erro de campo obrigatório
+        if (error.message?.includes('null value in column')) {
+          const fieldMatch = error.message.match(/null value in column "([^"]+)"/)
+          const fieldName = fieldMatch ? fieldMatch[1] : 'desconhecido'
+          throw new Error(`Campo obrigatório não preenchido: ${fieldName}. Verifique se todos os dados necessários estão configurados.`)
+        }
+
+        throw new Error(`Erro no banco de dados: ${error.message}`)
       }
 
+      console.log('✅ Agendamento criado com sucesso:', data)
       setBookingData(data)
 
       // Enviar notificações via API
@@ -159,9 +177,16 @@ export function CalendarBooking({ submission, isOpen, onClose }: CalendarBooking
 
       setStep('success')
 
-    } catch (error) {
-      console.error('Erro no agendamento:', error)
-      alert('Erro ao agendar call. Tente novamente.')
+    } catch (error: any) {
+      console.error('💥 Erro completo no agendamento:', error)
+
+      let errorMessage = 'Erro ao agendar call. Tente novamente.'
+
+      if (error.message) {
+        errorMessage = error.message
+      }
+
+      alert(errorMessage)
     } finally {
       setLoading(false)
     }
