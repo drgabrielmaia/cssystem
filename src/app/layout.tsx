@@ -27,8 +27,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="pt-BR" className="h-full">
-      <body className={`${inter.className} h-full bg-gray-900 text-white dark`}>
+    <html lang="pt-BR" className="h-full" suppressHydrationWarning={true}>
+      <body className={`${inter.className} h-full bg-gray-900 text-white dark`} suppressHydrationWarning={true}>
         <ChunkErrorBoundary>
           <AuthProvider>
             <OrganizationProvider>

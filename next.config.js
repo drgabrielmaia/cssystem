@@ -12,7 +12,10 @@ const nextConfig = {
   // Configuração mais simples para CSS
   experimental: {
     // Remover optimizeCss que está causando problemas
+    optimizeCss: false,
   },
+  // Configurações para resolver problemas de hidratação
+  poweredByHeader: false,
   // Desabilitar preload automático de CSS
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
