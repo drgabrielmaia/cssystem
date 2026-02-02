@@ -11,6 +11,7 @@ import { MentoradoAuthProvider, useMentoradoAuth } from '@/contexts/mentorado-au
 import { supabase } from '@/lib/supabase'
 import { GeneroEspecialidadeModal } from '@/components/GeneroEspecialidadeModal'
 import { CacheRefreshHelper } from '@/components/cache-refresh-helper'
+import { RankingPorGenero } from '@/components/ranking/RankingPorGenero'
 import Link from 'next/link'
 
 interface VideoModule {
@@ -22,15 +23,6 @@ interface VideoModule {
   order_index: number
 }
 
-interface RankingMentorado {
-  mentorado_id: string
-  nome_completo: string
-  pontuacao_total: number
-  total_indicacoes: number // Manter para retrocompatibilidade
-  genero: string
-  especialidade?: string
-  posicao?: number
-}
 
 
 function MentoradoPageContent() {
@@ -40,11 +32,6 @@ function MentoradoPageContent() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [modules, setModules] = useState<VideoModule[]>([])
-  const [ranking, setRanking] = useState<RankingMentorado[]>([])
-  const [rankingMasculino, setRankingMasculino] = useState<RankingMentorado[]>([])
-  const [rankingFeminino, setRankingFeminino] = useState<RankingMentorado[]>([])
-  const [showRanking, setShowRanking] = useState(true)
-  const [showFullRankingModal, setShowFullRankingModal] = useState(false)
   const [showGeneroEspecialidadeModal, setShowGeneroEspecialidadeModal] = useState(false)
   const [needsProfileUpdate, setNeedsProfileUpdate] = useState(false)
 
@@ -52,7 +39,6 @@ function MentoradoPageContent() {
     if (mentorado) {
       checkProfileComplete()
       loadModules()
-      loadRankingData()
     }
   }, [mentorado])
 
@@ -87,48 +73,6 @@ function MentoradoPageContent() {
     }
   }
 
-  const loadRankingData = async () => {
-    try {
-      console.log('🏆 Carregando ranking de pontuação...')
-
-      // Usar nova API de ranking baseada em pontuação
-      const response = await fetch('/api/ranking', {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      const result = await response.json()
-
-      if (result.success) {
-        const { ranking } = result
-
-        // Usar dados da nova API
-        setRanking(ranking.geral)
-        setRankingMasculino(ranking.masculino)
-        setRankingFeminino(ranking.feminino)
-
-        console.log('✅ Ranking carregado:', {
-          total: ranking.geral.length,
-          masculino: ranking.masculino.length,
-          feminino: ranking.feminino.length,
-          total_pontos: result.stats.total_pontos
-        })
-      } else {
-        throw new Error(result.error || 'Erro na API')
-      }
-
-    } catch (error) {
-      console.error('❌ Erro ao carregar ranking:', error)
-      setRanking([])
-      setRankingMasculino([])
-      setRankingFeminino([])
-    }
-  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -374,180 +318,12 @@ function MentoradoPageContent() {
           </div>
         </section>
 
-        {/* Rankings de Indicações por Gênero */}
-        {showRanking && (rankingMasculino.length > 0 || rankingFeminino.length > 0) && (
-          <section>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <Trophy className="w-8 h-8 text-yellow-500" />
-                <div>
-                  <h2 className="text-2xl font-bold text-white">🏆 Ranking de Pontuação por Categoria</h2>
-                  <p className="text-gray-400">Competição por pontos: indicações, metas e participações!</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowRanking(false)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Ranking Masculino */}
-              {rankingMasculino.length > 0 && (
-                <div className="bg-[#1A1A1A] rounded-lg p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">♂</span>
-                    </div>
-                    <h3 className="text-xl font-bold text-white">Ranking Masculino</h3>
-                    <span className="text-gray-400 text-sm">({rankingMasculino.length} competidores)</span>
-                  </div>
-
-                  <div className="space-y-3">
-                    {rankingMasculino.slice(0, 3).map((mentoradoRank, index) => (
-                      <div
-                        key={mentoradoRank.mentorado_id}
-                        className={`flex items-center p-3 rounded-lg transition-all ${
-                          index === 0
-                            ? 'bg-gradient-to-r from-blue-600/20 to-blue-800/20 border border-blue-400/30'
-                            : index === 1
-                            ? 'bg-gradient-to-r from-gray-500/20 to-gray-700/20 border border-gray-400/30'
-                            : index === 2
-                            ? 'bg-gradient-to-r from-amber-600/20 to-amber-800/20 border border-amber-500/30'
-                            : 'bg-[#2A2A2A]'
-                        }`}
-                      >
-                        <div className="flex items-center justify-center w-8 h-8 mr-3">
-                          {index === 0 ? (
-                            <Medal className="w-6 h-6 text-blue-400" />
-                          ) : index === 1 ? (
-                            <Medal className="w-6 h-6 text-gray-400" />
-                          ) : index === 2 ? (
-                            <Medal className="w-6 h-6 text-amber-500" />
-                          ) : (
-                            <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                              {index + 1}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex-1">
-                          <div className="text-white font-medium text-sm truncate">
-                            {mentoradoRank.nome_completo}
-                          </div>
-                          <div className="text-gray-400 text-xs">
-                            {mentoradoRank.pontuacao_total} pontos
-                          </div>
-                        </div>
-
-                        <div className={`text-lg font-bold ${
-                          index === 0 ? 'text-blue-400' :
-                          index === 1 ? 'text-gray-400' :
-                          index === 2 ? 'text-amber-500' :
-                          'text-white'
-                        }`}>
-                          {mentoradoRank.pontuacao_total}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Ranking Feminino */}
-              {rankingFeminino.length > 0 && (
-                <div className="bg-[#1A1A1A] rounded-lg p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 bg-pink-600 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">♀</span>
-                    </div>
-                    <h3 className="text-xl font-bold text-white">Ranking Feminino</h3>
-                    <span className="text-gray-400 text-sm">({rankingFeminino.length} competidores)</span>
-                  </div>
-
-                  <div className="space-y-3">
-                    {rankingFeminino.slice(0, 3).map((mentoradoRank, index) => (
-                      <div
-                        key={mentoradoRank.mentorado_id}
-                        className={`flex items-center p-3 rounded-lg transition-all ${
-                          index === 0
-                            ? 'bg-gradient-to-r from-pink-600/20 to-pink-800/20 border border-pink-400/30'
-                            : index === 1
-                            ? 'bg-gradient-to-r from-gray-500/20 to-gray-700/20 border border-gray-400/30'
-                            : index === 2
-                            ? 'bg-gradient-to-r from-amber-600/20 to-amber-800/20 border border-amber-500/30'
-                            : 'bg-[#2A2A2A]'
-                        }`}
-                      >
-                        <div className="flex items-center justify-center w-8 h-8 mr-3">
-                          {index === 0 ? (
-                            <Medal className="w-6 h-6 text-pink-400" />
-                          ) : index === 1 ? (
-                            <Medal className="w-6 h-6 text-gray-400" />
-                          ) : index === 2 ? (
-                            <Medal className="w-6 h-6 text-amber-500" />
-                          ) : (
-                            <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                              {index + 1}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex-1">
-                          <div className="text-white font-medium text-sm truncate">
-                            {mentoradoRank.nome_completo}
-                          </div>
-                          <div className="text-gray-400 text-xs">
-                            {mentoradoRank.pontuacao_total} pontos
-                          </div>
-                        </div>
-
-                        <div className={`text-lg font-bold ${
-                          index === 0 ? 'text-pink-400' :
-                          index === 1 ? 'text-gray-400' :
-                          index === 2 ? 'text-amber-500' :
-                          'text-white'
-                        }`}>
-                          {mentoradoRank.pontuacao_total}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Botão Ver Ranking Completo */}
-            {(rankingMasculino.length > 3 || rankingFeminino.length > 3) && (
-              <div className="text-center mt-6">
-                <button
-                  onClick={() => setShowFullRankingModal(true)}
-                  className="bg-[#1A1A1A] hover:bg-[#2A2A2A] text-white px-6 py-3 rounded-lg font-medium transition-colors border border-gray-600 hover:border-gray-500"
-                >
-                  Ver rankings completos (♂ {rankingMasculino.length} • ♀ {rankingFeminino.length})
-                </button>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* Botão para mostrar ranking quando escondido */}
-        {!showRanking && (
-          <div className="mb-6">
-            <button
-              onClick={() => setShowRanking(true)}
-              className="flex items-center space-x-3 bg-[#1A1A1A] p-4 rounded-lg border border-gray-700 hover:bg-[#2A2A2A] transition-colors w-full"
-            >
-              <Trophy className="w-8 h-8 text-yellow-500" />
-              <div>
-                <h3 className="text-lg font-bold text-white">Mostrar Ranking de Pontuação</h3>
-                <p className="text-gray-400 text-sm">Clique para ver o ranking por pontos</p>
-              </div>
-            </button>
-          </div>
-        )}
+        {/* Ranking de Pontuação por Gênero - Componente Otimizado */}
+        <RankingPorGenero
+          showOnlyTop3={true}
+          enableAutoRefresh={true}
+          mentoradoId={mentorado?.id}
+        />
 
         {/* Continue Watching Section - Modules Grid */}
         <section>
@@ -714,144 +490,6 @@ function MentoradoPageContent() {
         </section>
       </div>
 
-      {/* Modal de Rankings Completos */}
-      <Dialog open={showFullRankingModal} onOpenChange={setShowFullRankingModal}>
-        <DialogContent className="sm:max-w-[900px] sm:max-h-[90vh] bg-[#181818] border-gray-800 text-white overflow-hidden">
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-gray-700">
-              <div className="flex items-center gap-3">
-                <Trophy className="w-8 h-8 text-yellow-500" />
-                <div>
-                  <h3 className="text-2xl font-bold">🏆 Rankings Completos por Categoria</h3>
-                  <p className="text-gray-400">
-                    Competições separadas: ♂ {rankingMasculino.length} • ♀ {rankingFeminino.length}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowFullRankingModal(false)}
-                className="text-gray-400 hover:text-white transition-colors text-2xl leading-none"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto max-h-[600px]">
-              {/* Ranking Masculino Completo */}
-              {rankingMasculino.length > 0 && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 sticky top-0 bg-[#181818] py-2">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">♂</span>
-                    </div>
-                    <h4 className="text-xl font-bold text-white">Ranking Masculino</h4>
-                  </div>
-
-                  <div className="space-y-2">
-                    {rankingMasculino.map((mentoradoRank, index) => (
-                      <div
-                        key={mentoradoRank.mentorado_id}
-                        className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
-                          index < 3
-                            ? 'bg-gradient-to-r from-blue-700/30 to-blue-800/30 border border-blue-500/30'
-                            : 'bg-[#1A1A1A] hover:bg-[#2A2A2A]'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                            index === 0 ? 'bg-blue-500 text-white' :
-                            index === 1 ? 'bg-gray-400 text-black' :
-                            index === 2 ? 'bg-amber-500 text-black' :
-                            'bg-gray-600 text-white'
-                          }`}>
-                            {index + 1}
-                          </div>
-                          <div>
-                            <div className="text-white font-medium text-sm">
-                              {mentoradoRank.nome_completo}
-                            </div>
-                            <div className="text-gray-400 text-xs">
-                              {mentoradoRank.pontuacao_total} pontos
-                            </div>
-                          </div>
-                        </div>
-                        <div className={`font-semibold ${
-                          index === 0 ? 'text-blue-400' :
-                          index === 1 ? 'text-gray-400' :
-                          index === 2 ? 'text-amber-400' :
-                          'text-white'
-                        }`}>
-                          {mentoradoRank.pontuacao_total}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Ranking Feminino Completo */}
-              {rankingFeminino.length > 0 && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 sticky top-0 bg-[#181818] py-2">
-                    <div className="w-8 h-8 bg-pink-600 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">♀</span>
-                    </div>
-                    <h4 className="text-xl font-bold text-white">Ranking Feminino</h4>
-                  </div>
-
-                  <div className="space-y-2">
-                    {rankingFeminino.map((mentoradoRank, index) => (
-                      <div
-                        key={mentoradoRank.mentorado_id}
-                        className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
-                          index < 3
-                            ? 'bg-gradient-to-r from-pink-700/30 to-pink-800/30 border border-pink-500/30'
-                            : 'bg-[#1A1A1A] hover:bg-[#2A2A2A]'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                            index === 0 ? 'bg-pink-500 text-white' :
-                            index === 1 ? 'bg-gray-400 text-black' :
-                            index === 2 ? 'bg-amber-500 text-black' :
-                            'bg-gray-600 text-white'
-                          }`}>
-                            {index + 1}
-                          </div>
-                          <div>
-                            <div className="text-white font-medium text-sm">
-                              {mentoradoRank.nome_completo}
-                            </div>
-                            <div className="text-gray-400 text-xs">
-                              {mentoradoRank.pontuacao_total} pontos
-                            </div>
-                          </div>
-                        </div>
-                        <div className={`font-semibold ${
-                          index === 0 ? 'text-pink-400' :
-                          index === 1 ? 'text-gray-400' :
-                          index === 2 ? 'text-amber-400' :
-                          'text-white'
-                        }`}>
-                          {mentoradoRank.pontuacao_total}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="pt-4 border-t border-gray-700 text-center">
-              <p className="text-sm text-gray-400">
-                🏆 Prêmios para 1º lugar de cada categoria • Competição justa e equilibrada
-              </p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Modal de Gênero e Especialidade */}
       {mentorado && (
