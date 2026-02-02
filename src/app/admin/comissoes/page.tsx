@@ -17,6 +17,7 @@ interface Comissao {
   mentorado_id: string
   lead_id: string
   valor_comissao: number
+  percentual_comissao?: number
   valor_venda: number
   data_venda: string
   observacoes: string
@@ -39,6 +40,12 @@ export default function AdminComissoesPage() {
   const [selectedComissao, setSelectedComissao] = useState<Comissao | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showViewModal, setShowViewModal] = useState(false)
+  const [editForm, setEditForm] = useState({
+    valor_comissao: 0,
+    percentual_comissao: 5,
+    observacoes: ''
+  })
+  const [showGlobalConfigModal, setShowGlobalConfigModal] = useState(false)
 
   useEffect(() => {
     carregarComissoes()
@@ -142,24 +149,33 @@ export default function AdminComissoesPage() {
     }
   }
 
-  const editarComissao = async (comissao: Comissao) => {
+  const abrirModalEditar = (comissao: Comissao) => {
+    setSelectedComissao(comissao)
+    setEditForm({
+      valor_comissao: comissao.valor_comissao || 0,
+      percentual_comissao: comissao.percentual_comissao || 5,
+      observacoes: comissao.observacoes || ''
+    })
+    setShowEditModal(true)
+  }
+
+  const calcularValorPorPercentual = (percentual: number, valorVenda: number) => {
+    return (valorVenda * percentual) / 100
+  }
+
+  const salvarEdicaoComissao = async () => {
+    if (!selectedComissao) return
+
     try {
-      const novoValor = parseFloat(prompt('Novo valor da comissão:', comissao.valor_comissao?.toString()) || '0')
-      const novaObservacao = prompt('Observações:', comissao.observacoes || '') || ''
-
-      if (novoValor <= 0) {
-        alert('Valor deve ser maior que zero')
-        return
-      }
-
       const { error } = await supabase
         .from('comissoes')
         .update({
-          valor_comissao: novoValor,
-          observacoes: novaObservacao,
+          valor_comissao: editForm.valor_comissao,
+          percentual_comissao: editForm.percentual_comissao,
+          observacoes: editForm.observacoes,
           updated_at: new Date().toISOString()
         })
-        .eq('id', comissao.id)
+        .eq('id', selectedComissao.id)
 
       if (error) {
         console.error('❌ Erro ao editar comissão:', error)
@@ -169,10 +185,57 @@ export default function AdminComissoesPage() {
 
       console.log('✅ Comissão editada com sucesso')
       alert('Comissão editada com sucesso!')
+      setShowEditModal(false)
       carregarComissoes()
     } catch (error) {
       console.error('❌ Erro ao editar comissão:', error)
       alert('Erro ao editar comissão')
+    }
+  }
+
+  const definirTodosCom5Porcento = async () => {
+    if (!confirm('Isso irá definir TODAS as comissões pendentes para 5%. Continuar?')) {
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      // Buscar todas as comissões pendentes
+      const { data: comissoesPendentes, error: fetchError } = await supabase
+        .from('comissoes')
+        .select('id, valor_venda')
+        .eq('status', 'pendente')
+
+      if (fetchError) {
+        console.error('❌ Erro ao buscar comissões:', fetchError)
+        alert('Erro ao buscar comissões')
+        return
+      }
+
+      // Atualizar cada comissão com 5% do valor de venda
+      for (const comissao of comissoesPendentes || []) {
+        const novoValor = calcularValorPorPercentual(5, comissao.valor_venda)
+        
+        await supabase
+          .from('comissoes')
+          .update({
+            valor_comissao: novoValor,
+            percentual_comissao: 5,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', comissao.id)
+      }
+
+      alert(`✅ ${comissoesPendentes?.length || 0} comissões atualizadas para 5%!`)
+      setShowGlobalConfigModal(false)
+      carregarComissoes()
+
+    } catch (error) {
+      console.error('❌ Erro ao atualizar comissões:', error)
+      alert('Erro ao atualizar comissões')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -266,6 +329,12 @@ export default function AdminComissoesPage() {
               <h1 className="text-3xl font-bold text-gray-900">Gestão de Comissões</h1>
               <p className="text-gray-600 mt-1">Gerencie aprovações, recusas e edições de comissões</p>
             </div>
+            <Button
+              onClick={() => setShowGlobalConfigModal(true)}
+              className="bg-blue-500 hover:bg-blue-600"
+            >
+              Configurar Comissões
+            </Button>
           </div>
 
           {/* Stats Cards */}
@@ -404,6 +473,7 @@ export default function AdminComissoesPage() {
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Mentorado</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Lead</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Valor Comissão</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Percentual</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Valor Venda</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Data Venda</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
@@ -449,6 +519,11 @@ export default function AdminComissoesPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4">
+                          <p className="font-medium text-blue-600">
+                            {(comissao.percentual_comissao || 5)}%
+                          </p>
+                        </td>
+                        <td className="py-3 px-4">
                           <p className="text-gray-900">
                             {formatCurrency(comissao.valor_venda || 0)}
                           </p>
@@ -477,7 +552,7 @@ export default function AdminComissoesPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => editarComissao(comissao)}
+                              onClick={() => abrirModalEditar(comissao)}
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -541,11 +616,17 @@ export default function AdminComissoesPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Valor da Comissão</label>
                     <p className="text-lg font-bold text-green-600">
                       {formatCurrency(selectedComissao.valor_comissao || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Percentual</label>
+                    <p className="text-lg font-bold text-blue-600">
+                      {(selectedComissao.percentual_comissao || 5)}%
                     </p>
                   </div>
                   <div>
@@ -581,6 +662,161 @@ export default function AdminComissoesPage() {
                   <div>
                     <span className="font-medium">Atualizado em:</span> {formatDate(selectedComissao.updated_at)}
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Edição */}
+        {showEditModal && selectedComissao && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full m-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Editar Comissão</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEditModal(false)}
+                >
+                  ✕
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Mentorado: {selectedComissao.mentorado_nome}
+                  </label>
+                  <label className="block text-sm text-gray-500 mb-3">
+                    Valor da venda: {formatCurrency(selectedComissao.valor_venda || 0)}
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Percentual de Comissão
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={editForm.percentual_comissao}
+                    onChange={(e) => {
+                      const percentual = parseFloat(e.target.value) || 0
+                      const novoValor = calcularValorPorPercentual(percentual, selectedComissao.valor_venda || 0)
+                      setEditForm({
+                        ...editForm,
+                        percentual_comissao: percentual,
+                        valor_comissao: novoValor
+                      })
+                    }}
+                    className="mb-2"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Valor calculado: {formatCurrency(editForm.valor_comissao)}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Valor da Comissão (R$)
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editForm.valor_comissao}
+                    onChange={(e) => {
+                      const valor = parseFloat(e.target.value) || 0
+                      const percentual = selectedComissao.valor_venda ? (valor / selectedComissao.valor_venda) * 100 : 0
+                      setEditForm({
+                        ...editForm,
+                        valor_comissao: valor,
+                        percentual_comissao: Math.round(percentual * 100) / 100
+                      })
+                    }}
+                    className="mb-2"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Percentual calculado: {editForm.percentual_comissao.toFixed(2)}%
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Observações
+                  </label>
+                  <Input
+                    value={editForm.observacoes}
+                    onChange={(e) => setEditForm({ ...editForm, observacoes: e.target.value })}
+                    placeholder="Observações adicionais..."
+                  />
+                </div>
+
+                <div className="flex space-x-3 pt-4">
+                  <Button
+                    onClick={salvarEdicaoComissao}
+                    className="flex-1 bg-green-500 hover:bg-green-600"
+                  >
+                    Salvar
+                  </Button>
+                  <Button
+                    onClick={() => setShowEditModal(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Configuração Global */}
+        {showGlobalConfigModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full m-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Configurar Comissões</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowGlobalConfigModal(false)}
+                >
+                  ✕
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-medium text-blue-900 mb-2">Definir Padrão Global</h3>
+                  <p className="text-sm text-blue-700 mb-3">
+                    Esta ação irá configurar todas as comissões pendentes para 5% do valor de venda.
+                  </p>
+                  <div className="text-sm text-gray-600">
+                    <p>• Comissões pendentes: <strong>{stats.pendentes}</strong></p>
+                    <p>• Comissões zeradas: <strong>{stats.comissoesZeradas}</strong></p>
+                  </div>
+                </div>
+
+                <div className="flex space-x-3">
+                  <Button
+                    onClick={definirTodosCom5Porcento}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600"
+                    disabled={loading}
+                  >
+                    {loading ? 'Processando...' : 'Definir Todos com 5%'}
+                  </Button>
+                  <Button
+                    onClick={() => setShowGlobalConfigModal(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
                 </div>
               </div>
             </div>
