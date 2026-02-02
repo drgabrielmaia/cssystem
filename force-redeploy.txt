@@ -2,3 +2,4 @@ Force redeploy - fixing chunk loading issues
 Date: 2026-01-29 15:42
 Issue: Next.js chunks 404 errors resolved with clean rebuild
 Update: 2026-02-02 - Minor deployment trigger
+Test: Git config updated
