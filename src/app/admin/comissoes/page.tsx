@@ -21,11 +21,19 @@ interface Comissao {
   valor_venda: number
   data_venda: string
   observacoes: string
-  status?: string
+  status_pagamento?: string  // Mudança: era status, mas na DB é status_pagamento
   created_at: string
   updated_at: string
 
   // Joins
+  mentorados?: {
+    nome_completo: string
+    email: string
+  }
+  leads?: {
+    nome_completo: string
+    empresa: string | null
+  }
   mentorado_nome?: string
   mentorado_email?: string
   lead_nome?: string
@@ -48,8 +56,21 @@ export default function AdminComissoesPage() {
   const [showGlobalConfigModal, setShowGlobalConfigModal] = useState(false)
 
   useEffect(() => {
+    verificarAutenticacao()
     carregarComissoes()
   }, [])
+
+  const verificarAutenticacao = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('🔐 Status da sessão:', session ? 'Autenticado' : 'Não autenticado')
+      if (session?.user) {
+        console.log('👤 Usuário:', session.user.email)
+      }
+    } catch (error) {
+      console.error('❌ Erro ao verificar autenticação:', error)
+    }
+  }
 
   const carregarComissoes = async () => {
     try {
@@ -101,7 +122,7 @@ export default function AdminComissoesPage() {
       const { error } = await supabase
         .from('comissoes')
         .update({
-          status: 'pago',
+          status_pagamento: 'pago',
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
@@ -128,7 +149,7 @@ export default function AdminComissoesPage() {
       const { error } = await supabase
         .from('comissoes')
         .update({
-          status: 'recusado',
+          status_pagamento: 'recusado',
           observacoes: selectedComissao?.observacoes + (motivo ? ` | RECUSADA: ${motivo}` : ' | RECUSADA'),
           updated_at: new Date().toISOString()
         })
@@ -165,6 +186,22 @@ export default function AdminComissoesPage() {
 
   const salvarEdicaoComissao = async () => {
     if (!selectedComissao) return
+    
+    console.log('🔄 Iniciando edição de comissão...')
+    console.log('📊 Dados para atualização:', {
+      id: selectedComissao.id,
+      valor_comissao: editForm.valor_comissao,
+      percentual_comissao: editForm.percentual_comissao,
+      observacoes: editForm.observacoes
+    })
+    
+    // Verificar autenticação antes da edição
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      console.error('❌ Usuário não autenticado para edição')
+      alert('Erro: Usuário não autenticado. Faça login novamente.')
+      return
+    }
 
     try {
       const { error } = await supabase
@@ -179,7 +216,8 @@ export default function AdminComissoesPage() {
 
       if (error) {
         console.error('❌ Erro ao editar comissão:', error)
-        alert('Erro ao editar comissão')
+        console.error('❌ Detalhes do erro:', error.message)
+        alert(`Erro ao editar comissão: ${error.message}`)
         return
       }
 
@@ -205,7 +243,7 @@ export default function AdminComissoesPage() {
       const { data: comissoesPendentes, error: fetchError } = await supabase
         .from('comissoes')
         .select('id, valor_venda')
-        .eq('status', 'pendente')
+        .eq('status_pagamento', 'pendente')
 
       if (fetchError) {
         console.error('❌ Erro ao buscar comissões:', fetchError)
@@ -304,19 +342,19 @@ export default function AdminComissoesPage() {
       comissao.lead_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       comissao.observacoes?.toLowerCase().includes(searchTerm.toLowerCase())
 
-    const matchesStatus = filterStatus === 'todos' || (comissao.status || 'pendente') === filterStatus
+    const matchesStatus = filterStatus === 'todos' || (comissao.status_pagamento || 'pendente') === filterStatus
 
     return matchesSearch && matchesStatus
   })
 
   const stats = {
     total: comissoes.length,
-    pendentes: comissoes.filter(c => (c.status || 'pendente') === 'pendente').length,
-    pagas: comissoes.filter(c => c.status === 'pago').length,
-    recusadas: comissoes.filter(c => c.status === 'recusado').length,
+    pendentes: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente').length,
+    pagas: comissoes.filter(c => c.status_pagamento === 'pago').length,
+    recusadas: comissoes.filter(c => c.status_pagamento === 'recusado').length,
     totalValor: comissoes.reduce((acc, c) => acc + (c.valor_comissao || 0), 0),
-    valorPendente: comissoes.filter(c => (c.status || 'pendente') === 'pendente').reduce((acc, c) => acc + (c.valor_comissao || 0), 0),
-    comissoesZeradas: comissoes.filter(c => (c.status || 'pendente') === 'pendente' && (c.valor_comissao || 0) === 0).length
+    valorPendente: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente').reduce((acc, c) => acc + (c.valor_comissao || 0), 0),
+    comissoesZeradas: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente' && (c.valor_comissao || 0) === 0).length
   }
 
   return (
@@ -485,7 +523,7 @@ export default function AdminComissoesPage() {
                       <tr
                         key={comissao.id}
                         className={`border-b transition-colors ${
-                          (comissao.valor_comissao || 0) === 0 && (comissao.status || 'pendente') === 'pendente'
+                          (comissao.valor_comissao || 0) === 0 && (comissao.status_pagamento || 'pendente') === 'pendente'
                             ? 'bg-red-50 hover:bg-red-100 border-red-200'
                             : 'hover:bg-gray-50'
                         }`}
@@ -505,13 +543,13 @@ export default function AdminComissoesPage() {
                         <td className="py-3 px-4">
                           <div className="flex items-center space-x-2">
                             <p className={`font-bold ${
-                              (comissao.valor_comissao || 0) === 0 && (comissao.status || 'pendente') === 'pendente'
+                              (comissao.valor_comissao || 0) === 0 && (comissao.status_pagamento || 'pendente') === 'pendente'
                                 ? 'text-red-600'
                                 : 'text-green-600'
                             }`}>
                               {formatCurrency(comissao.valor_comissao || 0)}
                             </p>
-                            {(comissao.valor_comissao || 0) === 0 && (comissao.status || 'pendente') === 'pendente' && (
+                            {(comissao.valor_comissao || 0) === 0 && (comissao.status_pagamento || 'pendente') === 'pendente' && (
                               <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
                                 ZERADA
                               </span>
@@ -534,7 +572,7 @@ export default function AdminComissoesPage() {
                           </p>
                         </td>
                         <td className="py-3 px-4">
-                          {getStatusBadge(comissao.status)}
+                          {getStatusBadge(comissao.status_pagamento)}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex space-x-2">
@@ -557,7 +595,7 @@ export default function AdminComissoesPage() {
                               <Edit className="w-4 h-4" />
                             </Button>
 
-                            {(comissao.status || 'pendente') === 'pendente' && (
+                            {(comissao.status_pagamento || 'pendente') === 'pendente' && (
                               <>
                                 <Button
                                   size="sm"
@@ -644,7 +682,7 @@ export default function AdminComissoesPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    {getStatusBadge(selectedComissao.status)}
+                    {getStatusBadge(selectedComissao.status_pagamento)}
                   </div>
                 </div>
 
