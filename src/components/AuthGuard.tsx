@@ -1,39 +1,37 @@
 'use client'
 
-import { useAuthGuard } from '@/hooks/useAuthGuard'
+import { useAuth } from '@/contexts/auth'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 interface AuthGuardProps {
   children: React.ReactNode
-  fallback?: React.ReactNode
 }
 
-export function AuthGuard({ children, fallback }: AuthGuardProps) {
-  const { isAuthenticated, isChecking } = useAuthGuard()
+export function AuthGuard({ children }: AuthGuardProps) {
+  const { user, loading } = useAuth()
+  const router = useRouter()
 
-  // Mostra loading enquanto verifica - com estilo consistente do app
-  if (isChecking) {
-    return fallback || (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#D4AF37] mx-auto mb-6"></div>
-          <p className="text-gray-400 text-lg">Verificando autenticação...</p>
-          <p className="text-gray-500 text-sm mt-2">Aguarde enquanto validamos sua sessão</p>
-        </div>
-      </div>
-    )
-  }
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login')
+    }
+  }, [user, loading, router])
 
-  // Se não está autenticado, não renderiza nada (o hook já redirecionou)
-  if (!isAuthenticated) {
+  // Se ainda carregando, mostra loading
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-gray-400 text-lg">Redirecionando...</div>
-        </div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D4AF37]"></div>
       </div>
     )
   }
 
-  // Se está autenticado, renderiza o conteúdo
+  // Se não tem usuário, não renderiza nada (está redirecionando)
+  if (!user) {
+    return null
+  }
+
+  // Se tem usuário, renderiza o conteúdo
   return <>{children}</>
 }

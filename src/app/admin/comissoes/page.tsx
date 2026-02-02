@@ -44,7 +44,7 @@ export default function AdminComissoesPage() {
   const [comissoes, setComissoes] = useState<Comissao[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus, setFilterStatus] = useState<'todos' | 'pendente' | 'pago' | 'recusado'>('todos')
+  const [filterStatus, setFilterStatus] = useState<'todos' | 'pendente' | 'pago' | 'recusado' | 'cancelado'>('todos')
   const [selectedComissao, setSelectedComissao] = useState<Comissao | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showViewModal, setShowViewModal] = useState(false)
@@ -171,6 +171,8 @@ export default function AdminComissoesPage() {
   }
 
   const abrirModalEditar = (comissao: Comissao) => {
+    console.log('✏️ Abrindo modal de edição para comissão:', comissao.id)
+    console.log('✏️ Dados da comissão:', comissao)
     setSelectedComissao(comissao)
     setEditForm({
       valor_comissao: comissao.valor_comissao || 0,
@@ -178,6 +180,7 @@ export default function AdminComissoesPage() {
       observacoes: comissao.observacoes || ''
     })
     setShowEditModal(true)
+    console.log('✏️ Modal de edição definido como true')
   }
 
   const calcularValorPorPercentual = (percentual: number, valorVenda: number) => {
@@ -315,6 +318,8 @@ export default function AdminComissoesPage() {
         return <Badge className="bg-green-500 hover:bg-green-600">Pago</Badge>
       case 'recusado':
         return <Badge className="bg-red-500 hover:bg-red-600">Recusado</Badge>
+      case 'cancelado':
+        return <Badge className="bg-gray-500 hover:bg-gray-600">Cancelado</Badge>
       case 'pendente':
       default:
         return <Badge className="bg-yellow-500 hover:bg-yellow-600">Pendente</Badge>
@@ -352,6 +357,7 @@ export default function AdminComissoesPage() {
     pendentes: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente').length,
     pagas: comissoes.filter(c => c.status_pagamento === 'pago').length,
     recusadas: comissoes.filter(c => c.status_pagamento === 'recusado').length,
+    canceladas: comissoes.filter(c => c.status_pagamento === 'cancelado').length,
     totalValor: comissoes.reduce((acc, c) => acc + (c.valor_comissao || 0), 0),
     valorPendente: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente').reduce((acc, c) => acc + (c.valor_comissao || 0), 0),
     comissoesZeradas: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente' && (c.valor_comissao || 0) === 0).length
@@ -376,7 +382,7 @@ export default function AdminComissoesPage() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center space-x-2">
@@ -413,6 +419,17 @@ export default function AdminComissoesPage() {
               </CardContent>
             </Card>
 
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <X className="w-5 h-5 text-gray-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">Canceladas</p>
+                    <p className="text-2xl font-bold">{stats.canceladas}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center space-x-2">
@@ -480,6 +497,7 @@ export default function AdminComissoesPage() {
                 <option value="pendente">Pendente</option>
                 <option value="pago">Pago</option>
                 <option value="recusado">Recusado</option>
+                <option value="cancelado">Cancelado</option>
               </select>
             </div>
           </CardContent>
@@ -580,8 +598,10 @@ export default function AdminComissoesPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => {
+                                console.log('👁️ Clicou no olhinho para comissão:', comissao.id)
                                 setSelectedComissao(comissao)
                                 setShowViewModal(true)
+                                console.log('👁️ Modal de visualização aberto')
                               }}
                             >
                               <Eye className="w-4 h-4" />
