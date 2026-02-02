@@ -1,6 +1,7 @@
 'use client'
 
 import { ModularSidebar } from '@/components/ModularSidebar'
+import { AuthGuard } from '@/components/AuthGuard'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -43,29 +44,52 @@ export function AppContent({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Don't show sidebar on login page, forms, mentorado areas, scheduling pages, or for mentorados
-  if (pathname === '/login' ||
-      pathname.startsWith('/mentorado') ||
-      (pathname.startsWith('/formulario/') && pathname !== '/formularios') ||
-      pathname.startsWith('/forms/') ||
-      pathname.startsWith('/agendar/') ||
-      isMentorado) {
+  // Páginas públicas que não precisam de autenticação
+  const publicPages = [
+    '/login',
+    '/cadastro', 
+    '/recover-password'
+  ]
+
+  // Páginas de formulários e agendamento públicas
+  const isPublicPage = publicPages.includes(pathname) ||
+                      pathname.startsWith('/formulario/') ||
+                      pathname.startsWith('/forms/') ||
+                      pathname.startsWith('/agendar/')
+
+  // Páginas que requerem autenticação mas sem sidebar
+  const noSidebarPages = pathname.startsWith('/mentorado') || isMentorado
+
+  // Se for página pública, não aplicar AuthGuard
+  if (isPublicPage) {
     return <>{children}</>
   }
 
+  // Se for área do mentorado ou usuário é mentorado, usar AuthGuard sem sidebar
+  if (noSidebarPages) {
+    return (
+      <AuthGuard>
+        {children}
+      </AuthGuard>
+    )
+  }
+
+  // Páginas administrativas - com AuthGuard e sidebar
   return (
-    <div className="flex h-screen bg-gray-900">
-      <ModularSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <main className="flex-1 relative overflow-y-auto focus:outline-none">
-          <div className="h-full">
-            {/* Container que ocupa toda a largura disponível */}
-            <div className="h-full w-full">
-              {children}
+    <AuthGuard>
+      <div className="flex h-screen bg-gray-900">
+        <ModularSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <main className="flex-1 relative overflow-y-auto focus:outline-none">
+            <div className="h-full">
+              {/* Container que ocupa toda a largura disponível */}
+              <div className="h-full w-full">
+                {children}
+              </div>
             </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
-    </div>
+    </AuthGuard>
   )
 }
