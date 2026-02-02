@@ -5,3 +5,4 @@ Update: 2026-02-02 - Minor deployment trigger
 Test: Git config updated
 Test: Authentication check
 Test: Second credential removal
+Test: Credential helper disabled
