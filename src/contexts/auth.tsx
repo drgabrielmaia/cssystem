@@ -103,61 +103,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    // Check for custom admin auth cookie
-    const checkAdminAuth = () => {
-      const adminAuth = document.cookie.includes('admin_auth=true')
-      if (adminAuth) {
-        // Create a mock user for admin
-        const mockAdminUser = {
-          id: 'admin-mock-id',
-          aud: 'authenticated',
-          email: 'admin@admin.com',
-          created_at: new Date().toISOString(),
-          app_metadata: {},
-          user_metadata: { role: 'admin' }
-        } as User
-        setUser(mockAdminUser)
-        setOrganizationId('9c8c0033-15ea-4e33-a55f-28d81a19693b')
-        setLoading(false)
-        return true
-      }
-      return false
-    }
-
     // Get initial session
     const getInitialSession = async () => {
       try {
         console.log('🔍 Verificando sessão inicial...')
 
-        // 1. First check for admin cookie
-        if (checkAdminAuth()) {
-          setIsInitialized(true)
-          return
-        }
-
-        // 2. Check localStorage primeiro (mais rápido)
-        const { user: storedUser, organizationId: storedOrg } = loadAuthData()
-
-        if (storedUser) {
-          console.log('⚡ Carregando do localStorage (rápido)')
-          setUser(storedUser)
-          setOrganizationId(storedOrg)
-          setLoading(false)
-          setIsInitialized(true)
-
-          // Verificar sessão do Supabase em background para validar
-          supabase.auth.getSession().then(({ data: { session }, error }) => {
-            if (error || !session) {
-              console.log('🔄 Sessão Supabase inválida, fazendo login...')
-              clearAuthData()
-              setUser(null)
-              setOrganizationId(null)
-            }
-          })
-          return
-        }
-
-        // 3. Fallback: Check Supabase session (mais lento)
+        // 1. Check Supabase session
         console.log('🔄 Verificando sessão Supabase...')
         const { data: { session }, error } = await supabase.auth.getSession()
 
@@ -174,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('👤 Usuário Supabase encontrado:', currentUser ? 'SIM' : 'NÃO')
 
         if (currentUser) {
+          console.log('✅ Usuário autenticado encontrado')
           setUser(currentUser)
 
           // Get organization for the user
@@ -182,6 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Salvar no localStorage para próximas vezes
           saveAuthData(currentUser, orgId || undefined)
         } else {
+          console.log('❌ Nenhum usuário autenticado')
           setUser(null)
           setOrganizationId(null)
         }
@@ -210,27 +163,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Skip if not initialized yet
       if (!isInitialized) return
 
-      // Only update if no admin cookie exists
-      if (!document.cookie.includes('admin_auth=true')) {
-        const currentUser = session?.user ?? null
-        console.log('👤 Usuário atualizado:', currentUser ? 'SIM' : 'NÃO')
+      const currentUser = session?.user ?? null
+      console.log('👤 Usuário atualizado:', currentUser ? 'SIM' : 'NÃO')
 
-        if (currentUser) {
-          setUser(currentUser)
+      if (currentUser) {
+        setUser(currentUser)
 
-          // Get organization for the user
-          const orgId = await getOrganizationForUser(currentUser)
+        // Get organization for the user
+        const orgId = await getOrganizationForUser(currentUser)
 
-          // Salvar no localStorage
-          saveAuthData(currentUser, orgId || undefined)
-        } else {
-          setUser(null)
-          setOrganizationId(null)
+        // Salvar no localStorage
+        saveAuthData(currentUser, orgId || undefined)
+      } else {
+        setUser(null)
+        setOrganizationId(null)
 
-          // Limpar localStorage quando logout
-          if (event === 'SIGNED_OUT') {
-            clearAuthData()
-          }
+        // Limpar localStorage quando logout
+        if (event === 'SIGNED_OUT') {
+          clearAuthData()
         }
       }
 

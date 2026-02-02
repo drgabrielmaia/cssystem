@@ -68,9 +68,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (pontos < 0) {
+    // Pontos negativos são permitidos para remoção de pontos
+    if (typeof pontos !== 'number' || isNaN(pontos)) {
       return NextResponse.json(
-        { error: 'Pontos não podem ser negativos' },
+        { error: 'Pontos deve ser um número válido' },
         { status: 400 }
       )
     }
@@ -114,9 +115,12 @@ export async function POST(request: NextRequest) {
     // Atualizar pontuação total do mentorado
     await atualizarPontuacaoTotal(mentorado_id)
 
+    const actionText = pontos >= 0 ? 'adicionados' : 'removidos'
+    const pointsText = pontos >= 0 ? pontos : Math.abs(pontos)
+    
     return NextResponse.json({
       success: true,
-      message: `${pontos} pontos adicionados para ${mentorado.nome_completo}`,
+      message: `${pointsText} pontos ${actionText} para ${mentorado.nome_completo}`,
       pontuacao: novaPontuacao?.[0]
     })
 
@@ -157,5 +161,67 @@ async function atualizarPontuacaoTotal(mentoradoId: string) {
 
   } catch (error) {
     console.error('Erro ao atualizar pontuação total:', error)
+  }
+}
+
+// DELETE - Remover uma entrada de pontuação
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const pontuacaoId = searchParams.get('id')
+
+    if (!pontuacaoId) {
+      return NextResponse.json(
+        { error: 'ID da pontuação é obrigatório' },
+        { status: 400 }
+      )
+    }
+
+    // Buscar a pontuação para obter o mentorado_id antes de deletar
+    const { data: pontuacao, error: searchError } = await supabase
+      .from('pontuacao_mentorados')
+      .select(`
+        mentorado_id, 
+        pontos, 
+        mentorados!inner(nome_completo)
+      `)
+      .eq('id', pontuacaoId)
+      .single()
+
+    if (searchError || !pontuacao) {
+      return NextResponse.json(
+        { error: 'Pontuação não encontrada' },
+        { status: 404 }
+      )
+    }
+
+    // Deletar a entrada de pontuação
+    const { error: deleteError } = await supabase
+      .from('pontuacao_mentorados')
+      .delete()
+      .eq('id', pontuacaoId)
+
+    if (deleteError) {
+      console.error('Erro ao deletar pontuação:', deleteError)
+      return NextResponse.json(
+        { error: 'Erro ao remover pontuação' },
+        { status: 500 }
+      )
+    }
+
+    // Atualizar pontuação total do mentorado
+    await atualizarPontuacaoTotal(pontuacao.mentorado_id)
+
+    return NextResponse.json({
+      success: true,
+      message: `Entrada de ${pontuacao.pontos} pontos removida de ${(pontuacao as any).mentorados?.nome_completo || 'Mentorado'}`
+    })
+
+  } catch (error) {
+    console.error('Erro ao remover pontuação:', error)
+    return NextResponse.json(
+      { error: 'Erro interno do servidor' },
+      { status: 500 }
+    )
   }
 }

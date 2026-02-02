@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import {
   Trophy,
   Plus,
+  Minus,
   Search,
   Calendar,
   User,
@@ -34,6 +35,7 @@ const tiposAcao = [
   { value: 'aula_completa', label: 'Aula Completa', icon: Star, color: 'bg-green-500', pontos: 2 },
   { value: 'meta_atingida', label: 'Meta Atingida', icon: Target, color: 'bg-purple-500', pontos: 5 },
   { value: 'participacao_evento', label: 'Participação em Evento', icon: Award, color: 'bg-orange-500', pontos: 3 },
+  { value: 'remocao_pontos', label: 'Remoção de Pontos', icon: Minus, color: 'bg-red-500', pontos: 0 },
   { value: 'custom', label: 'Personalizado', icon: Gift, color: 'bg-pink-500', pontos: 0 }
 ]
 
@@ -43,6 +45,7 @@ export default function PontuacaoAdminPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showRemoveModal, setShowRemoveModal] = useState(false)
   const [selectedMentorado, setSelectedMentorado] = useState<string>('')
 
   // Form state
@@ -53,6 +56,15 @@ export default function PontuacaoAdminPage() {
     descricao: '',
     data_acao: new Date().toISOString().split('T')[0]
   })
+  
+  // Form state para remoção
+  const [removeFormData, setRemoveFormData] = useState({
+    mentorado_id: '',
+    pontos: 0,
+    descricao: '',
+    data_acao: new Date().toISOString().split('T')[0]
+  })
+  
   const [processingIndicacoes, setProcessingIndicacoes] = useState(false)
   const [indicacoesPendentes, setIndicacoesPendentes] = useState(0)
 
@@ -210,6 +222,78 @@ export default function PontuacaoAdminPage() {
     }
   }
 
+  const handleRemovePontos = async () => {
+    try {
+      if (!removeFormData.mentorado_id || !removeFormData.pontos || !removeFormData.descricao) {
+        alert('Preencha todos os campos obrigatórios')
+        return
+      }
+
+      if (removeFormData.pontos <= 0) {
+        alert('Quantidade de pontos deve ser maior que zero')
+        return
+      }
+
+      const response = await fetch('/api/pontuacao', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          mentorado_id: removeFormData.mentorado_id,
+          tipo_acao: 'custom',
+          pontos: -removeFormData.pontos, // Negativo para remoção
+          descricao: `REMOÇÃO: ${removeFormData.descricao}`,
+          data_acao: removeFormData.data_acao,
+          criado_por: 'admin'
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        alert(result.message)
+        setShowRemoveModal(false)
+        setRemoveFormData({
+          mentorado_id: '',
+          pontos: 0,
+          descricao: '',
+          data_acao: new Date().toISOString().split('T')[0]
+        })
+        await loadData()
+      } else {
+        alert(result.error)
+      }
+    } catch (error) {
+      console.error('Erro ao remover pontos:', error)
+      alert('Erro ao remover pontos')
+    }
+  }
+
+  const handleDeletePontuacao = async (pontuacaoId: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta entrada de pontuação?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/pontuacao?id=${pontuacaoId}`, {
+        method: 'DELETE'
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        alert(result.message)
+        await loadData()
+      } else {
+        alert(result.error)
+      }
+    } catch (error) {
+      console.error('Erro ao excluir pontuação:', error)
+      alert('Erro ao excluir pontuação')
+    }
+  }
+
   const handleTipoAcaoChange = (tipo: string) => {
     const tipoConfig = tiposAcao.find(t => t.value === tipo)
     setFormData(prev => ({
@@ -274,6 +358,14 @@ export default function PontuacaoAdminPage() {
             <Button onClick={() => setShowAddModal(true)} className="flex items-center gap-2">
               <Plus className="w-4 h-4" />
               Adicionar Pontos
+            </Button>
+            <Button 
+              onClick={() => setShowRemoveModal(true)} 
+              variant="outline" 
+              className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50"
+            >
+              <Minus className="w-4 h-4" />
+              Remover Pontos
             </Button>
           </div>
         </div>
@@ -382,17 +474,32 @@ export default function PontuacaoAdminPage() {
                   <p className="font-bold text-lg text-gray-900">{mentorado.pontuacao_total || 0}</p>
                   <p className="text-xs text-gray-600">pontos</p>
                 </div>
-                <Button
-                  onClick={() => {
-                    setSelectedMentorado(mentorado.id)
-                    setFormData(prev => ({ ...prev, mentorado_id: mentorado.id }))
-                    setShowAddModal(true)
-                  }}
-                  size="sm"
-                  variant="outline"
-                >
-                  + Pontos
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => {
+                      setSelectedMentorado(mentorado.id)
+                      setFormData(prev => ({ ...prev, mentorado_id: mentorado.id }))
+                      setShowAddModal(true)
+                    }}
+                    size="sm"
+                    variant="outline"
+                    className="text-green-600 border-green-200 hover:bg-green-50"
+                  >
+                    + Pontos
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setSelectedMentorado(mentorado.id)
+                      setRemoveFormData(prev => ({ ...prev, mentorado_id: mentorado.id }))
+                      setShowRemoveModal(true)
+                    }}
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    - Pontos
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -404,8 +511,12 @@ export default function PontuacaoAdminPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Histórico Recente</h2>
             <div className="space-y-3">
               {pontuacoes.slice(0, 10).map((pontuacao) => {
-                const config = getTipoAcaoConfig(pontuacao.tipo_acao)
+                const isRemoval = pontuacao.pontos < 0 || pontuacao.descricao?.startsWith('REMOÇÃO:')
+                const config = isRemoval ? 
+                  { icon: Minus, color: 'bg-red-500' } : 
+                  getTipoAcaoConfig(pontuacao.tipo_acao)
                 const Icon = config.icon
+                const isNegative = pontuacao.pontos < 0
                 return (
                   <div key={pontuacao.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
@@ -419,9 +530,21 @@ export default function PontuacaoAdminPage() {
                         <p className="text-sm text-gray-600">{pontuacao.descricao}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-green-600">+{pontuacao.pontos}</p>
-                      <p className="text-xs text-gray-600">{formatDate(pontuacao.data_acao)}</p>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        <p className={`font-bold ${isNegative ? 'text-red-600' : 'text-green-600'}`}>
+                          {isNegative ? '' : '+'}{pontuacao.pontos}
+                        </p>
+                        <p className="text-xs text-gray-600">{formatDate(pontuacao.data_acao)}</p>
+                      </div>
+                      <Button
+                        onClick={() => handleDeletePontuacao(pontuacao.id)}
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 )
@@ -511,6 +634,75 @@ export default function PontuacaoAdminPage() {
             </Button>
             <Button onClick={handleAddPontos}>
               Adicionar Pontos
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para remover pontos */}
+      <Dialog open={showRemoveModal} onOpenChange={setShowRemoveModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Remover Pontos</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Mentorado</label>
+              <Select value={removeFormData.mentorado_id} onValueChange={(value) => setRemoveFormData(prev => ({ ...prev, mentorado_id: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um mentorado" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mentorados.map((mentorado) => (
+                    <SelectItem key={mentorado.id} value={mentorado.id}>
+                      {mentorado.nome_completo} ({mentorado.pontuacao_total || 0} pts)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Quantidade de Pontos a Remover</label>
+              <Input
+                type="number"
+                min="1"
+                value={removeFormData.pontos}
+                onChange={(e) => setRemoveFormData(prev => ({ ...prev, pontos: parseInt(e.target.value) || 0 }))}
+                placeholder="Ex: 5"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Motivo da Remoção</label>
+              <Textarea
+                value={removeFormData.descricao}
+                onChange={(e) => setRemoveFormData(prev => ({ ...prev, descricao: e.target.value }))}
+                placeholder="Descreva o motivo da remoção dos pontos..."
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Data da Ação</label>
+              <Input
+                type="date"
+                value={removeFormData.data_acao}
+                onChange={(e) => setRemoveFormData(prev => ({ ...prev, data_acao: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRemoveModal(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleRemovePontos}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Remover Pontos
             </Button>
           </DialogFooter>
         </DialogContent>
