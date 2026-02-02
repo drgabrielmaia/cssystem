@@ -6,3 +6,4 @@ Test: Git config updated
 Test: Authentication check
 Test: Second credential removal
 Test: Credential helper disabled
+Test: Full credential cleanup
