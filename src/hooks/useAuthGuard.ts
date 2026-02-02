@@ -15,32 +15,33 @@ export function useAuthGuard() {
     const checkAuth = () => {
       console.log('🔒 Verificando auth:', { user: !!user, loading })
 
-      // Se ainda está carregando, aguardar um pouco mais
+      // Se ainda está carregando o contexto, aguardar
       if (loading) {
         timeoutId = setTimeout(checkAuth, 100)
         return
       }
 
-      // Se não está carregando e não tem usuário, redirecionar
+      // Se não tem usuário, redirecionar imediatamente
       if (!user) {
         console.log('❌ Não autenticado, redirecionando...')
         router.replace('/login')
         return
       }
 
-      // Se chegou aqui, está autenticado
+      // Se tem usuário e não está carregando, está OK
+      // O contexto de auth já faz a validação de sessão em background
       console.log('✅ Usuário autenticado!')
       setIsChecking(false)
     }
 
-    // Timeout máximo de 5 segundos para evitar loading infinito
+    // Timeout máximo de 8 segundos para evitar loading infinito
     const maxTimeoutId = setTimeout(() => {
-      if (loading && !user) {
+      if (loading || !user) {
         console.log('⏰ Timeout de auth, redirecionando...')
         router.replace('/login')
       }
       setIsChecking(false)
-    }, 5000)
+    }, 8000)
 
     checkAuth()
 

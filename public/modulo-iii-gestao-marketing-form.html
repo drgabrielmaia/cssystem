@@ -269,9 +269,29 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         // Configuração do Supabase (substitua pelas suas credenciais)
-        const supabaseUrl = 'https://udzmlnnztzzwrphhizol.supabase.co'
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkem1sbm56dHp6d3JwaGhpem9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjkwNzYsImV4cCI6MjA3MzAwNTA3Nn0.KjihWHrNYxDO5ZZKpa8UYPAhw9HIU11yvAvvsNaiPZU'
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey)
+        // Configuração do Supabase carregada do servidor
+        let supabase;
+        
+        // Carregar configuração do servidor
+        async function initializeSupabase() {
+            try {
+                const response = await fetch("/api/config");
+                const config = await response.json();
+                
+                if (!config.supabaseUrl || !config.supabaseAnonKey) {
+                    throw new Error("Configuração do Supabase não encontrada");
+                }
+                
+                supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+                console.log("Supabase inicializado com sucesso");
+                return true;
+            } catch (error) {
+                console.error("Erro ao carregar configuração:", error);
+                alert("Erro ao carregar configurações. Tente novamente.");
+                return false;
+            }
+        }
+        
 
         // Pegar o ID do mentorado da URL
         function getMentoradoId() {
@@ -280,8 +300,14 @@
         }
 
         // Validar se tem mentorado_id
-        window.addEventListener('DOMContentLoaded', function() {
+        window.addEventListener("DOMContentLoaded", async function() {
             const mentoradoId = getMentoradoId();
+            
+            // Inicializar Supabase
+            const initialized = await initializeSupabase();
+            if (!initialized) {
+                return;
+            }
             if (!mentoradoId) {
                 alert('Link inválido: ID do mentorado não encontrado na URL.');
                 document.getElementById('gestaoMarketingForm').style.display = 'none';
@@ -295,6 +321,7 @@
             e.preventDefault();
             
             const mentoradoId = getMentoradoId();
+            
             if (!mentoradoId) {
                 alert('Erro: ID do mentorado não encontrado.');
                 return;
