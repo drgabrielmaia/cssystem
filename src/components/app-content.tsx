@@ -65,31 +65,27 @@ export function AppContent({ children }: { children: React.ReactNode }) {
     return <>{children}</>
   }
 
-  // Se for área do mentorado ou usuário é mentorado, usar AuthGuard sem sidebar
+  // Se for área do mentorado ou usuário é mentorado, sem sidebar (sem AuthGuard para debug)
   if (noSidebarPages) {
     return (
-      <AuthGuard>
-        {children}
-      </AuthGuard>
+      <>{children}</>
     )
   }
 
-  // Páginas administrativas - com AuthGuard e sidebar
+  // Páginas administrativas - com sidebar (sem AuthGuard para debug)
   return (
-    <AuthGuard>
-      <div className="flex h-screen bg-gray-900">
-        <ModularSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <main className="flex-1 relative overflow-y-auto focus:outline-none">
-            <div className="h-full">
-              {/* Container que ocupa toda a largura disponível */}
-              <div className="h-full w-full">
-                {children}
-              </div>
+    <div className="flex h-screen bg-gray-900">
+      <ModularSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <main className="flex-1 relative overflow-y-auto focus:outline-none">
+          <div className="h-full">
+            {/* Container que ocupa toda a largura disponível */}
+            <div className="h-full w-full">
+              {children}
             </div>
-          </main>
-        </div>
+          </div>
+        </main>
       </div>
-    </AuthGuard>
+    </div>
   )
 }

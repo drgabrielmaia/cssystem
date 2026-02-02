@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { AuthGuard } from '@/components/AuthGuard'
+import { useRouter } from 'next/navigation'
 import { PageLayout } from '@/components/ui/page-layout'
 import { KPICardVibrant } from '@/components/ui/kpi-card-vibrant'
 import { MetricCard } from '@/components/ui/metric-card'
@@ -26,6 +26,8 @@ interface KPIData {
 }
 
 export default function DashboardPage() {
+  const router = useRouter()
+  const [isAuthChecked, setIsAuthChecked] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState('month')
   const [chartPeriod, setChartPeriod] = useState('monthly') // Estado para o filtro do gráfico
   const [chartSubtitle, setChartSubtitle] = useState('Últimos 6 meses') // Subtítulo dinâmico do gráfico
@@ -126,23 +128,41 @@ export default function DashboardPage() {
     { name: 'Carregando...', value: 0, color: '#E2E8F0' }
   ])
 
+  // Verificar autenticação primeiro
   useEffect(() => {
-    loadDashboardData()
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user) {
+          console.log('🔒 Usuário não autenticado, redirecionando para login')
+          router.replace('/login')
+          return
+        }
+        console.log('✅ Usuário autenticado, carregando dashboard')
+        setIsAuthChecked(true)
+        loadDashboardData()
+      } catch (error) {
+        console.error('❌ Erro ao verificar autenticação:', error)
+        router.replace('/login')
+      }
+    }
+    
+    checkAuth()
   }, [])
 
   // Recarregar dados do gráfico quando período do gráfico mudar
   useEffect(() => {
-    if (!loading) { // Só carregar se já terminou o carregamento inicial
+    if (!loading && isAuthChecked) { // Só carregar se já terminou o carregamento inicial e está autenticado
       handleChartPeriodChange(chartPeriod)
     }
-  }, [chartPeriod])
+  }, [chartPeriod, isAuthChecked])
 
   // Recarregar dados quando período mudar
   useEffect(() => {
-    if (!loading) {
+    if (!loading && isAuthChecked) {
       loadDashboardData()
     }
-  }, [selectedPeriod])
+  }, [selectedPeriod, isAuthChecked])
 
   const loadDashboardData = async () => {
     try {
@@ -629,6 +649,15 @@ export default function DashboardPage() {
     leads: 22
   })
 
+  // Se não checou autenticação ainda, mostra loading
+  if (!isAuthChecked) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#D4AF37]"></div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-900">
@@ -638,7 +667,6 @@ export default function DashboardPage() {
   }
 
   return (
-    <AuthGuard>
       <PageLayout title="Dashboard" subtitle="Visão geral do Customer Success">
       {/* Filtros de Período */}
       <div className="mb-8">
@@ -1091,6 +1119,5 @@ export default function DashboardPage() {
         data={recentActivity}
       />
     </PageLayout>
-    </AuthGuard>
   )
 }
