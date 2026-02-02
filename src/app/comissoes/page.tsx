@@ -83,6 +83,14 @@ export default function ComissoesPage() {
   const [statusFilter, setStatusFilter] = useState('todos')
   const [mentoradoFilter, setMentoradoFilter] = useState('todos')
   const [isLoadingData, setIsLoadingData] = useState(false)
+  const [selectedComissao, setSelectedComissao] = useState<Comissao | null>(null)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editForm, setEditForm] = useState({
+    valor_comissao: 0,
+    percentual_comissao: 0,
+    observacoes: ''
+  })
 
   const statusMap = {
     pendente: 'pending',
@@ -316,6 +324,51 @@ export default function ComissoesPage() {
       await loadStats()
     } catch (error) {
       console.error('Erro ao marcar como paga:', error)
+      setIsLoadingData(false)
+    }
+  }
+
+  const handleViewComissao = (comissao: Comissao) => {
+    console.log('👁️ Visualizando comissão:', comissao.id)
+    setSelectedComissao(comissao)
+    setShowViewModal(true)
+  }
+
+  const handleEditComissao = (comissao: Comissao) => {
+    console.log('✏️ Editando comissão:', comissao.id)
+    setSelectedComissao(comissao)
+    setEditForm({
+      valor_comissao: comissao.valor_comissao || 0,
+      percentual_comissao: comissao.percentual_comissao || 0,
+      observacoes: comissao.observacoes || ''
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!selectedComissao) return
+    
+    try {
+      setIsLoadingData(true)
+      const { error } = await supabase
+        .from('comissoes')
+        .update({
+          valor_comissao: editForm.valor_comissao,
+          percentual_comissao: editForm.percentual_comissao,
+          observacoes: editForm.observacoes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedComissao.id)
+
+      if (error) throw error
+
+      await loadComissoes()
+      await loadStats()
+      setShowEditModal(false)
+      console.log('✅ Comissão editada com sucesso')
+    } catch (error) {
+      console.error('Erro ao editar comissão:', error)
+    } finally {
       setIsLoadingData(false)
     }
   }
@@ -632,12 +685,14 @@ fill="hsl(var(--primary))"
             render: (comissao) => (
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => handleViewComissao(comissao)}
                   className="p-2 hover:bg-muted rounded-lg transition-colors group"
                   title="Ver detalhes"
                 >
                   <Eye className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
                 </button>
                 <button
+                  onClick={() => handleEditComissao(comissao)}
                   className="p-2 hover:bg-muted rounded-lg transition-colors group"
                   title="Editar"
                 >
@@ -674,6 +729,169 @@ fill="hsl(var(--primary))"
         ]}
         data={filteredComissoes}
       />
+
+      {/* Modal de Visualização */}
+      {showViewModal && selectedComissao && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full m-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Detalhes da Comissão</h2>
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mentorado</label>
+                  <p className="text-gray-900">{selectedComissao.mentorados?.nome}</p>
+                  <p className="text-sm text-gray-500">{selectedComissao.mentorados?.email}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Lead</label>
+                  <p className="text-gray-900">{selectedComissao.leads?.nome_completo}</p>
+                  <p className="text-sm text-gray-500">{selectedComissao.leads?.empresa}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor da Comissão</label>
+                  <p className="text-lg font-bold text-green-600">
+                    {formatCurrency(selectedComissao.valor_comissao)}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Percentual</label>
+                  <p className="text-lg font-bold text-blue-600">
+                    {selectedComissao.percentual_comissao}%
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor da Venda</label>
+                  <p className="text-lg font-bold">
+                    {formatCurrency(selectedComissao.valor_venda)}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data da Venda</label>
+                  <p className="text-gray-900">{formatDate(selectedComissao.data_venda)}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <p className="text-gray-900">{selectedComissao.status_pagamento}</p>
+                </div>
+              </div>
+              {selectedComissao.observacoes && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                  <p className="text-gray-900 bg-gray-50 p-3 rounded">
+                    {selectedComissao.observacoes}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edição */}
+      {showEditModal && selectedComissao && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full m-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Editar Comissão</h2>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Mentorado: {selectedComissao.mentorados?.nome}
+                </label>
+                <label className="block text-sm text-gray-500 mb-3">
+                  Valor da venda: {formatCurrency(selectedComissao.valor_venda)}
+                </label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Percentual de Comissão (%)
+                </label>
+                <input
+                  type="number"
+                  value={editForm.percentual_comissao}
+                  onChange={(e) => {
+                    const percentual = Number(e.target.value)
+                    setEditForm(prev => ({
+                      ...prev,
+                      percentual_comissao: percentual,
+                      valor_comissao: (selectedComissao.valor_venda * percentual) / 100
+                    }))
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Valor da Comissão (R$)
+                </label>
+                <input
+                  type="number"
+                  value={editForm.valor_comissao}
+                  onChange={(e) => {
+                    const valor = Number(e.target.value)
+                    setEditForm(prev => ({
+                      ...prev,
+                      valor_comissao: valor,
+                      percentual_comissao: (valor / selectedComissao.valor_venda) * 100
+                    }))
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Observações
+                </label>
+                <textarea
+                  value={editForm.observacoes}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, observacoes: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  rows={3}
+                />
+              </div>
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={handleSaveEdit}
+                  className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
+                  disabled={isLoadingData}
+                >
+                  {isLoadingData ? 'Salvando...' : 'Salvar'}
+                </button>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </PageLayout>
   )
 }
