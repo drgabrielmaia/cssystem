@@ -1,31 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Navbar } from '@/components/dashboard/Navbar'
 import { Sidebar } from '@/components/dashboard/Sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Building2, Crown, Shield, User2, Users, Loader2, DollarSign, Target, RefreshCw, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { useOrganizationFilter } from '@/hooks/use-organization-filter'
-import { useRetryRequest } from '@/hooks/use-retry-request'
-import { supabase } from '@/lib/supabase'
+import { useOptimizedDashboard } from '@/hooks/use-optimized-dashboard'
+import { OptimizedLoadingCard } from '@/components/dashboard/OptimizedLoadingCard'
 
-interface SalesMetrics {
-  valor_vendido: number
-  valor_arrecadado: number
-  taxa_conversao: number
-  total_leads: number
-  total_vendas: number
-}
-
-interface CallsMetrics {
-  total_calls: number
-  calls_vendidas: number
-  calls_nao_vendidas: number
-  no_shows: number
-  total_vendas_calls: number
-  taxa_conversao_calls: number
-}
 
 export default function DashboardPage() {
   const {
@@ -39,180 +23,34 @@ export default function DashboardPage() {
     isReady
   } = useOrganizationFilter()
 
-  const [salesMetrics, setSalesMetrics] = useState<SalesMetrics>({
+  const {
+    metrics,
+    loading: metricsLoading,
+    error: metricsError,
+    refetch,
+    isStale
+  } = useOptimizedDashboard(activeOrganizationId, isReady)
+
+  const [showValues, setShowValues] = useState(false)
+
+  // Get metrics data with fallbacks
+  const salesMetrics = metrics?.sales || {
     valor_vendido: 0,
     valor_arrecadado: 0,
     taxa_conversao: 0,
     total_leads: 0,
     total_vendas: 0
-  })
-  const [callsMetrics, setCallsMetrics] = useState<CallsMetrics>({
+  }
+
+  const callsMetrics = metrics?.calls || {
     total_calls: 0,
     calls_vendidas: 0,
     calls_nao_vendidas: 0,
     no_shows: 0,
     total_vendas_calls: 0,
     taxa_conversao_calls: 0
-  })
-  const [metricsLoading, setMetricsLoading] = useState(true)
-  const [loadingStage, setLoadingStage] = useState('Iniciando...')
-  const [showValues, setShowValues] = useState(false)
-  const salesRetry = useRetryRequest<SalesMetrics>()
-  const callsRetry = useRetryRequest<CallsMetrics>()
-
-  useEffect(() => {
-    if (isReady && activeOrganizationId) {
-      loadAllMetrics()
-    }
-  }, [isReady, activeOrganizationId])
-
-  const loadAllMetrics = async () => {
-    setMetricsLoading(true)
-    setLoadingStage('Carregando métricas de vendas...')
-
-    // Carregar métricas de vendas com retry
-    const salesResult = await salesRetry.executeWithRetry(
-      () => loadSalesMetricsData(),
-      { maxAttempts: 3, delay: 1000 }
-    )
-
-    if (salesResult) {
-      setSalesMetrics(salesResult)
-    }
-
-    setLoadingStage('Carregando métricas de calls...')
-
-    // Carregar métricas de calls com retry
-    const callsResult = await callsRetry.executeWithRetry(
-      () => loadCallsMetricsData(),
-      { maxAttempts: 3, delay: 1000 }
-    )
-
-    if (callsResult) {
-      setCallsMetrics(callsResult)
-    }
-
-    setMetricsLoading(false)
-    setLoadingStage('')
   }
 
-  const loadSalesMetricsData = async (): Promise<SalesMetrics> => {
-    console.log('🏢 Debug Dashboard - Organization ID:', activeOrganizationId)
-    console.log('🏢 Debug Dashboard - isReady:', isReady)
-
-      // Calcular data do mês atual
-      const now = new Date()
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
-
-      // Buscar todos os leads do mês (data_primeiro_contato)
-      // TODO: Adicionar filtro de organização quando leads tiverem organization_id
-      const { data: allLeads } = await supabase
-        .from('leads')
-        .select('id')
-        .gte('data_primeiro_contato', startOfMonth.toISOString())
-        .lte('data_primeiro_contato', endOfMonth.toISOString())
-
-      // Buscar TODAS as vendas primeiro (sem filtro de data)
-      // TODO: Adicionar filtro de organização quando leads tiverem organization_id
-      const { data: allSalesData } = await supabase
-        .from('leads')
-        .select('valor_vendido, valor_arrecadado, data_venda, nome_completo')
-        .eq('status', 'vendido')
-
-      console.log('🎯 Debug Dashboard - Total vendas com valor:', allSalesData?.length)
-      console.log('🎯 Debug Dashboard - Exemplo vendas:', allSalesData?.slice(0, 3))
-
-      // Agora filtrar pelo mês atual
-      const salesData = allSalesData?.filter(sale => {
-        if (!sale.data_venda) return false
-        const saleDate = new Date(sale.data_venda)
-        return saleDate >= startOfMonth && saleDate <= endOfMonth
-      })
-
-      console.log('🎯 Debug Dashboard - Vendas do mês atual:', salesData?.length)
-      console.log('🎯 Debug Dashboard - Período:', startOfMonth.toISOString(), 'até', endOfMonth.toISOString())
-
-      // Para taxa de conversão: buscar leads vendidos no período por data_venda
-      // TODO: Adicionar filtro de organização quando leads tiverem organization_id
-      const { data: vendasParaConversao } = await supabase
-        .from('leads')
-        .select('id, data_primeiro_contato, data_venda')
-        .eq('status', 'vendido')
-        .gte('data_venda', startOfMonth.toISOString())
-        .lte('data_venda', endOfMonth.toISOString())
-
-      const total_leads = allLeads?.length || 0
-      const total_vendas = vendasParaConversao?.length || 0
-
-      // Garantir que valores sejam números válidos, incluindo 0
-      const valor_vendido = salesData?.reduce((sum, sale) => {
-        const val = parseFloat(sale.valor_vendido) || 0
-        return sum + val
-      }, 0) ?? 0
-
-      const valor_arrecadado = salesData?.reduce((sum, sale) => {
-        const val = parseFloat(sale.valor_arrecadado) || 0
-        return sum + val
-      }, 0) ?? 0
-
-      const taxa_conversao = total_leads > 0 ? (total_vendas / total_leads) * 100 : 0
-
-      console.log('🎯 Debug Dashboard - Dados de vendas do mês:', salesData?.length, 'vendas')
-      console.log('🎯 Debug Dashboard - Exemplo venda:', salesData?.[0])
-      console.log('🎯 Debug Dashboard - Resultado final:', {
-        total_leads,
-        total_vendas,
-        valor_vendido,
-        valor_arrecadado,
-        taxa_conversao
-      })
-
-      return {
-        valor_vendido,
-        valor_arrecadado,
-        taxa_conversao,
-        total_leads,
-        total_vendas
-      }
-  }
-
-  const loadCallsMetricsData = async (): Promise<CallsMetrics> => {
-    console.log('📞 Debug Dashboard - Carregando métricas de calls...')
-
-    // Buscar métricas do mês atual da view social_seller_metrics
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-
-    const { data: callsData, error: callsError } = await supabase
-      .from('social_seller_metrics')
-      .select('*')
-      .gte('month_year', startOfMonth.toISOString())
-      .single()
-
-    if (callsError) {
-      console.log('⚠️ Nenhuma métrica de calls encontrada para o mês atual:', callsError)
-      return {
-        total_calls: 0,
-        calls_vendidas: 0,
-        calls_nao_vendidas: 0,
-        no_shows: 0,
-        total_vendas_calls: 0,
-        taxa_conversao_calls: 0
-      }
-    }
-
-    console.log('📞 Debug Dashboard - Métricas de calls:', callsData)
-
-    return {
-      total_calls: callsData.total_calls || 0,
-      calls_vendidas: callsData.calls_vendidas || 0,
-      calls_nao_vendidas: callsData.calls_nao_vendidas || 0,
-      no_shows: callsData.no_shows || 0,
-      total_vendas_calls: callsData.total_vendas || 0,
-      taxa_conversao_calls: callsData.taxa_conversao || 0
-    }
-  }
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -380,9 +218,34 @@ export default function DashboardPage() {
                 </Card>
 
                 {/* Card de Faturamento Premium com Design Luxuoso */}
-                <Card className="relative overflow-hidden bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 border-2 border-yellow-400 shadow-2xl transform hover:scale-105 transition-all duration-300">
-                  <CardContent className="pt-6 relative z-10">
-                    <>
+                {metricsLoading ? (
+                  <OptimizedLoadingCard />
+                ) : metricsError ? (
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-red-400 via-red-500 to-red-600 border-2 border-red-400 shadow-2xl">
+                    <CardContent className="pt-6 text-center text-white">
+                      <AlertCircle className="w-12 h-12 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold mb-2">Erro ao carregar métricas</h3>
+                      <p className="text-sm mb-4">{metricsError}</p>
+                      <button
+                        onClick={refetch}
+                        className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium transition-all"
+                      >
+                        <RefreshCw className="w-4 h-4 inline mr-2" />
+                        Tentar Novamente
+                      </button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 border-2 border-yellow-400 shadow-2xl transform hover:scale-105 transition-all duration-300">
+                    <CardContent className="pt-6 relative z-10">
+                      <>
+                        {/* Stale data indicator */}
+                        {isStale && (
+                          <div className="absolute top-2 right-2 bg-orange-500/80 text-white text-xs px-2 py-1 rounded-full animate-pulse z-20">
+                            Atualizando...
+                          </div>
+                        )}
+
                         {/* Efeito de brilho no fundo */}
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 animate-pulse"></div>
 
@@ -408,6 +271,13 @@ export default function DashboardPage() {
                               ) : (
                                 <Eye className="w-5 h-5 text-gray-900" />
                               )}
+                            </button>
+                            <button
+                              onClick={refetch}
+                              className="bg-white/20 hover:bg-white/30 p-2 rounded-full shadow-lg transition-all duration-200 hover:scale-110"
+                              title="Atualizar dados"
+                            >
+                              <RefreshCw className="w-5 h-5 text-gray-900" />
                             </button>
                             <div className="bg-white/20 p-3 rounded-full shadow-lg">
                               <DollarSign className="w-8 h-8 text-gray-900" />
@@ -575,6 +445,7 @@ export default function DashboardPage() {
                       </>
                   </CardContent>
                 </Card>
+                )}
               </div>
             )}
           </div>
