@@ -134,8 +134,8 @@ export default function DashboardPage() {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.user) {
-          console.log('🔒 Usuário não autenticado, redirecionando para login')
-          router.replace('/login')
+          console.log('🔒 Usuário não autenticado, redirecionando para área de mentorado')
+          router.replace('/mentorado')
           return
         }
         console.log('✅ Usuário autenticado, carregando dashboard')
@@ -143,7 +143,7 @@ export default function DashboardPage() {
         loadDashboardData()
       } catch (error) {
         console.error('❌ Erro ao verificar autenticação:', error)
-        router.replace('/login')
+        router.replace('/mentorado')
       }
     }
     

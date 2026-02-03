@@ -55,7 +55,8 @@ export function AppContent({ children }: { children: React.ReactNode }) {
   const isPublicPage = publicPages.includes(pathname) ||
                       pathname.startsWith('/formulario/') ||
                       pathname.startsWith('/forms/') ||
-                      pathname.startsWith('/agendar/')
+                      pathname.startsWith('/agendar/') ||
+                      pathname.startsWith('/mentorado')
 
   // Páginas que requerem autenticação mas sem sidebar
   const noSidebarPages = pathname.startsWith('/mentorado') || isMentorado
