@@ -128,7 +128,7 @@ export default function DashboardPage() {
     { name: 'Carregando...', value: 0, color: '#E2E8F0' }
   ])
 
-  // Verificar autenticação primeiro
+  // Verificar autenticação primeiro ANTES de renderizar
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -649,13 +649,9 @@ export default function DashboardPage() {
     leads: 22
   })
 
-  // Se não checou autenticação ainda, mostra loading
+  // Se não checou autenticação ainda, não renderiza nada (vai redirecionar)
   if (!isAuthChecked) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#D4AF37]"></div>
-      </div>
-    )
+    return null
   }
 
   if (loading) {
