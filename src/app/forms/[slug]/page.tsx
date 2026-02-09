@@ -568,7 +568,7 @@ export default function FormPageSafe() {
                     <select
                       value={formData[field.name] || ''}
                       onChange={(e) => handleInputChange(field.name, e.target.value)}
-                      className={`w-full h-12 px-4 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-white ${
+                      className={`w-full h-12 px-4 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-white text-gray-900 ${
                         errors[field.name] ? 'border-red-500 focus:ring-red-500' : 'border-gray-200'
                       }`}
                     >
@@ -643,7 +643,7 @@ export default function FormPageSafe() {
                       value={formData[field.name] || ''}
                       onChange={(e) => handleInputChange(field.name, e.target.value)}
                       placeholder={field.placeholder || `Digite ${field.label.toLowerCase()}`}
-                      className={`h-12 px-4 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                      className={`h-12 px-4 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 bg-white ${
                         errors[field.name] ? 'border-red-500 focus:ring-red-500' : 'border-gray-200'
                       }`}
                     />
