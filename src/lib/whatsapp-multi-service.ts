@@ -75,7 +75,7 @@ class WhatsAppMultiService {
 
   /**
    * Obter userId único para a organização atual
-   * Usa o admin_phone da organização como identificador único
+   * Usa o id da organização como identificador único
    */
   private async getUserId(): Promise<string> {
     try {
@@ -125,25 +125,7 @@ class WhatsAppMultiService {
         return 'default';
       }
 
-      // 3. Buscar admin_phone da organização para usar como userId
-      const { data: orgDetails, error: detailsError } = await supabase
-        .from('organizations')
-        .select('admin_phone, name')
-        .eq('id', organizationId)
-        .single();
-
-      if (detailsError || !orgDetails) {
-        console.warn('⚠️ Detalhes da organização não encontrados');
-        return organizationId; // Usar ID como fallback
-      }
-
-      // Usar admin_phone como userId (sem caracteres especiais)
-      if (orgDetails.admin_phone) {
-        const userId = orgDetails.admin_phone.replace(/\D/g, ''); // Remove tudo que não é número
-        console.log(`✅ UserId definido: ${userId} (org: ${orgDetails.name})`);
-        return userId;
-      }
-
+      // Usar o ID da organização diretamente como userId
       console.log('✅ UserId definido como organizationId:', organizationId);
       return organizationId;
 
