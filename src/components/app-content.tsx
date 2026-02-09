@@ -2,6 +2,7 @@
 
 import { ModularSidebar } from '@/components/ModularSidebar'
 import { AuthGuard } from '@/components/AuthGuard'
+import ChatBot from '@/components/chatbot/ChatBot'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -73,7 +74,10 @@ export function AppContent({ children }: { children: React.ReactNode }) {
   // Se for área do mentorado ou usuário é mentorado, sem sidebar (sem AuthGuard para debug)
   if (noSidebarPages) {
     return (
-      <>{children}</>
+      <>
+        {children}
+        <ChatBot />
+      </>
     )
   }
 
@@ -91,6 +95,7 @@ export function AppContent({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+      <ChatBot />
     </div>
   )
 }
