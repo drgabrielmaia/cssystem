@@ -254,25 +254,8 @@ export default function FormPageSafe() {
 
       // Para o formulário médico, usar o novo sistema automático
       if (slug === 'qualificacao-medica') {
-        // Buscar organização do usuário (ou usar default)
-        let organizationId = '00000000-0000-0000-0000-000000000001' // Default org ID para forms públicos
-        try {
-          const { data: { user }, error: userError } = await supabase.auth.getUser()
-          if (user && !userError) {
-            const { data: orgData, error: orgError } = await supabase
-              .from('organization_users')
-              .select('organization_id')
-              .eq('user_id', user.id)
-              .single()
-            
-            if (!orgError && orgData) {
-              organizationId = orgData.organization_id
-            }
-          }
-        } catch (error) {
-          console.warn('Erro de autenticação no formulário - usando organização default:', error)
-          // Formulários públicos podem funcionar sem login
-        }
+        // Usar organização do próprio template (formulários são públicos)
+        const organizationId = template?.organization_id || '00000000-0000-0000-0000-000000000001'
 
         // Salvar submissão - o trigger vai processar automaticamente
         const submissionData = {
