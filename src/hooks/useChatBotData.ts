@@ -58,6 +58,9 @@ export function useChatBotData() {
       const inicioSemana = new Date(hoje.getTime() - 7 * 24 * 60 * 60 * 1000)
 
       // DADOS FINANCEIROS REAIS - igual ao dashboard
+      // TEMPORÁRIO: Sem filtro organization_id até executar migração
+      // TODO: Após executar add_organization_to_financial_tables.sql, descomentar os .eq('organization_id', organizationId)
+      
       // Transações do mês atual
       const { data: transacoesMes } = await supabase
         .from('transacoes_financeiras')
@@ -67,12 +70,14 @@ export function useChatBotData() {
           automatico,
           categoria:categorias_financeiras(nome, tipo)
         `)
+        // .eq('organization_id', organizationId) // TODO: Descomentar após migração
         .gte('data_transacao', inicioMes.toISOString().split('T')[0])
 
       // Transações do mês passado
       const { data: transacoesMesPassado } = await supabase
         .from('transacoes_financeiras')
         .select('tipo, valor, automatico')
+        // .eq('organization_id', organizationId) // TODO: Descomentar após migração
         .gte('data_transacao', mesPassado.toISOString().split('T')[0])
         .lte('data_transacao', fimMesPassado.toISOString().split('T')[0])
 
@@ -80,6 +85,7 @@ export function useChatBotData() {
       const { data: transacoesHoje } = await supabase
         .from('transacoes_financeiras')
         .select('tipo, valor')
+        // .eq('organization_id', organizationId) // TODO: Descomentar após migração
         .eq('data_transacao', hoje.toISOString().split('T')[0])
 
       // Buscar leads
