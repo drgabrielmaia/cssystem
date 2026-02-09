@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Search, Users, Eye, EyeOff, CheckCircle, XCircle, Plus } from 'lucide-react'
+import { Search, Users, Eye, EyeOff, CheckCircle, XCircle, Plus, Shield, RefreshCw } from 'lucide-react'
 
 interface Mentorado {
   id: string
@@ -40,6 +40,9 @@ export default function PortalAccessPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<'all' | 'with_access' | 'without_access'>('all')
+  const [resultadoSimulacao, setResultadoSimulacao] = useState<any>(null)
+  const [resultadoExecucao, setResultadoExecucao] = useState<any>(null)
+  const [bulkLoading, setBulkLoading] = useState(false)
 
   useEffect(() => {
     carregarDados()
@@ -146,12 +149,152 @@ export default function PortalAccessPage() {
     }
   }
 
+  const liberarAcessoUniversal = async () => {
+    if (!confirm('🚨 ATENÇÃO: Esta ação irá liberar o acesso a TODOS OS MÓDULOS DE VÍDEO para TODOS OS MENTORADOS ATIVOS.\n\nTem certeza que deseja continuar?')) {
+      return
+    }
+
+    setBulkLoading(true)
+    try {
+      console.log('🚀 Iniciando liberação universal de acesso aos módulos...')
+      
+      const response = await fetch('/api/admin/grant-all-access', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          force: false, // Don't override existing access
+          dryRun: false // Actually execute the changes
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        alert(`✅ Sucesso! ${result.message}\n\nEstatísticas:\n- Mentorados processados: ${result.stats?.mentoradosProcessed || 0}\n- Novos acessos criados: ${result.stats?.newAccessRecordsCreated || 0}\n- Acessos atualizados: ${result.stats?.accessRecordsUpdated || 0}\n- Total processado: ${result.stats?.totalProcessed || 0}`)
+        await carregarDados() // Reload data to show updated access
+      } else {
+        throw new Error(result.message || 'Erro desconhecido')
+      }
+
+    } catch (error: any) {
+      console.error('💥 Erro na liberação universal:', error)
+      alert(`❌ Erro na liberação universal: ${error.message}`)
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  const simularLiberacaoUniversal = async () => {
+    setBulkLoading(true)
+    try {
+      console.log('🧪 Iniciando simulação de liberação universal...')
+      
+      const response = await fetch('/api/admin/grant-all-access', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          force: false,
+          dryRun: true // Just simulate, don't make changes
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        alert(`🧪 Simulação concluída!\n\nO que seria processado:\n- Mentorados encontrados: ${result.stats?.mentoradosProcessed || 0}\n- Módulos encontrados: ${result.stats?.modulesFound || 0}\n- Novos acessos a criar: ${result.stats?.newAccessRecords || 0}\n- Acessos a atualizar: ${result.stats?.accessRecordsToUpdate || 0}\n- Registros já com acesso: ${result.stats?.skippedRecords || 0}\n- Total a processar: ${result.stats?.totalProcessed || 0}`)
+      } else {
+        throw new Error(result.message || 'Erro na simulação')
+      }
+
+    } catch (error: any) {
+      console.error('💥 Erro na simulação:', error)
+      alert(`❌ Erro na simulação: ${error.message}`)
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
   const getAccessInfo = (mentoradoId: string) => {
     return accessControls.find(ac =>
       ac.mentorado_id === mentoradoId &&
       ac.has_access &&
       !ac.revoked_at
     )
+  }
+
+  const simularLiberacaoUniversal = async () => {
+    if (bulkLoading) return
+    setBulkLoading(true)
+    setResultadoSimulacao(null)
+    setResultadoExecucao(null)
+
+    try {
+      console.log('🧪 Iniciando simulação de liberação universal...')
+      const response = await fetch('/api/admin/grant-all-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun: true })
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        setResultadoSimulacao(result.stats)
+        console.log('✅ Simulação concluída:', result.stats)
+      } else {
+        alert(`Erro na simulação: ${result.message}`)
+        console.error('❌ Erro na simulação:', result)
+      }
+    } catch (error: any) {
+      console.error('💥 Erro ao simular liberação:', error)
+      alert(`Erro na simulação: ${error.message}`)
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  const executarLiberacaoUniversal = async () => {
+    if (bulkLoading) return
+    
+    const confirmacao = confirm(
+      'Tem certeza que deseja liberar acesso a todos os módulos para todos os mentorados ativos?\n\n' +
+      'Esta ação não pode ser desfeita facilmente.'
+    )
+    
+    if (!confirmacao) return
+
+    setBulkLoading(true)
+    setResultadoExecucao(null)
+
+    try {
+      console.log('🚀 Iniciando liberação universal de acesso...')
+      const response = await fetch('/api/admin/grant-all-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun: false })
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        setResultadoExecucao(result.stats)
+        await carregarDados() // Recarregar dados para ver mudanças
+        console.log('✅ Liberação concluída:', result.stats)
+        alert(`Liberação concluída! ${result.stats.totalProcessed} acessos processados.`)
+      } else {
+        alert(`Erro na liberação: ${result.message}`)
+        console.error('❌ Erro na liberação:', result)
+      }
+    } catch (error: any) {
+      console.error('💥 Erro ao executar liberação:', error)
+      alert(`Erro na liberação: ${error.message}`)
+    } finally {
+      setBulkLoading(false)
+    }
   }
 
   const mentoradosFiltrados = mentorados.filter(mentorado => {
@@ -194,6 +337,68 @@ export default function PortalAccessPage() {
           </p>
         </div>
 
+        {/* Ações em Lote */}
+        <Card className="border-orange-200 bg-orange-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-orange-800">
+              <Shield className="w-5 h-5" />
+              Liberação Universal de Acesso aos Módulos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-orange-700">
+                Use estas ferramentas para liberar o acesso a todos os módulos de vídeo para todos os mentorados ativos.
+                Esta ação afeta apenas o acesso aos <strong>módulos específicos</strong>, não o acesso geral ao portal.
+              </p>
+              
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  onClick={simularLiberacaoUniversal}
+                  disabled={bulkLoading}
+                  variant="outline"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                >
+                  {bulkLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-4 h-4 mr-2" />
+                      Simular Liberação
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={liberarAcessoUniversal}
+                  disabled={bulkLoading}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {bulkLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Liberando...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="w-4 h-4 mr-2" />
+                      Liberar Acesso Universal
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="text-xs text-orange-600 bg-orange-100 p-3 rounded border">
+                <strong>⚠️ Importante:</strong> A simulação mostra o que seria feito sem fazer alterações. 
+                Use-a primeiro para verificar o impacto antes de executar a liberação real.
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Estatísticas */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
@@ -232,6 +437,59 @@ export default function PortalAccessPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Liberação Universal de Acesso */}
+        <Card className="border-orange-200 bg-orange-50">
+          <CardHeader>
+            <CardTitle className="text-orange-800">🔓 Liberação Universal de Acesso aos Módulos</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              <p className="text-sm text-orange-700">
+                <strong>⚠️ Atenção:</strong> Esta ação irá conceder acesso a todos os módulos de vídeo para todos os mentorados ativos.
+              </p>
+              <div className="flex gap-4">
+                <Button
+                  onClick={simularLiberacaoUniversal}
+                  variant="outline"
+                  disabled={bulkLoading}
+                  className="border-orange-300 text-orange-700 hover:bg-orange-100"
+                >
+                  {bulkLoading ? 'Simulando...' : '🧪 Simular Liberação'}
+                </Button>
+                <Button
+                  onClick={executarLiberacaoUniversal}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                  disabled={bulkLoading}
+                >
+                  {bulkLoading ? 'Processando...' : '🚀 Liberar Acesso Universal'}
+                </Button>
+              </div>
+              {resultadoSimulacao && (
+                <div className="mt-4 p-3 bg-white rounded border border-orange-200">
+                  <h4 className="font-medium text-orange-800 mb-2">Resultado da Simulação:</h4>
+                  <div className="text-sm text-gray-700 space-y-1">
+                    <p>• Mentorados ativos: {resultadoSimulacao.mentoradosProcessed}</p>
+                    <p>• Módulos encontrados: {resultadoSimulacao.modulesFound}</p>
+                    <p>• Novos acessos a criar: {resultadoSimulacao.newAccessRecords}</p>
+                    <p>• Acessos a restaurar: {resultadoSimulacao.accessRecordsToUpdate}</p>
+                    <p>• Total a processar: {resultadoSimulacao.totalProcessed}</p>
+                  </div>
+                </div>
+              )}
+              {resultadoExecucao && (
+                <div className="mt-4 p-3 bg-green-50 rounded border border-green-200">
+                  <h4 className="font-medium text-green-800 mb-2">✅ Liberação Concluída!</h4>
+                  <div className="text-sm text-green-700 space-y-1">
+                    <p>• Novos acessos criados: {resultadoExecucao.newAccessRecordsCreated}</p>
+                    <p>• Acessos restaurados: {resultadoExecucao.accessRecordsUpdated}</p>
+                    <p>• Total processado: {resultadoExecucao.totalProcessed}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Controles de Filtro */}
         <Card>

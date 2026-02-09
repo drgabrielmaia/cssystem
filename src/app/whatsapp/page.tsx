@@ -64,9 +64,9 @@ export default function WhatsAppPage() {
     try {
       console.log('🔍 Verificando conexão WhatsApp...');
 
-      // Timeout de 10 segundos
+      // Timeout de 15 segundos (aumentado)
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout: API não respondeu')), 10000)
+        setTimeout(() => reject(new Error('Timeout: API não respondeu')), 15000)
       );
 
       const response = await Promise.race([
@@ -74,17 +74,34 @@ export default function WhatsAppPage() {
         timeoutPromise
       ]) as any;
 
-      if (response.success && response.data?.isReady) {
+      console.log('📊 Resposta da API:', response);
+
+      // VERIFICAÇÃO MAIS ROBUSTA
+      const isConnected = response?.success && (
+        response.data?.isReady || 
+        response.data?.status === 'connected' || 
+        response.data?.state === 'CONNECTED' ||
+        response.isReady === true
+      );
+
+      if (isConnected) {
         console.log('✅ WhatsApp CONECTADO!');
         setIsWhatsAppConnected(true);
         setIsLoadingStatus(false);
 
-        // Se conectado, carrega as mensagens
-        loadChats();
-        loadContacts();
-        loadAutoMessages();
+        // Se conectado, carrega as mensagens com tratamento de erro
+        try {
+          await Promise.all([
+            loadChats().catch(err => console.error('❌ Erro ao carregar chats:', err)),
+            loadContacts().catch(err => console.error('❌ Erro ao carregar contatos:', err)),
+            loadAutoMessages().catch(err => console.error('❌ Erro ao carregar mensagens automáticas:', err))
+          ]);
+        } catch (error) {
+          console.error('❌ Erro ao carregar dados após conexão:', error);
+          // Mesmo com erro no carregamento, manter como conectado
+        }
       } else {
-        console.log('❌ WhatsApp NÃO conectado');
+        console.log('❌ WhatsApp NÃO conectado. Status:', response?.data || response);
         setIsWhatsAppConnected(false);
         setIsLoadingStatus(false);
       }
@@ -99,11 +116,19 @@ export default function WhatsAppPage() {
     try {
       console.log('📱 Carregando chats e contatos...');
 
-      // Buscar chats existentes e contatos em paralelo
-      const [chatsResponse, contactsResponse] = await Promise.all([
-        whatsappCoreAPI.getChats(),
-        whatsappCoreAPI.getContacts()
-      ]);
+      // Timeout para carregamento de chats (não pode travar a interface)
+      const chatTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout ao carregar chats')), 10000)
+      );
+
+      // Buscar chats existentes e contatos em paralelo com timeout
+      const [chatsResponse, contactsResponse] = await Promise.race([
+        Promise.all([
+          whatsappCoreAPI.getChats().catch(err => ({ success: false, error: err.message })),
+          whatsappCoreAPI.getContacts().catch(err => ({ success: false, error: err.message }))
+        ]),
+        chatTimeout
+      ]) as any;
 
       let allChats: Chat[] = [];
 
@@ -594,8 +619,23 @@ export default function WhatsAppPage() {
     // Carrega configurações sempre
     loadSettings();
 
-    return () => clearInterval(interval);
-  }, [checkWhatsAppConnection, loadSettings]);
+    // TIMEOUT AUTOMÁTICO: Se ficar mais de 20 segundos carregando, forçar interface
+    const forceLoadTimeout = setTimeout(() => {
+      if (isLoadingStatus) {
+        console.log('⚠️ Timeout atingido, forçando carregamento da interface');
+        setIsLoadingStatus(false);
+        // Se não conseguiu verificar status, assumir que está conectado
+        setIsWhatsAppConnected(true);
+        loadChats();
+        loadContacts();
+      }
+    }, 20000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(forceLoadTimeout);
+    };
+  }, [checkWhatsAppConnection, loadSettings, isLoadingStatus]);
 
   useEffect(() => {
     if (selectedChat) {
@@ -610,11 +650,24 @@ export default function WhatsAppPage() {
     >
       {/* LOADING STATE */}
       {isLoadingStatus && (
-        <div className="flex items-center justify-center py-12">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="flex items-center gap-3 mb-4">
             <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
             <span>Verificando conexão WhatsApp...</span>
           </div>
+          {/* Botão de debug para forçar carregamento */}
+          <button
+            onClick={() => {
+              console.log('🔧 Forçando carregamento da interface...');
+              setIsWhatsAppConnected(true);
+              setIsLoadingStatus(false);
+              loadChats();
+              loadContacts();
+            }}
+            className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600"
+          >
+            🔧 Forçar Carregamento (Debug)
+          </button>
         </div>
       )}
 
