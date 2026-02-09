@@ -26,6 +26,7 @@ interface FormTemplate {
   slug: string
   form_type: 'lead' | 'nps' | 'survey' | 'feedback' | 'other'
   fields: FormField[]
+  organization_id?: string
 }
 
 interface Step {
@@ -274,7 +275,7 @@ export default function FormPageSafe() {
         const submissionData = {
           template_id: template?.id,
           template_slug: slug,
-          organization_id: organizationId,
+          organization_id: organizationId || '00000000-0000-0000-0000-000000000001', // Default org ID
           source_url: window.location.search ? 
             window.location.search.replace('?source=', '') || 'form_direto' : 'form_direto',
           submission_data: formData,
@@ -332,7 +333,9 @@ export default function FormPageSafe() {
         const leadData = {
           origem: 'formulario_seguro',
           status: 'novo',
-          observacoes: ''
+          observacoes: '',
+          organization_id: template?.organization_id || '00000000-0000-0000-0000-000000000001',
+          data_primeiro_contato: new Date().toISOString()
         }
 
         template.fields.forEach(field => {
@@ -362,6 +365,7 @@ export default function FormPageSafe() {
       const submissionData = {
         template_id: template?.id,
         template_slug: slug,
+        organization_id: template?.organization_id || '00000000-0000-0000-0000-000000000001',
         lead_id: leadId,
         mentorado_id: null,
         source_url: 'form_safe',

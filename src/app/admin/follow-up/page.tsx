@@ -82,25 +82,58 @@ const STEP_TEMPLATES = {
     titulo: "Primeiro Contato",
     conteudo: "Olá {{nome}}, vi que você demonstrou interesse em nossos serviços. Gostaria de agendar uma conversa rápida para entender melhor suas necessidades?",
     delay_days: 0,
-    delay_hours: 2
+    delay_hours: 2,
+    tipo_acao: 'whatsapp'
   },
   segundo_contato: {
     titulo: "Segundo Contato - Material",
     conteudo: "Oi {{nome}}, enviei uma mensagem anterior mas talvez não tenha chegado. Preparei um material exclusivo que pode te interessar. Posso enviar?",
     delay_days: 2,
-    delay_hours: 0
+    delay_hours: 0,
+    tipo_acao: 'whatsapp'
   },
   terceiro_contato: {
     titulo: "Terceiro Contato - Social Proof",
     conteudo: "{{nome}}, queria compartilhar o resultado que obtivemos com {{empresa_similar}}. Acredito que podemos conseguir algo similar para você. Teria 15 minutos para conversarmos?",
     delay_days: 5,
-    delay_hours: 0
+    delay_hours: 0,
+    tipo_acao: 'whatsapp'
   },
   ultimo_contato: {
     titulo: "Último Contato",
     conteudo: "{{nome}}, entendo que você deve estar ocupado. Esta será minha última tentativa. Se tiver interesse em conversar sobre {{solucao}}, é só responder. Caso contrário, vou pausar os contatos. Obrigado!",
     delay_days: 7,
-    delay_hours: 0
+    delay_hours: 0,
+    tipo_acao: 'whatsapp'
+  },
+  // Novos templates
+  follow_up_daily: {
+    titulo: "Follow-up Diário",
+    conteudo: "Olá {{nome}}! Como está o andamento da nossa proposta? Tem alguma dúvida que posso esclarecer?",
+    delay_days: 1,
+    delay_hours: 0,
+    tipo_acao: 'whatsapp'
+  },
+  follow_up_3days: {
+    titulo: "Follow-up 3 Dias",
+    conteudo: "{{nome}}, passaram alguns dias desde nosso último contato. Ainda tem interesse em conhecer nossa solução?",
+    delay_days: 3,
+    delay_hours: 0,
+    tipo_acao: 'whatsapp'
+  },
+  weekly_check: {
+    titulo: "Check Semanal",
+    conteudo: "{{nome}}, como foi sua semana? Gostaria de retomar nossa conversa sobre {{solucao}}?",
+    delay_days: 7,
+    delay_hours: 0,
+    tipo_acao: 'whatsapp'
+  },
+  urgencia_gentle: {
+    titulo: "Urgência Gentil",
+    conteudo: "{{nome}}, nossa oferta especial termina em breve. Não queria que você perdesse essa oportunidade. Podemos conversar hoje?",
+    delay_days: 1,
+    delay_hours: 0,
+    tipo_acao: 'whatsapp'
   }
 }
 
@@ -413,17 +446,93 @@ export default function FollowUpConfigPage() {
 
     setFormData({
       ...formData,
-      steps: Object.values(STEP_TEMPLATES).map((template, index) => ({
+      steps: Object.values(STEP_TEMPLATES).slice(0, 4).map((template, index) => ({
         step_numero: index + 1,
         delay_days: template.delay_days,
         delay_hours: template.delay_hours || 0,
-        tipo_acao: 'whatsapp' as const,
+        tipo_acao: template.tipo_acao as any,
         titulo: template.titulo,
         conteudo: template.conteudo,
         template_vars: ['nome', 'empresa_similar', 'solucao']
       }))
     })
     toast.success('Template aplicado com sucesso!')
+  }
+
+  const applyDailyTemplate = () => {
+    setFormData({
+      ...formData,
+      steps: [1, 2, 3, 4, 5].map((day) => ({
+        step_numero: day,
+        delay_days: day - 1, // 0, 1, 2, 3, 4 dias
+        delay_hours: 0,
+        tipo_acao: 'whatsapp' as const,
+        titulo: `Follow-up Dia ${day}`,
+        conteudo: day === 1 
+          ? "Olá {{nome}}! Obrigado pelo interesse. Como posso ajudar?" 
+          : `{{nome}}, continuamos aqui para esclarecer qualquer dúvida sobre {{solucao}}. Como posso ajudar hoje?`,
+        template_vars: ['nome', 'solucao']
+      }))
+    })
+    toast.success('Template diário aplicado!')
+  }
+
+  const apply3DaysTemplate = () => {
+    setFormData({
+      ...formData,
+      steps: [0, 3, 6, 9].map((day, index) => ({
+        step_numero: index + 1,
+        delay_days: day,
+        delay_hours: 0,
+        tipo_acao: 'whatsapp' as const,
+        titulo: `Follow-up ${day === 0 ? 'Imediato' : `${day} dias`}`,
+        conteudo: index === 0
+          ? "Olá {{nome}}! Vi seu interesse em {{solucao}}. Posso esclarecer alguma dúvida?"
+          : index === 3 
+          ? "{{nome}}, esta será minha última tentativa. Ainda tem interesse em {{solucao}}?"
+          : "Oi {{nome}}, como está? Gostaria de retomar nossa conversa sobre {{solucao}}?",
+        template_vars: ['nome', 'solucao']
+      }))
+    })
+    toast.success('Template a cada 3 dias aplicado!')
+  }
+
+  const applyWeeklyTemplate = () => {
+    setFormData({
+      ...formData,
+      steps: [0, 7, 14, 21].map((day, index) => ({
+        step_numero: index + 1,
+        delay_days: day,
+        delay_hours: 0,
+        tipo_acao: 'whatsapp' as const,
+        titulo: `Semana ${Math.floor(day/7) + 1}`,
+        conteudo: index === 0
+          ? "Olá {{nome}}! Como foi sua semana? Gostaria de conhecer {{solucao}}?"
+          : `{{nome}}, como está? Passaram ${day} dias desde nosso último contato. Ainda tem interesse em {{solucao}}?`,
+        template_vars: ['nome', 'solucao']
+      }))
+    })
+    toast.success('Template semanal aplicado!')
+  }
+
+  const applyUrgencyTemplate = () => {
+    setFormData({
+      ...formData,
+      steps: [0, 1, 2].map((day, index) => ({
+        step_numero: index + 1,
+        delay_days: day,
+        delay_hours: index === 0 ? 2 : 0, // Primeiro em 2h, depois diário
+        tipo_acao: 'whatsapp' as const,
+        titulo: index === 0 ? 'Contato Imediato' : `Urgência Dia ${day}`,
+        conteudo: index === 0
+          ? "{{nome}}, vi seu interesse em {{solucao}}! Nossa oferta especial termina hoje. Podemos conversar AGORA?"
+          : index === 1
+          ? "{{nome}}, não queria que você perdesse! Última chance para {{solucao}} com desconto. Podemos falar?"
+          : "{{nome}}, oferta encerrada, mas ainda podemos conversar sobre {{solucao}}. Que tal agendar uma call?",
+        template_vars: ['nome', 'solucao']
+      }))
+    })
+    toast.success('Template de urgência aplicado!')
   }
 
   const resetForm = () => {
@@ -820,22 +929,83 @@ export default function FollowUpConfigPage() {
             {/* Templates */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Templates Pré-definidos</h3>
-              <div className="flex gap-2 flex-wrap">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => applyTemplate('sequencia_completa')}
+                  className="text-left justify-start h-auto p-3"
                 >
-                  Sequência Completa (4 steps)
+                  <div>
+                    <div className="font-medium">🎯 Sequência Completa</div>
+                    <div className="text-xs text-gray-500">4 steps balanceados</div>
+                  </div>
                 </Button>
+                
+                <Button
+                  type="button"
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => applyDailyTemplate()}
+                  className="text-left justify-start h-auto p-3"
+                >
+                  <div>
+                    <div className="font-medium">📅 Follow-up Diário</div>
+                    <div className="text-xs text-gray-500">Contato a cada 1 dia</div>
+                  </div>
+                </Button>
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm" 
+                  onClick={() => apply3DaysTemplate()}
+                  className="text-left justify-start h-auto p-3"
+                >
+                  <div>
+                    <div className="font-medium">⏰ A cada 3 dias</div>
+                    <div className="text-xs text-gray-500">Follow-up espaçado</div>
+                  </div>
+                </Button>
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => applyWeeklyTemplate()}
+                  className="text-left justify-start h-auto p-3"
+                >
+                  <div>
+                    <div className="font-medium">📆 Semanal</div>
+                    <div className="text-xs text-gray-500">1x por semana</div>
+                  </div>
+                </Button>
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => applyUrgencyTemplate()}
+                  className="text-left justify-start h-auto p-3"
+                >
+                  <div>
+                    <div className="font-medium">🚨 Urgência</div>
+                    <div className="text-xs text-gray-500">Para leads quentes</div>
+                  </div>
+                </Button>
+                
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setFormData({...formData, steps: []})}
+                  className="text-left justify-start h-auto p-3 border-red-200 text-red-600"
                 >
-                  Limpar Steps
+                  <div>
+                    <div className="font-medium">🗑️ Limpar</div>
+                    <div className="text-xs text-gray-500">Remover tudo</div>
+                  </div>
                 </Button>
               </div>
             </div>
@@ -866,7 +1036,7 @@ export default function FollowUpConfigPage() {
                         </Button>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label>Tipo de Ação</Label>
                           <Select
@@ -877,31 +1047,82 @@ export default function FollowUpConfigPage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="email">Email</SelectItem>
-                              <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                              <SelectItem value="ligacao">Ligação</SelectItem>
-                              <SelectItem value="tarefa">Tarefa Manual</SelectItem>
+                              <SelectItem value="email">📧 Email</SelectItem>
+                              <SelectItem value="whatsapp">📱 WhatsApp</SelectItem>
+                              <SelectItem value="ligacao">📞 Ligação</SelectItem>
+                              <SelectItem value="tarefa">✅ Tarefa Manual</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
+                        
                         <div>
-                          <Label>Aguardar (Dias)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={step.delay_days}
-                            onChange={(e) => updateStep(index, { delay_days: parseInt(e.target.value) })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Aguardar (Horas)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="23"
-                            value={step.delay_hours || 0}
-                            onChange={(e) => updateStep(index, { delay_hours: parseInt(e.target.value) })}
-                          />
+                          <Label>Intervalo de Tempo</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="Dias"
+                              value={step.delay_days}
+                              onChange={(e) => updateStep(index, { delay_days: parseInt(e.target.value) || 0 })}
+                              className="flex-1"
+                            />
+                            <span className="text-sm text-gray-500 self-center">dias</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="23"
+                              placeholder="Horas"
+                              value={step.delay_hours || 0}
+                              onChange={(e) => updateStep(index, { delay_hours: parseInt(e.target.value) || 0 })}
+                              className="flex-1"
+                            />
+                            <span className="text-sm text-gray-500 self-center">horas</span>
+                          </div>
+                          
+                          {/* Presets rápidos */}
+                          <div className="flex gap-1 mt-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateStep(index, { delay_days: 1, delay_hours: 0 })}
+                            >
+                              1 dia
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateStep(index, { delay_days: 3, delay_hours: 0 })}
+                            >
+                              3 dias
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateStep(index, { delay_days: 7, delay_hours: 0 })}
+                            >
+                              1 semana
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateStep(index, { delay_days: 0, delay_hours: 2 })}
+                            >
+                              2h
+                            </Button>
+                          </div>
+                          
+                          {/* Preview do timing */}
+                          {(step.delay_days > 0 || (step.delay_hours || 0) > 0) && (
+                            <div className="text-xs text-blue-600 mt-1">
+                              ⏱️ Executar em: {step.delay_days > 0 ? `${step.delay_days}d ` : ''}
+                              {(step.delay_hours || 0) > 0 ? `${step.delay_hours || 0}h` : ''}
+                              {step.delay_days === 0 && (step.delay_hours || 0) === 0 ? 'Imediatamente' : ''}
+                            </div>
+                          )}
                         </div>
                       </div>
                       

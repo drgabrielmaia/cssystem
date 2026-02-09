@@ -3,7 +3,7 @@ ALTER TABLE transacoes_financeiras
 ADD COLUMN IF NOT EXISTS referencia_externa VARCHAR(100),
 ADD COLUMN IF NOT EXISTS automatico BOOLEAN DEFAULT false;
 
--- Criar índice para referência externa
+-- Criar índice para referência externa 
 CREATE INDEX IF NOT EXISTS idx_transacoes_referencia_externa ON transacoes_financeiras(referencia_externa);
 
 -- Comentários para documentação

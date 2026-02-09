@@ -124,6 +124,7 @@ const modules = [
       { name: 'Gerenciar Usuários', href: '/admin/users', icon: Users, description: 'Controle de usuários da organização' },
       { name: 'Criar Usuário', href: '/admin/create-user', icon: UserPlus, description: 'Adicionar novo membro' },
       { name: 'Configurar Organização', href: '/admin/organization', icon: Building2, description: 'Configurações da organização' },
+      { name: 'Follow-up Automático', href: '/admin/follow-up', icon: Clock, description: 'Configurar sequências de follow-up automático' },
     ]
   },
   {

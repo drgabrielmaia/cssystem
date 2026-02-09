@@ -1526,7 +1526,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
     if (!lead) {
       submitData.data_primeiro_contato = new Date().toISOString()
       // Adicionar organization_id automaticamente
-      submitData.organization_id = organizationId
+      submitData.organization_id = organizationId || '00000000-0000-0000-0000-000000000001'
     }
 
     onSave(submitData)
