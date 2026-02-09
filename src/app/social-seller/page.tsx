@@ -54,6 +54,7 @@ interface Lead {
   valor_vendido?: number
   valor_arrecadado?: number
   data_primeiro_contato?: string
+  data_venda?: string
   convertido_em?: string
   status_updated_at?: string
   nome_completo?: string
@@ -102,7 +103,7 @@ export default function SocialSellerPage() {
       // Carregar TODOS os leads primeiro, depois filtrar
       const { data: allLeads, error: leadsError } = await supabase
         .from('leads')
-        .select('id, status, valor_vendido, valor_arrecadado, data_primeiro_contato, convertido_em, status_updated_at, nome_completo, email, telefone, origem, observacoes')
+        .select('id, status, valor_vendido, valor_arrecadado, data_primeiro_contato, data_venda, convertido_em, status_updated_at, nome_completo, email, telefone, origem, observacoes')
 
       if (leadsError) {
         console.error('Erro ao carregar leads:', leadsError)
@@ -117,10 +118,28 @@ export default function SocialSellerPage() {
 
       if (dateFilter && allLeads) {
         leadsParaContar = allLeads.filter(lead => {
-          // Para leads vendidos, usar convertido_em se disponível
-          const dataReferencia = lead.status === 'vendido'
-            ? (lead.convertido_em || lead.status_updated_at || lead.data_primeiro_contato)
-            : (lead.status_updated_at || lead.data_primeiro_contato)
+          // Para cada tipo de lead, usar a data mais apropriada
+          let dataReferencia: string | null = null
+          
+          switch(lead.status) {
+            case 'vendido':
+              // Para vendidos: priorizar data_venda, depois convertido_em, depois status_updated_at
+              dataReferencia = lead.data_venda || lead.convertido_em || lead.status_updated_at || lead.data_primeiro_contato
+              break
+            case 'perdido':
+            case 'vazado':
+            case 'no-show':
+              // Para finalizados: usar status_updated_at (quando mudou para esse status)
+              dataReferencia = lead.status_updated_at || lead.data_primeiro_contato
+              break
+            case 'qualificado':
+            case 'agendado':
+            case 'quente':
+            default:
+              // Para em andamento: usar data_primeiro_contato (quando entrou)
+              dataReferencia = lead.data_primeiro_contato
+              break
+          }
 
           if (!dataReferencia) return true
 

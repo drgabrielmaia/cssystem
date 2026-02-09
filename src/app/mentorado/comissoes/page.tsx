@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { commissionSystem } from '@/lib/commission-service'
 import {
   DollarSign,
   TrendingUp,
@@ -16,20 +17,20 @@ import {
   Star,
   Watch,
   ShoppingBag,
-  X
+  X,
+  Coins,
+  Clock,
+  CheckCircle,
+  ArrowUpRight,
+  Eye
 } from 'lucide-react'
-
-interface Comissao {
-  id: string
-  mentorado_id: string
-  valor_comissao: number
-  valor_venda?: number
-  data_venda: string
-  status_pagamento: 'pendente' | 'pago' | 'cancelado'
-  observacoes?: string
-  lead_nome?: string
-  created_at: string
-}
+import type { 
+  Commission, 
+  CommissionSummary, 
+  CommissionStats, 
+  Referral,
+  WithdrawalRequest 
+} from '@/types/commission'
 
 interface RankingMentorado {
   mentorado_id: string
@@ -39,43 +40,101 @@ interface RankingMentorado {
 
 export default function MentoradoComissoesPage() {
   const [mentorado, setMentorado] = useState<any>(null)
-  const [comissoes, setComissoes] = useState<Comissao[]>([])
+  const [commissions, setCommissions] = useState<Commission[]>([])
+  const [referrals, setReferrals] = useState<Referral[]>([])
+  const [summary, setSummary] = useState<CommissionSummary | null>(null)
+  const [stats, setStats] = useState<CommissionStats | null>(null)
+  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([])
   const [filterStatus, setFilterStatus] = useState<string>('todos')
   const [searchTerm, setSearchTerm] = useState('')
   const [ranking, setRanking] = useState<RankingMentorado[]>([])
   const [showRanking, setShowRanking] = useState(true)
   const [showFullRanking, setShowFullRanking] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'overview' | 'commissions' | 'referrals' | 'withdrawals'>('overview')
 
   useEffect(() => {
     const savedMentorado = localStorage.getItem('mentorado')
     if (savedMentorado) {
       const mentoradoData = JSON.parse(savedMentorado)
       setMentorado(mentoradoData)
-      loadComissoes(mentoradoData.id)
+      loadCommissionData(mentoradoData.id)
       loadRanking()
     }
   }, [])
 
-  const loadComissoes = async (mentoradoId: string) => {
+  const loadCommissionData = async (mentoradoId: string) => {
+    setLoading(true)
     try {
-      console.log('🔍 Carregando comissões para mentorado:', mentoradoId)
+      console.log('🔍 Carregando dados de comissão para mentorado:', mentoradoId)
 
+      // Load all commission data in parallel
+      const [
+        commissionsData,
+        referralsData, 
+        summaryData,
+        statsData,
+        withdrawalsData
+      ] = await Promise.all([
+        commissionSystem.commissions.getByMentorado(mentoradoId),
+        commissionSystem.referrals.getByMentorado(mentoradoId),
+        commissionSystem.dashboard.getMentoradoSummary(mentoradoId),
+        commissionSystem.dashboard.getMentoradoStats(mentoradoId),
+        commissionSystem.withdrawals.getByMentorado(mentoradoId)
+      ])
+
+      setCommissions(commissionsData)
+      setReferrals(referralsData)
+      setSummary(summaryData)
+      setStats(statsData)
+      setWithdrawalRequests(withdrawalsData)
+
+      console.log('✅ Dados carregados:', {
+        commissions: commissionsData.length,
+        referrals: referralsData.length,
+        summary: summaryData,
+        withdrawals: withdrawalsData.length
+      })
+
+    } catch (error) {
+      console.error('❌ Erro ao carregar dados de comissão:', error)
+      // Fallback to old system if new system fails
+      await loadComissoesLegacy(mentoradoId)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadComissoesLegacy = async (mentoradoId: string) => {
+    try {
       const { data: comissoesData, error } = await supabase
         .from('comissoes')
         .select('*')
         .eq('mentorado_id', mentoradoId)
         .order('data_venda', { ascending: false })
 
-      if (error) {
-        console.error('❌ Erro ao buscar comissões:', error)
-        setComissoes([])
-      } else {
-        console.log('✅ Comissões carregadas:', comissoesData?.length || 0)
-        setComissoes(comissoesData || [])
+      if (!error && comissoesData) {
+        // Convert legacy format to new format
+        const legacyCommissions: Commission[] = comissoesData.map(c => ({
+          id: c.id,
+          mentorado_id: c.mentorado_id,
+          referral_id: '', // Will be empty for legacy
+          organization_id: '',
+          base_amount: c.valor_venda || 0,
+          commission_percentage: 50,
+          commission_amount: c.valor_comissao || 0,
+          commission_type: 'referral' as const,
+          status: c.status_pagamento === 'pago' ? 'paid' as const : 
+                  c.status_pagamento === 'pendente' ? 'eligible' as const : 'cancelled' as const,
+          created_at: c.created_at,
+          updated_at: c.created_at,
+          notes: c.observacoes,
+          paid_date: c.status_pagamento === 'pago' ? c.data_venda : undefined
+        }))
+        setCommissions(legacyCommissions)
       }
     } catch (error) {
-      console.error('Erro ao carregar comissões:', error)
-      setComissoes([])
+      console.error('Erro ao carregar comissões legacy:', error)
     }
   }
 
@@ -129,36 +188,72 @@ export default function MentoradoComissoesPage() {
     }
   }
 
-  const getStats = () => {
-    const totalComissoes = comissoes.reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
-    const comissoesPagas = comissoes.filter(c => c.status_pagamento === 'pago').reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
-    const comissoesPendentes = comissoes.filter(c => c.status_pagamento === 'pendente').reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
-    const totalVendas = comissoes.length
+  const getDisplayStats = () => {
+    // Use calculated stats if available, otherwise fall back to calculated values
+    if (stats) {
+      return stats
+    }
 
-    const mesAtual = comissoes.filter(c => {
-      const dataVenda = new Date(c.data_venda)
-      return dataVenda.getMonth() === new Date().getMonth() && dataVenda.getFullYear() === new Date().getFullYear()
+    // Fallback calculation for legacy data
+    const totalCommissions = commissions.reduce((acc, c) => acc + c.commission_amount, 0)
+    const paidCommissions = commissions.filter(c => c.status === 'paid').reduce((acc, c) => acc + c.commission_amount, 0)
+    const pendingCommissions = commissions.filter(c => c.status === 'eligible').reduce((acc, c) => acc + c.commission_amount, 0)
+    
+    const currentMonth = new Date()
+    const monthlyCommissions = commissions.filter(c => {
+      const commissionDate = new Date(c.created_at)
+      return commissionDate.getMonth() === currentMonth.getMonth() && 
+             commissionDate.getFullYear() === currentMonth.getFullYear()
     })
-    const comissoesMesAtual = mesAtual.reduce((acc, c) => acc + (c.valor_comissao || 0), 0)
+    const monthlyAmount = monthlyCommissions.reduce((acc, c) => acc + c.commission_amount, 0)
 
     return {
-      totalComissoes,
-      comissoesPagas,
-      comissoesPendentes,
-      totalVendas,
-      comissoesMesAtual,
-      vendasMesAtual: mesAtual.length
+      totalReferrals: referrals.length,
+      activeReferrals: referrals.filter(r => ['pending', 'contacted', 'qualified', 'negotiating'].includes(r.status)).length,
+      convertedReferrals: referrals.filter(r => r.status === 'converted').length,
+      conversionRate: referrals.length > 0 ? (referrals.filter(r => r.status === 'converted').length / referrals.length) * 100 : 0,
+      totalEarned: totalCommissions,
+      pendingAmount: pendingCommissions,
+      availableForWithdrawal: commissions.filter(c => c.status === 'eligible').reduce((acc, c) => acc + c.commission_amount, 0),
+      paidAmount: paidCommissions,
+      averageCommission: commissions.length > 0 ? totalCommissions / commissions.length : 0,
+      lastPaymentDate: commissions.filter(c => c.status === 'paid' && c.paid_date).sort((a, b) => 
+        new Date(b.paid_date!).getTime() - new Date(a.paid_date!).getTime()
+      )[0]?.paid_date
     }
   }
 
-  const filteredComissoes = comissoes.filter(comissao => {
-    const matchStatus = filterStatus === 'todos' || comissao.status_pagamento === filterStatus
+  const filteredCommissions = commissions.filter(commission => {
+    const matchStatus = filterStatus === 'todos' || 
+      (filterStatus === 'pago' && commission.status === 'paid') ||
+      (filterStatus === 'pendente' && ['pending', 'eligible'].includes(commission.status)) ||
+      (filterStatus === 'cancelado' && commission.status === 'cancelled')
+    
     const matchSearch = searchTerm === '' ||
-      comissao.lead_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      comissao.observacoes?.toLowerCase().includes(searchTerm.toLowerCase())
+      commission.referral?.lead?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      commission.notes?.toLowerCase().includes(searchTerm.toLowerCase())
 
     return matchStatus && matchSearch
   })
+
+  // Handle withdrawal request
+  const handleWithdrawalRequest = async () => {
+    if (!mentorado) return
+    
+    try {
+      await commissionSystem.withdrawals.create(mentorado.id)
+      // Reload withdrawal requests
+      const newWithdrawals = await commissionSystem.withdrawals.getByMentorado(mentorado.id)
+      setWithdrawalRequests(newWithdrawals)
+      
+      // Reload commissions to update status
+      const newCommissions = await commissionSystem.commissions.getByMentorado(mentorado.id)
+      setCommissions(newCommissions)
+    } catch (error) {
+      console.error('Erro ao solicitar saque:', error)
+      alert('Erro ao solicitar saque. Tente novamente.')
+    }
+  }
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -177,14 +272,33 @@ export default function MentoradoComissoesPage() {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'pago': return 'Pago'
-      case 'pendente': return 'Pendente'
-      case 'cancelado': return 'Cancelado'
+      case 'paid': return 'Pago'
+      case 'eligible': return 'Disponível'
+      case 'pending': return 'Pendente'
+      case 'requested': return 'Saque Solicitado'
+      case 'approved': return 'Aprovado'
+      case 'processing': return 'Processando'
+      case 'cancelled': return 'Cancelado'
+      case 'on_hold': return 'Em Espera'
       default: return status
     }
   }
 
-  const stats = getStats()
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'paid': return 'text-green-400 bg-green-400/20'
+      case 'eligible': return 'text-blue-400 bg-blue-400/20'
+      case 'pending': return 'text-yellow-400 bg-yellow-400/20'
+      case 'requested': return 'text-purple-400 bg-purple-400/20'
+      case 'approved': return 'text-emerald-400 bg-emerald-400/20'
+      case 'processing': return 'text-orange-400 bg-orange-400/20'
+      case 'cancelled': return 'text-red-400 bg-red-400/20'
+      case 'on_hold': return 'text-gray-400 bg-gray-400/20'
+      default: return 'text-gray-400 bg-gray-400/20'
+    }
+  }
+
+  const displayStats = getDisplayStats()
 
   return (
     <div className="bg-[#141414] min-h-screen text-white">
@@ -204,13 +318,24 @@ export default function MentoradoComissoesPage() {
         <div className="absolute top-0 left-0 right-0 p-8 z-20">
           <div className="max-w-2xl">
             <h1 className="text-[48px] font-bold text-white mb-4 leading-tight">
-              Minhas Comissões
+              Sistema de Comissões
             </h1>
             <p className="text-[18px] text-gray-300 mb-6 leading-relaxed">
-              Acompanhe suas vendas e ganhos
+              Acompanhe suas indicações, comissões e saques
             </p>
-            <div className="text-gray-300 text-sm">
-              {stats.totalVendas} vendas realizadas
+            <div className="flex items-center gap-6 text-gray-300 text-sm">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                {displayStats.totalReferrals} indicações
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                {displayStats.convertedReferrals} convertidas
+              </div>
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                {formatCurrency(displayStats.totalEarned)} ganhos
+              </div>
             </div>
           </div>
         </div>
@@ -218,37 +343,112 @@ export default function MentoradoComissoesPage() {
 
       {/* Content */}
       <div className="px-8 pb-8 space-y-12">
-        {/* Stats Grid */}
+        {/* Navigation Tabs */}
         <section>
-          <h2 className="text-[24px] font-semibold text-white mb-6">
-            Suas estatísticas
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-[#1A1A1A] rounded-[8px] p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[13px] text-gray-400 font-medium mb-2">Total de Indicações</p>
-                  <p className="text-[20px] font-bold text-white">{stats.totalVendas}</p>
+          <div className="flex space-x-1 mb-8 bg-[#1A1A1A] p-1 rounded-lg">
+            {[
+              { id: 'overview', label: 'Visão Geral', icon: TrendingUp },
+              { id: 'commissions', label: 'Comissões', icon: DollarSign },
+              { id: 'referrals', label: 'Indicações', icon: Target },
+              { id: 'withdrawals', label: 'Saques', icon: Download }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors flex-1 justify-center ${
+                  activeTab === tab.id
+                    ? 'bg-white text-black'
+                    : 'text-gray-400 hover:text-white hover:bg-[#2A2A2A]'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Stats Grid */}
+        {activeTab === 'overview' && (
+          <section>
+            <h2 className="text-[24px] font-semibold text-white mb-6">
+              Resumo Financeiro
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[13px] text-gray-400 font-medium mb-2">Total Ganho</p>
+                    <p className="text-[20px] font-bold text-white">{formatCurrency(displayStats.totalEarned)}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-[#22C55E] rounded-[8px] flex items-center justify-center">
+                    <DollarSign className="w-6 h-6 text-white" />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-[#22C55E] rounded-[8px] flex items-center justify-center">
-                  <Target className="w-6 h-6 text-white" />
+              </div>
+
+              <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[13px] text-gray-400 font-medium mb-2">Disponível p/ Saque</p>
+                    <p className="text-[20px] font-bold text-blue-400">{formatCurrency(displayStats.availableForWithdrawal)}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-[#3B82F6] rounded-[8px] flex items-center justify-center">
+                    <Coins className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[13px] text-gray-400 font-medium mb-2">Taxa de Conversão</p>
+                    <p className="text-[20px] font-bold text-white">{displayStats.conversionRate.toFixed(1)}%</p>
+                  </div>
+                  <div className="w-12 h-12 bg-[#8B5CF6] rounded-[8px] flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[13px] text-gray-400 font-medium mb-2">Indicações Ativas</p>
+                    <p className="text-[20px] font-bold text-white">{displayStats.activeReferrals}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-[#F59E0B] rounded-[8px] flex items-center justify-center">
+                    <Target className="w-6 h-6 text-white" />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-[#1A1A1A] rounded-[8px] p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[13px] text-gray-400 font-medium mb-2">Este Mês</p>
-                  <p className="text-[20px] font-bold text-white">{stats.vendasMesAtual}</p>
-                </div>
-                <div className="w-12 h-12 bg-[#6366F1] rounded-[8px] flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-white" />
+            {/* Withdrawal Button */}
+            {displayStats.availableForWithdrawal > 0 && (
+              <div className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 border border-green-400/30 rounded-lg p-6 mb-8">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-2">💰 Você tem dinheiro disponível!</h3>
+                    <p className="text-green-400 font-semibold text-lg mb-1">
+                      {formatCurrency(displayStats.availableForWithdrawal)} prontos para saque
+                    </p>
+                    <p className="text-gray-400 text-sm">
+                      Solicite seu saque e receba em até 3 dias úteis
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleWithdrawalRequest}
+                    className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2"
+                  >
+                    <Download className="w-5 h-5" />
+                    Solicitar Saque
+                  </button>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
+            )}
+          </section>
+        )}
 
         {/* Seção Competitiva - Status do Mentorado */}
         {mentorado && ranking.length > 0 && (() => {
@@ -375,113 +575,317 @@ export default function MentoradoComissoesPage() {
           )
         })()}
 
-        {/* Filters */}
-        <section>
-          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
-            <h2 className="text-[24px] font-semibold text-white">
-              Histórico de comissões
-            </h2>
+        {/* Commissions Tab */}
+        {activeTab === 'commissions' && (
+          <section>
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
+              <h2 className="text-[24px] font-semibold text-white">
+                Histórico de Comissões
+              </h2>
 
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Buscar por cliente..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-[#2A2A2A] border border-gray-600 rounded-[4px] text-white placeholder-gray-400 focus:outline-none focus:border-white transition-all"
-                />
-              </div>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por cliente..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-[#2A2A2A] border border-gray-600 rounded-[4px] text-white placeholder-gray-400 focus:outline-none focus:border-white transition-all"
+                  />
+                </div>
 
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-3 bg-[#2A2A2A] border border-gray-600 rounded-[4px] text-white focus:outline-none focus:border-white transition-all cursor-pointer"
-              >
-                <option value="todos">Todos os Status</option>
-                <option value="pago">Pago</option>
-                <option value="pendente">Pendente</option>
-                <option value="cancelado">Cancelado</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Commissions List */}
-          {filteredComissoes.length === 0 ? (
-            <div className="text-center py-16">
-              <DollarSign className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <h4 className="text-[20px] font-medium text-white mb-2">Nenhuma comissão encontrada</h4>
-              <p className="text-gray-400">
-                {searchTerm || filterStatus !== 'todos'
-                  ? 'Tente ajustar os filtros de busca.'
-                  : 'Suas comissões aparecerão aqui conforme você realizar vendas.'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredComissoes.map((comissao) => (
-                <div
-                  key={comissao.id}
-                  className={`rounded-[8px] p-6 transition-colors ${
-                    (comissao.valor_comissao || 0) === 0 && comissao.status_pagamento === 'pendente'
-                      ? 'bg-red-900/20 border border-red-500/30 hover:bg-red-900/30'
-                      : 'bg-[#1A1A1A] hover:bg-[#2A2A2A]'
-                  }`}
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-4 py-3 bg-[#2A2A2A] border border-gray-600 rounded-[4px] text-white focus:outline-none focus:border-white transition-all cursor-pointer"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className={`w-12 h-12 rounded-[8px] flex items-center justify-center ${
-                        comissao.status_pagamento === 'pago' ? 'bg-[#22C55E]' :
-                        comissao.status_pagamento === 'pendente' ? 'bg-[#E879F9]' :
-                        'bg-[#6B7280]'
-                      }`}>
-                        <DollarSign className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <h4 className="text-[15px] font-medium text-white">
-                            {comissao.lead_nome || 'Cliente não informado'}
-                          </h4>
-                          <span className={`px-3 py-1 text-[12px] font-medium rounded-[4px] ${
-                            comissao.status_pagamento === 'pago' ? 'bg-[#22C55E] bg-opacity-20 text-[#22C55E]' :
-                            comissao.status_pagamento === 'pendente' ? 'bg-[#E879F9] bg-opacity-20 text-[#E879F9]' :
-                            'bg-[#6B7280] bg-opacity-20 text-[#6B7280]'
-                          }`}>
-                            {getStatusText(comissao.status_pagamento)}
-                          </span>
+                  <option value="todos">Todos os Status</option>
+                  <option value="pago">Pago</option>
+                  <option value="pendente">Pendente</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Commissions List */}
+            {loading ? (
+              <div className="text-center py-16">
+                <Clock className="w-16 h-16 text-gray-600 mx-auto mb-4 animate-spin" />
+                <h4 className="text-[20px] font-medium text-white mb-2">Carregando comissões...</h4>
+              </div>
+            ) : filteredCommissions.length === 0 ? (
+              <div className="text-center py-16">
+                <DollarSign className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                <h4 className="text-[20px] font-medium text-white mb-2">Nenhuma comissão encontrada</h4>
+                <p className="text-gray-400">
+                  {searchTerm || filterStatus !== 'todos'
+                    ? 'Tente ajustar os filtros de busca.'
+                    : 'Suas comissões aparecerão aqui conforme suas indicações virarem vendas.'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredCommissions.map((commission) => (
+                  <div
+                    key={commission.id}
+                    className="bg-[#1A1A1A] hover:bg-[#2A2A2A] rounded-[8px] p-6 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-12 h-12 rounded-[8px] flex items-center justify-center ${
+                          commission.status === 'paid' ? 'bg-[#22C55E]' :
+                          commission.status === 'eligible' ? 'bg-[#3B82F6]' :
+                          commission.status === 'requested' ? 'bg-[#8B5CF6]' :
+                          commission.status === 'approved' ? 'bg-[#10B981]' :
+                          commission.status === 'processing' ? 'bg-[#F59E0B]' :
+                          'bg-[#6B7280]'
+                        }`}>
+                          <DollarSign className="w-6 h-6 text-white" />
                         </div>
-                        <p className="text-[13px] text-gray-400">
-                          Venda: {formatDate(comissao.data_venda)}
-                        </p>
-                        {comissao.observacoes && (
-                          <p className="text-[13px] text-gray-400 mt-1">{comissao.observacoes}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-3 mb-1">
+                            <h4 className="text-[15px] font-medium text-white">
+                              {commission.referral?.lead?.nome || 'Cliente não informado'}
+                            </h4>
+                            <span className={`px-3 py-1 text-[12px] font-medium rounded-[4px] ${getStatusColor(commission.status)}`}>
+                              {getStatusText(commission.status)}
+                            </span>
+                            {commission.milestone && (
+                              <span className="px-2 py-1 text-[10px] font-medium rounded-[4px] bg-gray-600/20 text-gray-400">
+                                {commission.milestone === 'first_50_percent' ? '1º 50%' :
+                                 commission.milestone === 'second_50_percent' ? '2º 50%' :
+                                 commission.milestone === 'full_payment' ? '100%' :
+                                 commission.milestone}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 text-[13px] text-gray-400">
+                            <span>
+                              Valor Base: {formatCurrency(commission.base_amount)}
+                            </span>
+                            <span>
+                              {commission.commission_percentage}% de comissão
+                            </span>
+                            <span>
+                              Criado: {formatDate(commission.created_at)}
+                            </span>
+                          </div>
+                          {commission.notes && (
+                            <p className="text-[13px] text-gray-400 mt-1">{commission.notes}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-green-400 mb-1">
+                          {formatCurrency(commission.commission_amount)}
+                        </div>
+                        {commission.eligible_date && (
+                          <p className="text-[12px] text-gray-400">
+                            Elegível: {formatDate(commission.eligible_date)}
+                          </p>
+                        )}
+                        {commission.paid_date && (
+                          <p className="text-[12px] text-green-400">
+                            Pago: {formatDate(commission.paid_date)}
+                          </p>
                         )}
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-2xl font-bold mb-1 ${
-                        (comissao.valor_comissao || 0) === 0 && comissao.status_pagamento === 'pendente'
-                          ? 'text-red-400'
-                          : 'text-green-400'
-                      }`}>
-                        {formatCurrency(comissao.valor_comissao || 0)}
-                        {(comissao.valor_comissao || 0) === 0 && comissao.status_pagamento === 'pendente' && (
-                          <span className="block text-xs text-red-300 font-normal">
-                            ⚠️ Valor incorreto
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[12px] text-gray-400">
-                        Criado: {formatDate(comissao.created_at)}
-                      </p>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Referrals Tab */}
+        {activeTab === 'referrals' && (
+          <section>
+            <h2 className="text-[24px] font-semibold text-white mb-6">
+              Suas Indicações
+            </h2>
+            
+            {loading ? (
+              <div className="text-center py-16">
+                <Clock className="w-16 h-16 text-gray-600 mx-auto mb-4 animate-spin" />
+                <h4 className="text-[20px] font-medium text-white mb-2">Carregando indicações...</h4>
+              </div>
+            ) : referrals.length === 0 ? (
+              <div className="text-center py-16">
+                <Target className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                <h4 className="text-[20px] font-medium text-white mb-2">Nenhuma indicação encontrada</h4>
+                <p className="text-gray-400">
+                  Suas indicações aparecerão aqui quando você começar a indicar clientes.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {referrals.map((referral) => (
+                  <div key={referral.id} className="bg-[#1A1A1A] hover:bg-[#2A2A2A] rounded-[8px] p-6 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-12 h-12 rounded-[8px] flex items-center justify-center ${
+                          referral.status === 'converted' ? 'bg-[#22C55E]' :
+                          referral.status === 'negotiating' ? 'bg-[#F59E0B]' :
+                          referral.status === 'qualified' ? 'bg-[#3B82F6]' :
+                          referral.status === 'contacted' ? 'bg-[#8B5CF6]' :
+                          referral.status === 'lost' ? 'bg-[#EF4444]' :
+                          'bg-[#6B7280]'
+                        }`}>
+                          <Target className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-3 mb-1">
+                            <h4 className="text-[15px] font-medium text-white">
+                              {referral.lead?.nome || 'Lead não informado'}
+                            </h4>
+                            <span className={`px-3 py-1 text-[12px] font-medium rounded-[4px] ${
+                              referral.status === 'converted' ? 'bg-green-400/20 text-green-400' :
+                              referral.status === 'negotiating' ? 'bg-yellow-400/20 text-yellow-400' :
+                              referral.status === 'qualified' ? 'bg-blue-400/20 text-blue-400' :
+                              referral.status === 'contacted' ? 'bg-purple-400/20 text-purple-400' :
+                              referral.status === 'lost' ? 'bg-red-400/20 text-red-400' :
+                              'bg-gray-400/20 text-gray-400'
+                            }`}>
+                              {referral.status === 'converted' ? 'Convertido' :
+                               referral.status === 'negotiating' ? 'Negociando' :
+                               referral.status === 'qualified' ? 'Qualificado' :
+                               referral.status === 'contacted' ? 'Contactado' :
+                               referral.status === 'lost' ? 'Perdido' :
+                               referral.status === 'pending' ? 'Pendente' :
+                               referral.status}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4 text-[13px] text-gray-400">
+                            <span>Indicado: {formatDate(referral.referral_date)}</span>
+                            {referral.referral_source && (
+                              <span>Origem: {referral.referral_source}</span>
+                            )}
+                            {referral.conversion_date && (
+                              <span>Convertido: {formatDate(referral.conversion_date)}</span>
+                            )}
+                          </div>
+                          {referral.referral_notes && (
+                            <p className="text-[13px] text-gray-400 mt-1">{referral.referral_notes}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {referral.contract_value && (
+                          <div className="text-2xl font-bold text-white mb-1">
+                            {formatCurrency(referral.contract_value)}
+                          </div>
+                        )}
+                        {referral.referral_code && (
+                          <p className="text-[12px] text-gray-400">
+                            Código: {referral.referral_code}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Withdrawals Tab */}
+        {activeTab === 'withdrawals' && (
+          <section>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-[24px] font-semibold text-white">
+                Saques e Solicitações
+              </h2>
+              
+              {displayStats.availableForWithdrawal > 0 && (
+                <button
+                  onClick={handleWithdrawalRequest}
+                  className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2"
+                >
+                  <Download className="w-5 h-5" />
+                  Solicitar Saque ({formatCurrency(displayStats.availableForWithdrawal)})
+                </button>
+              )}
             </div>
-          )}
-        </section>
+
+            {loading ? (
+              <div className="text-center py-16">
+                <Clock className="w-16 h-16 text-gray-600 mx-auto mb-4 animate-spin" />
+                <h4 className="text-[20px] font-medium text-white mb-2">Carregando saques...</h4>
+              </div>
+            ) : withdrawalRequests.length === 0 ? (
+              <div className="text-center py-16">
+                <Download className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                <h4 className="text-[20px] font-medium text-white mb-2">Nenhuma solicitação de saque</h4>
+                <p className="text-gray-400">
+                  Quando você tiver comissões elegíveis, poderá solicitar saques aqui.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {withdrawalRequests.map((withdrawal) => (
+                  <div key={withdrawal.id} className="bg-[#1A1A1A] hover:bg-[#2A2A2A] rounded-[8px] p-6 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-12 h-12 rounded-[8px] flex items-center justify-center ${
+                          withdrawal.status === 'completed' ? 'bg-[#22C55E]' :
+                          withdrawal.status === 'approved' ? 'bg-[#10B981]' :
+                          withdrawal.status === 'processing' ? 'bg-[#F59E0B]' :
+                          withdrawal.status === 'rejected' ? 'bg-[#EF4444]' :
+                          'bg-[#6B7280]'
+                        }`}>
+                          <Download className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-3 mb-1">
+                            <h4 className="text-[15px] font-medium text-white">
+                              Solicitação de Saque #{withdrawal.id.slice(-8)}
+                            </h4>
+                            <span className={`px-3 py-1 text-[12px] font-medium rounded-[4px] ${
+                              withdrawal.status === 'completed' ? 'bg-green-400/20 text-green-400' :
+                              withdrawal.status === 'approved' ? 'bg-emerald-400/20 text-emerald-400' :
+                              withdrawal.status === 'processing' ? 'bg-yellow-400/20 text-yellow-400' :
+                              withdrawal.status === 'rejected' ? 'bg-red-400/20 text-red-400' :
+                              'bg-gray-400/20 text-gray-400'
+                            }`}>
+                              {withdrawal.status === 'completed' ? 'Concluído' :
+                               withdrawal.status === 'approved' ? 'Aprovado' :
+                               withdrawal.status === 'processing' ? 'Processando' :
+                               withdrawal.status === 'rejected' ? 'Rejeitado' :
+                               withdrawal.status === 'pending' ? 'Pendente' :
+                               withdrawal.status}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4 text-[13px] text-gray-400">
+                            <span>Solicitado: {formatDate(withdrawal.requested_at)}</span>
+                            {withdrawal.completed_at && (
+                              <span>Concluído: {formatDate(withdrawal.completed_at)}</span>
+                            )}
+                          </div>
+                          {withdrawal.rejection_reason && (
+                            <p className="text-[13px] text-red-400 mt-1">
+                              Motivo da rejeição: {withdrawal.rejection_reason}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-green-400 mb-1">
+                          {formatCurrency(withdrawal.net_amount)}
+                        </div>
+                        <p className="text-[12px] text-gray-400">
+                          {withdrawal.commission_ids.length} comissões
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Botão para mostrar ranking quando escondido */}
         {!showRanking && (

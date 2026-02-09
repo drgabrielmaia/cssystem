@@ -52,11 +52,16 @@ interface Lead {
   data_primeiro_contato: string
   next_followup_date?: string
   closer_id?: string
+  sdr_id?: string
   lead_score?: number
   created_at: string
   updated_at: string
   organization_id: string
   closers?: {
+    id: string
+    nome_completo: string
+  }
+  sdrs?: {
     id: string
     nome_completo: string
   }
@@ -68,6 +73,13 @@ interface Closer {
   email: string
   tipo_closer: string
   status_contrato: string
+}
+
+interface SDR {
+  id: string
+  nome_completo: string
+  email: string
+  ativo: boolean
 }
 
 const STATUS_OPTIONS = [
@@ -98,11 +110,13 @@ function LeadsPageContent() {
   const { closer, loading: authLoading } = useCloserAuth()
   const [leads, setLeads] = useState<Lead[]>([])
   const [closers, setClosers] = useState<Closer[]>([])
+  const [sdrs, setSdrs] = useState<SDR[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [closerFilter, setCloserFilter] = useState('all')
   const [showMyLeadsOnly, setShowMyLeadsOnly] = useState(false)
+  const [showUnassignedOnly, setShowUnassignedOnly] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
@@ -122,15 +136,17 @@ function LeadsPageContent() {
     observacoes: '',
     valor_potencial: '',
     next_followup_date: '',
-    closer_id: ''
+    closer_id: '',
+    sdr_id: ''
   })
 
   useEffect(() => {
     if (closer) {
       loadLeads()
       loadClosers()
+      loadSdrs()
     }
-  }, [closer, showMyLeadsOnly])
+  }, [closer, showMyLeadsOnly, showUnassignedOnly])
 
   const loadLeads = async () => {
     if (!closer) return
@@ -142,7 +158,8 @@ function LeadsPageContent() {
         .from('leads')
         .select(`
           *,
-          closers:closer_id(id, nome_completo)
+          closers:closer_id(id, nome_completo),
+          sdrs:sdr_id(id, nome_completo)
         `)
         .eq('organization_id', closer.organization_id)
         .order('created_at', { ascending: false })
@@ -150,6 +167,11 @@ function LeadsPageContent() {
       // Se showMyLeadsOnly estiver ativo, filtra só os leads do closer atual
       if (showMyLeadsOnly) {
         query = query.eq('closer_id', closer.id)
+      }
+      
+      // Se showUnassignedOnly estiver ativo, filtra só leads sem SDR atribuído
+      if (showUnassignedOnly) {
+        query = query.is('sdr_id', null)
       }
 
       const { data, error } = await query
@@ -188,6 +210,26 @@ function LeadsPageContent() {
     }
   }
 
+  const loadSdrs = async () => {
+    if (!closer) return
+
+    try {
+      const { data, error } = await supabase
+        .from('sdrs')
+        .select('id, nome_completo, email, ativo')
+        .eq('organization_id', closer.organization_id)
+        .eq('ativo', true)
+
+      if (error) {
+        console.error('Error loading SDRs:', error)
+      } else {
+        setSdrs(data || [])
+      }
+    } catch (error) {
+      console.error('Error loading SDRs:', error)
+    }
+  }
+
   const handleCreateLead = async () => {
     if (!closer || !formData.nome_completo) {
       toast.error('Nome completo é obrigatório')
@@ -201,7 +243,8 @@ function LeadsPageContent() {
         organization_id: closer.organization_id,
         data_primeiro_contato: new Date().toISOString(),
         lead_score: Math.floor(Math.random() * 100),
-        closer_id: formData.closer_id || null
+        closer_id: formData.closer_id || null,
+        sdr_id: formData.sdr_id || null
       }
 
       const { error } = await supabase
@@ -310,6 +353,26 @@ function LeadsPageContent() {
     }
   }
 
+  const handleAssignSdr = async (leadId: string, sdrId: string) => {
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ 
+          sdr_id: sdrId || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', leadId)
+
+      if (error) throw error
+
+      toast.success('SDR atribuído com sucesso!')
+      loadLeads()
+    } catch (error) {
+      console.error('Error assigning SDR:', error)
+      toast.error('Erro ao atribuir SDR')
+    }
+  }
+
   const resetForm = () => {
     setFormData({
       nome_completo: '',
@@ -324,7 +387,8 @@ function LeadsPageContent() {
       observacoes: '',
       valor_potencial: '',
       next_followup_date: '',
-      closer_id: ''
+      closer_id: '',
+      sdr_id: ''
     })
   }
 
@@ -343,7 +407,8 @@ function LeadsPageContent() {
       observacoes: lead.observacoes || '',
       valor_potencial: lead.valor_potencial?.toString() || '',
       next_followup_date: lead.next_followup_date?.split('T')[0] || '',
-      closer_id: lead.closer_id || ''
+      closer_id: lead.closer_id || '',
+      sdr_id: lead.sdr_id || ''
     })
     setIsEditModalOpen(true)
   }
@@ -575,6 +640,14 @@ function LeadsPageContent() {
               <User className="h-4 w-4 mr-2" />
               {showMyLeadsOnly ? 'Todos os Leads' : 'Apenas Meus Leads'}
             </Button>
+
+            <Button
+              variant={showUnassignedOnly ? "default" : "outline"}
+              onClick={() => setShowUnassignedOnly(!showUnassignedOnly)}
+            >
+              <UserX className="h-4 w-4 mr-2" />
+              {showUnassignedOnly ? 'Todos os Leads' : 'Leads Sem SDR'}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -596,6 +669,7 @@ function LeadsPageContent() {
                   <th className="text-left p-2">Empresa</th>
                   <th className="text-left p-2">Status</th>
                   <th className="text-left p-2">Temperatura</th>
+                  <th className="text-left p-2">SDR</th>
                   <th className="text-left p-2">Closer</th>
                   <th className="text-left p-2">Valor</th>
                   <th className="text-center p-2">Ações</th>
@@ -660,6 +734,28 @@ function LeadsPageContent() {
                         {getTemperaturaBadge(lead.temperatura)}
                         {getPrioridadeBadge(lead.prioridade)}
                       </div>
+                    </td>
+                    <td className="p-3">
+                      <Select
+                        value={lead.sdr_id || 'unassigned'}
+                        onValueChange={(value) => 
+                          handleAssignSdr(lead.id, value === 'unassigned' ? '' : value)
+                        }
+                      >
+                        <SelectTrigger className="w-36 h-8">
+                          <SelectValue>
+                            {lead.sdrs?.nome_completo || 'Não atribuído'}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned">Não atribuído</SelectItem>
+                          {sdrs.map(sdr => (
+                            <SelectItem key={sdr.id} value={sdr.id}>
+                              {sdr.nome_completo}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </td>
                     <td className="p-3">
                       <Select
@@ -731,8 +827,73 @@ function LeadsPageContent() {
         </CardContent>
       </Card>
 
-      {/* Modals (Create, Edit, View) seguem a mesma estrutura do arquivo anterior */}
-      {/* Por brevidade, mantenho a mesma implementação dos modais da versão anterior */}
+      {/* Modal Criar Lead */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Criar Novo Lead</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Nome Completo *</Label>
+              <Input
+                value={formData.nome_completo}
+                onChange={(e) => setFormData({...formData, nome_completo: e.target.value})}
+                placeholder="Nome completo"
+              />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                placeholder="Email"
+                type="email"
+              />
+            </div>
+            <div>
+              <Label>SDR</Label>
+              <Select value={formData.sdr_id} onValueChange={(value) => setFormData({...formData, sdr_id: value})}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar SDR" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Não atribuído</SelectItem>
+                  {sdrs.map(sdr => (
+                    <SelectItem key={sdr.id} value={sdr.id}>
+                      {sdr.nome_completo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Closer</Label>
+              <Select value={formData.closer_id} onValueChange={(value) => setFormData({...formData, closer_id: value})}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar Closer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Não atribuído</SelectItem>
+                  {closers.map(closer => (
+                    <SelectItem key={closer.id} value={closer.id}>
+                      {closer.nome_completo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateLead}>
+              Criar Lead
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

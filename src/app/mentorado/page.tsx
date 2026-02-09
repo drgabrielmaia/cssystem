@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { GeneroEspecialidadeModal } from '@/components/GeneroEspecialidadeModal'
 import { CacheRefreshHelper } from '@/components/cache-refresh-helper'
 import { RankingPorGenero } from '@/components/ranking/RankingPorGenero'
+import MentoradoInfoWrapper from '@/components/MentoradoInfoWrapper'
 import Link from 'next/link'
 
 interface VideoModule {
@@ -513,7 +514,9 @@ export default function MentoradoLoginPage() {
   return (
     <MentoradoAuthProvider>
       <CacheRefreshHelper />
-      <MentoradoPageContent />
+      <MentoradoInfoWrapper>
+        <MentoradoPageContent />
+      </MentoradoInfoWrapper>
     </MentoradoAuthProvider>
   )
 }
