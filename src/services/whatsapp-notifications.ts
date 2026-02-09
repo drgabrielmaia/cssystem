@@ -52,17 +52,16 @@ export class WhatsAppNotificationService {
       console.log('📱 Enviando notificação para admin:', org.admin_phone)
       console.log('📝 Mensagem:', message.substring(0, 100) + '...')
 
-      // Usar API WhatsApp Multi-Service com userId = organizationId
-      const response = await fetch('/api/whatsapp/send-message', {
+      // Usar WhatsApp Core API diretamente com organizationId correto
+      const response = await fetch(`http://api.medicosderesultado.com.br/users/${organizationId}/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
         },
         body: JSON.stringify({
-          phoneNumber: org.admin_phone,
-          message: message,
-          sender: 'system',
-          organizationId: organizationId
+          to: org.admin_phone.includes('@') ? org.admin_phone : `${org.admin_phone.replace(/\D/g, '')}@s.whatsapp.net`,
+          message: message
         })
       })
 
