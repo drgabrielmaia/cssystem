@@ -46,19 +46,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           'x-application-name': 'cssystem-auth'
         },
         fetch: (url, options = {}) => {
-          // Different timeouts for different operations
-          const urlString = typeof url === 'string' ? url : (url instanceof URL ? url.href : url.url || '');
-          const isAuthOperation = urlString.includes('/auth/v1/') || urlString.includes('auth/token') || urlString.includes('auth/session');
-          const timeout = isAuthOperation ? 15000 : 60000; // 15s for auth, 60s for database
-          
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), timeout);
-
+          // TIMEOUT DISABLED FOR TESTING - to identify if timeout is the root cause
           return fetch(url, {
             ...options,
-            signal: options.signal || controller.signal
-          }).finally(() => {
-            clearTimeout(timeoutId);
+            signal: options.signal
           });
         }
       },
