@@ -1512,8 +1512,10 @@ function EditLeadForm({ lead, onSave, onCancel }: {
       lead_score: formData.lead_score || 0,
       // Campos de data e relacionamento
       data_venda: formData.data_venda || null,
-      mentorado_indicador_id: formData.mentorado_indicador_id || null,
-      fonte_referencia: formData.fonte_referencia || null,
+      mentorado_indicador_id: formData.mentorado_indicador_id?.trim() || null,
+      fonte_referencia: formData.fonte_referencia?.trim() || null,
+      sdr_id: formData.sdr_id?.trim() || null,
+      closer_id: formData.closer_id?.trim() || null,
       // Garantir que campos de texto vazios sejam null
       email: formData.email?.trim() || null,
       telefone: formData.telefone?.trim() || null,

@@ -622,8 +622,9 @@ export default function FollowUpConfigPage() {
       </div>
 
       <Tabs defaultValue="sequences" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="sequences">Sequências</TabsTrigger>
+          <TabsTrigger value="activate">Ativar Follow-up</TabsTrigger>
           <TabsTrigger value="executions">Execuções Ativas</TabsTrigger>
           <TabsTrigger value="stats">Estatísticas</TabsTrigger>
         </TabsList>
@@ -716,6 +717,11 @@ export default function FollowUpConfigPage() {
               </Card>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="activate" className="space-y-4">
+          {/* Activate Follow-up */}
+          <ActivateFollowupTab sequences={sequences} onActivated={loadData} />
         </TabsContent>
 
         <TabsContent value="executions" className="space-y-4">
@@ -1183,6 +1189,234 @@ export default function FollowUpConfigPage() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+// Componente para ativar follow-up em leads
+function ActivateFollowupTab({ sequences, onActivated }: {
+  sequences: LeadFollowupSequence[]
+  onActivated: () => void
+}) {
+  const [leads, setLeads] = useState<any[]>([])
+  const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set())
+  const [selectedSequence, setSelectedSequence] = useState<string>('')
+  const [loading, setLoading] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    loadLeads()
+  }, [])
+
+  const loadLeads = async () => {
+    setLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('id, nome_completo, email, telefone, status, temperatura, origem, created_at')
+        .in('status', ['novo', 'contatado', 'interessado', 'nao_respondeu'])
+        .order('created_at', { ascending: false })
+        .limit(100)
+
+      if (error) throw error
+      setLeads(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar leads:', error)
+      toast.error('Erro ao carregar leads')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredLeads = leads.filter(lead =>
+    lead.nome_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lead.telefone?.includes(searchTerm)
+  )
+
+  const toggleLead = (leadId: string) => {
+    const newSelection = new Set(selectedLeads)
+    if (newSelection.has(leadId)) {
+      newSelection.delete(leadId)
+    } else {
+      newSelection.add(leadId)
+    }
+    setSelectedLeads(newSelection)
+  }
+
+  const activateFollowup = async () => {
+    if (!selectedSequence || selectedLeads.size === 0) {
+      toast.error('Selecione uma sequência e pelo menos um lead')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const sequence = sequences.find(s => s.id === selectedSequence)
+      if (!sequence) throw new Error('Sequência não encontrada')
+
+      const executions = Array.from(selectedLeads).map(leadId => ({
+        lead_id: leadId,
+        sequence_id: selectedSequence,
+        organization_id: sequence.organization_id,
+        status: 'active',
+        step_atual: 0,
+        proxima_execucao: new Date().toISOString(), // Começar imediatamente
+        total_touchpoints: 0,
+        steps_executados: [],
+        respostas_recebidas: []
+      }))
+
+      const { error } = await supabase
+        .from('lead_followup_executions')
+        .insert(executions)
+
+      if (error) throw error
+
+      toast.success(`Follow-up ativado para ${selectedLeads.size} leads!`)
+      setSelectedLeads(new Set())
+      setSelectedSequence('')
+      onActivated()
+    } catch (error) {
+      console.error('Erro ao ativar follow-up:', error)
+      toast.error('Erro ao ativar follow-up')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Ativar Follow-up Automático</h2>
+          <p className="text-gray-600">Selecione leads e aplique uma sequência de follow-up</p>
+        </div>
+        <Button onClick={loadLeads} variant="outline" disabled={loading}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Atualizar
+        </Button>
+      </div>
+
+      {/* Controls */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <Label>Sequência de Follow-up</Label>
+              <Select value={selectedSequence} onValueChange={setSelectedSequence}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Escolha uma sequência..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {sequences.filter(s => s.ativo).map(sequence => (
+                    <SelectItem key={sequence.id} value={sequence.id}>
+                      {sequence.nome_sequencia} ({sequence.steps.length} steps)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label>Pesquisar Leads</Label>
+              <Input
+                placeholder="Nome, email ou telefone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-600">
+              {selectedLeads.size} de {filteredLeads.length} leads selecionados
+            </p>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setSelectedLeads(new Set(filteredLeads.map(l => l.id)))}
+              >
+                Selecionar Todos
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setSelectedLeads(new Set())}
+              >
+                Limpar Seleção
+              </Button>
+            </div>
+          </div>
+
+          <Button 
+            onClick={activateFollowup}
+            disabled={loading || !selectedSequence || selectedLeads.size === 0}
+            className="mb-4"
+          >
+            <Play className="h-4 w-4 mr-2" />
+            Ativar Follow-up para {selectedLeads.size} leads
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Leads List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Leads Disponíveis ({filteredLeads.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+              Carregando leads...
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+              {filteredLeads.map(lead => (
+                <div 
+                  key={lead.id}
+                  className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                    selectedLeads.has(lead.id) 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => toggleLead(lead.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">{lead.nome_completo}</p>
+                      <p className="text-sm text-gray-500">{lead.email}</p>
+                      <p className="text-sm text-gray-500">{lead.telefone}</p>
+                    </div>
+                    <div className="text-right">
+                      <Badge className={`text-xs ${
+                        lead.status === 'novo' ? 'bg-green-100 text-green-800' :
+                        lead.status === 'contatado' ? 'bg-blue-100 text-blue-800' :
+                        lead.status === 'interessado' ? 'bg-purple-100 text-purple-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {lead.status}
+                      </Badge>
+                      <p className="text-xs text-gray-400 mt-1">{lead.origem}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {filteredLeads.length === 0 && !loading && (
+            <div className="text-center py-8">
+              <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500">Nenhum lead encontrado</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
