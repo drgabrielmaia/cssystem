@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
+import { whatsappNotifications } from '@/services/whatsapp-notifications'
+import { useAuth } from '@/contexts/auth'
 import {
   Search,
   DollarSign,
@@ -69,6 +71,7 @@ const MESES = [
 ]
 
 export default function PendenciasPage() {
+  const { organizationId } = useAuth()
   const [mentorados, setMentorados] = useState<MentoradoComDividas[]>([])
   const [comissoesPendentes, setComissoesPendentes] = useState<Comissao[]>([])
   const [loading, setLoading] = useState(true)
@@ -537,6 +540,24 @@ export default function PendenciasPage() {
             valor_arrecadado: novoValorArrecadado
           })
           .eq('id', lead.id)
+      }
+
+      // ✅ ENVIAR NOTIFICAÇÃO WHATSAPP PARA ADMIN
+      try {
+        if (organizationId) {
+          console.log('📱 Enviando notificação de pagamento para admin...')
+          await whatsappNotifications.notifyPendencyPaid({
+            organizationId,
+            personName: divida.mentorado_nome,
+            amount: valorPagoNum,
+            description: observacoesPagamento || 'Pendência financeira quitada',
+            paymentMethod: 'Sistema'
+          })
+          console.log('✅ Notificação de pagamento enviada!')
+        }
+      } catch (notificationError) {
+        console.warn('❌ Erro ao enviar notificação de pagamento:', notificationError)
+        // Não quebrar o fluxo se a notificação falhar
       }
 
       await loadDividasData()

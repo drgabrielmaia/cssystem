@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/lib/supabase'
 import { EditEventModal } from '@/components/edit-event-modal'
 import { useAuth } from '@/contexts/auth'
+import { whatsappNotifications } from '@/services/whatsapp-notifications'
 
 interface CalendarEvent {
   id: string
@@ -52,11 +53,12 @@ const MONTHS = [
 
 const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
-// Função para notificar admin sobre novo evento
-const notifyAdminAboutNewEvent = async (eventData: any) => {
+// Função para notificar admin sobre novo evento (usando novo serviço)
+const notifyAdminAboutNewEvent = async (eventData: any, organizationId: string) => {
   try {
     // Buscar o nome do lead ou mentorado se associado
-    let associatedName = ''
+    let leadName = ''
+    let mentoradoName = ''
 
     if (eventData.lead_id) {
       try {
@@ -64,14 +66,14 @@ const notifyAdminAboutNewEvent = async (eventData: any) => {
         const data = await response.json()
         if (data.success) {
           const lead = data.leads.find((l: any) => l.id === eventData.lead_id)
-          associatedName = lead?.nome_completo || ''
+          leadName = lead?.nome_completo || ''
         }
       } catch (error) {
         console.warn('Erro ao buscar lead:', error)
       }
     }
 
-    if (eventData.mentorado_id && !associatedName) {
+    if (eventData.mentorado_id && !mentoradoName) {
       try {
         const { data, error } = await supabase
           .from('mentorados')
@@ -80,73 +82,34 @@ const notifyAdminAboutNewEvent = async (eventData: any) => {
           .single()
 
         if (!error && data) {
-          associatedName = data.nome_completo
+          mentoradoName = data.nome_completo
         }
       } catch (error) {
         console.warn('Erro ao buscar mentorado:', error)
       }
     }
 
-    // Formatar data e hora
-    const eventDate = new Date(eventData.start_datetime)
-    const formattedDate = eventDate.toLocaleDateString('pt-BR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      timeZone: 'America/Sao_Paulo'
-    })
-
-    const formattedTime = eventData.all_day
-      ? 'Dia todo'
-      : eventDate.toLocaleTimeString('pt-BR', {
+    // Formatar hora se não for evento de dia todo
+    const eventTime = eventData.all_day 
+      ? undefined 
+      : new Date(eventData.start_datetime).toLocaleTimeString('pt-BR', {
           hour: '2-digit',
           minute: '2-digit',
           timeZone: 'America/Sao_Paulo'
         })
 
-    // Construir mensagem
-    let message = `🗓️ *NOVO EVENTO CRIADO*\n\n`
-    message += `📋 *Título:* ${eventData.title}\n`
-    message += `📅 *Data:* ${formattedDate}\n`
-    message += `⏰ *Horário:* ${formattedTime}\n`
-
-    if (eventData.description) {
-      message += `📝 *Descrição:* ${eventData.description}\n`
-    }
-
-    if (associatedName) {
-      const type = eventData.lead_id ? 'Lead' : 'Mentorado'
-      message += `👤 *${type}:* ${associatedName}\n`
-    }
-
-    message += `\n✅ Evento adicionado ao calendário com sucesso!`
-
-    // Enviar mensagem via WhatsApp API
-    const adminPhone = process.env.NEXT_PUBLIC_ADMIN_PHONE || '558396910414'
-    console.log('📱 Enviando mensagem para:', adminPhone)
-    console.log('📝 Mensagem:', message)
-
-    const response = await fetch('/api/whatsapp/send-message', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        phoneNumber: adminPhone,
-        message: message,
-        sender: 'kellybsantoss@icloud.com'
-      })
+    // Usar novo serviço de notificações
+    await whatsappNotifications.notifyEventCreated({
+      organizationId,
+      eventTitle: eventData.title,
+      eventDate: eventData.start_datetime,
+      eventTime,
+      leadName: leadName || undefined,
+      mentoradoName: mentoradoName || undefined,
+      description: eventData.description || undefined
     })
 
-    const responseData = await response.json()
-    console.log('📡 Resposta da API:', responseData)
-
-    if (!response.ok) {
-      throw new Error(`Falha ao enviar notificação WhatsApp: ${response.status} - ${responseData.error || 'Erro desconhecido'}`)
-    }
-
-    console.log('✅ Notificação enviada para o admin com sucesso!')
+    console.log('✅ Notificação enviada via novo serviço!')
 
   } catch (error) {
     console.error('❌ Erro ao enviar notificação para admin:', error)
@@ -411,7 +374,7 @@ export default function CalendarioPage() {
       // Enviar notificação WhatsApp para o admin
       try {
         console.log('🔄 Enviando notificação para admin...', eventData.title)
-        await notifyAdminAboutNewEvent(eventData)
+        await notifyAdminAboutNewEvent(eventData, organizationId)
         console.log('✅ Notificação enviada com sucesso!')
       } catch (notificationError) {
         console.warn('❌ Erro ao enviar notificação:', notificationError)
