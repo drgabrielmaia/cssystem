@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MessageCircle, Phone, QrCode, Send, Users, Wifi, WifiOff, ExternalLink, Search, RefreshCw, Settings, Clock, X, CalendarDays, Plus, Trash2 } from 'lucide-react';
-import { whatsappCoreAPI, type WhatsAppStatus, type Contact, type Chat, type Message } from '@/lib/whatsapp-core-api';
+import { whatsappMultiService, type WhatsAppStatus, type Contact, type Chat, type Message } from '@/lib/whatsapp-multi-service';
 import { useAuth } from '@/contexts/auth';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
@@ -70,7 +70,7 @@ export default function WhatsAppPage() {
       );
 
       const response = await Promise.race([
-        whatsappCoreAPI.getStatus(),
+        whatsappMultiService.getStatus(),
         timeoutPromise
       ]) as any;
 
@@ -124,8 +124,8 @@ export default function WhatsAppPage() {
       // Buscar chats existentes e contatos em paralelo com timeout
       const [chatsResponse, contactsResponse] = await Promise.race([
         Promise.all([
-          whatsappCoreAPI.getChats().catch(err => ({ success: false, error: err.message })),
-          whatsappCoreAPI.getContacts().catch(err => ({ success: false, error: err.message }))
+          whatsappMultiService.getChats().catch(err => ({ success: false, error: err.message })),
+          whatsappMultiService.getContacts().catch(err => ({ success: false, error: err.message }))
         ]),
         chatTimeout
       ]) as any;
@@ -208,7 +208,7 @@ export default function WhatsAppPage() {
 
   const loadContacts = useCallback(async () => {
     try {
-      const response = await whatsappCoreAPI.getContacts();
+      const response = await whatsappMultiService.getContacts();
       if (response.success && response.data) {
         setContacts(response.data.filter(contact => contact.isMyContact));
       }
@@ -226,7 +226,7 @@ export default function WhatsAppPage() {
     loadingTimeoutRef.current = setTimeout(async () => {
       try {
         console.log(`📨 Carregando mensagens para: ${chatId}`);
-        const response = await whatsappCoreAPI.getChatMessages(chatId, 50);
+        const response = await whatsappMultiService.getChatMessages(chatId, 50);
         if (response.success && response.data) {
           // Ordenar mensagens da mais antiga para mais nova
           const sortedMessages = response.data.sort((a, b) => a.timestamp - b.timestamp);
@@ -256,7 +256,7 @@ export default function WhatsAppPage() {
     try {
       console.log(`📤 Enviando mensagem para ${selectedChat.id}: ${newMessage}`);
 
-      const response = await whatsappCoreAPI.sendMessage(selectedChat.id, newMessage);
+      const response = await whatsappMultiService.sendMessage(selectedChat.id, newMessage);
 
       if (response.success) {
         setNewMessage('');
@@ -285,7 +285,7 @@ export default function WhatsAppPage() {
     try {
       console.log(`🔄 Sincronizando conversa: ${selectedChat.id}`);
 
-      const response = await whatsappCoreAPI.syncChat(selectedChat.id);
+      const response = await whatsappMultiService.syncChat(selectedChat.id);
 
       if (response.success && response.data) {
         console.log(`✅ Conversa sincronizada: ${response.data.messageCount} mensagens`);
@@ -682,7 +682,7 @@ export default function WhatsAppPage() {
                 Conecte seu WhatsApp Business para começar a enviar mensagens
               </p>
             </div>
-            <Link href="/whatsapp/connect?userId=default">
+            <Link href="/whatsapp/connect">
               <button className="flex items-center gap-2 px-6 py-3 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors">
                 <QrCode className="w-5 h-5" />
                 Conectar WhatsApp
