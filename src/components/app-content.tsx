@@ -56,10 +56,13 @@ export function AppContent({ children }: { children: React.ReactNode }) {
                       pathname.startsWith('/formulario/') ||
                       pathname.startsWith('/forms/') ||
                       pathname.startsWith('/agendar/') ||
-                      pathname.startsWith('/mentorado')
+                      pathname.startsWith('/mentorado') ||
+                      pathname.startsWith('/closer')
 
   // Páginas que requerem autenticação mas sem sidebar
-  const noSidebarPages = pathname.startsWith('/mentorado') || isMentorado
+  const noSidebarPages = pathname.startsWith('/mentorado') || 
+                         pathname.startsWith('/closer') || 
+                         isMentorado
 
   // Se for página pública, não aplicar AuthGuard
   if (isPublicPage) {

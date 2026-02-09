@@ -137,7 +137,7 @@ export default function WhatsAppPage() {
         // Agrupar chats duplicados por ID
         const chatMap = new Map<string, Chat>();
 
-        chatsResponse.data.forEach(chat => {
+        chatsResponse.data.forEach((chat: any) => {
           const existingChat = chatMap.get(chat.id);
           if (!existingChat) {
             // Primeiro chat com este ID
@@ -156,10 +156,10 @@ export default function WhatsAppPage() {
 
       // Adicionar contatos como chats (mesmo sem mensagens)
       if (contactsResponse.success && contactsResponse.data) {
-        const contacts = contactsResponse.data.filter(contact => contact.isMyContact);
+        const contacts = contactsResponse.data.filter((contact: any) => contact.isMyContact);
         console.log(`👥 Contatos encontrados: ${contacts.length}`);
 
-        contacts.forEach(contact => {
+        contacts.forEach((contact: any) => {
           // Só adicionar se não existe chat já
           const existingChat = allChats.find(chat => chat.id === contact.id);
           if (!existingChat) {

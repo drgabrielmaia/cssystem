@@ -186,37 +186,6 @@ export default function PortalAccessPage() {
     }
   }
 
-  const simularLiberacaoUniversal = async () => {
-    setBulkLoading(true)
-    try {
-      console.log('🧪 Iniciando simulação de liberação universal...')
-      
-      const response = await fetch('/api/admin/grant-all-access', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          force: false,
-          dryRun: true // Just simulate, don't make changes
-        })
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        alert(`🧪 Simulação concluída!\n\nO que seria processado:\n- Mentorados encontrados: ${result.stats?.mentoradosProcessed || 0}\n- Módulos encontrados: ${result.stats?.modulesFound || 0}\n- Novos acessos a criar: ${result.stats?.newAccessRecords || 0}\n- Acessos a atualizar: ${result.stats?.accessRecordsToUpdate || 0}\n- Registros já com acesso: ${result.stats?.skippedRecords || 0}\n- Total a processar: ${result.stats?.totalProcessed || 0}`)
-      } else {
-        throw new Error(result.message || 'Erro na simulação')
-      }
-
-    } catch (error: any) {
-      console.error('💥 Erro na simulação:', error)
-      alert(`❌ Erro na simulação: ${error.message}`)
-    } finally {
-      setBulkLoading(false)
-    }
-  }
 
   const getAccessInfo = (mentoradoId: string) => {
     return accessControls.find(ac =>

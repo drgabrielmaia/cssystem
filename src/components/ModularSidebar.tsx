@@ -69,6 +69,7 @@ const modules = [
     color: '#DAA520', // Dourado médio
     items: [
       { name: 'Mentorados', href: '/lista-mentorados', icon: Users, description: 'Gerenciar pessoas' },
+      { name: 'Closers/SDRs', href: '/admin/closers', icon: Target, description: 'Gerenciar closers e SDRs' },
       { name: 'Onboarding', href: '/onboarding', icon: Brain, description: 'Mapa mental de metas' },
     ]
   },
