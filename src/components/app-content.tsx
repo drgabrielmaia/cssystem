@@ -21,8 +21,12 @@ export function AppContent({ children }: { children: React.ReactNode }) {
           const userRole = session.user.user_metadata?.role
           setIsMentorado(userRole === 'mentorado')
         }
-      } catch (error) {
-        console.error('Error checking user role:', error)
+      } catch (error: any) {
+        if (error.name === 'AbortError' || error.message?.includes('signal is aborted')) {
+          console.error('Auth session timeout - continuing without auth check:', error)
+        } else {
+          console.error('Error checking user role:', error)
+        }
       } finally {
         setIsLoading(false)
       }

@@ -67,7 +67,7 @@ class WhatsAppCoreService {
   async healthCheck(): Promise<boolean> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout para Docker
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout para Docker
 
       const response = await fetch(`${this.baseUrl}/health`, {
         signal: controller.signal,
@@ -85,7 +85,11 @@ class WhatsAppCoreService {
 
       const data = await response.json();
       return data.success === true;
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError' || error.message?.includes('signal is aborted')) {
+        console.error('❌ Health check timeout:', error);
+        return false;
+      }
       console.error('❌ Erro no health check:', error);
       return false;
     }
@@ -95,7 +99,7 @@ class WhatsAppCoreService {
     console.log('🔍 [WhatsApp Service] Buscando status da API core...');
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout para Docker
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout para Docker
 
       const response = await fetch(`${this.baseUrl}/users/default/status`, {
         signal: controller.signal,
@@ -122,7 +126,11 @@ class WhatsAppCoreService {
       }
       console.log('❌ [WhatsApp Service] Status sem sucesso:', data);
       return null;
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError' || error.message?.includes('signal is aborted')) {
+        console.error('💥 [WhatsApp Service] Status request timeout:', error);
+        return null;
+      }
       console.error('💥 [WhatsApp Service] Erro ao buscar status:', error);
       return null;
     }
@@ -173,14 +181,20 @@ class WhatsAppCoreService {
 
       console.log(`📤 Enviando mensagem para ${phoneWithSuffix}: ${message}`);
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout para envio
+
       const response = await fetch(`${this.baseUrl}/users/kellybsantoss@icloud.com/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true'
         },
-        body: JSON.stringify({ to: phoneWithSuffix, message })
+        body: JSON.stringify({ to: phoneWithSuffix, message }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
@@ -191,7 +205,11 @@ class WhatsAppCoreService {
         console.error('❌ Falha ao enviar mensagem:', data.error);
         return false;
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError' || error.message?.includes('signal is aborted')) {
+        console.error('❌ Timeout ao enviar mensagem:', error);
+        return false;
+      }
       console.error('❌ Erro ao enviar mensagem:', error);
       return false;
     }
