@@ -295,6 +295,155 @@ function FinancasPageContent() {
     })
   }
 
+  const sincronizarHistorico = async () => {
+    if (!usuario) return
+    
+    const confirmed = confirm('Sincronizar todos os pagamentos de mentoria dos últimos 3 meses? Isso pode levar alguns segundos.')
+    if (!confirmed) return
+
+    try {
+      // Últimos 3 meses para sincronização histórica
+      const dataLimite = new Date()
+      dataLimite.setMonth(dataLimite.getMonth() - 3)
+      
+      await sincronizarPeriodo(dataLimite)
+      alert('Sincronização histórica concluída! Dados dos últimos 3 meses foram importados.')
+      carregarDados()
+    } catch (error) {
+      console.error('Erro na sincronização histórica:', error)
+      alert('Erro na sincronização histórica. Tente novamente.')
+    }
+  }
+
+  const sincronizarPeriodo = async (dataLimite: Date) => {
+    if (!usuario) return
+
+    // 1. Buscar comissões pagas (DESPESAS)
+    const { data: comissoesPagas } = await supabase
+      .from('commissions')
+      .select(`
+        id,
+        commission_amount,
+        status,
+        created_at,
+        referral:referrals(
+          mentorado:mentorados(nome)
+        )
+      `)
+      .eq('organization_id', usuario.organization_id)
+      .eq('status', 'paid')
+      .gte('created_at', dataLimite.toISOString())
+
+    // 2. Buscar pagamentos de mentoria confirmados (RECEITAS)
+    const { data: pagamentosMentoria } = await supabase
+      .from('referral_payments')
+      .select(`
+        id,
+        payment_amount,
+        payment_date,
+        status,
+        referral:referrals(
+          mentorado:mentorados(nome)
+        )
+      `)
+      .eq('organization_id', usuario.organization_id)
+      .eq('status', 'confirmed')
+      .gte('payment_date', dataLimite.toISOString())
+
+    // 3. Buscar categorias automáticas ou criar se não existirem
+    let { data: categoriaComissao } = await supabase
+      .from('categorias_financeiras')
+      .select('id')
+      .eq('nome', 'Comissões Pagas')
+      .eq('ativo', true)
+      .single()
+
+    if (!categoriaComissao) {
+      const { data: novaCategoria } = await supabase
+        .from('categorias_financeiras')
+        .insert({
+          nome: 'Comissões Pagas',
+          tipo: 'saida',
+          cor: '#EF4444',
+          ativo: true
+        })
+        .select('id')
+        .single()
+      categoriaComissao = novaCategoria
+    }
+
+    let { data: categoriaMentoria } = await supabase
+      .from('categorias_financeiras')
+      .select('id')
+      .eq('nome', 'Mentoria')
+      .eq('ativo', true)
+      .single()
+
+    if (!categoriaMentoria) {
+      const { data: novaCategoria } = await supabase
+        .from('categorias_financeiras')
+        .insert({
+          nome: 'Mentoria',
+          tipo: 'entrada',
+          cor: '#10B981',
+          ativo: true
+        })
+        .select('id')
+        .single()
+      categoriaMentoria = novaCategoria
+    }
+
+    // 4. Sincronizar comissões como transações de saída
+    if (comissoesPagas && categoriaComissao) {
+      for (const comissao of comissoesPagas) {
+        const { data: transacaoExistente } = await supabase
+          .from('transacoes_financeiras')
+          .select('id')
+          .eq('referencia_externa', `commission_${comissao.id}`)
+          .single()
+
+        if (!transacaoExistente) {
+          await supabase
+            .from('transacoes_financeiras')
+            .insert({
+              tipo: 'saida',
+              valor: comissao.commission_amount,
+              descricao: `Comissão paga - ${(comissao.referral as any)?.mentorado?.nome || 'Mentor'}`,
+              categoria_id: categoriaComissao.id,
+              data_transacao: comissao.created_at.split('T')[0],
+              referencia_externa: `commission_${comissao.id}`,
+              automatico: true
+            })
+        }
+      }
+    }
+
+    // 5. Sincronizar pagamentos de mentoria como transações de entrada
+    if (pagamentosMentoria && categoriaMentoria) {
+      for (const pagamento of pagamentosMentoria) {
+        const { data: transacaoExistente } = await supabase
+          .from('transacoes_financeiras')
+          .select('id')
+          .eq('referencia_externa', `payment_${pagamento.id}`)
+          .single()
+
+        if (!transacaoExistente) {
+          await supabase
+            .from('transacoes_financeiras')
+            .insert({
+              tipo: 'entrada',
+              valor: pagamento.payment_amount,
+              descricao: `Pagamento de mentoria - ${(pagamento.referral as any)?.mentorado?.nome || 'Cliente'}`,
+              categoria_id: categoriaMentoria.id,
+              data_transacao: pagamento.payment_date.split('T')[0],
+              referencia_externa: `payment_${pagamento.id}`,
+              automatico: true
+            })
+        }
+      }
+    }
+  }
+
   const sincronizarDadosAutomaticos = async () => {
     if (!usuario) return
     
@@ -303,133 +452,7 @@ function FinancasPageContent() {
       const dataLimite = new Date()
       dataLimite.setDate(dataLimite.getDate() - diasAtras)
       
-      // 1. Buscar comissões pagas (DESPESAS)
-      const { data: comissoesPagas } = await supabase
-        .from('commissions')
-        .select(`
-          id,
-          commission_amount,
-          status,
-          created_at,
-          referral:referrals(
-            mentorado:mentorados(nome)
-          )
-        `)
-        .eq('organization_id', usuario.organization_id)
-        .eq('status', 'paid')
-        .gte('created_at', dataLimite.toISOString())
-
-      // 2. Buscar pagamentos de mentoria confirmados (RECEITAS)
-      const { data: pagamentosMentoria } = await supabase
-        .from('referral_payments')
-        .select(`
-          id,
-          payment_amount,
-          payment_date,
-          status,
-          referral:referrals(
-            mentorado:mentorados(nome)
-          )
-        `)
-        .eq('organization_id', usuario.organization_id)
-        .eq('status', 'confirmed')
-        .gte('payment_date', dataLimite.toISOString())
-
-      // 3. Buscar categorias automáticas ou criar se não existirem
-      let { data: categoriaComissao } = await supabase
-        .from('categorias_financeiras')
-        .select('id')
-        .eq('nome', 'Comissões Pagas')
-        .eq('ativo', true)
-        .single()
-
-      if (!categoriaComissao) {
-        const { data: novaCategoria } = await supabase
-          .from('categorias_financeiras')
-          .insert({
-            nome: 'Comissões Pagas',
-            tipo: 'saida',
-            cor: '#EF4444',
-            ativo: true
-          })
-          .select('id')
-          .single()
-        categoriaComissao = novaCategoria
-      }
-
-      let { data: categoriaMentoria } = await supabase
-        .from('categorias_financeiras')
-        .select('id')
-        .eq('nome', 'Mentoria')
-        .eq('ativo', true)
-        .single()
-
-      if (!categoriaMentoria) {
-        const { data: novaCategoria } = await supabase
-          .from('categorias_financeiras')
-          .insert({
-            nome: 'Mentoria',
-            tipo: 'entrada',
-            cor: '#10B981',
-            ativo: true
-          })
-          .select('id')
-          .single()
-        categoriaMentoria = novaCategoria
-      }
-
-      // 4. Sincronizar comissões como transações de saída
-      if (comissoesPagas && categoriaComissao) {
-        for (const comissao of comissoesPagas) {
-          // Verificar se já existe transação para esta comissão
-          const { data: transacaoExistente } = await supabase
-            .from('transacoes_financeiras')
-            .select('id')
-            .eq('referencia_externa', `commission_${comissao.id}`)
-            .single()
-
-          if (!transacaoExistente) {
-            await supabase
-              .from('transacoes_financeiras')
-              .insert({
-                tipo: 'saida',
-                valor: comissao.commission_amount,
-                descricao: `Comissão paga - ${(comissao.referral as any)?.mentorado?.nome || 'Mentor'}`,
-                categoria_id: categoriaComissao.id,
-                data_transacao: comissao.created_at.split('T')[0],
-                referencia_externa: `commission_${comissao.id}`,
-                automatico: true
-              })
-          }
-        }
-      }
-
-      // 5. Sincronizar pagamentos de mentoria como transações de entrada
-      if (pagamentosMentoria && categoriaMentoria) {
-        for (const pagamento of pagamentosMentoria) {
-          // Verificar se já existe transação para este pagamento
-          const { data: transacaoExistente } = await supabase
-            .from('transacoes_financeiras')
-            .select('id')
-            .eq('referencia_externa', `payment_${pagamento.id}`)
-            .single()
-
-          if (!transacaoExistente) {
-            await supabase
-              .from('transacoes_financeiras')
-              .insert({
-                tipo: 'entrada',
-                valor: pagamento.payment_amount,
-                descricao: `Pagamento de mentoria - ${(pagamento.referral as any)?.mentorado?.nome || 'Cliente'}`,
-                categoria_id: categoriaMentoria.id,
-                data_transacao: pagamento.payment_date.split('T')[0],
-                referencia_externa: `payment_${pagamento.id}`,
-                automatico: true
-              })
-          }
-        }
-      }
-
+      await sincronizarPeriodo(dataLimite)
     } catch (error) {
       console.error('Erro ao sincronizar dados automáticos:', error)
     }
@@ -823,6 +846,17 @@ function FinancasPageContent() {
                 title="Atualizar dados"
               >
                 <RefreshCw className="h-5 w-5 text-slate-600" />
+              </button>
+
+              <button
+                onClick={sincronizarHistorico}
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+                title="Sincronizar histórico (3 meses)"
+              >
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 text-blue-600" />
+                  <span className="text-xs text-blue-600 font-medium">Sync</span>
+                </div>
               </button>
               
               <div className="relative group">
