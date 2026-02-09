@@ -315,8 +315,9 @@ function FinancasPageContent() {
     }
   }
 
-  const sincronizarPeriodo = async (dataLimite: Date) => {
+  const sincronizarPeriodo = async (dataLimite: Date, organizationId?: string) => {
     if (!usuario) return
+    const orgId = organizationId || usuario.organization_id
 
     // 1. Buscar comissões pagas (DESPESAS)
     const { data: comissoesPagas } = await supabase
@@ -330,7 +331,7 @@ function FinancasPageContent() {
           mentorado:mentorados(nome)
         )
       `)
-      .eq('organization_id', usuario.organization_id)
+      .eq('organization_id', orgId)
       .eq('status', 'paid')
       .gte('created_at', dataLimite.toISOString())
 
@@ -346,7 +347,7 @@ function FinancasPageContent() {
           mentorado:mentorados(nome)
         )
       `)
-      .eq('organization_id', usuario.organization_id)
+      .eq('organization_id', orgId)
       .eq('status', 'confirmed')
       .gte('payment_date', dataLimite.toISOString())
 
@@ -355,6 +356,7 @@ function FinancasPageContent() {
       .from('categorias_financeiras')
       .select('id')
       .eq('nome', 'Comissões Pagas')
+      .eq('organization_id', orgId)
       .eq('ativo', true)
       .single()
 
@@ -365,7 +367,8 @@ function FinancasPageContent() {
           nome: 'Comissões Pagas',
           tipo: 'saida',
           cor: '#EF4444',
-          ativo: true
+          ativo: true,
+          organization_id: orgId
         })
         .select('id')
         .single()
@@ -376,6 +379,7 @@ function FinancasPageContent() {
       .from('categorias_financeiras')
       .select('id')
       .eq('nome', 'Mentoria')
+      .eq('organization_id', orgId)
       .eq('ativo', true)
       .single()
 
@@ -386,7 +390,8 @@ function FinancasPageContent() {
           nome: 'Mentoria',
           tipo: 'entrada',
           cor: '#10B981',
-          ativo: true
+          ativo: true,
+          organization_id: orgId
         })
         .select('id')
         .single()
@@ -412,7 +417,8 @@ function FinancasPageContent() {
               categoria_id: categoriaComissao.id,
               data_transacao: comissao.created_at.split('T')[0],
               referencia_externa: `commission_${comissao.id}`,
-              automatico: true
+              automatico: true,
+              organization_id: orgId
             })
         }
       }
@@ -437,7 +443,8 @@ function FinancasPageContent() {
               categoria_id: categoriaMentoria.id,
               data_transacao: pagamento.payment_date.split('T')[0],
               referencia_externa: `payment_${pagamento.id}`,
-              automatico: true
+              automatico: true,
+              organization_id: orgId
             })
         }
       }
@@ -452,7 +459,7 @@ function FinancasPageContent() {
       const dataLimite = new Date()
       dataLimite.setDate(dataLimite.getDate() - diasAtras)
       
-      await sincronizarPeriodo(dataLimite)
+      await sincronizarPeriodo(dataLimite, usuario.organization_id)
     } catch (error) {
       console.error('Erro ao sincronizar dados automáticos:', error)
     }

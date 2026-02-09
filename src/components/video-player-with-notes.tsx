@@ -150,7 +150,7 @@ export function VideoPlayerWithNotes({
             {videoUrl.includes('pandavideo') ? (
               <div className="aspect-video">
                 <iframe
-                  src={videoUrl}
+                  src={`${videoUrl}${videoUrl.includes('?') ? '&' : '?'}controls=1&showinfo=1&autohide=0&theme=dark&color=white`}
                   className="w-full h-full"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

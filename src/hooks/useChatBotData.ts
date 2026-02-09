@@ -70,14 +70,14 @@ export function useChatBotData() {
           automatico,
           categoria:categorias_financeiras(nome, tipo)
         `)
-        // .eq('organization_id', organizationId) // TODO: Descomentar após migração
+        .eq('organization_id', organizationId) // Ativado após migração
         .gte('data_transacao', inicioMes.toISOString().split('T')[0])
 
       // Transações do mês passado
       const { data: transacoesMesPassado } = await supabase
         .from('transacoes_financeiras')
         .select('tipo, valor, automatico')
-        // .eq('organization_id', organizationId) // TODO: Descomentar após migração
+        .eq('organization_id', organizationId) // Ativado após migração
         .gte('data_transacao', mesPassado.toISOString().split('T')[0])
         .lte('data_transacao', fimMesPassado.toISOString().split('T')[0])
 
@@ -85,7 +85,7 @@ export function useChatBotData() {
       const { data: transacoesHoje } = await supabase
         .from('transacoes_financeiras')
         .select('tipo, valor')
-        // .eq('organization_id', organizationId) // TODO: Descomentar após migração
+        .eq('organization_id', organizationId) // Ativado após migração
         .eq('data_transacao', hoje.toISOString().split('T')[0])
 
       // Buscar leads
