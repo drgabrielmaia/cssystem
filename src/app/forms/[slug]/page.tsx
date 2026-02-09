@@ -53,88 +53,39 @@ export default function FormPageSafe() {
   const slug = params.slug as string
 
   const createSteps = (fields: FormField[]) => {
-    const stepMapping: { [key: string]: Step } = {}
-
-    fields.forEach(field => {
-      let stepId = 0
+    // 🔥 CADA CAMPO = UMA ETAPA (como você pediu!)
+    const stepsFromFields = fields.map((field, index) => {
       let stepConfig = {
-        title: 'Informações Gerais',
-        description: 'Vamos começar com suas informações básicas',
+        title: field.label,
+        description: `Pergunta ${index + 1} de ${fields.length}`,
         icon: User
       }
 
-      // Categorizar campos por tipo e nome
+      // Escolher ícone baseado no tipo/nome do campo
       if (field.type === 'email' || field.name.includes('email')) {
-        stepId = 1
-        stepConfig = {
-          title: 'Contato',
-          description: 'Como podemos entrar em contato?',
-          icon: Mail
-        }
-      } else if (field.type === 'phone' || field.name.includes('telefone') || field.name.includes('phone')) {
-        stepId = 1
-        stepConfig = {
-          title: 'Contato',
-          description: 'Como podemos entrar em contato?',
-          icon: Phone
-        }
-      } else if (field.name.includes('instagram')) {
-        stepId = 1
-        stepConfig = {
-          title: 'Contato',
-          description: 'Como podemos entrar em contato?',
-          icon: Mail
-        }
-      } else if (field.name.includes('situacao') || field.name.includes('problema')) {
-        stepId = 2
-        stepConfig = {
-          title: 'Situação Atual',
-          description: 'Conte-nos sobre sua situação atual',
-          icon: Building
-        }
-      } else if (field.name.includes('investimento') || field.name.includes('pagamento')) {
-        stepId = 3
-        stepConfig = {
-          title: 'Investimento',
-          description: 'Vamos falar sobre o investimento',
-          icon: MessageCircle
-        }
-      } else if (field.name.includes('empresa') || field.name.includes('cargo') || field.name.includes('company')) {
-        stepId = 2
-        stepConfig = {
-          title: 'Profissional',
-          description: 'Conte-nos sobre seu trabalho',
-          icon: Building
-        }
-      } else if (field.type === 'textarea' || field.name.includes('mensagem') || field.name.includes('observ')) {
-        stepId = 4
-        stepConfig = {
-          title: 'Mensagem',
-          description: 'Há algo mais que gostaria de compartilhar?',
-          icon: MessageCircle
-        }
-      } else if (field.type === 'checkbox' || field.type === 'radio' || field.type === 'select') {
-        stepId = 2
-        stepConfig = {
-          title: 'Informações Adicionais',
-          description: 'Precisamos de mais algumas informações',
-          icon: Building
-        }
+        stepConfig.icon = Mail
+      } else if (field.type === 'phone' || field.name.includes('telefone') || field.name.includes('whatsapp')) {
+        stepConfig.icon = Phone
+      } else if (field.name.includes('empresa') || field.name.includes('cargo') || field.name.includes('trabalho') || field.name.includes('consultorio')) {
+        stepConfig.icon = Building
+      } else if (field.type === 'textarea' || field.name.includes('mensagem') || field.name.includes('observ') || field.name.includes('incomoda') || field.name.includes('visao') || field.name.includes('agora')) {
+        stepConfig.icon = MessageCircle
+      } else if (field.name.includes('investimento') || field.name.includes('renda') || field.name.includes('pagamento')) {
+        stepConfig.icon = MessageCircle
+      } else {
+        stepConfig.icon = User
       }
 
-      if (!stepMapping[stepId]) {
-        stepMapping[stepId] = {
-          id: stepId,
-          ...stepConfig,
-          fields: []
-        }
+      return {
+        id: index,
+        title: stepConfig.title,
+        description: stepConfig.description,
+        icon: stepConfig.icon,
+        fields: [field] // ✨ APENAS UM CAMPO POR ETAPA!
       }
-
-      stepMapping[stepId].fields.push(field)
     })
 
-    const sortedSteps = Object.values(stepMapping).sort((a, b) => a.id - b.id)
-    setSteps(sortedSteps)
+    setSteps(stepsFromFields)
   }
 
   useEffect(() => {
