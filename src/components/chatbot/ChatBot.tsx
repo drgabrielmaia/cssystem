@@ -200,9 +200,15 @@ export default function ChatBot() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-80 h-96 bg-white rounded-lg shadow-2xl z-40 flex flex-col md:w-80 sm:fixed sm:bottom-0 sm:left-0 sm:right-0 sm:w-full sm:h-[70vh] sm:rounded-t-2xl sm:rounded-b-none">
+        <div className="fixed z-40 flex flex-col bg-white shadow-2xl 
+                        lg:bottom-24 lg:right-6 lg:w-80 lg:h-96 lg:rounded-lg
+                        md:bottom-24 md:right-6 md:w-80 md:h-96 md:rounded-lg
+                        sm:bottom-0 sm:left-0 sm:right-0 sm:w-full sm:h-[70vh] sm:rounded-t-2xl sm:rounded-b-none">
           {/* Header */}
-          <div className="bg-blue-500 text-white p-4 rounded-t-lg sm:rounded-t-2xl">
+          <div className="bg-blue-500 text-white p-4 
+                          lg:rounded-t-lg 
+                          md:rounded-t-lg 
+                          sm:rounded-t-2xl">
             <h3 className="font-semibold">Assistant GM 🤖</h3>
             <p className="text-blue-100 text-xs">Pergunte sobre suas métricas</p>
           </div>
