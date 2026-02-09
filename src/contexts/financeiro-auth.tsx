@@ -7,8 +7,16 @@ interface UsuarioFinanceiro {
   id: string
   nome: string
   email: string
-  nivel_acesso: 'admin' | 'operador'
-  status: 'ativo' | 'inativo'
+  cargo: string
+  permissoes: {
+    dashboard: boolean
+    transacoes: boolean
+    orcamentos: boolean
+    relatorios: boolean
+    usuarios: boolean
+  }
+  ativo: boolean
+  organization_id: string
   created_at: string
 }
 
@@ -36,15 +44,40 @@ export function FinanceiroAuthProvider({ children }: { children: ReactNode }) {
       const { data: { session } } = await supabase.auth.getSession()
       
       if (session?.user) {
-        // Verificar se é usuário do financeiro
-        const { data: usuarioFinanceiro, error } = await supabase
-          .from('usuarios_financeiro')
-          .select('*')
+        // Verificar se é usuário da organização com permissões financeiras
+        const { data: orgUser, error } = await supabase
+          .from('organization_users')
+          .select(`
+            id,
+            email,
+            role,
+            is_active,
+            organization_id,
+            created_at,
+            organization:organizations(name)
+          `)
           .eq('email', session.user.email)
-          .eq('status', 'ativo')
+          .eq('is_active', true)
           .single()
 
-        if (usuarioFinanceiro && !error) {
+        if (orgUser && !error) {
+          // Mapear para formato financeiro
+          const usuarioFinanceiro: UsuarioFinanceiro = {
+            id: orgUser.id,
+            nome: orgUser.email.split('@')[0],
+            email: orgUser.email,
+            cargo: orgUser.role || 'Operador',
+            permissoes: {
+              dashboard: true,
+              transacoes: orgUser.role === 'admin' || orgUser.role === 'financeiro',
+              orcamentos: orgUser.role === 'admin',
+              relatorios: true,
+              usuarios: orgUser.role === 'admin'
+            },
+            ativo: orgUser.is_active,
+            organization_id: orgUser.organization_id,
+            created_at: orgUser.created_at
+          }
           setUsuario(usuarioFinanceiro)
         }
       }
@@ -60,16 +93,24 @@ export function FinanceiroAuthProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       setError(null)
 
-      // Primeiro, verificar se o usuário existe na tabela usuarios_financeiro
-      const { data: usuarioFinanceiro, error: userError } = await supabase
-        .from('usuarios_financeiro')
-        .select('*')
+      // Verificar se é usuário da organização
+      const { data: orgUser, error: userError } = await supabase
+        .from('organization_users')
+        .select(`
+          id,
+          email,
+          role,
+          is_active,
+          organization_id,
+          created_at,
+          organization:organizations(name)
+        `)
         .eq('email', email)
-        .eq('status', 'ativo')
+        .eq('is_active', true)
         .single()
 
-      if (userError || !usuarioFinanceiro) {
-        setError('Usuário não encontrado ou inativo')
+      if (userError || !orgUser) {
+        setError('Usuário não encontrado ou sem acesso ao sistema financeiro')
         return false
       }
 
@@ -85,6 +126,22 @@ export function FinanceiroAuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
+        const usuarioFinanceiro: UsuarioFinanceiro = {
+          id: orgUser.id,
+          nome: orgUser.email.split('@')[0],
+          email: orgUser.email,
+          cargo: orgUser.role || 'Operador',
+          permissoes: {
+            dashboard: true,
+            transacoes: orgUser.role === 'admin' || orgUser.role === 'financeiro',
+            orcamentos: orgUser.role === 'admin',
+            relatorios: true,
+            usuarios: orgUser.role === 'admin'
+          },
+          ativo: orgUser.is_active,
+          organization_id: orgUser.organization_id,
+          created_at: orgUser.created_at
+        }
         setUsuario(usuarioFinanceiro)
         return true
       }
