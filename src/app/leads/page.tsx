@@ -1276,12 +1276,17 @@ className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py
                     await checkAndCreateCommission(editingLead.id, leadData, editingLead)
                   } else {
                     // Criar novo lead
+                    console.log('🔍 Debug leadData antes de inserir:', leadData)
                     const { data: newLead, error } = await supabase
                       .from('leads')
                       .insert(leadData)
                       .select()
 
-                    if (error) throw error
+                    if (error) {
+                      console.error('❌ Erro detalhado ao inserir lead:', error)
+                      console.error('❌ Dados que causaram erro:', leadData)
+                      throw error
+                    }
 
                     // Verificar se novo lead foi marcado como vendido e tem indicador
                     if (newLead && newLead[0]) {

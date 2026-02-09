@@ -15,10 +15,16 @@ BEGIN
     END IF;
 END $$;
 
--- 2. Buscar o ID da primeira organização (admin organization)
+-- 2. Buscar o ID da organização do admin@admin.com especificamente
 -- e atualizar todos os templates existentes
 UPDATE form_templates 
-SET organization_id = (SELECT id FROM organizations LIMIT 1)
+SET organization_id = (
+    SELECT o.id 
+    FROM organizations o 
+    JOIN organization_users ou ON o.id = ou.organization_id
+    WHERE ou.email = 'admin@admin.com'
+    LIMIT 1
+)
 WHERE organization_id IS NULL;
 
 -- 3. Tornar organization_id obrigatório após migração
@@ -43,12 +49,25 @@ CREATE POLICY "org_form_templates_policy" ON form_templates
 -- 6. Grant permissions
 GRANT ALL ON form_templates TO authenticated;
 
--- 7. Verificação
+-- 7. Verificação detalhada
 SELECT 
     'MIGRATION COMPLETED' as status,
     COUNT(*) as total_templates,
     COUNT(organization_id) as templates_with_org_id
 FROM form_templates;
+
+-- 8. Verificar se templates estão na organização do admin@admin.com
+SELECT 
+    ft.name as template_name,
+    ft.slug,
+    o.name as organization_name,
+    ou.email as admin_email,
+    'SUCCESS: Templates na organização do admin@admin.com' as result
+FROM form_templates ft
+JOIN organizations o ON ft.organization_id = o.id
+JOIN organization_users ou ON o.id = ou.organization_id
+WHERE ou.email = 'admin@admin.com'
+ORDER BY ft.name;
 
 COMMIT;
 
