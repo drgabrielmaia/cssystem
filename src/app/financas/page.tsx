@@ -729,7 +729,7 @@ function FinancasPageContent() {
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       placeholder="seu@email.com"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 bg-white/50"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 bg-white text-slate-800"
                     />
                   </div>
 
@@ -744,7 +744,7 @@ function FinancasPageContent() {
                         onChange={(e) => setPassword(e.target.value)}
                         required
                         placeholder="••••••••"
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 bg-white/50 pr-12"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 bg-white text-slate-800 pr-12"
                       />
                       <button
                         type="button"
@@ -1132,7 +1132,7 @@ function FinancasPageContent() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Período</label>
                 <select 
-                  className="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 bg-white/50"
+                  className="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 bg-white text-slate-800"
                   value={filtros.periodo}
                   onChange={(e) => setFiltros(prev => ({...prev, periodo: e.target.value as any}))}
                 >
@@ -1146,7 +1146,7 @@ function FinancasPageContent() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Tipo</label>
                 <select 
-                  className="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 bg-white/50"
+                  className="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 bg-white text-slate-800"
                   value={filtros.tipo}
                   onChange={(e) => setFiltros(prev => ({...prev, tipo: e.target.value as any}))}
                 >
@@ -1159,7 +1159,7 @@ function FinancasPageContent() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Categoria</label>
                 <select 
-                  className="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 bg-white/50"
+                  className="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 bg-white text-slate-800"
                   value={filtros.categoria}
                   onChange={(e) => setFiltros(prev => ({...prev, categoria: e.target.value}))}
                 >
@@ -1173,7 +1173,7 @@ function FinancasPageContent() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Motor</label>
                 <select 
-                  className="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 bg-white/50"
+                  className="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 bg-white text-slate-800"
                   value={selectedBusinessUnit}
                   onChange={(e) => setSelectedBusinessUnit(e.target.value)}
                 >
