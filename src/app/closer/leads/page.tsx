@@ -164,9 +164,18 @@ function LeadsPageContent() {
         .eq('organization_id', closer.organization_id)
         .order('created_at', { ascending: false })
 
-      // Se showMyLeadsOnly estiver ativo, filtra só os leads do closer atual
-      if (showMyLeadsOnly) {
+      // Regras de visibilidade baseada no tipo de usuário
+      if (closer.tipo_closer === 'closer' || closer.tipo_closer === 'closer_senior') {
+        // Closers só veem leads atribuídos a eles
         query = query.eq('closer_id', closer.id)
+      } else if (closer.tipo_closer === 'sdr') {
+        // SDRs veem todos os leads da organização
+        // Não precisa de filtro adicional além do organization_id
+      }
+      
+      // Filtro opcional "Apenas meus leads" (só para SDRs)
+      if (showMyLeadsOnly && closer.tipo_closer === 'sdr') {
+        query = query.eq('sdr_id', closer.id)
       }
       
       // Se showUnassignedOnly estiver ativo, filtra só leads sem SDR atribuído

@@ -1,10 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { 
   UserCheck, 
   Mail, 
@@ -202,239 +198,268 @@ function CloserPageContent() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-base-200 flex items-center justify-center">
+        <div className="loading loading-spinner loading-lg text-primary"></div>
       </div>
     )
   }
 
   if (!closer) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-              <UserCheck className="h-6 w-6 text-blue-600" />
+      <div className="min-h-screen bg-base-200 flex items-center justify-center p-4">
+        <div className="card w-full max-w-md bg-base-100 shadow-xl">
+          <div className="card-body">
+            <div className="text-center mb-6">
+              <div className="avatar placeholder mb-4">
+                <div className="bg-primary text-primary-content rounded-full w-16">
+                  <UserCheck className="h-8 w-8" />
+                </div>
+              </div>
+              <h2 className="card-title text-2xl justify-center">Portal do Closer/SDR</h2>
+              <p className="text-base-content/70">
+                Acesse seu dashboard de vendas e atividades
+              </p>
             </div>
-            <CardTitle className="text-2xl">Portal do Closer/SDR</CardTitle>
-            <CardDescription>
-              Acesse seu dashboard de vendas e atividades
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            
             <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">
-                  <Mail className="h-4 w-4 inline mr-2" />
-                  Email
-                </Label>
-                <Input
-                  id="email"
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text flex items-center">
+                    <Mail className="h-4 w-4 mr-2" />
+                    Email
+                  </span>
+                </label>
+                <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   placeholder="seu@email.com"
+                  className="input input-bordered w-full"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text">Senha</span>
+                </label>
                 <div className="relative">
-                  <Input
-                    id="password"
+                  <input
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     placeholder="Sua senha"
+                    className="input input-bordered w-full pr-12"
                   />
-                  <Button
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    className="btn btn-ghost btn-sm absolute right-2 top-1/2 transform -translate-y-1/2"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
+                  </button>
                 </div>
               </div>
 
               {error && (
-                <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
-                  {error}
+                <div className="alert alert-error">
+                  <span>{error}</span>
                 </div>
               )}
 
-              <Button
+              <button
                 type="submit"
-                className="w-full"
+                className={`btn btn-primary w-full ${loading ? 'loading' : ''}`}
                 disabled={loading}
               >
-                {loading ? 'Entrando...' : 'Entrar'}
-                <LogIn className="h-4 w-4 ml-2" />
-              </Button>
+                {!loading && (
+                  <>
+                    Entrar
+                    <LogIn className="h-4 w-4 ml-2" />
+                  </>
+                )}
+              </button>
             </form>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-base-200">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Olá, {closer.nome_completo?.split(' ')[0]}!
-              </h1>
-              <p className="text-sm text-gray-500">
-                {closer.tipo_closer === 'sdr' ? 'SDR' : 
-                 closer.tipo_closer === 'closer' ? 'Closer' :
-                 closer.tipo_closer === 'closer_senior' ? 'Closer Senior' : 'Manager'}
-              </p>
+      <div className="navbar bg-base-100 shadow-lg">
+        <div className="navbar-start">
+          <div className="dropdown">
+            <div tabIndex={0} role="button" className="btn btn-ghost lg:hidden">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16"></path>
+              </svg>
             </div>
-            <Button onClick={handleLogout} variant="outline">
-              Sair
-            </Button>
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold">
+              Olá, {closer.nome_completo?.split(' ')[0]}!
+            </h1>
+            <div className="badge badge-primary badge-sm">
+              {closer.tipo_closer === 'sdr' ? 'SDR' : 
+               closer.tipo_closer === 'closer' ? 'Closer' :
+               closer.tipo_closer === 'closer_senior' ? 'Closer Senior' : 'Manager'}
+            </div>
           </div>
         </div>
-      </header>
+        <div className="navbar-end">
+          <button onClick={handleLogout} className="btn btn-outline">
+            Sair
+          </button>
+        </div>
+      </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="container mx-auto px-4 py-8">
         {/* Metrics Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                Vendas do Mês
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body p-4">
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{metrics?.totalVendas || 0}</div>
-                <Target className="h-5 w-5 text-blue-500" />
-              </div>
-              {monthlyTarget && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Meta: {monthlyTarget.meta_vendas_quantidade || 0}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                Valor Total
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">
-                  R$ {metrics?.valorTotal?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                <div>
+                  <h2 className="text-xs font-medium text-base-content/70 uppercase tracking-wider">
+                    Vendas do Mês
+                  </h2>
+                  <div className="text-2xl font-bold">{metrics?.totalVendas || 0}</div>
+                  {monthlyTarget && (
+                    <p className="text-xs text-base-content/50">
+                      Meta: {monthlyTarget.meta_vendas_quantidade || 0}
+                    </p>
+                  )}
                 </div>
-                <DollarSign className="h-5 w-5 text-green-500" />
-              </div>
-              {monthlyTarget && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Meta: R$ {monthlyTarget.meta_vendas_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                Comissões
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">
-                  R$ {metrics?.comissaoTotal?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                <div className="text-primary">
+                  <Target className="h-8 w-8" />
                 </div>
-                <DollarSign className="h-5 w-5 text-purple-500" />
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                {closer.comissao_percentual || 5}% de comissão
-              </p>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                Taxa de Conversão
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body p-4">
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">
-                  {metrics?.taxaConversao?.toFixed(1) || 0}%
+                <div>
+                  <h2 className="text-xs font-medium text-base-content/70 uppercase tracking-wider">
+                    Valor Total
+                  </h2>
+                  <div className="text-2xl font-bold">
+                    R$ {metrics?.valorTotal?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                  </div>
+                  {monthlyTarget && (
+                    <p className="text-xs text-base-content/50">
+                      Meta: R$ {monthlyTarget.meta_vendas_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                    </p>
+                  )}
                 </div>
-                <TrendingUp className="h-5 w-5 text-orange-500" />
+                <div className="text-success">
+                  <DollarSign className="h-8 w-8" />
+                </div>
               </div>
-              {monthlyTarget && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Meta: {monthlyTarget.meta_conversao_rate || 0}%
-                </p>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                Leads Atendidos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body p-4">
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{metrics?.leadsAtendidos || 0}</div>
-                <Users className="h-5 w-5 text-indigo-500" />
+                <div>
+                  <h2 className="text-xs font-medium text-base-content/70 uppercase tracking-wider">
+                    Comissões
+                  </h2>
+                  <div className="text-2xl font-bold">
+                    R$ {metrics?.comissaoTotal?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                  </div>
+                  <p className="text-xs text-base-content/50">
+                    {closer.comissao_percentual || 5}% de comissão
+                  </p>
+                </div>
+                <div className="text-secondary">
+                  <DollarSign className="h-8 w-8" />
+                </div>
               </div>
-              {monthlyTarget && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Meta: {monthlyTarget.meta_leads_atendidos || 0}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xs font-medium text-base-content/70 uppercase tracking-wider">
+                    Taxa de Conversão
+                  </h2>
+                  <div className="text-2xl font-bold">
+                    {metrics?.taxaConversao?.toFixed(1) || 0}%
+                  </div>
+                  {monthlyTarget && (
+                    <p className="text-xs text-base-content/50">
+                      Meta: {monthlyTarget.meta_conversao_rate || 0}%
+                    </p>
+                  )}
+                </div>
+                <div className="text-warning">
+                  <TrendingUp className="h-8 w-8" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xs font-medium text-base-content/70 uppercase tracking-wider">
+                    Leads Atendidos
+                  </h2>
+                  <div className="text-2xl font-bold">{metrics?.leadsAtendidos || 0}</div>
+                  {monthlyTarget && (
+                    <p className="text-xs text-base-content/50">
+                      Meta: {monthlyTarget.meta_leads_atendidos || 0}
+                    </p>
+                  )}
+                </div>
+                <div className="text-info">
+                  <Users className="h-8 w-8" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Recent Activities and Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Recent Activities */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Atividades Recentes</CardTitle>
-              <CardDescription>Suas últimas interações com leads</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              <h2 className="card-title">Atividades Recentes</h2>
+              <p className="text-base-content/70 mb-4">Suas últimas interações com leads</p>
+              
               {recentActivities.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">Nenhuma atividade registrada</p>
+                <div className="text-center py-8">
+                  <div className="text-base-content/50">Nenhuma atividade registrada</div>
+                </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {recentActivities.map((activity) => (
-                    <div key={activity.id} className="flex items-start space-x-3 pb-3 border-b last:border-0">
-                      <div className="flex-shrink-0 mt-1">
-                        {getActivityIcon(activity.tipo_atividade)}
+                    <div key={activity.id} className="flex items-start gap-3 p-3 bg-base-200 rounded-lg">
+                      <div className="avatar placeholder">
+                        <div className="bg-primary text-primary-content rounded-full w-8">
+                          {getActivityIcon(activity.tipo_atividade)}
+                        </div>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">
+                        <div className="font-medium">
                           {activity.tipo_atividade.charAt(0).toUpperCase() + activity.tipo_atividade.slice(1)}
-                        </p>
-                        <p className="text-xs text-gray-500">{activity.descricao}</p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        </div>
+                        <div className="text-sm text-base-content/70">{activity.descricao}</div>
+                        <div className="text-xs text-base-content/50 mt-1">
                           {new Date(activity.data_atividade).toLocaleDateString('pt-BR')}
-                        </p>
+                        </div>
                       </div>
                       <div className="flex-shrink-0">
                         {getResultIcon(activity.resultado)}
@@ -443,87 +468,97 @@ function CloserPageContent() {
                   ))}
                 </div>
               )}
-              <div className="mt-4 pt-4 border-t">
+              <div className="mt-6">
                 <Link href="/closer/atividades">
-                  <Button variant="outline" className="w-full">
+                  <button className="btn btn-outline w-full">
                     Ver todas as atividades
-                  </Button>
+                  </button>
                 </Link>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Ações Rápidas</CardTitle>
-              <CardDescription>Acesse suas ferramentas de trabalho</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3">
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              <h2 className="card-title">Ações Rápidas</h2>
+              <p className="text-base-content/70 mb-4">Acesse suas ferramentas de trabalho</p>
+              
+              <div className="grid grid-cols-2 gap-4">
                 <Link href="/closer/leads">
-                  <Button variant="outline" className="w-full h-24 flex flex-col">
-                    <Users className="h-6 w-6 mb-2" />
-                    <span>Gerenciar Leads</span>
-                  </Button>
+                  <div className="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors">
+                    <div className="card-body items-center text-center p-6">
+                      <Users className="h-8 w-8 text-primary mb-2" />
+                      <span className="font-medium">Gerenciar Leads</span>
+                    </div>
+                  </div>
                 </Link>
 
                 <Link href="/closer/vendas">
-                  <Button variant="outline" className="w-full h-24 flex flex-col">
-                    <DollarSign className="h-6 w-6 mb-2" />
-                    <span>Registrar Venda</span>
-                  </Button>
+                  <div className="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors">
+                    <div className="card-body items-center text-center p-6">
+                      <DollarSign className="h-8 w-8 text-success mb-2" />
+                      <span className="font-medium">Registrar Venda</span>
+                    </div>
+                  </div>
                 </Link>
 
                 <Link href="/closer/atividades/nova">
-                  <Button variant="outline" className="w-full h-24 flex flex-col">
-                    <Activity className="h-6 w-6 mb-2" />
-                    <span>Nova Atividade</span>
-                  </Button>
+                  <div className="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors">
+                    <div className="card-body items-center text-center p-6">
+                      <Activity className="h-8 w-8 text-secondary mb-2" />
+                      <span className="font-medium">Nova Atividade</span>
+                    </div>
+                  </div>
                 </Link>
 
                 <Link href="/closer/relatorios">
-                  <Button variant="outline" className="w-full h-24 flex flex-col">
-                    <BarChart3 className="h-6 w-6 mb-2" />
-                    <span>Relatórios</span>
-                  </Button>
+                  <div className="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors">
+                    <div className="card-body items-center text-center p-6">
+                      <BarChart3 className="h-8 w-8 text-info mb-2" />
+                      <span className="font-medium">Relatórios</span>
+                    </div>
+                  </div>
                 </Link>
 
                 <Link href="/closer/calendario">
-                  <Button variant="outline" className="w-full h-24 flex flex-col">
-                    <Calendar className="h-6 w-6 mb-2" />
-                    <span>Calendário</span>
-                  </Button>
+                  <div className="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors">
+                    <div className="card-body items-center text-center p-6">
+                      <Calendar className="h-8 w-8 text-warning mb-2" />
+                      <span className="font-medium">Calendário</span>
+                    </div>
+                  </div>
                 </Link>
 
                 <Link href="/closer/comissoes">
-                  <Button variant="outline" className="w-full h-24 flex flex-col">
-                    <DollarSign className="h-6 w-6 mb-2" />
-                    <span>Minhas Comissões</span>
-                  </Button>
+                  <div className="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors">
+                    <div className="card-body items-center text-center p-6">
+                      <DollarSign className="h-8 w-8 text-accent mb-2" />
+                      <span className="font-medium">Minhas Comissões</span>
+                    </div>
+                  </div>
                 </Link>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         {/* Performance Chart Placeholder */}
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle className="text-lg">Desempenho Mensal</CardTitle>
-            <CardDescription>Acompanhe sua evolução ao longo do mês</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+        <div className="card bg-base-100 shadow-xl mt-8">
+          <div className="card-body">
+            <h2 className="card-title">Desempenho Mensal</h2>
+            <p className="text-base-content/70 mb-4">Acompanhe sua evolução ao longo do mês</p>
+            
+            <div className="h-64 bg-base-200 rounded-lg flex items-center justify-center">
               <div className="text-center">
-                <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">Gráfico de desempenho</p>
-                <p className="text-sm text-gray-400">Em desenvolvimento</p>
+                <BarChart3 className="h-12 w-12 mx-auto mb-2 text-primary" />
+                <p className="text-base-content/60">Gráfico de desempenho</p>
+                <p className="text-sm text-base-content/40">Em desenvolvimento</p>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </main>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

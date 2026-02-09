@@ -50,6 +50,9 @@ export default function AdminClosersPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [showPerformanceModal, setShowPerformanceModal] = useState(false)
+  const [performanceData, setPerformanceData] = useState<any>(null)
+  const [loadingPerformance, setLoadingPerformance] = useState(false)
   
   // Form states
   const [formData, setFormData] = useState({
@@ -77,6 +80,126 @@ export default function AdminClosersPage() {
       }
     } catch (error) {
       console.error('Error loading organization:', error)
+    }
+  }
+
+  const loadCloserPerformance = async (closer: CloserWithMetrics) => {
+    setSelectedCloser(closer)
+    setLoadingPerformance(true)
+    setShowPerformanceModal(true)
+
+    try {
+      const currentDate = new Date()
+      const currentMonth = currentDate.getMonth() + 1
+      const currentYear = currentDate.getFullYear()
+      
+      // Data range for current month
+      const startOfMonth = new Date(currentYear, currentMonth - 1, 1).toISOString()
+      const endOfMonth = new Date(currentYear, currentMonth, 0, 23, 59, 59).toISOString()
+
+      let performanceMetrics: any = {
+        totalLeads: 0,
+        leadsConvertidos: 0,
+        reunioesAgendadas: 0,
+        vendasFechadas: 0,
+        valorTotal: 0,
+        comissaoTotal: 0,
+        taxaConversaoLeads: 0,
+        taxaConversaoReunioes: 0,
+        mediaTicket: 0,
+        atividades: [],
+        vendas: []
+      }
+
+      if (closer.tipo_closer === 'sdr') {
+        // Para SDRs: focar em prospecção e agendamento de reuniões
+        
+        // Buscar leads atribuídos ao SDR
+        const { data: leadsData } = await supabase
+          .from('leads')
+          .select('*')
+          .eq('sdr_id', closer.id)
+          .gte('created_at', startOfMonth)
+          .lte('created_at', endOfMonth)
+
+        // Buscar reuniões agendadas pelo SDR
+        const { data: reunioesData } = await supabase
+          .from('calendar_events')
+          .select('*')
+          .eq('sdr_id', closer.id)
+          .gte('start_datetime', startOfMonth)
+          .lte('start_datetime', endOfMonth)
+
+        // Buscar atividades do SDR
+        const { data: atividadesData } = await supabase
+          .from('closer_atividades')
+          .select('*')
+          .eq('closer_id', closer.id)
+          .gte('data_atividade', startOfMonth)
+          .lte('data_atividade', endOfMonth)
+          .order('data_atividade', { ascending: false })
+          .limit(10)
+
+        performanceMetrics.totalLeads = leadsData?.length || 0
+        performanceMetrics.reunioesAgendadas = reunioesData?.length || 0
+        performanceMetrics.leadsConvertidos = leadsData?.filter(l => l.status === 'reuniao_agendada' || l.status === 'vendido').length || 0
+        performanceMetrics.taxaConversaoLeads = performanceMetrics.totalLeads > 0 
+          ? (performanceMetrics.leadsConvertidos / performanceMetrics.totalLeads * 100) 
+          : 0
+        performanceMetrics.taxaConversaoReunioes = performanceMetrics.totalLeads > 0 
+          ? (performanceMetrics.reunioesAgendadas / performanceMetrics.totalLeads * 100) 
+          : 0
+        performanceMetrics.atividades = atividadesData || []
+
+      } else {
+        // Para Closers: focar em fechamento de vendas
+        
+        // Buscar vendas do closer
+        const { data: vendasData } = await supabase
+          .from('closers_vendas')
+          .select('*, leads(*), mentorados(*)')
+          .eq('closer_id', closer.id)
+          .gte('data_venda', startOfMonth)
+          .lte('data_venda', endOfMonth)
+
+        // Buscar leads atribuídos ao closer
+        const { data: leadsData } = await supabase
+          .from('leads')
+          .select('*')
+          .eq('closer_id', closer.id)
+          .gte('created_at', startOfMonth)
+          .lte('created_at', endOfMonth)
+
+        // Buscar atividades do closer
+        const { data: atividadesData } = await supabase
+          .from('closer_atividades')
+          .select('*')
+          .eq('closer_id', closer.id)
+          .gte('data_atividade', startOfMonth)
+          .lte('data_atividade', endOfMonth)
+          .order('data_atividade', { ascending: false })
+          .limit(10)
+
+        performanceMetrics.totalLeads = leadsData?.length || 0
+        performanceMetrics.vendasFechadas = vendasData?.length || 0
+        performanceMetrics.valorTotal = vendasData?.reduce((sum, venda) => sum + (venda.valor_venda || 0), 0) || 0
+        performanceMetrics.comissaoTotal = vendasData?.reduce((sum, venda) => sum + (venda.valor_comissao || 0), 0) || 0
+        performanceMetrics.leadsConvertidos = leadsData?.filter(l => l.status === 'vendido').length || 0
+        performanceMetrics.taxaConversaoLeads = performanceMetrics.totalLeads > 0 
+          ? (performanceMetrics.leadsConvertidos / performanceMetrics.totalLeads * 100) 
+          : 0
+        performanceMetrics.mediaTicket = performanceMetrics.vendasFechadas > 0 
+          ? (performanceMetrics.valorTotal / performanceMetrics.vendasFechadas) 
+          : 0
+        performanceMetrics.vendas = vendasData || []
+        performanceMetrics.atividades = atividadesData || []
+      }
+
+      setPerformanceData(performanceMetrics)
+    } catch (error) {
+      console.error('Error loading closer performance:', error)
+    } finally {
+      setLoadingPerformance(false)
     }
   }
 
@@ -392,6 +515,14 @@ export default function AdminClosersPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => loadCloserPerformance(closer)}
+                          title="Ver Performance Detalhada"
+                        >
+                          <TrendingUp className="h-4 w-4 text-blue-500" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -731,6 +862,158 @@ export default function AdminClosersPage() {
 
           <DialogFooter>
             <Button onClick={() => setShowDetailsModal(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Performance Modal */}
+      <Dialog open={showPerformanceModal} onOpenChange={setShowPerformanceModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Performance Detalhada - {selectedCloser?.nome_completo}
+              <Badge className="ml-2">{selectedCloser?.tipo_closer}</Badge>
+            </DialogTitle>
+            <DialogDescription>
+              {selectedCloser?.tipo_closer === 'sdr' 
+                ? 'Métricas de prospecção e agendamento de reuniões'
+                : 'Métricas de fechamento e vendas'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          {loadingPerformance ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Carregando dados de performance...</p>
+              </div>
+            </div>
+          ) : performanceData && (
+            <div className="space-y-6">
+              {/* Métricas Principais */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {selectedCloser?.tipo_closer === 'sdr' ? (
+                  // Métricas para SDR
+                  <>
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="text-sm text-blue-600 font-medium">Leads Prospectados</div>
+                      <div className="text-2xl font-bold text-blue-900">{performanceData.totalLeads}</div>
+                    </div>
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <div className="text-sm text-green-600 font-medium">Reuniões Agendadas</div>
+                      <div className="text-2xl font-bold text-green-900">{performanceData.reunioesAgendadas}</div>
+                    </div>
+                    <div className="bg-purple-50 p-4 rounded-lg">
+                      <div className="text-sm text-purple-600 font-medium">Taxa Agendamento</div>
+                      <div className="text-2xl font-bold text-purple-900">{performanceData.taxaConversaoReunioes.toFixed(1)}%</div>
+                    </div>
+                    <div className="bg-orange-50 p-4 rounded-lg">
+                      <div className="text-sm text-orange-600 font-medium">Taxa Conversão</div>
+                      <div className="text-2xl font-bold text-orange-900">{performanceData.taxaConversaoLeads.toFixed(1)}%</div>
+                    </div>
+                  </>
+                ) : (
+                  // Métricas para Closer
+                  <>
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <div className="text-sm text-green-600 font-medium">Vendas Fechadas</div>
+                      <div className="text-2xl font-bold text-green-900">{performanceData.vendasFechadas}</div>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="text-sm text-blue-600 font-medium">Valor Total</div>
+                      <div className="text-2xl font-bold text-blue-900">
+                        R$ {performanceData.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <div className="bg-purple-50 p-4 rounded-lg">
+                      <div className="text-sm text-purple-600 font-medium">Ticket Médio</div>
+                      <div className="text-2xl font-bold text-purple-900">
+                        R$ {performanceData.mediaTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <div className="bg-yellow-50 p-4 rounded-lg">
+                      <div className="text-sm text-yellow-600 font-medium">Taxa Conversão</div>
+                      <div className="text-2xl font-bold text-yellow-900">{performanceData.taxaConversaoLeads.toFixed(1)}%</div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Vendas Recentes (só para Closers) */}
+              {selectedCloser?.tipo_closer !== 'sdr' && performanceData.vendas?.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3">Vendas do Mês</h3>
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>Produto</TableHead>
+                          <TableHead>Valor</TableHead>
+                          <TableHead>Comissão</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {performanceData.vendas.slice(0, 5).map((venda: any, index: number) => (
+                          <TableRow key={index}>
+                            <TableCell>
+                              {new Date(venda.data_venda).toLocaleDateString('pt-BR')}
+                            </TableCell>
+                            <TableCell>
+                              {venda.leads?.nome_completo || venda.mentorados?.nome_completo || 'N/A'}
+                            </TableCell>
+                            <TableCell>{venda.tipo_venda}</TableCell>
+                            <TableCell>
+                              R$ {(venda.valor_venda || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell>
+                              R$ {(venda.valor_comissao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Atividades Recentes */}
+              {performanceData.atividades?.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3">Atividades Recentes</h3>
+                  <div className="space-y-3">
+                    {performanceData.atividades.slice(0, 5).map((atividade: any, index: number) => (
+                      <div key={index} className="border rounded-lg p-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium">{atividade.tipo_atividade}</div>
+                            <div className="text-sm text-gray-600">{atividade.descricao}</div>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(atividade.data_atividade).toLocaleDateString('pt-BR')}
+                          </div>
+                        </div>
+                        {atividade.resultado && (
+                          <div className="mt-2">
+                            <Badge variant={atividade.resultado === 'venda' ? 'default' : 'secondary'}>
+                              {atividade.resultado}
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setShowPerformanceModal(false)}>
               Fechar
             </Button>
           </DialogFooter>
