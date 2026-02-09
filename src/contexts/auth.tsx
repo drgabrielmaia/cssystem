@@ -109,11 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: { session }, error } = await supabase.auth.getSession()
 
         if (error) {
-          if (error.name === 'AbortError' || error.message?.includes('signal is aborted')) {
-            console.error('❌ Timeout ao buscar sessão - continuando sem auth:', error)
-          } else {
-            console.error('❌ Erro ao buscar sessão:', error)
-          }
+          console.error('❌ Erro ao buscar sessão:', error)
           setUser(null)
           setOrganizationId(null)
           setLoading(false)
@@ -251,11 +247,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null
       }
     } catch (error: any) {
-      if (error.name === 'AbortError' || error.message?.includes('signal is aborted')) {
-        console.error('Timeout ao buscar organização - continuando sem org:', error)
-      } else {
-        console.error('Erro ao buscar organização:', error)
-      }
+      console.error('Erro ao buscar organização:', error)
       setOrganizationId(null)
       return null
     }

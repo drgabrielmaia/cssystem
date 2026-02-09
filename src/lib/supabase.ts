@@ -13,22 +13,6 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseKey, {
   global: {
     headers: {
       'x-application-name': 'cssystem'
-    },
-    fetch: (url, options = {}) => {
-      // Use much longer timeouts to prevent AbortError
-      const urlString = typeof url === 'string' ? url : (url instanceof URL ? url.href : url.url || '');
-      const isAuthOperation = urlString.includes('/auth/v1/') || urlString.includes('auth/token') || urlString.includes('auth/session');
-      const timeout = isAuthOperation ? 120000 : 180000; // 2 minutes for auth, 3 minutes for database
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-      return fetch(url, {
-        ...options,
-        signal: options.signal || controller.signal
-      }).finally(() => {
-        clearTimeout(timeoutId);
-      });
     }
   },
   db: {
@@ -50,22 +34,6 @@ export const createClient = () => createBrowserClient(supabaseUrl, supabaseKey, 
   global: {
     headers: {
       'x-application-name': 'cssystem'
-    },
-    fetch: (url, options = {}) => {
-      // Use much longer timeouts to prevent AbortError
-      const urlString = typeof url === 'string' ? url : (url instanceof URL ? url.href : url.url || '');
-      const isAuthOperation = urlString.includes('/auth/v1/') || urlString.includes('auth/token') || urlString.includes('auth/session');
-      const timeout = isAuthOperation ? 120000 : 180000; // 2 minutes for auth, 3 minutes for database
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-      return fetch(url, {
-        ...options,
-        signal: options.signal || controller.signal
-      }).finally(() => {
-        clearTimeout(timeoutId);
-      });
     }
   },
   db: {
@@ -296,11 +264,6 @@ export const organizationService = {
         role: data.role as string
       }
     } catch (error: any) {
-      // Handle abort errors specifically
-      if (error.name === 'AbortError' || error.message?.includes('signal is aborted')) {
-        console.error('Organization query timed out:', error);
-        throw new Error('Request timed out. Please check your connection and try again.');
-      }
       console.error('Error fetching user organization:', error);
       throw error;
     }
@@ -507,11 +470,6 @@ export const organizationService = {
         createdAt: organization?.created_at || ''
       }
     } catch (error: any) {
-      // Handle abort errors specifically
-      if (error.name === 'AbortError' || error.message?.includes('signal is aborted')) {
-        console.error('Organization stats query timed out:', error);
-        throw new Error('Request timed out. Please check your connection and try again.');
-      }
       console.error('Error fetching organization stats:', error);
       throw error;
     }
