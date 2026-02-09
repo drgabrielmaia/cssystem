@@ -75,54 +75,152 @@ export default function ChatBot() {
     }).format(value)
   }
 
+  // Função para normalizar texto - remove acentos e converte para minúsculo
+  const normalizeText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+      .replace(/[^\w\s]/g, ' ') // Remove pontuação
+      .replace(/\s+/g, ' ') // Remove espaços duplos
+      .trim()
+  }
+
+  // Função para verificar se a query contém palavras similares
+  const containsWords = (query: string, words: string[]): boolean => {
+    const normalizedQuery = normalizeText(query)
+    return words.some(word => normalizedQuery.includes(normalizeText(word)))
+  }
+
+  // Função de matching inteligente
+  const findBestMatch = (query: string): string => {
+    const normalizedQuery = normalizeText(query)
+
+    // Palavras-chave para faturamento/vendas
+    const faturamentoWords = [
+      'faturamento', 'faturou', 'vendas', 'vendeu', 'receita', 'recebeu', 
+      'entrada', 'entradas', 'dinheiro', 'grana', 'lucro', 'ganhou',
+      'arrecadou', 'rendeu', 'resultado', 'performance', 'billing'
+    ]
+    
+    // Palavras-chave para período
+    const hojeWords = ['hoje', 'hj', 'dia', 'diario', 'daily']
+    const mesWords = ['mes', 'mensal', 'monthly', 'mês']
+    const mesPassadoWords = ['mes passado', 'ultimo mes', 'passado', 'anterior', 'last month']
+    const semanaWords = ['semana', 'semanal', 'weekly']
+    
+    // Palavras-chave para leads
+    const leadsWords = [
+      'leads', 'lead', 'prospect', 'prospects', 'clientes', 'contatos',
+      'pessoas', 'interessados', 'potenciais', 'qualificados'
+    ]
+    
+    // Palavras-chave para calls
+    const callsWords = [
+      'calls', 'call', 'ligacoes', 'ligacao', 'atendimentos', 'atendimento',
+      'conversas', 'conversa', 'reunioes', 'reuniao', 'meetings'
+    ]
+    const fechadasWords = ['fechadas', 'fechada', 'convertidas', 'vendidas', 'completed']
+    const agendadasWords = ['agendadas', 'agendada', 'marcadas', 'scheduled']
+    
+    // Palavras-chave para resumo
+    const resumoWords = [
+      'resumo', 'dashboard', 'metricas', 'geral', 'tudo', 'overview',
+      'situacao', 'status', 'como esta', 'como vai'
+    ]
+
+    // Palavras-chave para mentoria
+    const mentoriaWords = ['mentoria', 'mentoring', 'coaching']
+    
+    // Palavras-chave para comissões
+    const comissaoWords = ['comissao', 'comissoes', 'commission']
+
+    // Palavras-chave para saldo/lucro
+    const saldoWords = ['saldo', 'lucro', 'prejuizo', 'profit', 'balance']
+
+    return normalizedQuery
+  }
+
   const processQuery = async (query: string): Promise<string> => {
-    const lowerQuery = query.toLowerCase()
-    
     // Simulando delay de processamento
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise(resolve => setTimeout(resolve, 800))
     
-    // Reconhecimento de palavras-chave para faturamento
-    if (lowerQuery.includes('faturamento') || lowerQuery.includes('vendas') || lowerQuery.includes('receita')) {
-      if (lowerQuery.includes('mês') || lowerQuery.includes('mensal')) {
+    const normalizedQuery = normalizeText(query)
+    
+    // FATURAMENTO/VENDAS
+    if (containsWords(query, ['faturamento', 'faturou', 'vendas', 'vendeu', 'receita', 'recebeu', 'entrada', 'entradas', 'dinheiro', 'grana', 'lucro', 'ganhou'])) {
+      // Mês passado
+      if (containsWords(query, ['mes passado', 'ultimo mes', 'passado', 'anterior', 'last month'])) {
+        const crescimento = metrics.crescimentoMensal
+        const indicador = crescimento >= 0 ? '📈' : '📉'
+        return `💰 **Faturamento do mês passado:** ${formatCurrency(metrics.faturamentoMesPassado)}\n\n${indicador} **Comparação com este mês:** ${crescimento >= 0 ? '+' : ''}${crescimento.toFixed(1)}%\n\n📊 **Este mês:** ${formatCurrency(metrics.faturamentoMes)}`
+      }
+      // Mês atual
+      if (containsWords(query, ['mes', 'mensal', 'monthly', 'mês'])) {
         const percentual = metrics.metaDiaria > 0 ? ((metrics.faturamentoMes / (metrics.metaDiaria * 30)) * 100).toFixed(0) : 0
-        return `💰 **Faturamento do mês:** ${formatCurrency(metrics.faturamentoMes)}\n\n📊 Meta mensal: ${formatCurrency(metrics.metaDiaria * 30)} (${percentual}%)`
+        return `💰 **Faturamento do mês:** ${formatCurrency(metrics.faturamentoMes)}\n\n📊 Meta mensal: ${formatCurrency(metrics.metaDiaria * 30)} (${percentual}%)\n\n${metrics.crescimentoMensal >= 0 ? '📈' : '📉'} Crescimento: ${metrics.crescimentoMensal >= 0 ? '+' : ''}${metrics.crescimentoMensal.toFixed(1)}%`
       }
-      if (lowerQuery.includes('hoje') || lowerQuery.includes('dia')) {
+      // Hoje
+      if (containsWords(query, ['hoje', 'hj', 'dia', 'diario', 'daily'])) {
         const percentual = metrics.metaDiaria > 0 ? ((metrics.faturamentoHoje / metrics.metaDiaria) * 100).toFixed(0) : 0
-        return `💰 **Vendas de hoje:** ${formatCurrency(metrics.faturamentoHoje)}\n\n🎯 Meta diária: ${formatCurrency(metrics.metaDiaria)} (${percentual}%)`
+        return `💰 **Faturamento de hoje:** ${formatCurrency(metrics.faturamentoHoje)}\n\n🎯 Meta diária: ${formatCurrency(metrics.metaDiaria)} (${percentual}%)\n\n📊 **Comparação:** Mês atual ${formatCurrency(metrics.faturamentoMes)}`
       }
+      // Faturamento geral
+      return `💰 **Resumo Financeiro:**\n\n🟢 **Este mês:** ${formatCurrency(metrics.faturamentoMes)}\n🔵 **Mês passado:** ${formatCurrency(metrics.faturamentoMesPassado)}\n⚪ **Hoje:** ${formatCurrency(metrics.faturamentoHoje)}\n\n${metrics.crescimentoMensal >= 0 ? '📈' : '📉'} **Crescimento:** ${metrics.crescimentoMensal >= 0 ? '+' : ''}${metrics.crescimentoMensal.toFixed(1)}%`
+    }
+
+    // MENTORIA ESPECÍFICA
+    if (containsWords(query, ['mentoria', 'mentoring', 'coaching'])) {
+      const percentualMentoria = metrics.faturamentoMes > 0 ? ((metrics.receitaMentoria / metrics.faturamentoMes) * 100).toFixed(1) : 0
+      return `🎓 **Receita de Mentoria:**\n\n💚 **Este mês:** ${formatCurrency(metrics.receitaMentoria)}\n📊 **% do total:** ${percentualMentoria}% do faturamento\n\n💡 **Insight:** ${metrics.receitaMentoria > metrics.comissoesPagas ? 'ROI positivo!' : 'Comissões altas'}`
+    }
+
+    // COMISSÕES
+    if (containsWords(query, ['comissao', 'comissoes', 'commission'])) {
+      const percentualComissao = metrics.faturamentoMes > 0 ? ((metrics.comissoesPagas / metrics.faturamentoMes) * 100).toFixed(1) : 0
+      return `💸 **Comissões Pagas:**\n\n🔴 **Este mês:** ${formatCurrency(metrics.comissoesPagas)}\n📊 **% da receita:** ${percentualComissao}%\n\n💡 **ROI:** Receita mentoria ${formatCurrency(metrics.receitaMentoria)} vs Comissões ${formatCurrency(metrics.comissoesPagas)}`
+    }
+
+    // SALDO/LUCRO
+    if (containsWords(query, ['saldo', 'lucro', 'prejuizo', 'profit', 'balance'])) {
+      const margemLucro = metrics.faturamentoMes > 0 ? ((metrics.saldoAtual / metrics.faturamentoMes) * 100).toFixed(1) : 0
+      return `💰 **Situação Financeira:**\n\n${metrics.saldoAtual >= 0 ? '🟢' : '🔴'} **Saldo atual:** ${formatCurrency(metrics.saldoAtual)}\n💚 **Entradas:** ${formatCurrency(metrics.totalEntradas)}\n🔴 **Saídas:** ${formatCurrency(metrics.totalSaidas)}\n\n📊 **Margem:** ${margemLucro}%`
     }
     
-    // Reconhecimento para leads
-    if (lowerQuery.includes('leads') || lowerQuery.includes('prospects')) {
-      if (lowerQuery.includes('hoje') || lowerQuery.includes('dia')) {
-        return `👥 **Leads de hoje:** ${metrics.leadsHoje} novos leads\n\n📈 Performance: ${metrics.leadsHoje >= 10 ? 'Boa!' : 'Pode melhorar'}`
+    // LEADS
+    if (containsWords(query, ['leads', 'lead', 'prospect', 'prospects', 'clientes', 'contatos', 'pessoas', 'interessados'])) {
+      if (containsWords(query, ['hoje', 'hj', 'dia', 'diario'])) {
+        return `👥 **Leads de hoje:** ${metrics.leadsHoje} novos leads\n\n📈 **Performance:** ${metrics.leadsHoje >= 10 ? 'Excelente!' : metrics.leadsHoje >= 5 ? 'Boa!' : 'Pode melhorar'}\n\n📊 **Semana:** ${metrics.leadsSemana} leads total`
       }
-      if (lowerQuery.includes('semana')) {
+      if (containsWords(query, ['semana', 'semanal', 'weekly'])) {
         const percentual = metrics.metaSemanal > 0 ? ((metrics.leadsSemana / metrics.metaSemanal) * 100).toFixed(0) : 0
-        return `👥 **Leads da semana:** ${metrics.leadsSemana} leads\n\n📊 Meta semanal: ${metrics.metaSemanal} leads (${percentual}%)`
+        return `👥 **Leads da semana:** ${metrics.leadsSemana} leads\n\n📊 Meta semanal: ${metrics.metaSemanal} leads (${percentual}%)\n\n⚡ **Hoje:** ${metrics.leadsHoje} novos`
       }
+      return `👥 **Resumo de Leads:**\n\n🟢 **Hoje:** ${metrics.leadsHoje} novos\n🔵 **Esta semana:** ${metrics.leadsSemana} total\n\n📊 **Meta semanal:** ${metrics.metaSemanal} (${metrics.metaSemanal > 0 ? ((metrics.leadsSemana / metrics.metaSemanal) * 100).toFixed(0) : 0}%)`
     }
     
-    // Reconhecimento para calls
-    if (lowerQuery.includes('call') || lowerQuery.includes('ligaç') || lowerQuery.includes('atendimento')) {
-      if (lowerQuery.includes('fechada') || lowerQuery.includes('vendida') || lowerQuery.includes('convertida')) {
+    // CALLS/LIGAÇÕES
+    if (containsWords(query, ['calls', 'call', 'ligacoes', 'ligacao', 'atendimentos', 'atendimento', 'conversas', 'conversa'])) {
+      if (containsWords(query, ['fechadas', 'fechada', 'convertidas', 'vendidas', 'completed'])) {
         const taxaConversao = metrics.totalCalls > 0 ? ((metrics.callsFechadas / metrics.totalCalls) * 100).toFixed(0) : 0
-        return `📞 **Calls fechadas hoje:** ${metrics.callsFechadas} de ${metrics.totalCalls}\n\n💼 Taxa de conversão: ${taxaConversao}%\n🎯 Ticket médio: ${formatCurrency(metrics.ticketMedio)}`
+        return `📞 **Calls fechadas hoje:** ${metrics.callsFechadas} de ${metrics.totalCalls}\n\n💼 **Taxa de conversão:** ${taxaConversao}%\n🎯 **Ticket médio:** ${formatCurrency(metrics.ticketMedio)}\n\n${metrics.callsFechadas >= 3 ? '🔥 Mandou bem!' : '💪 Vamos fechar mais!'}`
       }
-      if (lowerQuery.includes('agendada') || lowerQuery.includes('marcada')) {
-        return `📅 **Calls agendadas:** ${metrics.callsAgendadas} para hoje\n\n⏰ Status: ${metrics.callsAgendadas > 0 ? 'Agenda ativa!' : 'Nenhuma call agendada'}`
+      if (containsWords(query, ['agendadas', 'agendada', 'marcadas', 'scheduled'])) {
+        return `📅 **Calls agendadas:** ${metrics.callsAgendadas} para hoje\n\n⏰ **Status:** ${metrics.callsAgendadas > 0 ? 'Agenda ativa!' : 'Nenhuma call agendada'}\n\n💡 **Dica:** ${metrics.callsAgendadas === 0 ? 'Que tal agendar algumas calls?' : 'Prepara que vai dar bom!'}`
       }
+      const taxaConversao = metrics.totalCalls > 0 ? ((metrics.callsFechadas / metrics.totalCalls) * 100).toFixed(0) : 0
+      return `📞 **Resumo de Calls:**\n\n📅 **Agendadas:** ${metrics.callsAgendadas}\n✅ **Fechadas:** ${metrics.callsFechadas}\n📊 **Taxa de conversão:** ${taxaConversao}%\n💰 **Ticket médio:** ${formatCurrency(metrics.ticketMedio)}`
     }
     
-    // Reconhecimento para métricas gerais
-    if (lowerQuery.includes('resumo') || lowerQuery.includes('dashboard') || lowerQuery.includes('métricas')) {
+    // RESUMO GERAL
+    if (containsWords(query, ['resumo', 'dashboard', 'metricas', 'geral', 'tudo', 'overview', 'situacao', 'status', 'como esta', 'como vai'])) {
       const metaPercentual = metrics.metaDiaria > 0 ? ((metrics.faturamentoHoje / metrics.metaDiaria) * 100).toFixed(0) : 0
-      return `📊 **Resumo do dia:**\n\n💰 Vendas: ${formatCurrency(metrics.faturamentoHoje)}\n👥 Leads: ${metrics.leadsHoje} novos\n📞 Calls: ${metrics.callsFechadas}/${metrics.totalCalls} fechadas\n🎯 Meta diária: ${metaPercentual}%`
+      const taxaConversao = metrics.totalCalls > 0 ? ((metrics.callsFechadas / metrics.totalCalls) * 100).toFixed(0) : 0
+      return `📊 **Resumo Executivo:**\n\n💰 **Financeiro:**\n• Hoje: ${formatCurrency(metrics.faturamentoHoje)} (${metaPercentual}% da meta)\n• Mês: ${formatCurrency(metrics.faturamentoMes)}\n• Saldo: ${formatCurrency(metrics.saldoAtual)}\n\n👥 **Vendas:**\n• Leads hoje: ${metrics.leadsHoje}\n• Calls fechadas: ${metrics.callsFechadas}/${metrics.totalCalls} (${taxaConversao}%)\n\n🚀 **Status:** ${metrics.faturamentoHoje >= metrics.metaDiaria ? 'Meta batida! 🎉' : 'Vamos acelerar! 💪'}`
     }
     
-    // Resposta genérica para queries não reconhecidas
-    return '🤔 Hmm, não entendi muito bem sua pergunta. Posso te ajudar com:\n\n• Faturamento (dia/mês)\n• Leads (hoje/semana)\n• Calls fechadas/agendadas\n• Resumo geral\n\nTente reformular sua pergunta!'
+    // Resposta inteligente para queries não reconhecidas
+    return `🤖 **Não consegui entender perfeitamente**, mas posso te ajudar com:\n\n💰 **Financeiro:**\n• "faturamento do mês"\n• "vendas de hoje"\n• "saldo atual"\n• "mentoria este mês"\n\n📊 **Operacional:**\n• "leads hoje"\n• "calls fechadas"\n• "resumo geral"\n\n💡 **Dica:** Tente ser mais específico sobre período e métrica!`
   }
 
   const sendMessage = async (text: string) => {
