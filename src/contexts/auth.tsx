@@ -34,7 +34,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+      },
+      global: {
+        headers: {
+          'x-application-name': 'cssystem-auth'
+        },
+        fetch: (url, options = {}) => {
+          // Different timeouts for different operations
+          const urlString = typeof url === 'string' ? url : (url instanceof URL ? url.href : url.url || '');
+          const isAuthOperation = urlString.includes('/auth/v1/') || urlString.includes('auth/token') || urlString.includes('auth/session');
+          const timeout = isAuthOperation ? 15000 : 60000; // 15s for auth, 60s for database
+          
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+          return fetch(url, {
+            ...options,
+            signal: options.signal || controller.signal
+          }).finally(() => {
+            clearTimeout(timeoutId);
+          });
+        }
+      },
+      db: {
+        schema: 'public'
+      }
+    }
   )
 
   // Função para salvar dados de auth no localStorage
@@ -113,7 +144,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: { session }, error } = await supabase.auth.getSession()
 
         if (error) {
-          console.error('❌ Erro ao buscar sessão:', error)
+          if (error.name === 'AbortError' || error.message?.includes('signal is aborted')) {
+            console.error('❌ Timeout ao buscar sessão - continuando sem auth:', error)
+          } else {
+            console.error('❌ Erro ao buscar sessão:', error)
+          }
           setUser(null)
           setOrganizationId(null)
           setLoading(false)
@@ -250,8 +285,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setOrganizationId(null)
         return null
       }
-    } catch (error) {
-      console.error('Erro ao buscar organização:', error)
+    } catch (error: any) {
+      if (error.name === 'AbortError' || error.message?.includes('signal is aborted')) {
+        console.error('Timeout ao buscar organização - continuando sem org:', error)
+      } else {
+        console.error('Erro ao buscar organização:', error)
+      }
       setOrganizationId(null)
       return null
     }

@@ -3,7 +3,37 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'x-application-name': 'cssystem-whatsapp-storage'
+    },
+    fetch: (url, options = {}) => {
+      // Different timeouts for different operations
+      const urlString = typeof url === 'string' ? url : (url instanceof URL ? url.href : url.url || '');
+      const isAuthOperation = urlString.includes('/auth/v1/') || urlString.includes('auth/token') || urlString.includes('auth/session');
+      const timeout = isAuthOperation ? 15000 : 60000; // 15s for auth, 60s for database
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      return fetch(url, {
+        ...options,
+        signal: options.signal || controller.signal
+      }).finally(() => {
+        clearTimeout(timeoutId);
+      });
+    }
+  },
+  db: {
+    schema: 'public'
+  }
+});
 
 export interface StoredMessage {
   id: string;
