@@ -300,7 +300,82 @@ export default function FormPageSafe() {
     try {
       console.log('📤 Enviando formulário:', formData)
 
-      // Criar lead se for formulário de lead
+      // Para o formulário médico, usar o novo sistema automático
+      if (slug === 'qualificacao-medica') {
+        // Buscar organização do usuário (ou usar default)
+        let organizationId = null
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: orgData } = await supabase
+              .from('organization_users')
+              .select('organization_id')
+              .eq('user_id', user.id)
+              .single()
+            
+            organizationId = orgData?.organization_id
+          }
+        } catch (error) {
+          console.warn('Não foi possível obter organização do usuário, usando default')
+        }
+
+        // Salvar submissão - o trigger vai processar automaticamente
+        const submissionData = {
+          template_id: template?.id,
+          template_slug: slug,
+          organization_id: organizationId,
+          source_url: window.location.search ? 
+            window.location.search.replace('?source=', '') || 'form_direto' : 'form_direto',
+          submission_data: formData,
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+          ip_address: null // Será preenchido pelo servidor se necessário
+        }
+
+        console.log('💾 Salvando submissão (com trigger automático):', submissionData)
+
+        const { data: submission, error: submissionError } = await supabase
+          .from('form_submissions')
+          .insert([submissionData])
+          .select('*')
+          .single()
+
+        if (submissionError) {
+          console.error('❌ Erro ao salvar submissão:', submissionError)
+          throw new Error('Erro ao salvar formulário')
+        }
+
+        console.log('✅ Formulário enviado com sucesso:', submission)
+
+        // Aguardar processamento do trigger e buscar token de agendamento
+        await new Promise(resolve => setTimeout(resolve, 2000)) // 2s para processar
+
+        // Buscar dados atualizados da submissão com token
+        const { data: updatedSubmission } = await supabase
+          .from('form_submissions')
+          .select('submission_data')
+          .eq('id', submission.id)
+          .single()
+
+        const agendamentoToken = updatedSubmission?.submission_data?.agendamento_token
+
+        if (agendamentoToken) {
+          console.log('🎯 Token de agendamento encontrado:', agendamentoToken)
+          setBookingToken(agendamentoToken)
+          
+          // Mostrar mensagem de sucesso personalizada por 3s
+          setSubmitted(true)
+          setTimeout(() => {
+            window.location.href = `/agenda/agendar/${agendamentoToken}`
+          }, 3000)
+        } else {
+          console.warn('⚠️ Token de agendamento não encontrado, usando fluxo padrão')
+          setSubmitted(true)
+        }
+
+        return // Sair da função para o formulário médico
+      }
+
+      // Fluxo original para outros formulários
       let leadId = null
       if (template?.form_type === 'lead') {
         const leadData = {

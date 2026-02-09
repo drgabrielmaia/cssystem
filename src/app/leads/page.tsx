@@ -59,6 +59,8 @@ interface Lead {
   updated_at: string
   mentorado_indicador_id?: string | null
   fonte_referencia?: string | null
+  sdr_id?: string | null
+  closer_id?: string | null
 }
 
 interface LeadStats {
@@ -74,6 +76,13 @@ interface Mentorado {
   id: string
   nome_completo: string
   email: string
+}
+
+interface Closer {
+  id: string
+  nome_completo: string
+  email: string
+  tipo_closer: string
 }
 
 export default function LeadsPage() {
@@ -1404,28 +1413,92 @@ function EditLeadForm({ lead, onSave, onCancel }: {
     mentorado_indicador_id: lead?.mentorado_indicador_id || '',
     fonte_referencia: lead?.fonte_referencia || '',
     valor_potencial: lead?.valor_potencial || '',
-    lead_score: lead?.lead_score || 0
+    lead_score: lead?.lead_score || 0,
+    sdr_id: lead?.sdr_id || '',
+    closer_id: lead?.closer_id || ''
   })
 
   const [mentorados, setMentorados] = useState<Mentorado[]>([])
+  const [sdrs, setSdrs] = useState<Closer[]>([])
+  const [closers, setClosers] = useState<Closer[]>([])
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
 
-  // Carregar lista de mentorados
+  // Carregar dados iniciais
   useEffect(() => {
-    async function loadMentorados() {
+    async function loadInitialData() {
       try {
-        const { data, error } = await supabase
+        // Primeiro, obter o organization_id do usuário
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        
+        if (userError || !user) {
+          console.error('Erro ao obter usuário:', userError)
+          return
+        }
+
+        // Buscar organization_id do usuário
+        const { data: orgData, error: orgError } = await supabase
+          .from('organization_users')
+          .select('organization_id')
+          .eq('user_id', user.id)
+          .single()
+
+        if (orgError) {
+          console.error('Erro ao buscar organização:', orgError)
+          return
+        }
+
+        const currentOrganizationId = orgData.organization_id
+        setOrganizationId(currentOrganizationId)
+
+        // Carregar mentorados da organização
+        const { data: mentoradosData, error: mentoradosError } = await supabase
           .from('mentorados')
           .select('id, nome_completo, email')
+          .eq('organization_id', currentOrganizationId)
           .order('nome_completo')
 
-        if (error) throw error
-        setMentorados(data || [])
+        if (mentoradosError) {
+          console.error('Erro ao carregar mentorados:', mentoradosError)
+        } else {
+          setMentorados(mentoradosData || [])
+        }
+
+        // Carregar SDRs da organização
+        const { data: sdrsData, error: sdrsError } = await supabase
+          .from('closers')
+          .select('id, nome_completo, email, tipo_closer')
+          .eq('organization_id', currentOrganizationId)
+          .eq('tipo_closer', 'sdr')
+          .eq('status_contrato', 'ativo')
+          .order('nome_completo')
+
+        if (sdrsError) {
+          console.error('Erro ao carregar SDRs:', sdrsError)
+        } else {
+          setSdrs(sdrsData || [])
+        }
+
+        // Carregar Closers da organização
+        const { data: closersData, error: closersError } = await supabase
+          .from('closers')
+          .select('id, nome_completo, email, tipo_closer')
+          .eq('organization_id', currentOrganizationId)
+          .eq('tipo_closer', 'closer')
+          .eq('status_contrato', 'ativo')
+          .order('nome_completo')
+
+        if (closersError) {
+          console.error('Erro ao carregar Closers:', closersError)
+        } else {
+          setClosers(closersData || [])
+        }
+
       } catch (error) {
-        console.error('Erro ao carregar mentorados:', error)
+        console.error('Erro ao carregar dados iniciais:', error)
       }
     }
 
-    loadMentorados()
+    loadInitialData()
   }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1449,9 +1522,11 @@ function EditLeadForm({ lead, onSave, onCancel }: {
       observacoes: formData.observacoes?.trim() || null,
     }
 
-    // Se for um novo lead (não está editando), adicionar data_primeiro_contato
+    // Se for um novo lead (não está editando), adicionar campos obrigatórios
     if (!lead) {
       submitData.data_primeiro_contato = new Date().toISOString()
+      // Adicionar organization_id automaticamente
+      submitData.organization_id = organizationId
     }
 
     onSave(submitData)
@@ -1631,6 +1706,42 @@ function EditLeadForm({ lead, onSave, onCancel }: {
             <option value="proposta_enviada">Proposta Enviada</option>
             <option value="perdido">Perdido</option>
             <option value="vazado">Vazado</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            SDR Responsável
+          </label>
+          <select
+            value={formData.sdr_id}
+            onChange={(e) => setFormData(prev => ({ ...prev, sdr_id: e.target.value }))}
+            className="w-full px-4 py-3 border border-gray-600 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white placeholder:text-gray-400"
+          >
+            <option value="">Selecionar SDR (opcional)</option>
+            {sdrs.map((sdr) => (
+              <option key={sdr.id} value={sdr.id}>
+                {sdr.nome_completo} ({sdr.email})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Closer Responsável
+          </label>
+          <select
+            value={formData.closer_id}
+            onChange={(e) => setFormData(prev => ({ ...prev, closer_id: e.target.value }))}
+            className="w-full px-4 py-3 border border-gray-600 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white placeholder:text-gray-400"
+          >
+            <option value="">Selecionar Closer (opcional)</option>
+            {closers.map((closer) => (
+              <option key={closer.id} value={closer.id}>
+                {closer.nome_completo} ({closer.email})
+              </option>
+            ))}
           </select>
         </div>
 

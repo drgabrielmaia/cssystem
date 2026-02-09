@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase'
 interface Categoria {
   id: string
   nome: string
-  tipo: 'entrada' | 'saida'
+  tipo: 'receita' | 'despesa'
   cor: string
   descricao?: string
   ativo: boolean
@@ -52,7 +52,7 @@ interface BusinessUnitMetrics {
 
 interface Transacao {
   id: string
-  tipo: 'entrada' | 'saida'
+  tipo: 'receita' | 'despesa'
   valor: number
   descricao: string
   categoria_id: string
@@ -130,7 +130,7 @@ function FinancasPageContent() {
 
   // Estados de formulário
   const [novaTransacao, setNovaTransacao] = useState({
-    tipo: 'entrada' as 'entrada' | 'saida',
+    tipo: 'receita' as 'receita' | 'despesa',
     valor: '',
     descricao: '',
     categoria_id: '',
@@ -143,7 +143,7 @@ function FinancasPageContent() {
 
   const [novaCategoria, setNovaCategoria] = useState({
     nome: '',
-    tipo: 'entrada' as 'entrada' | 'saida',
+    tipo: 'receita' as 'receita' | 'despesa',
     cor: '#3B82F6',
     descricao: '',
     business_unit_id: '',
@@ -163,7 +163,7 @@ function FinancasPageContent() {
   // Estados de filtros
   const [filtros, setFiltros] = useState({
     periodo: '30' as '7' | '30' | '90' | '365',
-    tipo: 'todas' as 'todas' | 'entrada' | 'saida',
+    tipo: 'todas' as 'todas' | 'receita' | 'despesa',
     categoria: '',
     ordenacao: 'data_desc' as 'data_desc' | 'data_asc' | 'valor_desc' | 'valor_asc'
   })
@@ -365,7 +365,7 @@ function FinancasPageContent() {
         .from('categorias_financeiras')
         .insert({
           nome: 'Comissões Pagas',
-          tipo: 'saida',
+          tipo: 'despesa',
           cor: '#EF4444',
           ativo: true,
           organization_id: orgId
@@ -388,7 +388,7 @@ function FinancasPageContent() {
         .from('categorias_financeiras')
         .insert({
           nome: 'Mentoria',
-          tipo: 'entrada',
+          tipo: 'receita',
           cor: '#10B981',
           ativo: true,
           organization_id: orgId
@@ -411,7 +411,7 @@ function FinancasPageContent() {
           await supabase
             .from('transacoes_financeiras')
             .insert({
-              tipo: 'saida',
+              tipo: 'despesa',
               valor: comissao.commission_amount,
               descricao: `Comissão paga - ${(comissao.referral as any)?.mentorado?.nome || 'Mentor'}`,
               categoria_id: categoriaComissao.id,
@@ -437,7 +437,7 @@ function FinancasPageContent() {
           await supabase
             .from('transacoes_financeiras')
             .insert({
-              tipo: 'entrada',
+              tipo: 'receita',
               valor: pagamento.payment_amount,
               descricao: `Pagamento de mentoria - ${(pagamento.referral as any)?.mentorado?.nome || 'Cliente'}`,
               categoria_id: categoriaMentoria.id,
@@ -571,7 +571,7 @@ function FinancasPageContent() {
       let transacoesManuais = 0
 
       transacoesPeriodo?.forEach(t => {
-        if (t.tipo === 'entrada') {
+        if (t.tipo === 'receita') {
           totalEntradas += t.valor
           // Verificar se é receita de mentoria
           if ((t.categoria as any)?.nome === 'Mentoria') {
@@ -594,7 +594,7 @@ function FinancasPageContent() {
       })
 
       transacoesMesPassado?.forEach(t => {
-        if (t.tipo === 'entrada') entradasMesPassado += t.valor
+        if (t.tipo === 'receita') entradasMesPassado += t.valor
         else saidasMesPassado += t.valor
       })
 
@@ -693,7 +693,7 @@ function FinancasPageContent() {
 
   const resetFormTransacao = () => {
     setNovaTransacao({
-      tipo: 'entrada',
+      tipo: 'receita',
       valor: '',
       descricao: '',
       categoria_id: '',
@@ -1135,11 +1135,11 @@ function FinancasPageContent() {
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold text-slate-700 text-sm">{categoria}</h4>
                     <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      dados.tipo === 'entrada' 
+                      dados.tipo === 'receita' 
                         ? 'bg-green-100 text-green-700' 
                         : 'bg-red-100 text-red-700'
                     }`}>
-                      {dados.tipo === 'entrada' ? 'ENTRADA' : 'SAÍDA'}
+                      {dados.tipo === 'receita' ? 'RECEITA' : 'DESPESA'}
                     </div>
                   </div>
                   <p className="text-xl font-bold text-slate-800 mb-2">
@@ -1152,7 +1152,7 @@ function FinancasPageContent() {
                   <div className="mt-2 bg-slate-200 rounded-full h-1">
                     <div 
                       className={`h-1 rounded-full ${
-                        dados.tipo === 'entrada' ? 'bg-green-500' : 'bg-red-500'
+                        dados.tipo === 'receita' ? 'bg-green-500' : 'bg-red-500'
                       }`}
                       style={{ 
                         width: `${Math.min((dados.total / Math.max(...Object.values(metricas.analisesPorCategoria!).map(d => d.total))) * 100, 100)}%` 
@@ -1192,8 +1192,8 @@ function FinancasPageContent() {
                   onChange={(e) => setFiltros(prev => ({...prev, tipo: e.target.value as any}))}
                 >
                   <option value="todas">Todas</option>
-                  <option value="entrada">Entradas</option>
-                  <option value="saida">Saídas</option>
+                  <option value="receita">Receitas</option>
+                  <option value="despesa">Despesas</option>
                 </select>
               </div>
 
@@ -1299,13 +1299,13 @@ function FinancasPageContent() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                          transacao.tipo === 'entrada' 
+                          transacao.tipo === 'receita' 
                             ? 'bg-green-100' 
                             : 'bg-red-100'
                         }`}>
-                          {transacao.tipo === 'entrada' ? (
+                          {transacao.tipo === 'receita' ? (
                             <ArrowUpRight className={`h-5 w-5 ${
-                              transacao.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'
+                              transacao.tipo === 'receita' ? 'text-green-600' : 'text-red-600'
                             }`} />
                           ) : (
                             <ArrowDownRight className="h-5 w-5 text-red-600" />
@@ -1334,9 +1334,9 @@ function FinancasPageContent() {
                       
                       <div className="text-right">
                         <p className={`text-lg font-bold ${
-                          transacao.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'
+                          transacao.tipo === 'receita' ? 'text-green-600' : 'text-red-600'
                         }`}>
-                          {transacao.tipo === 'entrada' ? '+' : '-'}{formatCurrency(transacao.valor)}
+                          {transacao.tipo === 'receita' ? '+' : '-'}{formatCurrency(transacao.valor)}
                         </p>
                         {transacao.metodo_pagamento && (
                           <p className="text-sm text-slate-500 mt-1">
@@ -1369,30 +1369,30 @@ function FinancasPageContent() {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => setNovaTransacao(prev => ({...prev, tipo: 'entrada'}))}
+                    onClick={() => setNovaTransacao(prev => ({...prev, tipo: 'receita'}))}
                     className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                      novaTransacao.tipo === 'entrada'
+                      novaTransacao.tipo === 'receita'
                         ? 'border-green-500 bg-green-50 text-green-700'
                         : 'border-slate-200 hover:border-green-300 text-slate-600'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <ArrowUpRight className="h-5 w-5" />
-                      <span className="font-medium">Entrada</span>
+                      <span className="font-medium">Receita</span>
                     </div>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setNovaTransacao(prev => ({...prev, tipo: 'saida'}))}
+                    onClick={() => setNovaTransacao(prev => ({...prev, tipo: 'despesa'}))}
                     className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                      novaTransacao.tipo === 'saida'
+                      novaTransacao.tipo === 'despesa'
                         ? 'border-red-500 bg-red-50 text-red-700'
                         : 'border-slate-200 hover:border-red-300 text-slate-600'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <ArrowDownRight className="h-5 w-5" />
-                      <span className="font-medium">Saída</span>
+                      <span className="font-medium">Despesa</span>
                     </div>
                   </button>
                 </div>
@@ -1507,9 +1507,9 @@ function FinancasPageContent() {
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  transacaoSelecionada.tipo === 'entrada' ? 'bg-green-100' : 'bg-red-100'
+                  transacaoSelecionada.tipo === 'receita' ? 'bg-green-100' : 'bg-red-100'
                 }`}>
-                  {transacaoSelecionada.tipo === 'entrada' ? (
+                  {transacaoSelecionada.tipo === 'receita' ? (
                     <ArrowUpRight className="h-5 w-5 text-green-600" />
                   ) : (
                     <ArrowDownRight className="h-5 w-5 text-red-600" />
@@ -1518,9 +1518,9 @@ function FinancasPageContent() {
                 <div>
                   <h4 className="text-lg font-semibold text-slate-800">{transacaoSelecionada.descricao}</h4>
                   <p className={`text-xl font-bold ${
-                    transacaoSelecionada.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'
+                    transacaoSelecionada.tipo === 'receita' ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    {transacaoSelecionada.tipo === 'entrada' ? '+' : '-'}{formatCurrency(transacaoSelecionada.valor)}
+                    {transacaoSelecionada.tipo === 'receita' ? '+' : '-'}{formatCurrency(transacaoSelecionada.valor)}
                   </p>
                 </div>
               </div>
