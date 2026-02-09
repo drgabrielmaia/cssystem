@@ -116,12 +116,11 @@ export default function AgendarPage() {
       }
 
       const { data, error } = await supabase
-        .from('agenda_links_personalizados')
+        .from('agendamento_links')
         .select(`
           *,
           leads:lead_id(nome_completo, email, telefone),
-          mentorados:mentorado_id(nome, email, telefone),
-          agenda_configuracoes:agenda_id(*)
+          mentorados:mentorado_id(nome_completo, email, telefone)
         `)
         .eq('token_link', token)
         .eq('ativo', true)
@@ -154,7 +153,7 @@ export default function AgendarPage() {
 
       // Atualizar contador de visualizações
       await supabase
-        .from('agenda_links_personalizados')
+        .from('agendamento_links')
         .update({ total_visualizacoes: (data.total_visualizacoes || 0) + 1 })
         .eq('id', data.id)
 
@@ -167,25 +166,28 @@ export default function AgendarPage() {
   }
 
   const loadAvailableSlots = async (date: string) => {
-    if (!agendaLink?.agenda_configuracoes) return
-
     setLoadingSlots(true)
     try {
-      const config = agendaLink.agenda_configuracoes
       const selectedDateObj = new Date(date)
       const dayOfWeek = selectedDateObj.getDay()
 
+      // Configurações fixas de segunda a sexta até 18h
+      const availableDays = [1, 2, 3, 4, 5] // Segunda a sexta
+      const startTime = 9 // 9h
+      const endTime = 18 // 18h
+      const slotDuration = 60 // 60 minutos
+
       // Verificar se o dia está disponível
-      if (!config.dias_semana.includes(dayOfWeek)) {
+      if (!availableDays.includes(dayOfWeek)) {
         setAvailableSlots([])
         setLoadingSlots(false)
         return
       }
 
-      // Verificar antecedência mínima
+      // Verificar antecedência mínima (pelo menos hoje)
       const now = new Date()
-      const minDate = new Date(now.getTime() + (config.antecedencia_minima_horas * 60 * 60 * 1000))
-      if (selectedDateObj < minDate) {
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      if (selectedDateObj < today) {
         setAvailableSlots([])
         setLoadingSlots(false)
         return
@@ -193,49 +195,60 @@ export default function AgendarPage() {
 
       // Gerar slots disponíveis
       const slots: TimeSlot[] = []
-      const startTime = parseTimeString(config.horario_inicio)
-      const endTime = parseTimeString(config.horario_fim)
-      const duration = config.duracao_minutos
+      let currentHour = startTime
 
-      let currentTime = startTime
-      while (currentTime < endTime) {
+      while (currentHour < endTime) {
         const slotDateTime = new Date(selectedDateObj)
-        slotDateTime.setHours(Math.floor(currentTime), currentTime % 60 * 60, 0, 0)
+        slotDateTime.setHours(currentHour, 0, 0, 0)
 
-        // Verificar se o slot está no futuro
-        const isInFuture = slotDateTime > now
+        // Verificar se o slot está no futuro (pelo menos 1 hora de antecedência)
+        const isInFuture = slotDateTime > new Date(now.getTime() + 60 * 60 * 1000)
 
         slots.push({
           datetime: slotDateTime.toISOString(),
-          time: formatTime(currentTime),
+          time: `${currentHour.toString().padStart(2, '0')}:00`,
           available: isInFuture
         })
 
-        currentTime += duration / 60
+        currentHour += 1 // Slots de 1 hora
       }
 
-      // Verificar agendamentos existentes
-      const { data: agendamentos } = await supabase
-        .from('agendamentos')
-        .select('data_agendada, duracao_minutos')
-        .eq('agenda_id', agendaLink.agenda_id)
-        .gte('data_agendada', selectedDateObj.toISOString().split('T')[0])
-        .lt('data_agendada', new Date(selectedDateObj.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0])
-        .in('status', ['agendado', 'confirmado'])
+      // Verificar eventos já agendados no calendar_events
+      const startOfDay = new Date(selectedDateObj)
+      startOfDay.setHours(0, 0, 0, 0)
+      
+      const endOfDay = new Date(selectedDateObj)
+      endOfDay.setHours(23, 59, 59, 999)
 
-      if (agendamentos) {
-        agendamentos.forEach(agendamento => {
-          const agendamentoDate = new Date(agendamento.data_agendada)
+      const { data: events } = await supabase
+        .from('calendar_events')
+        .select('start_datetime, end_datetime')
+        .gte('start_datetime', startOfDay.toISOString())
+        .lte('start_datetime', endOfDay.toISOString())
+        .not('status_confirmacao', 'eq', 'cancelado')
+
+      if (events) {
+        events.forEach(event => {
+          const eventStart = new Date(event.start_datetime)
+          const eventEnd = new Date(event.end_datetime)
+          
           slots.forEach(slot => {
-            const slotDate = new Date(slot.datetime)
-            if (Math.abs(slotDate.getTime() - agendamentoDate.getTime()) < agendamento.duracao_minutos * 60 * 1000) {
+            const slotStart = new Date(slot.datetime)
+            const slotEnd = new Date(slotStart.getTime() + slotDuration * 60 * 1000)
+            
+            // Verificar se há sobreposição de horários
+            if (
+              (slotStart >= eventStart && slotStart < eventEnd) ||
+              (slotEnd > eventStart && slotEnd <= eventEnd) ||
+              (slotStart <= eventStart && slotEnd >= eventEnd)
+            ) {
               slot.available = false
             }
           })
         })
       }
 
-      setAvailableSlots(slots)
+      setAvailableSlots(slots.filter(slot => slot.available))
     } catch (error) {
       console.error('Erro ao carregar slots:', error)
     } finally {
@@ -260,7 +273,9 @@ export default function AgendarPage() {
     const firstDay = new Date(year, month, 1)
     const lastDay = new Date(year, month + 1, 0)
     const today = new Date()
-    const config = agendaLink?.agenda_configuracoes
+    
+    // Configuração fixa: segunda a sexta
+    const availableDays = [1, 2, 3, 4, 5] // Segunda a sexta
 
     const days = []
 
@@ -275,7 +290,7 @@ export default function AgendarPage() {
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const date = new Date(year, month, day)
       const dayOfWeek = date.getDay()
-      const isAvailable = config?.dias_semana.includes(dayOfWeek) && date >= today
+      const isAvailable = availableDays.includes(dayOfWeek) && date >= today
       days.push({ date, isCurrentMonth: true, isAvailable })
     }
 
@@ -309,25 +324,32 @@ export default function AgendarPage() {
       const selectedSlot = availableSlots.find(slot => slot.time === selectedTime)
       if (!selectedSlot) throw new Error('Horário não encontrado')
 
-      const agendamentoData = {
-        agenda_id: agendaLink.agenda_id,
+      // Criar evento no calendar_events
+      const [year, month, day] = selectedDate.split('-')
+      const [hours, minutes] = selectedTime.split(':')
+      const startDateTime = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes))
+      const endDateTime = new Date(startDateTime.getTime() + (60 * 60 * 1000)) // 1 hora padrão
+
+      const eventData = {
+        title: `${agendaLink.titulo_customizado || 'Reunião Agendada'} - ${formData.nome_completo}`,
+        description: `Agendamento via formulário.\n\nObjetivo: ${formData.objetivo_call}\n\nContato: ${formData.email} | ${formData.telefone}`,
+        start_datetime: startDateTime.toISOString(),
+        end_datetime: endDateTime.toISOString(),
         lead_id: agendaLink.lead_id || null,
         mentorado_id: agendaLink.mentorado_id || null,
-        titulo: agendaLink.titulo_customizado || 'Reunião Agendada',
-        data_agendada: selectedSlot.datetime,
-        duracao_minutos: agendaLink.duracao_customizada || agendaLink.agenda_configuracoes?.duracao_minutos || 60,
-        nome_completo: formData.nome_completo,
-        email: formData.email,
-        telefone: formData.telefone,
-        whatsapp: formData.whatsapp,
+        nome_contato: formData.nome_completo,
+        email_contato: formData.email,
+        telefone_contato: formData.telefone,
+        whatsapp_contato: formData.whatsapp,
         objetivo_call: formData.objetivo_call,
-        origem: agendaLink.lead_id ? 'lead' : agendaLink.mentorado_id ? 'mentorado' : 'publico',
-        status: 'agendado'
+        origem_agendamento: 'formulario_publico',
+        status_confirmacao: 'agendado',
+        all_day: false
       }
 
       const { data, error } = await supabase
-        .from('agendamentos')
-        .insert(agendamentoData)
+        .from('calendar_events')
+        .insert(eventData)
         .select()
         .single()
 
@@ -335,10 +357,9 @@ export default function AgendarPage() {
 
       // Atualizar contador de agendamentos do link
       await supabase
-        .from('agenda_links_personalizados')
+        .from('agendamento_links')
         .update({
-          total_agendamentos: (agendaLink.total_agendamentos || 0) + 1,
-          ultimo_acesso: new Date().toISOString()
+          total_agendamentos: (agendaLink.total_agendamentos || 0) + 1
         })
         .eq('id', agendaLink.id)
 
@@ -385,8 +406,7 @@ export default function AgendarPage() {
     )
   }
 
-  const config = agendaLink?.agenda_configuracoes
-  const themeColor = config?.cor_tema || '#059669'
+  const themeColor = agendaLink?.agenda_configuracoes?.cor_tema || '#059669'
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -394,15 +414,15 @@ export default function AgendarPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {agendaLink?.titulo_customizado || config?.nome || 'Agendar Reunião'}
+            {agendaLink?.titulo_customizado || 'Agendar Reunião'}
           </h1>
           <p className="text-gray-600">
-            {agendaLink?.descricao_customizada || config?.descricao || 'Escolha o melhor horário para nossa conversa'}
+            {agendaLink?.descricao_customizada || 'Escolha o melhor horário para nossa conversa'}
           </p>
           <div className="flex items-center justify-center gap-4 mt-4 text-sm text-gray-500">
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              {agendaLink?.duracao_customizada || config?.duracao_minutos || 60} minutos
+              60 minutos
             </div>
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
@@ -668,7 +688,7 @@ export default function AgendarPage() {
                         <h4 className="font-semibold mb-2">Detalhes da reunião</h4>
                         <div className="text-sm text-gray-600 space-y-1">
                           <p><strong>Data e horário:</strong> {formatSelectedDateTime()}</p>
-                          <p><strong>Duração:</strong> {agendaLink?.duracao_customizada || config?.duracao_minutos || 60} minutos</p>
+                          <p><strong>Duração:</strong> 60 minutos</p>
                           <p><strong>Participante:</strong> {formData.nome_completo}</p>
                           <p><strong>Email:</strong> {formData.email}</p>
                         </div>
@@ -699,7 +719,7 @@ export default function AgendarPage() {
                       <div>
                         <p className="font-medium">{formatSelectedDateTime()}</p>
                         <p className="text-sm text-gray-500">
-                          {agendaLink?.duracao_customizada || config?.duracao_minutos || 60} minutos
+                          60 minutos
                         </p>
                       </div>
                     </div>

@@ -56,6 +56,7 @@ export function AppContent({ children }: { children: React.ReactNode }) {
                       pathname.startsWith('/formulario/') ||
                       pathname.startsWith('/forms/') ||
                       pathname.startsWith('/agendar/') ||
+                      pathname.startsWith('/agenda/') ||
                       pathname.startsWith('/mentorado') ||
                       pathname.startsWith('/closer')
 
