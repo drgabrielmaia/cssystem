@@ -41,8 +41,16 @@ export function useOrganization(userId: string | null): UseOrganizationReturn {
       setError(null)
 
       // Buscar organização do usuário
-      const { organization: orgData, role } = await organizationService.getUserOrganization(userId)
+      const result = await organizationService.getUserOrganization(userId)
+      
+      if (!result) {
+        setOrganization(null)
+        setCurrentUserRole(null)
+        setStats(null)
+        return
+      }
 
+      const { organization: orgData, role } = result
       setOrganization(orgData)
       setCurrentUserRole(role)
 

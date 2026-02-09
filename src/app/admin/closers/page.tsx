@@ -71,9 +71,9 @@ export default function AdminClosersPage() {
     if (!user) return
 
     try {
-      const { organization } = await organizationService.getUserOrganization(user.id)
-      if (organization) {
-        setOrganizationId(organization.id)
+      const result = await organizationService.getUserOrganization(user.id)
+      if (result && result.organization) {
+        setOrganizationId(result.organization.id)
       }
     } catch (error) {
       console.error('Error loading organization:', error)

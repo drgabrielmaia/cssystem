@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS sdrs (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-    nome VARCHAR(255) NOT NULL,
+    nome_completo VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     telefone VARCHAR(20),
     meta_qualificacao INTEGER DEFAULT 50, -- Meta de leads qualificados por mês
@@ -153,10 +153,10 @@ EXECUTE FUNCTION update_updated_at_column();
 CREATE OR REPLACE VIEW sdr_performance AS
 SELECT 
     s.id,
-    s.nome,
+    s.nome_completo,
     s.email,
     s.organization_id,
-    o.nome as organization_nome,
+    o.name as organization_nome,
     COUNT(DISTINCT l.id) as total_leads,
     COUNT(DISTINCT CASE WHEN l.sdr_qualificado_em IS NOT NULL THEN l.id END) as leads_qualificados,
     COUNT(DISTINCT CASE WHEN l.status = 'vendido' THEN l.id END) as leads_convertidos,
@@ -172,36 +172,36 @@ LEFT JOIN organizations o ON s.organization_id = o.id
 LEFT JOIN leads l ON s.id = l.sdr_id 
     AND l.sdr_atribuido_em >= DATE_TRUNC('month', CURRENT_DATE)
 WHERE s.ativo = true
-GROUP BY s.id, s.nome, s.email, s.organization_id, o.nome;
+GROUP BY s.id, s.nome_completo, s.email, s.organization_id, o.name;
 
 -- 8. Criar view para leads por etapa do funil
 CREATE OR REPLACE VIEW leads_funil AS
 SELECT 
     l.organization_id,
-    o.nome as organization_nome,
+    o.name as organization_nome,
     l.status,
     l.temperatura,
     l.prioridade,
     COUNT(*) as total,
     AVG(l.lead_score) as score_medio,
     l.sdr_id,
-    s.nome as sdr_nome,
+    s.nome_completo as sdr_nome,
     l.closer_id,
-    c.nome as closer_nome
+    c.nome_completo as closer_nome
 FROM leads l
 LEFT JOIN organizations o ON l.organization_id = o.id
 LEFT JOIN sdrs s ON l.sdr_id = s.id
 LEFT JOIN closers c ON l.closer_id = c.id
 GROUP BY 
     l.organization_id, 
-    o.nome,
+    o.name,
     l.status, 
     l.temperatura, 
     l.prioridade,
     l.sdr_id,
-    s.nome,
+    s.nome_completo,
     l.closer_id,
-    c.nome;
+    c.nome_completo;
 
 -- 9. Adicionar políticas RLS para SDRs
 ALTER TABLE sdrs ENABLE ROW LEVEL SECURITY;

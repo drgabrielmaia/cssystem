@@ -3,9 +3,72 @@ import { createBrowserClient } from '@supabase/ssr'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-// Cliente para usar nos componentes (com cookies)
-export const supabase = createBrowserClient(supabaseUrl, supabaseKey)
-export const createClient = () => createBrowserClient(supabaseUrl, supabaseKey)
+// Cliente para usar nos componentes (com cookies e configurações otimizadas)
+export const supabase = createBrowserClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'x-application-name': 'cssystem'
+    },
+    fetch: (url, options = {}) => {
+      // Add timeout to prevent hanging requests - increased to 60s for database operations
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
+      return fetch(url, {
+        ...options,
+        signal: options.signal || controller.signal
+      }).finally(() => {
+        clearTimeout(timeoutId);
+      });
+    }
+  },
+  db: {
+    schema: 'public'
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  }
+})
+
+export const createClient = () => createBrowserClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'x-application-name': 'cssystem'
+    },
+    fetch: (url, options = {}) => {
+      // Add timeout to prevent hanging requests - increased to 60s for database operations
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
+      return fetch(url, {
+        ...options,
+        signal: options.signal || controller.signal
+      }).finally(() => {
+        clearTimeout(timeoutId);
+      });
+    }
+  },
+  db: {
+    schema: 'public'
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  }
+})
 
 // Re-exportar tipos do arquivo types
 export type { Mentorado, FormularioResposta, KPI, TurmaStats, DespesaMensal } from '@/types'
@@ -187,28 +250,51 @@ export interface OrganizationUser {
 
 // Funções para gerenciar organizações
 export const organizationService = {
-  // Buscar organização do usuário
+  // Buscar organização do usuário com tratamento de erro aprimorado
   async getUserOrganization(userId: string) {
-    const { data, error } = await supabase
-      .from('organization_users')
-      .select(`
-        organization_id,
-        role,
-        organizations (
-          id,
-          name,
-          owner_email,
-          created_at,
-          updated_at
-        )
-      `)
-      .eq('user_id', userId)
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('organization_users')
+        .select(`
+          organization_id,
+          role,
+          organizations (
+            id,
+            name,
+            owner_email,
+            created_at,
+            updated_at
+          )
+        `)
+        .eq('user_id', userId)
+        .single()
 
-    if (error) throw error
-    return {
-      organization: data.organizations as any as Organization,
-      role: data.role as string
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No rows returned - user not in any organization
+          console.log('User not found in any organization');
+          return null;
+        }
+        throw error;
+      }
+
+      if (!data || !data.organizations) {
+        console.log('No organization data found for user');
+        return null;
+      }
+
+      return {
+        organization: data.organizations as any as Organization,
+        role: data.role as string
+      }
+    } catch (error: any) {
+      // Handle abort errors specifically
+      if (error.name === 'AbortError' || error.message?.includes('signal is aborted')) {
+        console.error('Organization query timed out:', error);
+        throw new Error('Request timed out. Please check your connection and try again.');
+      }
+      console.error('Error fetching user organization:', error);
+      throw error;
     }
   },
 
@@ -379,31 +465,47 @@ export const organizationService = {
     return data[0] as Organization
   },
 
-  // Buscar estatísticas da organização
+  // Buscar estatísticas da organização com timeout e error handling
   async getOrganizationStats(organizationId: string) {
-    const { data: users, error: usersError } = await supabase
-      .from('organization_users')
-      .select('role, created_at, user_id')
-      .eq('organization_id', organizationId)
+    try {
+      const { data: users, error: usersError } = await supabase
+        .from('organization_users')
+        .select('role, created_at, user_id')
+        .eq('organization_id', organizationId)
 
-    if (usersError) throw usersError
+      if (usersError) {
+        console.error('Error fetching organization users:', usersError);
+        throw usersError;
+      }
 
-    const { data: organization, error: orgError } = await supabase
-      .from('organizations')
-      .select('created_at')
-      .eq('id', organizationId)
-      .single()
+      const { data: organization, error: orgError } = await supabase
+        .from('organizations')
+        .select('created_at')
+        .eq('id', organizationId)
+        .single()
 
-    if (orgError) throw orgError
+      if (orgError) {
+        console.error('Error fetching organization data:', orgError);
+        throw orgError;
+      }
 
-    return {
-      totalMembers: users.length,
-      activeMembers: users.filter(u => u.user_id !== null).length,
-      pendingMembers: users.filter(u => u.user_id === null).length,
-      owners: users.filter(u => u.role === 'owner').length,
-      managers: users.filter(u => u.role === 'manager').length,
-      viewers: users.filter(u => u.role === 'viewer').length,
-      createdAt: organization.created_at
+      return {
+        totalMembers: users?.length || 0,
+        activeMembers: users?.filter(u => u.user_id !== null).length || 0,
+        pendingMembers: users?.filter(u => u.user_id === null).length || 0,
+        owners: users?.filter(u => u.role === 'owner').length || 0,
+        managers: users?.filter(u => u.role === 'manager').length || 0,
+        viewers: users?.filter(u => u.role === 'viewer').length || 0,
+        createdAt: organization?.created_at || ''
+      }
+    } catch (error: any) {
+      // Handle abort errors specifically
+      if (error.name === 'AbortError' || error.message?.includes('signal is aborted')) {
+        console.error('Organization stats query timed out:', error);
+        throw new Error('Request timed out. Please check your connection and try again.');
+      }
+      console.error('Error fetching organization stats:', error);
+      throw error;
     }
   }
 }

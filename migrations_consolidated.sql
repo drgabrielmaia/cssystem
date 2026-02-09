@@ -507,7 +507,7 @@ SELECT
     r.mentorado_id,
     m.nome_completo as mentorado_nome,
     r.lead_id,
-    l.nome as lead_nome,
+    l.nome_completo as lead_nome,
     l.email as lead_email,
     l.telefone as lead_telefone,
     r.referral_date,
@@ -526,7 +526,7 @@ FROM referrals r
 INNER JOIN mentorados m ON m.id = r.mentorado_id
 INNER JOIN leads l ON l.id = r.lead_id
 LEFT JOIN referral_payments rp ON rp.referral_id = r.id AND rp.status = 'confirmed'
-GROUP BY r.id, r.mentorado_id, m.nome_completo, r.lead_id, l.nome, l.email, l.telefone, 
+GROUP BY r.id, r.mentorado_id, m.nome_completo, r.lead_id, l.nome_completo, l.email, l.telefone, 
          r.referral_date, r.status, r.contract_value, r.conversion_date, r.organization_id;
 
 -- View de comissões pendentes de pagamento
@@ -541,7 +541,7 @@ SELECT
     c.status,
     c.eligible_date,
     r.lead_id,
-    l.nome as lead_nome,
+    l.nome_completo as lead_nome,
     c.organization_id
 FROM commissions c
 INNER JOIN mentorados m ON m.id = c.mentorado_id
