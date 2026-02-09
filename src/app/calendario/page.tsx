@@ -27,6 +27,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
 import { EditEventModal } from '@/components/edit-event-modal'
+import { useAuth } from '@/contexts/auth'
 
 interface CalendarEvent {
   id: string
@@ -154,6 +155,7 @@ const notifyAdminAboutNewEvent = async (eventData: any) => {
 }
 
 export default function CalendarioPage() {
+  const { organizationId } = useAuth()
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -194,10 +196,12 @@ export default function CalendarioPage() {
   }).slice(0, 5) : []
 
   useEffect(() => {
-    fetchEvents()
-    loadLeads()
-    loadMentorados()
-  }, [])
+    if (organizationId) {
+      fetchEvents()
+      loadLeads()
+      loadMentorados()
+    }
+  }, [organizationId])
 
   const loadLeads = async () => {
     try {
@@ -230,13 +234,20 @@ export default function CalendarioPage() {
   }
 
   const fetchEvents = async () => {
+    if (!organizationId) {
+      console.log('⚠️ Aguardando organization_id...')
+      setLoading(false)
+      return
+    }
+
     try {
       setLoading(true)
-      console.log('🔄 Buscando eventos do calendário via Supabase...')
+      console.log('🔄 Buscando eventos do calendário para organização:', organizationId)
 
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
+        .eq('organization_id', organizationId)
         .order('start_datetime', { ascending: true })
 
       if (error) {
@@ -360,6 +371,11 @@ export default function CalendarioPage() {
       return
     }
 
+    if (!organizationId) {
+      alert('Erro: Organization ID não encontrado')
+      return
+    }
+
     try {
       setIsCreating(true)
 
@@ -380,8 +396,11 @@ export default function CalendarioPage() {
         all_day: newEventForm.all_day,
         lead_id: newEventForm.lead_id === 'none' ? null : newEventForm.lead_id || null,
         mentorado_id: newEventForm.mentorado_id === 'none' ? null : newEventForm.mentorado_id || null,
+        organization_id: organizationId, // ✅ INCLUINDO ORGANIZATION_ID
         created_at: new Date().toISOString()
       }
+
+      console.log('🔄 Criando evento com organization_id:', organizationId)
 
       const { error } = await supabase
         .from('calendar_events')

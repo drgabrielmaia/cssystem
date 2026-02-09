@@ -58,10 +58,10 @@ export function useChatBotData() {
       // Buscar eventos de hoje (calls agendadas)
       const { data: eventsHoje } = await supabase
         .from('calendar_events')
-        .select('id, status')
+        .select('id, call_status')
         .eq('organization_id', organizationId)
-        .gte('start_time', inicioHoje.toISOString())
-        .lt('start_time', new Date(inicioHoje.getTime() + 24 * 60 * 60 * 1000).toISOString())
+        .gte('start_datetime', inicioHoje.toISOString())
+        .lt('start_datetime', new Date(inicioHoje.getTime() + 24 * 60 * 60 * 1000).toISOString())
 
       // Buscar vendas do mês (assumindo que vendas estão em uma tabela de vendas ou comissões)
       const { data: vendasMes } = await supabase
@@ -81,7 +81,7 @@ export function useChatBotData() {
 
       // Calcular métricas
       const callsAgendadas = eventsHoje?.length || 0
-      const callsFechadas = eventsHoje?.filter(e => e.status === 'completed').length || 0
+      const callsFechadas = eventsHoje?.filter(e => e.call_status === 'completed').length || 0
       
       const faturamentoMes = vendasMes?.reduce((sum, venda) => sum + (venda.valor_venda || 0), 0) || 0
       const faturamentoHoje = vendasHoje?.reduce((sum, venda) => sum + (venda.valor_venda || 0), 0) || 0
