@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 
@@ -32,32 +32,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false)
   const router = useRouter()
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true
-      },
-      global: {
-        headers: {
-          'x-application-name': 'cssystem-auth'
-        },
-        fetch: (url, options = {}) => {
-          // TIMEOUT DISABLED FOR TESTING - to identify if timeout is the root cause
-          return fetch(url, {
-            ...options,
-            signal: options.signal
-          });
-        }
-      },
-      db: {
-        schema: 'public'
-      }
-    }
-  )
 
   // Função para salvar dados de auth no localStorage
   const saveAuthData = (user: User, orgId?: string) => {

@@ -15,10 +15,19 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseKey, {
       'x-application-name': 'cssystem'
     },
     fetch: (url, options = {}) => {
-      // TIMEOUT DISABLED FOR TESTING - to identify if timeout is the root cause
+      // Use much longer timeouts to prevent AbortError
+      const urlString = typeof url === 'string' ? url : (url instanceof URL ? url.href : url.url || '');
+      const isAuthOperation = urlString.includes('/auth/v1/') || urlString.includes('auth/token') || urlString.includes('auth/session');
+      const timeout = isAuthOperation ? 120000 : 180000; // 2 minutes for auth, 3 minutes for database
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
       return fetch(url, {
         ...options,
-        signal: options.signal
+        signal: options.signal || controller.signal
+      }).finally(() => {
+        clearTimeout(timeoutId);
       });
     }
   },
@@ -43,10 +52,19 @@ export const createClient = () => createBrowserClient(supabaseUrl, supabaseKey, 
       'x-application-name': 'cssystem'
     },
     fetch: (url, options = {}) => {
-      // TIMEOUT DISABLED FOR TESTING - to identify if timeout is the root cause
+      // Use much longer timeouts to prevent AbortError
+      const urlString = typeof url === 'string' ? url : (url instanceof URL ? url.href : url.url || '');
+      const isAuthOperation = urlString.includes('/auth/v1/') || urlString.includes('auth/token') || urlString.includes('auth/session');
+      const timeout = isAuthOperation ? 120000 : 180000; // 2 minutes for auth, 3 minutes for database
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
       return fetch(url, {
         ...options,
-        signal: options.signal
+        signal: options.signal || controller.signal
+      }).finally(() => {
+        clearTimeout(timeoutId);
       });
     }
   },

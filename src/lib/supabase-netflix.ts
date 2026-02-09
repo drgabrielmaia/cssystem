@@ -3,6 +3,7 @@
 // ===============================================
 
 import { createBrowserClient } from '@supabase/ssr'
+import { supabase } from './supabase'
 import type {
   ModuleCategory,
   ModuleRating,
@@ -23,28 +24,6 @@ import { calculateNPSScore } from '@/types/netflix-platform'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-const supabase = createBrowserClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  },
-  global: {
-    headers: {
-      'x-application-name': 'cssystem-netflix'
-    },
-    fetch: (url, options = {}) => {
-      // TIMEOUT DISABLED FOR TESTING - to identify if timeout is the root cause
-      return fetch(url, {
-        ...options,
-        signal: options.signal
-      });
-    }
-  },
-  db: {
-    schema: 'public'
-  }
-})
 
 // ===============================================
 // Module Rating Service (NPS System)
