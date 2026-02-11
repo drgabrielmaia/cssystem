@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
+import { useStableData } from '@/hooks/use-stable-data'
+import { useStableMutation } from '@/hooks/use-stable-mutation'
 import { PageLayout } from '@/components/ui/page-layout'
 import { KPICardVibrant } from '@/components/ui/kpi-card-vibrant'
 import { MetricCard } from '@/components/ui/metric-card'
@@ -88,16 +90,8 @@ interface Closer {
 
 export default function LeadsPage() {
   const router = useRouter()
-  const [leads, setLeads] = useState<Lead[]>([])
-  const [stats, setStats] = useState<LeadStats>({
-    total_leads: 0,
-    leads_convertidos: 0,
-    valor_total_vendas: 0,
-    valor_total_arrecadado: 0,
-    taxa_conversao: 0,
-    ticket_medio: 0
-  })
-  const [loading, setLoading] = useState(true)
+  
+  // Estados locais simples (não precisam de hooks especiais)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('todos')
   const [origemFilter, setOrigemFilter] = useState('todas')
@@ -106,8 +100,71 @@ export default function LeadsPage() {
   const [customEndDate, setCustomEndDate] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
-  const [isLoadingData, setIsLoadingData] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [stats, setStats] = useState<LeadStats>({
+    total_leads: 0,
+    leads_convertidos: 0,
+    valor_total_vendas: 0,
+    valor_total_arrecadado: 0,
+    taxa_conversao: 0,
+    ticket_medio: 0
+  })
+
+  // Filtros calculados para os hooks
+  const leadFilters = useMemo(() => {
+    const filters: Record<string, any> = {}
+    
+    if (statusFilter !== 'todos') {
+      filters.status = statusFilter
+    }
+    
+    if (origemFilter !== 'todas') {
+      filters.origem = origemFilter
+    }
+    
+    return filters
+  }, [statusFilter, origemFilter])
+
+  // Hook para buscar leads com filtros estáveis
+  const { 
+    data: leads, 
+    loading: leadsLoading, 
+    error: leadsError, 
+    refetch: refetchLeads,
+    isRefetching: isRefetchingLeads 
+  } = useStableData<Lead>({
+    tableName: 'leads',
+    filters: leadFilters,
+    dependencies: [statusFilter, origemFilter, dateFilter, customStartDate, customEndDate],
+    debounceMs: 500
+  })
+
+  // Hook para mutações (criar/editar/deletar leads)
+  const createLead = useStableMutation('leads', 'insert', {
+    onSuccess: () => {
+      refetchLeads()
+      setIsModalOpen(false)
+      setEditingLead(null)
+    }
+  })
+
+  const updateLead = useStableMutation('leads', 'update', {
+    onSuccess: () => {
+      refetchLeads()
+      setIsModalOpen(false)
+      setEditingLead(null)
+    }
+  })
+
+  const deleteLead = useStableMutation('leads', 'delete', {
+    onSuccess: () => {
+      refetchLeads()
+    }
+  })
+
+  // Estado derivado
+  const loading = leadsLoading
+  const isLoadingData = isRefetchingLeads || createLead.isLoading || updateLead.isLoading || deleteLead.isLoading
 
   // Função para obter range de datas
   const getDateRange = (filter: string) => {
@@ -221,22 +278,12 @@ export default function LeadsPage() {
   const [conversionData, setConversionData] = useState<Array<{month: string, leads: number, vendas: number, taxa: number}>>([])
   const [conversionChartLoading, setConversionChartLoading] = useState(true)
 
+  // Carregar stats quando leads mudarem
   useEffect(() => {
-    loadLeads()
     loadStats()
-    loadOrigemData()
+    loadOrigemData() 
     loadConversionData()
-  }, [])
-
-  // Recarregar dados quando filtros mudarem
-  useEffect(() => {
-    if (!loading) { // Só recarrega se não está no loading inicial
-      setIsLoadingData(true)
-      loadLeads()
-      loadStats()
-      loadOrigemData()
-    }
-  }, [statusFilter, origemFilter, dateFilter, customStartDate, customEndDate])
+  }, [leads])
 
   const loadLeads = async () => {
     try {
@@ -621,6 +668,17 @@ export default function LeadsPage() {
 
   return (
     <ProtectedRoute>
+      <div className="relative">
+        {/* Loading Overlay */}
+        {isLoadingData && (
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-white rounded-lg p-6 shadow-xl flex items-center gap-3">
+              <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+              <span className="text-sm font-medium">Sincronizando dados...</span>
+            </div>
+          </div>
+        )}
+        
       <PageLayout title="Leads" subtitle="Gestão completa de leads e oportunidades">
       {/* KPI Cards - Grid responsivo */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -870,13 +928,27 @@ export default function LeadsPage() {
             <Download className="w-4 h-4" />
             Exportar
           </button>
-          <button
-            onClick={handleNewLead}
-            className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-medium transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Novo Lead
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => refetchLeads()}
+              disabled={isLoadingData}
+              className={`flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl font-medium transition-all ${
+                isLoadingData 
+                ? 'opacity-50 cursor-not-allowed' 
+                : 'hover:bg-gray-50 hover:border-gray-400'
+              }`}
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
+              {isLoadingData ? 'Atualizando...' : 'Atualizar'}
+            </button>
+            <button
+              onClick={handleNewLead}
+              className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Novo Lead
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1264,44 +1336,26 @@ className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py
             <EditLeadForm
               lead={editingLead}
               onSave={async (leadData) => {
-                try {
-                  if (editingLead) {
-                    // Editar lead existente
-                    const { error } = await supabase
-                      .from('leads')
-                      .update(leadData)
-                      .eq('id', editingLead.id)
+                console.log('🔍 Debug leadData antes de salvar:', leadData)
+                
+                // Processar dados para garantir tipos corretos
+                const processedData = {
+                  ...leadData,
+                  // Converter empty strings para null em campos UUID
+                  sdr_id: leadData.sdr_id?.trim() || null,
+                  closer_id: leadData.closer_id?.trim() || null,
+                  mentorado_indicador_id: leadData.mentorado_indicador_id?.trim() || null,
+                }
 
-                    if (error) throw error
-
-                    // Verificar se lead foi marcado como vendido e tem indicador
-                    await checkAndCreateCommission(editingLead.id, leadData, editingLead)
-                  } else {
-                    // Criar novo lead
-                    console.log('🔍 Debug leadData antes de inserir:', leadData)
-                    const { data: newLead, error } = await supabase
-                      .from('leads')
-                      .insert(leadData)
-                      .select()
-
-                    if (error) {
-                      console.error('❌ Erro detalhado ao inserir lead:', error)
-                      console.error('❌ Dados que causaram erro:', leadData)
-                      throw error
-                    }
-
-                    // Verificar se novo lead foi marcado como vendido e tem indicador
-                    if (newLead && newLead[0]) {
-                      await checkAndCreateCommission(newLead[0].id, leadData)
-                    }
-                  }
-
-                  setIsModalOpen(false)
-                  setEditingLead(null)
-                  await loadLeads() // Recarregar dados
-                } catch (error) {
-                  console.error('Erro ao salvar lead:', error)
-                  alert(editingLead ? 'Erro ao salvar alterações' : 'Erro ao criar lead')
+                if (editingLead) {
+                  // Editar lead existente
+                  await updateLead.mutate({ id: editingLead.id, ...processedData })
+                  
+                  // Verificar se lead foi marcado como vendido e tem indicador
+                  await checkAndCreateCommission(editingLead.id, processedData, editingLead)
+                } else {
+                  // Criar novo lead
+                  await createLead.mutate(processedData)
                 }
               }}
               onCancel={() => {
@@ -1313,6 +1367,7 @@ className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py
         </div>
       )}
     </PageLayout>
+      </div>
     </ProtectedRoute>
   )
 }
