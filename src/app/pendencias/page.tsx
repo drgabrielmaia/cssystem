@@ -648,7 +648,7 @@ export default function PendenciasPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {[2023, 2024, 2025, 2026].map(ano => (
+                {Array.from({ length: 50 }, (_, i) => 2020 + i).map(ano => (
                   <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
                 ))}
               </SelectContent>
