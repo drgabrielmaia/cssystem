@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
@@ -9,6 +9,8 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   organizationId: string | null
+  isAuthenticated: boolean
+  refreshAuth: () => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -30,6 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [isInitialized, setIsInitialized] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const router = useRouter()
 
 
@@ -229,26 +232,78 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Função para validar autenticação atual (força verificação no Supabase)
+  const refreshAuth = useCallback(async () => {
+    console.log('🔄 Refresh auth forçado...')
+    setLoading(true)
+    
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession()
+      
+      if (error || !session?.user) {
+        console.log('❌ Refresh: sem sessão válida')
+        setUser(null)
+        setOrganizationId(null)
+        setIsAuthenticated(false)
+        clearAuthData()
+        return
+      }
+
+      const currentUser = session.user
+      console.log('✅ Refresh: sessão válida encontrada')
+
+      // Verificar organização
+      const orgId = await getOrganizationForUser(currentUser)
+      
+      if (!orgId) {
+        console.log('❌ Refresh: usuário sem organização ativa')
+        setUser(null)
+        setOrganizationId(null)
+        setIsAuthenticated(false)
+        clearAuthData()
+        return
+      }
+
+      setUser(currentUser)
+      setOrganizationId(orgId)
+      setIsAuthenticated(true)
+      saveAuthData(currentUser, orgId)
+      
+      console.log('✅ Refresh auth completado com sucesso')
+    } catch (error) {
+      console.error('❌ Erro no refresh auth:', error)
+      setUser(null)
+      setOrganizationId(null)
+      setIsAuthenticated(false)
+      clearAuthData()
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   const getOrganizationForUser = async (user: User): Promise<string | null> => {
     try {
-      const { data: orgUser } = await supabase
+      const { data: orgUser, error } = await supabase
         .from('organization_users')
-        .select('organization_id')
+        .select('organization_id, is_active')
         .eq('email', user.email)
         .eq('is_active', true)
         .single()
 
-      if (orgUser) {
-        setOrganizationId(orgUser.organization_id)
-        return orgUser.organization_id
-      } else {
-        console.warn('Usuário sem organização:', user.email)
+      if (error || !orgUser || !orgUser.is_active) {
+        console.warn('Usuário sem organização ativa:', user.email, error)
         setOrganizationId(null)
+        setIsAuthenticated(false)
         return null
       }
+
+      setOrganizationId(orgUser.organization_id)
+      setIsAuthenticated(true)
+      return orgUser.organization_id
     } catch (error: any) {
       console.error('Erro ao buscar organização:', error)
       setOrganizationId(null)
+      setIsAuthenticated(false)
       return null
     }
   }
@@ -257,6 +312,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     organizationId,
     loading,
+    isAuthenticated,
+    refreshAuth,
     signOut,
   }
 

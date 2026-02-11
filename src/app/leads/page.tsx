@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { PageLayout } from '@/components/ui/page-layout'
 import { KPICardVibrant } from '@/components/ui/kpi-card-vibrant'
 import { MetricCard } from '@/components/ui/metric-card'
@@ -619,7 +620,8 @@ export default function LeadsPage() {
   }
 
   return (
-    <PageLayout title="Leads" subtitle="Gestão completa de leads e oportunidades">
+    <ProtectedRoute>
+      <PageLayout title="Leads" subtitle="Gestão completa de leads e oportunidades">
       {/* KPI Cards - Grid responsivo */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <KPICardVibrant
@@ -1311,6 +1313,7 @@ className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py
         </div>
       )}
     </PageLayout>
+    </ProtectedRoute>
   )
 }
 
