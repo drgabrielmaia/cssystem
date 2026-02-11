@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useStableData } from '@/hooks/use-stable-data'
+import { useStableMutation } from '@/hooks/use-stable-mutation'
 import { Header } from '@/components/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -72,15 +74,13 @@ const MESES = [
 
 export default function PendenciasPage() {
   const { organizationId } = useAuth()
-  const [mentorados, setMentorados] = useState<MentoradoComDividas[]>([])
-  const [comissoesPendentes, setComissoesPendentes] = useState<Comissao[]>([])
-  const [loading, setLoading] = useState(true)
+  
+  // Estados locais simples
   const [searchTerm, setSearchTerm] = useState('')
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear())
   const [turmaSelecionada, setTurmaSelecionada] = useState('todas')
   const [mostrarApenasAtrasados, setMostrarApenasAtrasados] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [mentoradosDisponiveis, setMentoradosDisponiveis] = useState<any[]>([])
 
   // Estados do formulário de nova dívida
   const [selectedMentorado, setSelectedMentorado] = useState('')
@@ -99,213 +99,172 @@ export default function PendenciasPage() {
   const [novoValor, setNovoValor] = useState('')
   const [novaDataVencimento, setNovaDataVencimento] = useState('')
 
-  useEffect(() => {
-    loadAllData()
-  }, [anoSelecionado])
+  // Filtros otimizados
+  const dividasFilters = useMemo(() => ({
+    ano: anoSelecionado
+  }), [anoSelecionado])
 
-  const loadAllData = async () => {
-    try {
-      setLoading(true)
-      await Promise.all([
-        loadDividasData(),
-        loadMentoradosDisponiveis(),
-        loadComissoesPendentes()
-      ])
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Hook para buscar dívidas de forma otimizada
+  const { 
+    data: rawDividas, 
+    loading: dividasLoading, 
+    refetch: refetchDividas,
+    isRefetching: isRefetchingDividas 
+  } = useStableData<any>({
+    tableName: 'dividas',
+    select: '*',
+    filters: {},
+    dependencies: [anoSelecionado],
+    debounceMs: 300
+  })
 
-  const loadComissoesPendentes = async () => {
-    try {
-      // Obter usuário atual e organização
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        console.log('Usuário não encontrado para comissões')
-        return
-      }
+  // Hook para buscar mentorados
+  const { 
+    data: mentoradosDisponiveis, 
+    loading: mentoradosLoading,
+    refetch: refetchMentorados 
+  } = useStableData<any>({
+    tableName: 'mentorados',
+    select: 'id, nome_completo',
+    filters: organizationId ? { organization_id: organizationId } : {},
+    dependencies: [organizationId],
+    debounceMs: 500
+  })
 
-      // Buscar organization_id do usuário
-      const { data: orgUser, error: orgError } = await supabase
-        .from('organization_users')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single()
+  // Hook para buscar comissões pendentes
+  const { 
+    data: comissoesPendentes, 
+    loading: comissoesLoading 
+  } = useStableData<Comissao>({
+    tableName: 'comissoes',
+    select: '*',
+    filters: { status_pagamento: 'pendente' },
+    dependencies: [],
+    debounceMs: 1000
+  })
 
-      console.log('DEBUG Comissões - orgUser:', { orgUser, orgError })
+  // Hooks de mutação otimizados
+  const createDivida = useStableMutation('dividas', 'insert', {
+    onSuccess: () => {
+      refetchDividas()
+      setIsModalOpen(false)
+      setSelectedMentorado('')
+      setValorDivida('')
+      setDataVencimento('')
+    },
+    debounceMs: 100
+  })
 
-      const organizationId = orgUser?.organization_id
+  const updateDivida = useStableMutation('dividas', 'update', {
+    onSuccess: () => {
+      refetchDividas()
+      setIsEditModalOpen(false)
+      setEditingDivida(null)
+    },
+    debounceMs: 100
+  })
 
-      // Buscar todas as comissões pendentes (tabela não tem organization_id ainda)
-      const { data: comissoes, error } = await supabase
-        .from('comissoes')
-        .select('*')
-        .eq('status_pagamento', 'pendente')
-        .order('created_at', { ascending: false })
+  const deleteDivida = useStableMutation('dividas', 'delete', {
+    onSuccess: () => {
+      refetchDividas()
+    },
+    debounceMs: 0
+  })
 
-      console.log('DEBUG Comissões:', { comissoes, error, organizationId })
+  // Estados derivados otimizados
+  const loading = dividasLoading || mentoradosLoading || comissoesLoading
+  const isLoadingOperations = createDivida.isLoading || updateDivida.isLoading || deleteDivida.isLoading || isRefetchingDividas
 
-      if (error) throw error
+  // Processamento otimizado de dados com memoização
+  const mentorados = useMemo(() => {
+    if (!rawDividas || !mentoradosDisponiveis) return []
 
-      // Para cada comissão, buscar os dados do lead e mentorado separadamente
-      const comissoesComDados = []
-      for (const comissao of comissoes || []) {
-        const comissaoCompleta = { ...comissao }
+    // Filtrar dívidas por ano de forma otimizada
+    const dividasDoAno = rawDividas.filter((divida: any) => {
+      const ano = new Date(divida.data_vencimento).getFullYear()
+      return ano === anoSelecionado
+    })
 
-        // Buscar dados do lead se existir lead_id
-        if (comissao.lead_id) {
-          const { data: lead } = await supabase
-            .from('leads')
-            .select('nome_completo, telefone')
-            .eq('id', comissao.lead_id)
-            .single()
-
-          comissaoCompleta.leads = lead
-        }
-
-        // Buscar dados do mentorado se existir mentorado_id
-        if (comissao.mentorado_id) {
-          const { data: mentorado } = await supabase
-            .from('mentorados')
-            .select('nome_completo, email, turma')
-            .eq('id', comissao.mentorado_id)
-            .single()
-
-          comissaoCompleta.mentorados = mentorado
-        }
-
-        comissoesComDados.push(comissaoCompleta)
-      }
-
-      setComissoesPendentes(comissoesComDados)
-    } catch (error) {
-      console.error('Erro ao carregar comissões pendentes:', error)
-    }
-  }
-
-  const loadMentoradosDisponiveis = async () => {
-    try {
-      // Obter usuário atual e organização
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Buscar organization_id do usuário
-      const { data: orgUser } = await supabase
-        .from('organization_users')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single()
-
-      const organizationId = orgUser?.organization_id
-
-      const { data } = await supabase
-        .from('mentorados')
-        .select('id, nome_completo')
-        .eq('organization_id', organizationId)
-        .order('nome_completo')
-
-      setMentoradosDisponiveis(data || [])
-    } catch (error) {
-      console.error('Erro ao carregar mentorados:', error)
-    }
-  }
-
-  const loadDividasData = async () => {
-    try {
-      // Obter usuário atual e organização
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        console.log('Usuário não encontrado para dívidas')
-        return
-      }
-
-      // Buscar organization_id do usuário
-      const { data: orgUser, error: orgError } = await supabase
-        .from('organization_users')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single()
-
-      console.log('DEBUG Dívidas - orgUser:', { orgUser, orgError })
-
-      const organizationId = orgUser?.organization_id
-
-      // Buscar todas as dívidas (tabela não tem organization_id ainda)
-      const { data: dividasData, error: dividasError } = await supabase
-        .from('dividas')
-        .select('*')
-        .gte('data_vencimento', `${anoSelecionado}-01-01`)
-        .lte('data_vencimento', `${anoSelecionado}-12-31`)
-        .order('mentorado_nome, data_vencimento')
-
-      // Buscar mentorados - se não tiver organization_id, buscar sem filtro
-      let mentoradosQuery = supabase
-        .from('mentorados')
-        .select('*')
-        .order('nome_completo')
-
-      if (organizationId) {
-        mentoradosQuery = mentoradosQuery.eq('organization_id', organizationId)
-      } else {
-        console.log('DEBUG: Buscando mentorados sem filtro de organização')
-      }
-
-      const { data: mentoradosData, error: mentoradosError } = await mentoradosQuery
-
-      console.log('DEBUG Dívidas:', {
-        dividasData,
-        dividasError,
-        mentoradosData,
-        mentoradosError,
-        organizationId,
-        anoSelecionado
+    // Criar map de mentorados para lookup O(1)
+    const mentoradosMap = new Map()
+    mentoradosDisponiveis.forEach((mentorado: any) => {
+      mentoradosMap.set(mentorado.id, {
+        id: mentorado.id,
+        nome_completo: mentorado.nome_completo,
+        email: mentorado.email || '',
+        turma: mentorado.turma || '',
+        dividas: [],
+        totalPendente: 0,
+        totalDividas: 0
       })
+    })
 
-      if (dividasData && mentoradosData) {
-        // Agrupar dívidas por mentorado
-        const mentoradosMap = new Map<string, MentoradoComDividas>()
-
-        // Inicializar todos os mentorados
-        mentoradosData.forEach(mentorado => {
-          mentoradosMap.set(mentorado.id, {
-            id: mentorado.id,
-            nome_completo: mentorado.nome_completo,
-            email: mentorado.email,
-            turma: mentorado.turma,
-            dividas: [],
-            totalPendente: 0,
-            totalDividas: 0
-          })
-        })
-
-        // Adicionar dívidas aos mentorados
-        dividasData.forEach(divida => {
-          let mentorado = mentoradosMap.get(divida.mentorado_id)
-
-          if (!mentorado) {
-            mentorado = Array.from(mentoradosMap.values()).find(m =>
-              m.nome_completo === divida.mentorado_nome
-            )
+    // Agrupar dívidas por mentorado de forma eficiente
+    dividasDoAno.forEach((divida: any) => {
+      let mentorado = mentoradosMap.get(divida.mentorado_id)
+      
+      // Fallback: buscar por nome se não encontrar por ID
+      if (!mentorado) {
+        for (const [id, m] of Array.from(mentoradosMap.entries())) {
+          if ((m as any).nome_completo === divida.mentorado_nome) {
+            mentorado = m
+            break
           }
-
-          if (mentorado) {
-            mentorado.dividas.push(divida)
-            if (divida.status === 'pendente') {
-              mentorado.totalPendente += divida.valor
-            }
-            mentorado.totalDividas++
-          }
-        })
-
-        const mentoradosArray = Array.from(mentoradosMap.values())
-        setMentorados(mentoradosArray)
+        }
       }
-    } catch (error) {
-      console.error('Erro ao carregar dívidas:', error)
+
+      if (mentorado) {
+        mentorado.dividas.push(divida)
+        if (divida.status === 'pendente') {
+          mentorado.totalPendente += divida.valor
+        }
+        mentorado.totalDividas++
+      }
+    })
+
+    return Array.from(mentoradosMap.values())
+  }, [rawDividas, mentoradosDisponiveis, anoSelecionado])
+
+  // Funções otimizadas
+  const handleNovaDivida = useCallback(async () => {
+    if (!selectedMentorado || !valorDivida || !dataVencimento) {
+      alert('Preencha todos os campos')
+      return
     }
-  }
+
+    const mentoradoSelecionado = mentoradosDisponiveis?.find(m => m.id === selectedMentorado)
+    const valorNumerico = parseFloat(valorDivida.replace(',', '.'))
+
+    await createDivida.mutate({
+      mentorado_id: selectedMentorado,
+      mentorado_nome: mentoradoSelecionado?.nome_completo,
+      valor: valorNumerico,
+      data_vencimento: dataVencimento,
+      status: 'pendente'
+    })
+  }, [selectedMentorado, valorDivida, dataVencimento, mentoradosDisponiveis, createDivida])
+
+  const handleEditarDivida = useCallback(async () => {
+    if (!editingDivida || !novoValor || !novaDataVencimento) {
+      alert('Preencha todos os campos')
+      return
+    }
+
+    await updateDivida.mutate({
+      id: editingDivida.id,
+      valor: parseFloat(novoValor.replace(',', '.')),
+      data_vencimento: novaDataVencimento
+    })
+  }, [editingDivida, novoValor, novaDataVencimento, updateDivida])
+
+  const removerDivida = useCallback(async (dividaId: string) => {
+    if (!confirm('Tem certeza que deseja remover esta dívida?')) return
+    await deleteDivida.mutate(dividaId)
+  }, [deleteDivida])
+
+
+
+
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -348,7 +307,7 @@ export default function PendenciasPage() {
       const hoje = new Date()
       hoje.setHours(0, 0, 0, 0)
 
-      const temAtraso = mentorado.dividas.some(divida => {
+      const temAtraso = mentorado.dividas.some((divida: any) => {
         if (divida.status === 'pendente') {
           const dataVencimento = new Date(divida.data_vencimento + 'T12:00:00')
           dataVencimento.setHours(0, 0, 0, 0)
@@ -387,7 +346,7 @@ export default function PendenciasPage() {
 
     mentorados.forEach(mentorado => {
       let temAtraso = false
-      mentorado.dividas.forEach(divida => {
+      mentorado.dividas.forEach((divida: any) => {
         if (divida.status === 'pendente') {
           const dataVencimento = new Date(divida.data_vencimento + 'T12:00:00')
           dataVencimento.setHours(0, 0, 0, 0)
@@ -426,53 +385,6 @@ export default function PendenciasPage() {
   const metricas = getMetricas()
   const turmasDisponiveis = getTurmasDisponiveis()
 
-  const handleNovaDivida = async () => {
-    if (!selectedMentorado || !valorDivida || !dataVencimento) {
-      alert('Preencha todos os campos')
-      return
-    }
-
-    try {
-      // Obter usuário atual e organização
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Buscar organization_id do usuário
-      const { data: orgUser } = await supabase
-        .from('organization_users')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single()
-
-      const organizationId = orgUser?.organization_id
-
-      const mentoradoSelecionado = mentoradosDisponiveis.find(m => m.id === selectedMentorado)
-      const valorNumerico = parseFloat(valorDivida.replace(',', '.'))
-
-      const { error } = await supabase
-        .from('dividas')
-        .insert({
-          mentorado_id: selectedMentorado,
-          mentorado_nome: mentoradoSelecionado?.nome_completo,
-          valor: valorNumerico,
-          data_vencimento: dataVencimento,
-          status: 'pendente',
-          // organization_id: organizationId // Tabela não tem essa coluna ainda
-        })
-
-      if (error) throw error
-
-      await loadDividasData()
-
-      setSelectedMentorado('')
-      setValorDivida('')
-      setDataVencimento('')
-      setIsModalOpen(false)
-    } catch (error) {
-      console.error('Erro ao salvar dívida:', error)
-      alert('Erro ao salvar dívida')
-    }
-  }
 
   const abrirModalPagamento = (divida: Divida) => {
     setDividaSelecionada(divida)
@@ -560,7 +472,7 @@ export default function PendenciasPage() {
         // Não quebrar o fluxo se a notificação falhar
       }
 
-      await loadDividasData()
+      refetchDividas()
       setIsModalPagamentoOpen(false)
       setDividaSelecionada(null)
       setValorPago('')
@@ -580,51 +492,7 @@ export default function PendenciasPage() {
     setIsEditModalOpen(true)
   }
 
-  const handleEditarDivida = async () => {
-    if (!editingDivida || !novoValor || !novaDataVencimento) {
-      alert('Preencha todos os campos')
-      return
-    }
 
-    try {
-      const { error } = await supabase
-        .from('dividas')
-        .update({
-          valor: parseFloat(novoValor.replace(',', '.')),
-          data_vencimento: novaDataVencimento
-        })
-        .eq('id', editingDivida.id)
-
-      if (error) throw error
-
-      await loadDividasData()
-
-      setEditingDivida(null)
-      setNovoValor('')
-      setNovaDataVencimento('')
-      setIsEditModalOpen(false)
-    } catch (error) {
-      console.error('Erro ao editar dívida:', error)
-      alert('Erro ao editar dívida')
-    }
-  }
-
-  const removerDivida = async (dividaId: string) => {
-    if (!confirm('Tem certeza que deseja remover esta dívida?')) return
-
-    try {
-      const { error } = await supabase
-        .from('dividas')
-        .delete()
-        .eq('id', dividaId)
-
-      if (error) throw error
-      await loadDividasData()
-    } catch (error) {
-      console.error('Erro ao remover dívida:', error)
-      alert('Erro ao remover dívida')
-    }
-  }
 
   if (loading) {
     return (
@@ -868,9 +736,9 @@ export default function PendenciasPage() {
           )}
 
           {filteredMentorados.map((mentorado) => {
-            const dividasPendentes = mentorado.dividas.filter(d => d.status === 'pendente')
+            const dividasPendentes = mentorado.dividas.filter((d: any) => d.status === 'pendente')
             const gruposPorMes = MESES.reduce((grupos, mes) => {
-              grupos[mes.numero] = dividasPendentes.filter(d =>
+              grupos[mes.numero] = dividasPendentes.filter((d: any) =>
                 new Date(d.data_vencimento).getMonth() + 1 === mes.numero
               )
               return grupos

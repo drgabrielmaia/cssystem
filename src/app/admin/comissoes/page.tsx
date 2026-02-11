@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useCallback, useMemo } from 'react'
+import { useStableData } from '@/hooks/use-stable-data'
+import { useStableMutation } from '@/hooks/use-stable-mutation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -41,8 +43,6 @@ interface Comissao {
 }
 
 export default function AdminComissoesPage() {
-  const [comissoes, setComissoes] = useState<Comissao[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<'todos' | 'pendente' | 'pago' | 'recusado' | 'cancelado'>('todos')
   const [selectedComissao, setSelectedComissao] = useState<Comissao | null>(null)
@@ -55,124 +55,93 @@ export default function AdminComissoesPage() {
   })
   const [showGlobalConfigModal, setShowGlobalConfigModal] = useState(false)
 
-  useEffect(() => {
-    verificarAutenticacao()
-    carregarComissoes()
-  }, [])
+  // Use stable hook for commissions data
+  const {
+    data: rawComissoes,
+    loading: comissoesLoading,
+    error: comissoesError,
+    refetch: refetchComissoes
+  } = useStableData<any>({
+    tableName: 'comissoes',
+    select: `
+      *,
+      mentorados:mentorado_id (
+        nome_completo,
+        email
+      ),
+      leads:lead_id (
+        nome_completo,
+        empresa
+      )
+    `,
+    dependencies: [],
+    autoLoad: true,
+    debounceMs: 300
+  })
 
-  const verificarAutenticacao = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('🔐 Status da sessão:', session ? 'Autenticado' : 'Não autenticado')
-      if (session?.user) {
-        console.log('👤 Usuário:', session.user.email)
-      }
-    } catch (error) {
-      console.error('❌ Erro ao verificar autenticação:', error)
+  // Memoized commissions transformation
+  const comissoes = useMemo(() => {
+    if (!rawComissoes?.length) return []
+    
+    return rawComissoes.map(comissao => ({
+      ...comissao,
+      mentorado_nome: comissao.mentorados?.nome_completo,
+      mentorado_email: comissao.mentorados?.email,
+      lead_nome: comissao.leads?.nome_completo,
+      lead_empresa: comissao.leads?.empresa,
+    })) as Comissao[]
+  }, [rawComissoes])
+
+  // Stable mutations for commission operations
+  const { mutate: mutateUpdateComissao, isLoading: isUpdatingComissao, error: updateError } = useStableMutation(
+    'comissoes',
+    'update',
+    {
+      onSuccess: async () => {
+        await refetchComissoes()
+      },
+      debounceMs: 150
     }
-  }
+  )
 
-  const carregarComissoes = async () => {
+  const aprovarComissao = useCallback(async (id: string) => {
     try {
-      setLoading(true)
-      console.log('🔍 Carregando todas as comissões para admin...')
-
-      // Buscar comissões com dados dos mentorados e leads
-      const { data: comissoesData, error } = await supabase
-        .from('comissoes')
-        .select(`
-          *,
-          mentorados:mentorado_id (
-            nome_completo,
-            email
-          ),
-          leads:lead_id (
-            nome_completo,
-            empresa
-          )
-        `)
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('❌ Erro ao buscar comissões:', error)
-        return
-      }
-
-      // Formatar dados
-      const comissoesFormatadas = comissoesData?.map(comissao => ({
-        ...comissao,
-        mentorado_nome: comissao.mentorados?.nome_completo,
-        mentorado_email: comissao.mentorados?.email,
-        lead_nome: comissao.leads?.nome_completo,
-        lead_empresa: comissao.leads?.empresa,
-      })) || []
-
-      setComissoes(comissoesFormatadas)
-      console.log('✅ Comissões carregadas:', comissoesFormatadas.length)
-
-    } catch (error) {
-      console.error('❌ Erro ao carregar comissões:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const aprovarComissao = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('comissoes')
-        .update({
-          status_pagamento: 'pago',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-
-      if (error) {
-        console.error('❌ Erro ao aprovar comissão:', error)
-        alert('Erro ao aprovar comissão')
-        return
-      }
-
+      await mutateUpdateComissao({
+        id,
+        status_pagamento: 'pago',
+        updated_at: new Date().toISOString()
+      })
+      
       console.log('✅ Comissão aprovada com sucesso')
       alert('Comissão aprovada e marcada como paga!')
-      carregarComissoes()
     } catch (error) {
       console.error('❌ Erro ao aprovar comissão:', error)
       alert('Erro ao aprovar comissão')
     }
-  }
+  }, [mutateUpdateComissao])
 
-  const recusarComissao = async (id: string) => {
+  const recusarComissao = useCallback(async (id: string) => {
     try {
       const motivo = prompt('Motivo da recusa (opcional):')
+      const comissao = comissoes.find(c => c.id === id)
 
-      const { error } = await supabase
-        .from('comissoes')
-        .update({
-          status_pagamento: 'recusado',
-          observacoes: selectedComissao?.observacoes + (motivo ? ` | RECUSADA: ${motivo}` : ' | RECUSADA'),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-
-      if (error) {
-        console.error('❌ Erro ao recusar comissão:', error)
-        alert('Erro ao recusar comissão')
-        return
-      }
+      await mutateUpdateComissao({
+        id,
+        status_pagamento: 'recusado',
+        observacoes: (comissao?.observacoes || '') + (motivo ? ` | RECUSADA: ${motivo}` : ' | RECUSADA'),
+        updated_at: new Date().toISOString()
+      })
 
       console.log('✅ Comissão recusada com sucesso')
       alert('Comissão recusada!')
-      carregarComissoes()
     } catch (error) {
       console.error('❌ Erro ao recusar comissão:', error)
       alert('Erro ao recusar comissão')
     }
-  }
+  }, [mutateUpdateComissao, comissoes])
 
-  const abrirModalEditar = (comissao: Comissao) => {
+  const abrirModalEditar = useCallback((comissao: Comissao) => {
     console.log('✏️ Abrindo modal de edição para comissão:', comissao.id)
-    console.log('✏️ Dados da comissão:', comissao)
     setSelectedComissao(comissao)
     setEditForm({
       valor_comissao: comissao.valor_comissao || 0,
@@ -180,114 +149,76 @@ export default function AdminComissoesPage() {
       observacoes: comissao.observacoes || ''
     })
     setShowEditModal(true)
-    console.log('✏️ Modal de edição definido como true')
-  }
+  }, [])
 
-  const calcularValorPorPercentual = (percentual: number, valorVenda: number) => {
+  const calcularValorPorPercentual = useCallback((percentual: number, valorVenda: number) => {
     return (valorVenda * percentual) / 100
-  }
+  }, [])
 
-  const salvarEdicaoComissao = async () => {
+  const salvarEdicaoComissao = useCallback(async () => {
     if (!selectedComissao) return
     
     console.log('🔄 Iniciando edição de comissão...')
-    console.log('📊 Dados para atualização:', {
-      id: selectedComissao.id,
-      valor_comissao: editForm.valor_comissao,
-      percentual_comissao: editForm.percentual_comissao,
-      observacoes: editForm.observacoes
-    })
     
-    // Verificar autenticação antes da edição
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      console.error('❌ Usuário não autenticado para edição')
-      alert('Erro: Usuário não autenticado. Faça login novamente.')
-      return
-    }
-
     try {
-      const { error } = await supabase
-        .from('comissoes')
-        .update({
-          valor_comissao: editForm.valor_comissao,
-          percentual_comissao: editForm.percentual_comissao,
-          observacoes: editForm.observacoes,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedComissao.id)
-
-      if (error) {
-        console.error('❌ Erro ao editar comissão:', error)
-        console.error('❌ Detalhes do erro:', error.message)
-        alert(`Erro ao editar comissão: ${error.message}`)
-        return
-      }
+      await mutateUpdateComissao({
+        id: selectedComissao.id,
+        valor_comissao: editForm.valor_comissao,
+        percentual_comissao: editForm.percentual_comissao,
+        observacoes: editForm.observacoes,
+        updated_at: new Date().toISOString()
+      })
 
       console.log('✅ Comissão editada com sucesso')
       alert('Comissão editada com sucesso!')
       setShowEditModal(false)
-      carregarComissoes()
     } catch (error) {
       console.error('❌ Erro ao editar comissão:', error)
       alert('Erro ao editar comissão')
     }
-  }
+  }, [selectedComissao, editForm, mutateUpdateComissao])
 
-  const definirTodosCom5Porcento = async () => {
+  const definirTodosCom5Porcento = useCallback(async () => {
     if (!confirm('Isso irá definir TODAS as comissões pendentes para 5%. Continuar?')) {
       return
     }
 
     try {
-      setLoading(true)
-
-      // Buscar todas as comissões pendentes
-      const { data: comissoesPendentes, error: fetchError } = await supabase
-        .from('comissoes')
-        .select('id, valor_venda')
-        .eq('status_pagamento', 'pendente')
-
-      if (fetchError) {
-        console.error('❌ Erro ao buscar comissões:', fetchError)
-        alert('Erro ao buscar comissões')
-        return
-      }
-
+      // Buscar apenas comissões pendentes dos dados já carregados
+      const comissoesPendentes = comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente')
+      
       // Atualizar cada comissão com 5% do valor de venda
-      for (const comissao of comissoesPendentes || []) {
+      for (const comissao of comissoesPendentes) {
         const novoValor = calcularValorPorPercentual(5, comissao.valor_venda)
         
-        await supabase
-          .from('comissoes')
-          .update({
-            valor_comissao: novoValor,
-            percentual_comissao: 5,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', comissao.id)
+        await mutateUpdateComissao({
+          id: comissao.id,
+          valor_comissao: novoValor,
+          percentual_comissao: 5,
+          updated_at: new Date().toISOString()
+        })
       }
 
-      alert(`✅ ${comissoesPendentes?.length || 0} comissões atualizadas para 5%!`)
+      alert(`✅ ${comissoesPendentes.length} comissões atualizadas para 5%!`)
       setShowGlobalConfigModal(false)
-      carregarComissoes()
 
     } catch (error) {
       console.error('❌ Erro ao atualizar comissões:', error)
       alert('Erro ao atualizar comissões')
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [comissoes, calcularValorPorPercentual, mutateUpdateComissao])
 
-  const corrigirComissoesZeradas = async () => {
+  const corrigirComissoesZeradas = useCallback(async () => {
+    const comissoesZeradas = comissoes.filter(c => 
+      (c.status_pagamento || 'pendente') === 'pendente' && 
+      (c.valor_comissao || 0) === 0
+    ).length
+
+    if (!confirm(`Corrigir ${comissoesZeradas} comissões zeradas para R$ 2.000,00 cada?`)) {
+      return
+    }
+
     try {
-      if (!confirm(`Corrigir ${stats.comissoesZeradas} comissões zeradas para R$ 2.000,00 cada?`)) {
-        return
-      }
-
-      setLoading(true)
-
       const response = await fetch('/api/admin/fix-commissions', {
         method: 'POST',
         headers: {
@@ -299,7 +230,7 @@ export default function AdminComissoesPage() {
 
       if (response.ok) {
         alert(`✅ ${result.corrigidas || 0} comissões corrigidas com sucesso!`)
-        carregarComissoes()
+        await refetchComissoes() // Use stable refetch instead
       } else {
         throw new Error(result.error || 'Erro na correção')
       }
@@ -307,10 +238,8 @@ export default function AdminComissoesPage() {
     } catch (error: any) {
       console.error('❌ Erro ao corrigir comissões:', error)
       alert(`❌ Erro: ${error.message}`)
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [comissoes, refetchComissoes])
 
   const getStatusBadge = (status?: string) => {
     switch (status) {
@@ -333,26 +262,30 @@ export default function AdminComissoesPage() {
     }).format(value)
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
     })
-  }
+  }, [])
 
-  const filteredComissoes = comissoes.filter(comissao => {
-    const matchesSearch =
-      comissao.mentorado_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      comissao.lead_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      comissao.observacoes?.toLowerCase().includes(searchTerm.toLowerCase())
+  // Memoized filtered commissions
+  const filteredComissoes = useMemo(() => {
+    return comissoes.filter(comissao => {
+      const matchesSearch = searchTerm.length === 0 || 
+        comissao.mentorado_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        comissao.lead_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        comissao.observacoes?.toLowerCase().includes(searchTerm.toLowerCase())
 
-    const matchesStatus = filterStatus === 'todos' || (comissao.status_pagamento || 'pendente') === filterStatus
+      const matchesStatus = filterStatus === 'todos' || (comissao.status_pagamento || 'pendente') === filterStatus
 
-    return matchesSearch && matchesStatus
-  })
+      return matchesSearch && matchesStatus
+    })
+  }, [comissoes, searchTerm, filterStatus])
 
-  const stats = {
+  // Memoized statistics calculation
+  const stats = useMemo(() => ({
     total: comissoes.length,
     pendentes: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente').length,
     pagas: comissoes.filter(c => c.status_pagamento === 'pago').length,
@@ -361,7 +294,10 @@ export default function AdminComissoesPage() {
     totalValor: comissoes.reduce((acc, c) => acc + (c.valor_comissao || 0), 0),
     valorPendente: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente').reduce((acc, c) => acc + (c.valor_comissao || 0), 0),
     comissoesZeradas: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente' && (c.valor_comissao || 0) === 0).length
-  }
+  }), [comissoes])
+
+  // Combined loading state
+  const loading = comissoesLoading || isUpdatingComissao
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">

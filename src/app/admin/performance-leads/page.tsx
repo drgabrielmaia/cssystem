@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
+import { useStableData } from '@/hooks/use-stable-data'
+import { useStableMutation } from '@/hooks/use-stable-mutation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -88,23 +90,7 @@ interface CloserStats {
 }
 
 export default function AdvancedPerformanceLeadsPage() {
-  // State
-  const [loading, setLoading] = useState(true)
-  const [leads, setLeads] = useState<LeadDetailed[]>([])
-  const [closers, setClosers] = useState<CloserStats[]>([])
-  const [stats, setStats] = useState<DashboardStats>({
-    totalLeads: 0,
-    leadsQualificados: 0,
-    leadsConvertidos: 0,
-    taxaQualificacao: 0,
-    taxaConversao: 0,
-    valorPipeline: 0,
-    valorFechado: 0,
-    ticketMedio: 0,
-    cicloVendasMedio: 0
-  })
-  
-  // Filters
+  // Filter states
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCloser, setSelectedCloser] = useState<string>('all')
   const [selectedTemperatura, setSelectedTemperatura] = useState<string>('all')
@@ -117,245 +103,234 @@ export default function AdvancedPerformanceLeadsPage() {
   const [isInteractionModalOpen, setIsInteractionModalOpen] = useState(false)
   const [interactionForm, setInteractionForm] = useState<Partial<CreateLeadInteractionData>>({})
 
-  useEffect(() => {
-    loadDashboardData()
-  }, [dateRange, selectedCloser])
-
-  const loadDashboardData = async () => {
-    setLoading(true)
-    try {
-      await Promise.all([
-        loadLeads(),
-        loadClosers(),
-        loadStats()
-      ])
-    } catch (error) {
-      console.error('Error loading dashboard data:', error)
-      toast.error('Erro ao carregar dados do dashboard')
-    } finally {
-      setLoading(false)
+  // Calculate date filter for stable hooks
+  const dateFilter = useMemo(() => {
+    const date = new Date()
+    switch (dateRange) {
+      case '7_days':
+        date.setDate(date.getDate() - 7)
+        break
+      case '30_days':
+        date.setDate(date.getDate() - 30)
+        break
+      case '90_days':
+        date.setDate(date.getDate() - 90)
+        break
     }
-  }
+    return date.toISOString()
+  }, [dateRange])
 
-  const loadLeads = async () => {
-    try {
-      let query = supabase
-        .from('leads')
-        .select(`
-          *,
-          closer:closer_id(id, nome_completo, tipo_closer),
-          sdr:sdr_id(id, nome_completo, tipo_closer),
-          interactions:lead_interactions(
-            id, tipo_interacao, data_interacao, resultado, interesse_manifestado,
-            qualificacao_budget, qualificacao_autoridade, qualificacao_necessidade,
-            qualificacao_timeline, sentimento_lead, nivel_interesse,
-            probabilidade_fechamento_percebida
-          ),
-          qualification:lead_qualification_details(
-            qualification_score, authority_nivel, budget_confirmado,
-            need_urgencia_score, timeline_meta_implementacao,
-            situacao_atual, empresa_nome
-          )
-        `)
-        .order('created_at', { ascending: false })
+  // Stable hooks for data loading
+  const {
+    data: rawLeads,
+    loading: leadsLoading,
+    error: leadsError,
+    refetch: refetchLeads
+  } = useStableData<any>({
+    tableName: 'leads',
+    select: `
+      *,
+      closer:closer_id(id, nome_completo, tipo_closer),
+      sdr:sdr_id(id, nome_completo, tipo_closer),
+      interactions:lead_interactions(
+        id, tipo_interacao, data_interacao, resultado, interesse_manifestado,
+        qualificacao_budget, qualificacao_autoridade, qualificacao_necessidade,
+        qualificacao_timeline, sentimento_lead, nivel_interesse,
+        probabilidade_fechamento_percebida, resumo
+      ),
+      qualification:lead_qualification_details(
+        qualification_score, authority_nivel, budget_confirmado,
+        need_urgencia_score, timeline_meta_implementacao,
+        situacao_atual, empresa_nome
+      )
+    `,
+    filters: selectedCloser !== 'all' ? { 
+      closer_id: selectedCloser,
+      created_at: `gte.${dateFilter}`
+    } : {
+      created_at: `gte.${dateFilter}`
+    },
+    dependencies: [dateFilter, selectedCloser],
+    autoLoad: true,
+    debounceMs: 500
+  })
 
-      // Apply date range filter
-      const dateFilter = new Date()
-      switch (dateRange) {
-        case '7_days':
-          dateFilter.setDate(dateFilter.getDate() - 7)
-          break
-        case '30_days':
-          dateFilter.setDate(dateFilter.getDate() - 30)
-          break
-        case '90_days':
-          dateFilter.setDate(dateFilter.getDate() - 90)
-          break
-      }
+  const {
+    data: rawClosers,
+    loading: closersLoading,
+    error: closersError
+  } = useStableData<any>({
+    tableName: 'closers',
+    select: `
+      id, nome_completo, tipo_closer,
+      leads:leads(id, status, valor_potencial, created_at),
+      interactions:lead_interactions(id, data_interacao)
+    `,
+    filters: { status_contrato: 'ativo' },
+    dependencies: [],
+    autoLoad: true,
+    debounceMs: 300
+  })
+
+  // Memoized lead processing
+  const leads = useMemo(() => {
+    if (!rawLeads?.length) return []
+
+    return rawLeads.map(lead => {
+      const interactions = lead.interactions || []
+      const qualification = lead.qualification?.[0]
       
-      query = query.gte('created_at', dateFilter.toISOString())
-
-      if (selectedCloser !== 'all') {
-        query = query.eq('closer_id', selectedCloser)
+      const createdDate = new Date(lead.created_at)
+      const diasNoPipeline = Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24))
+      
+      const scoreBant = qualification?.qualification_score || 0
+      const ultimaInteracao = interactions.sort((a: any, b: any) => 
+        new Date(b.data_interacao).getTime() - new Date(a.data_interacao).getTime()
+      )[0]
+      
+      // Calculate real probability based on interactions and qualification
+      let probabilidadeReal = lead.probabilidade_fechamento || 0
+      if (ultimaInteracao?.probabilidade_fechamento_percebida) {
+        probabilidadeReal = ultimaInteracao.probabilidade_fechamento_percebida
+      }
+      if (qualification?.qualification_score) {
+        probabilidadeReal = Math.max(probabilidadeReal, qualification.qualification_score)
       }
 
-      const { data, error } = await query
+      return {
+        ...lead,
+        total_interacoes: interactions.length,
+        dias_no_pipeline: diasNoPipeline,
+        score_bant: scoreBant,
+        ultima_interacao: ultimaInteracao,
+        probabilidade_real: probabilidadeReal
+      }
+    }) as LeadDetailed[]
+  }, [rawLeads])
 
-      if (error) throw error
+  // Memoized closer processing
+  const closers = useMemo(() => {
+    if (!rawClosers?.length) return []
 
-      // Process leads data to add calculated fields
-      const processedLeads: LeadDetailed[] = (data || []).map(lead => {
-        const interactions = lead.interactions || []
-        const qualification = lead.qualification?.[0]
-        
-        const createdDate = new Date(lead.created_at)
-        const diasNoPipeline = Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24))
-        
-        const scoreBant = qualification?.qualification_score || 0
-        const ultimaInteracao = interactions.sort((a: any, b: any) => 
-          new Date(b.data_interacao).getTime() - new Date(a.data_interacao).getTime()
-        )[0]
-        
-        // Calculate real probability based on interactions and qualification
-        let probabilidadeReal = lead.probabilidade_fechamento || 0
-        if (ultimaInteracao?.probabilidade_fechamento_percebida) {
-          probabilidadeReal = ultimaInteracao.probabilidade_fechamento_percebida
-        }
-        if (qualification?.qualification_score) {
-          probabilidadeReal = Math.max(probabilidadeReal, qualification.qualification_score)
-        }
+    return rawClosers.map(closer => {
+      const leads = closer.leads || []
+      const interactions = closer.interactions || []
+      
+      const leadsAtivos = leads.filter((l: any) => 
+        !['fechado_ganho', 'fechado_perdido', 'cancelado'].includes(l.status)
+      ).length
+      
+      const conversoesMes = leads.filter((l: any) => {
+        const createdThisMonth = new Date(l.created_at) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+        return l.status === 'fechado_ganho' && createdThisMonth
+      }).length
+      
+      const taxaConversao = leads.length > 0 ? 
+        (leads.filter((l: any) => l.status === 'fechado_ganho').length / leads.length) * 100 : 0
+      
+      const valorPipeline = leads
+        .filter((l: any) => !['fechado_ganho', 'fechado_perdido', 'cancelado'].includes(l.status))
+        .reduce((sum: number, l: any) => sum + (l.valor_potencial || 0), 0)
+      
+      const interacoesUltimos7Dias = interactions.filter((i: any) => {
+        const interactionDate = new Date(i.data_interacao)
+        const weekAgo = new Date()
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        return interactionDate >= weekAgo
+      }).length
+      
+      const atividadeMediaDia = interacoesUltimos7Dias / 7
 
-        return {
-          ...lead,
-          total_interacoes: interactions.length,
-          dias_no_pipeline: diasNoPipeline,
-          score_bant: scoreBant,
-          ultima_interacao: ultimaInteracao,
-          probabilidade_real: probabilidadeReal
-        }
-      })
+      const ultimaInteracao = interactions.sort((a: any, b: any) => 
+        new Date(b.data_interacao).getTime() - new Date(a.data_interacao).getTime()
+      )[0]
 
-      setLeads(processedLeads)
-    } catch (error) {
-      console.error('Error loading leads:', error)
-      throw error
+      return {
+        id: closer.id,
+        nome_completo: closer.nome_completo,
+        tipo_closer: closer.tipo_closer,
+        leads_ativos: leadsAtivos,
+        conversoes_mes: conversoesMes,
+        taxa_conversao: taxaConversao,
+        atividade_media_dia: atividadeMediaDia,
+        valor_pipeline: valorPipeline,
+        ultima_atividade: ultimaInteracao?.data_interacao || 'N/A'
+      }
+    }) as CloserStats[]
+  }, [rawClosers])
+
+  // Memoized stats calculation
+  const stats = useMemo(() => {
+    const totalLeads = leads.length
+    const leadsQualificados = leads.filter(l => l.score_bant && l.score_bant > 50).length
+    const leadsConvertidos = leads.filter(l => l.status === 'fechado_ganho').length
+    const taxaQualificacao = totalLeads > 0 ? (leadsQualificados / totalLeads) * 100 : 0
+    const taxaConversao = totalLeads > 0 ? (leadsConvertidos / totalLeads) * 100 : 0
+    const valorPipeline = leads.reduce((sum, l) => sum + (l.valor_potencial || 0), 0)
+    const valorFechado = leads
+      .filter(l => l.status === 'fechado_ganho')
+      .reduce((sum, l) => sum + (l.valor_potencial || 0), 0)
+    const ticketMedio = leadsConvertidos > 0 ? valorFechado / leadsConvertidos : 0
+    const cicloVendasMedio = leads
+      .filter(l => l.status === 'fechado_ganho')
+      .reduce((sum, l) => sum + l.dias_no_pipeline, 0) / (leadsConvertidos || 1)
+
+    return {
+      totalLeads,
+      leadsQualificados,
+      leadsConvertidos,
+      taxaQualificacao,
+      taxaConversao,
+      valorPipeline,
+      valorFechado,
+      ticketMedio,
+      cicloVendasMedio
     }
-  }
+  }, [leads])
 
-  const loadClosers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('closers')
-        .select(`
-          id, nome_completo, tipo_closer,
-          leads:leads(id, status, valor_potencial, created_at),
-          interactions:lead_interactions(id, data_interacao)
-        `)
-        .eq('status_contrato', 'ativo')
+  // Combined loading state
+  const loading = leadsLoading || closersLoading
 
-      if (error) throw error
-
-      const processedClosers: CloserStats[] = (data || []).map(closer => {
-        const leads = closer.leads || []
-        const interactions = closer.interactions || []
-        
-        const leadsAtivos = leads.filter((l: any) => 
-          !['fechado_ganho', 'fechado_perdido', 'cancelado'].includes(l.status)
-        ).length
-        
-        const conversoesMes = leads.filter((l: any) => {
-          const createdThisMonth = new Date(l.created_at) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-          return l.status === 'fechado_ganho' && createdThisMonth
-        }).length
-        
-        const taxaConversao = leads.length > 0 ? 
-          (leads.filter((l: any) => l.status === 'fechado_ganho').length / leads.length) * 100 : 0
-        
-        const valorPipeline = leads
-          .filter((l: any) => !['fechado_ganho', 'fechado_perdido', 'cancelado'].includes(l.status))
-          .reduce((sum: number, l: any) => sum + (l.valor_potencial || 0), 0)
-        
-        const interacoesUltimos7Dias = interactions.filter((i: any) => {
-          const interactionDate = new Date(i.data_interacao)
-          const weekAgo = new Date()
-          weekAgo.setDate(weekAgo.getDate() - 7)
-          return interactionDate >= weekAgo
-        }).length
-        
-        const atividadeMediaDia = interacoesUltimos7Dias / 7
-
-        const ultimaInteracao = interactions.sort((a: any, b: any) => 
-          new Date(b.data_interacao).getTime() - new Date(a.data_interacao).getTime()
-        )[0]
-
-        return {
-          id: closer.id,
-          nome_completo: closer.nome_completo,
-          tipo_closer: closer.tipo_closer,
-          leads_ativos: leadsAtivos,
-          conversoes_mes: conversoesMes,
-          taxa_conversao: taxaConversao,
-          atividade_media_dia: atividadeMediaDia,
-          valor_pipeline: valorPipeline,
-          ultima_atividade: ultimaInteracao?.data_interacao || 'N/A'
-        }
-      })
-
-      setClosers(processedClosers)
-    } catch (error) {
-      console.error('Error loading closers:', error)
-      throw error
+  // Stable mutation for creating interactions
+  const { mutate: mutateCreateInteraction, isLoading: isCreatingInteraction } = useStableMutation(
+    'lead_interactions',
+    'insert',
+    {
+      onSuccess: async () => {
+        toast.success('Interação registrada com sucesso!')
+        setIsInteractionModalOpen(false)
+        setInteractionForm({})
+        await refetchLeads()
+      },
+      onError: (error: any) => {
+        console.error('Error creating interaction:', error)
+        toast.error('Erro ao registrar interação')
+      },
+      debounceMs: 200
     }
-  }
+  )
 
-  const loadStats = async () => {
-    try {
-      // This would typically come from a database view or aggregation
-      // For now, calculate from loaded data
-      const totalLeads = leads.length
-      const leadsQualificados = leads.filter(l => l.score_bant && l.score_bant > 50).length
-      const leadsConvertidos = leads.filter(l => l.status === 'fechado_ganho').length
-      const taxaQualificacao = totalLeads > 0 ? (leadsQualificados / totalLeads) * 100 : 0
-      const taxaConversao = totalLeads > 0 ? (leadsConvertidos / totalLeads) * 100 : 0
-      const valorPipeline = leads.reduce((sum, l) => sum + (l.valor_potencial || 0), 0)
-      const valorFechado = leads
-        .filter(l => l.status === 'fechado_ganho')
-        .reduce((sum, l) => sum + (l.valor_potencial || 0), 0)
-      const ticketMedio = leadsConvertidos > 0 ? valorFechado / leadsConvertidos : 0
-      const cicloVendasMedio = leads
-        .filter(l => l.status === 'fechado_ganho')
-        .reduce((sum, l) => sum + l.dias_no_pipeline, 0) / (leadsConvertidos || 1)
-
-      setStats({
-        totalLeads,
-        leadsQualificados,
-        leadsConvertidos,
-        taxaQualificacao,
-        taxaConversao,
-        valorPipeline,
-        valorFechado,
-        ticketMedio,
-        cicloVendasMedio
-      })
-    } catch (error) {
-      console.error('Error loading stats:', error)
-    }
-  }
-
-  const handleCreateInteraction = async () => {
+  const handleCreateInteraction = useCallback(async () => {
     if (!selectedLead || !interactionForm.resumo) {
       toast.error('Preencha os campos obrigatórios')
       return
     }
 
-    try {
-      const { error } = await supabase
-        .from('lead_interactions')
-        .insert({
-          ...interactionForm,
-          lead_id: selectedLead.id,
-          closer_id: selectedLead.closer_id,
-          organization_id: selectedLead.organization_id
-        })
+    await mutateCreateInteraction({
+      ...interactionForm,
+      lead_id: selectedLead.id,
+      closer_id: selectedLead.closer_id,
+      organization_id: selectedLead.organization_id,
+      data_interacao: new Date().toISOString()
+    })
+  }, [selectedLead, interactionForm, mutateCreateInteraction])
 
-      if (error) throw error
-
-      toast.success('Interação registrada com sucesso!')
-      setIsInteractionModalOpen(false)
-      setInteractionForm({})
-      loadDashboardData()
-    } catch (error) {
-      console.error('Error creating interaction:', error)
-      toast.error('Erro ao registrar interação')
-    }
-  }
-
-  const openDetailModal = (lead: LeadDetailed) => {
+  const openDetailModal = useCallback((lead: LeadDetailed) => {
     setSelectedLead(lead)
     setIsDetailModalOpen(true)
-  }
+  }, [])
 
-  const openInteractionModal = (lead: LeadDetailed) => {
+  const openInteractionModal = useCallback((lead: LeadDetailed) => {
     setSelectedLead(lead)
     setInteractionForm({
       tipo_interacao: 'ligacao',
@@ -365,18 +340,18 @@ export default function AdvancedPerformanceLeadsPage() {
       probabilidade_fechamento_percebida: lead.probabilidade_real
     })
     setIsInteractionModalOpen(true)
-  }
+  }, [])
 
-  const getTemperaturaColor = (temperatura?: string) => {
+  const getTemperaturaColor = useCallback((temperatura?: string) => {
     switch (temperatura) {
       case 'quente': return 'bg-red-500 text-white'
       case 'morno': return 'bg-yellow-500 text-white'
       case 'frio': return 'bg-blue-500 text-white'
       default: return 'bg-gray-400 text-white'
     }
-  }
+  }, [])
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     switch (status) {
       case 'fechado_ganho': return 'bg-green-500 text-white'
       case 'fechado_perdido': return 'bg-red-500 text-white'
@@ -384,26 +359,34 @@ export default function AdvancedPerformanceLeadsPage() {
       case 'proposta_enviada': return 'bg-orange-500 text-white'
       default: return 'bg-blue-500 text-white'
     }
-  }
+  }, [])
 
-  const getProbabilityIcon = (probability: number) => {
+  const getProbabilityIcon = useCallback((probability: number) => {
     if (probability >= 80) return <ArrowUp className="h-4 w-4 text-green-600" />
     if (probability >= 50) return <Minus className="h-4 w-4 text-yellow-600" />
     return <ArrowDown className="h-4 w-4 text-red-600" />
-  }
+  }, [])
 
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch = 
-      lead.nome_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.empresa?.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesCloser = selectedCloser === 'all' || lead.closer_id === selectedCloser
-    const matchesTemperatura = selectedTemperatura === 'all' || lead.temperatura === selectedTemperatura
-    const matchesStatus = selectedStatus === 'all' || lead.status === selectedStatus
+  // Memoized filtered leads
+  const filteredLeads = useMemo(() => {
+    return leads.filter(lead => {
+      const matchesSearch = searchTerm.length === 0 ||
+        lead.nome_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.empresa?.toLowerCase().includes(searchTerm.toLowerCase())
+      
+      const matchesCloser = selectedCloser === 'all' || lead.closer_id === selectedCloser
+      const matchesTemperatura = selectedTemperatura === 'all' || lead.temperatura === selectedTemperatura
+      const matchesStatus = selectedStatus === 'all' || lead.status === selectedStatus
 
-    return matchesSearch && matchesCloser && matchesTemperatura && matchesStatus
-  })
+      return matchesSearch && matchesCloser && matchesTemperatura && matchesStatus
+    })
+  }, [leads, searchTerm, selectedCloser, selectedTemperatura, selectedStatus])
+
+  // Stable refresh function
+  const loadDashboardData = useCallback(async () => {
+    await refetchLeads()
+  }, [refetchLeads])
 
   if (loading) {
     return (

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
+import { useStableData } from '@/hooks/use-stable-data'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -41,108 +42,129 @@ interface MentoradoOverview {
 }
 
 export default function MentoradosOverviewPage() {
-  const [mentorados, setMentorados] = useState<MentoradoOverview[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'blocked'>('all')
 
-  useEffect(() => {
-    carregarDados()
-  }, [])
-
-  const carregarDados = async () => {
-    try {
-      // Buscar mentorados com informações agregadas
-      const { data: mentoradosData, error: mentoradosError } = await supabase
-        .from('mentorados')
-        .select(`
-          id,
-          nome_completo,
-          email,
-          telefone,
-          status_login,
-          data_entrada,
-          estado_atual,
-          porcentagem_comissao
-        `)
-        .order('nome_completo')
-
-      if (mentoradosError) throw mentoradosError
-
-      // Buscar metas para cada mentorado
-      const { data: metasData, error: metasError } = await supabase
-        .from('video_learning_goals')
-        .select('mentorado_id, status')
-
-      // Buscar acesso ao portal
-      const { data: accessData, error: accessError } = await supabase
-        .from('video_access_control')
-        .select('mentorado_id, has_access, has_portal_access, access_level')
-        .eq('has_access', true)
-
-      // Buscar checkins
-      const { data: checkinsData, error: checkinsError } = await supabase
-        .from('checkins')
-        .select('mentorado_id, id')
-
-      // Processar dados agregados
-      const mentoradosComInfo: MentoradoOverview[] = (mentoradosData || []).map(mentorado => {
-        const metas = metasData?.filter(m => m.mentorado_id === mentorado.id) || []
-        const access = accessData?.find(a => a.mentorado_id === mentorado.id)
-        const checkins = checkinsData?.filter(c => c.mentorado_id === mentorado.id) || []
-
-        return {
-          ...mentorado,
-          // Metas
-          total_metas: metas.length,
-          metas_completed: metas.filter(m => m.status === 'completed').length,
-          metas_pending: metas.filter(m => m.status === 'pending' || m.status === 'in_progress').length,
-
-          // Comissões (mock - integrar depois)
-          total_comissoes: 0,
-          comissoes_mes_atual: 0,
-
-          // Acesso
-          has_portal_access: access?.has_portal_access || access?.has_access || false,
-          access_level: access?.access_level || null,
-
-          // Atividade
-          last_login: null, // TODO: integrar com logs
-          checkins_count: checkins.length
-        }
-      })
-
-      setMentorados(mentoradosComInfo)
-
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const mentoradosFiltrados = mentorados.filter(mentorado => {
-    const matchesSearch = mentorado.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          mentorado.email.toLowerCase().includes(searchTerm.toLowerCase())
-
-    if (!matchesSearch) return false
-
-    switch (filterStatus) {
-      case 'active': return mentorado.status_login === 'ativo'
-      case 'inactive': return mentorado.status_login === 'inativo'
-      case 'blocked': return mentorado.status_login === 'bloqueado'
-      default: return true
-    }
+  // Stable hooks for different data sources
+  const {
+    data: mentoradosRaw,
+    loading: mentoradosLoading,
+    error: mentoradosError
+  } = useStableData<any>({
+    tableName: 'mentorados',
+    select: `
+      id,
+      nome_completo,
+      email,
+      telefone,
+      status_login,
+      data_entrada,
+      estado_atual,
+      porcentagem_comissao
+    `,
+    dependencies: [],
+    autoLoad: true,
+    debounceMs: 300
   })
 
-  const stats = {
+  const {
+    data: metasData,
+    loading: metasLoading,
+    error: metasError
+  } = useStableData<any>({
+    tableName: 'video_learning_goals',
+    select: 'mentorado_id, status',
+    dependencies: [],
+    autoLoad: true,
+    debounceMs: 300
+  })
+
+  const {
+    data: accessData,
+    loading: accessLoading,
+    error: accessError
+  } = useStableData<any>({
+    tableName: 'video_access_control',
+    select: 'mentorado_id, has_access, has_portal_access, access_level',
+    filters: { has_access: true },
+    dependencies: [],
+    autoLoad: true,
+    debounceMs: 300
+  })
+
+  const {
+    data: checkinsData,
+    loading: checkinsLoading,
+    error: checkinsError
+  } = useStableData<any>({
+    tableName: 'checkins',
+    select: 'mentorado_id, id',
+    dependencies: [],
+    autoLoad: true,
+    debounceMs: 300
+  })
+
+  // Memoized data processing
+  const mentorados = useMemo(() => {
+    if (!mentoradosRaw?.length) return []
+
+    return mentoradosRaw.map(mentorado => {
+      const metas = metasData?.filter(m => m.mentorado_id === mentorado.id) || []
+      const access = accessData?.find(a => a.mentorado_id === mentorado.id)
+      const checkins = checkinsData?.filter(c => c.mentorado_id === mentorado.id) || []
+
+      return {
+        ...mentorado,
+        // Metas
+        total_metas: metas.length,
+        metas_completed: metas.filter(m => m.status === 'completed').length,
+        metas_pending: metas.filter(m => m.status === 'pending' || m.status === 'in_progress').length,
+
+        // Comissões (mock - integrar depois)
+        total_comissoes: 0,
+        comissoes_mes_atual: 0,
+
+        // Acesso
+        has_portal_access: access?.has_portal_access || access?.has_access || false,
+        access_level: access?.access_level || null,
+
+        // Atividade
+        last_login: null, // TODO: integrar com logs
+        checkins_count: checkins.length
+      }
+    }) as MentoradoOverview[]
+  }, [mentoradosRaw, metasData, accessData, checkinsData])
+
+  // Combined loading state
+  const loading = mentoradosLoading || metasLoading || accessLoading || checkinsLoading
+
+  // Memoized filtered mentorados
+  const mentoradosFiltrados = useMemo(() => {
+    return mentorados.filter(mentorado => {
+      const matchesSearch = searchTerm.length === 0 ||
+        mentorado.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        mentorado.email.toLowerCase().includes(searchTerm.toLowerCase())
+
+      if (!matchesSearch) return false
+
+      switch (filterStatus) {
+        case 'active': return mentorado.status_login === 'ativo'
+        case 'inactive': return mentorado.status_login === 'inativo'
+        case 'blocked': return mentorado.status_login === 'bloqueado'
+        default: return true
+      }
+    })
+  }, [mentorados, searchTerm, filterStatus])
+
+  // Memoized statistics
+  const stats = useMemo(() => ({
     total: mentorados.length,
     ativos: mentorados.filter(m => m.status_login === 'ativo').length,
     inativos: mentorados.filter(m => m.status_login === 'inativo').length,
     com_acesso: mentorados.filter(m => m.has_portal_access).length,
     total_metas: mentorados.reduce((sum, m) => sum + m.total_metas, 0),
     metas_completed: mentorados.reduce((sum, m) => sum + m.metas_completed, 0)
-  }
+  }), [mentorados])
 
   if (loading) {
     return (
