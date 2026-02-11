@@ -285,47 +285,6 @@ export default function LeadsPage() {
     loadConversionData()
   }, [leads])
 
-  const loadLeads = async () => {
-    try {
-      let query = supabase
-        .from('leads')
-        .select('*')
-
-      // Aplicar filtros no servidor se não for "todos"
-      if (statusFilter !== 'todos') {
-        query = query.eq('status', statusFilter)
-      }
-
-      if (origemFilter !== 'todas') {
-        query = query.eq('origem', origemFilter)
-      }
-
-
-      // Aplicar filtro de data (inteligente: sempre usar data_venda para leads vendidos)
-      const dateRange = getDateRange(dateFilter)
-      if (dateRange) {
-        if (statusFilter === 'vendido') {
-          // Para filtro "vendido", usar data_venda
-          query = query
-            .gte('data_venda', dateRange.start)
-            .lte('data_venda', dateRange.end)
-        } else {
-          // Para outros filtros, usar query complexa que considera ambas as datas
-          query = query.or(`and(status.eq.vendido,data_venda.gte.${dateRange.start},data_venda.lte.${dateRange.end}),and(status.neq.vendido,data_primeiro_contato.gte.${dateRange.start},data_primeiro_contato.lte.${dateRange.end})`)
-        }
-      }
-
-      const { data, error } = await query.order('created_at', { ascending: false })
-
-      if (error) throw error
-      setLeads(data || [])
-    } catch (error) {
-      console.error('Erro ao carregar leads:', error)
-    } finally {
-      setLoading(false)
-      setIsLoadingData(false)
-    }
-  }
 
   const loadStats = async () => {
     try {
@@ -510,7 +469,6 @@ export default function LeadsPage() {
   const handleDeleteLead = async (leadId: string) => {
     if (confirm('Tem certeza que deseja excluir este lead?')) {
       try {
-        setIsLoadingData(true)
         const { error } = await supabase
           .from('leads')
           .delete()
@@ -519,12 +477,11 @@ export default function LeadsPage() {
         if (error) throw error
 
         // Recarregar dados em vez de filtrar localmente
-        await loadLeads()
+        await refetchLeads()
         await loadStats()
         await loadOrigemData()
       } catch (error) {
         console.error('Erro ao excluir lead:', error)
-        setIsLoadingData(false)
       }
     }
   }
@@ -545,7 +502,6 @@ export default function LeadsPage() {
     }
 
     try {
-      setIsLoadingData(true)
 
       // Verificar sessão de autenticação
       console.log('Verificando sessão de autenticação...')
@@ -647,12 +603,11 @@ export default function LeadsPage() {
       if (leadError) throw leadError
 
       alert(`Lead convertido em mentorado com sucesso!\nMentorado ID: ${mentorado.id}`)
-      loadLeads()
+      refetchLeads()
     } catch (error) {
       console.error('Erro ao converter lead:', error)
       alert('Erro ao converter lead em mentorado')
     } finally {
-      setIsLoadingData(false)
     }
   }
 
@@ -918,7 +873,7 @@ export default function LeadsPage() {
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <button
-            onClick={loadLeads}
+            onClick={() => refetchLeads()}
             className="flex items-center gap-2 px-4 py-2 text-foreground hover:bg-muted rounded-xl transition-colors"
           >
             <RefreshCw className="w-4 h-4" />

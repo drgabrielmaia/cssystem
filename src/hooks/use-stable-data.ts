@@ -82,7 +82,7 @@ export function useStableData<T = any>({
       }
 
       console.log(`✅ ${tableName} dados carregados (${result?.length || 0} items) - ID: ${fetchId}`)
-      setData(result || [])
+      setData((result as T[]) || [])
 
     } catch (err: any) {
       if (fetchId === lastFetchId.current && !abortController.signal.aborted) {
