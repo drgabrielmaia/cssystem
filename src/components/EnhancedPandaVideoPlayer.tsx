@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { CustomVideoPlayer } from './CustomVideoPlayer'
+import { PandaVideoWithCustomControls } from './PandaVideoWithCustomControls'
 import { AlertCircle, RefreshCw, Play, ExternalLink, Settings } from 'lucide-react'
 
 interface EnhancedPandaVideoPlayerProps {
@@ -115,11 +116,27 @@ export function EnhancedPandaVideoPlayer({
     }
   }
 
-  const switchToCustomPlayer = () => {
-    // Tenta extrair URL direta do vídeo ou usar uma URL de fallback
-    // Em produção, você pode implementar um endpoint que retorna a URL direta do vídeo
-    const fallbackUrl = `https://player-vz-00efd930-2fc.tv.pandavideo.com.br/video/${embedUrl}.mp4`
-    setDirectVideoUrl(fallbackUrl)
+  const switchToCustomPlayer = async () => {
+    try {
+      // Tenta buscar a URL real do vídeo do PandaVideo
+      const response = await fetch(`/api/video/get-direct-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ embedUrl, pandaVideoId: embedUrl })
+      })
+      
+      if (response.ok) {
+        const { directUrl } = await response.json()
+        setDirectVideoUrl(directUrl)
+        setUseCustomPlayer(true)
+        setHasError(false)
+        return
+      }
+    } catch (error) {
+      console.log('Não foi possível obter URL direta, usando iframe avançado')
+    }
+
+    // Fallback: usa iframe com controles customizados sobrepostos
     setUseCustomPlayer(true)
     setHasError(false)
   }
@@ -145,34 +162,65 @@ export function EnhancedPandaVideoPlayer({
   }, [isLoading, hasError, retryCount, useCustomPlayer])
 
   // Player customizado como alternativa
-  if (useCustomPlayer && directVideoUrl) {
-    return (
-      <div className={`relative ${className}`}>
-        <CustomVideoPlayer
-          src={directVideoUrl}
-          title={title}
-          className="w-full h-full"
-          onTimeUpdate={onTimeUpdate}
-          onPlay={onPlay}
-          onPause={onPause}
-          onEnded={onEnded}
-        />
-        
-        {/* Botão para voltar ao player original */}
-        <button
-          onClick={() => {
-            setUseCustomPlayer(false)
-            setDirectVideoUrl(null)
-            setHasError(false)
-            setIsLoading(true)
-            setRetryCount(0)
-          }}
-          className="absolute top-4 right-4 bg-black bg-opacity-70 text-white p-2 rounded-lg hover:bg-opacity-90 transition-all text-xs"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
-      </div>
-    )
+  if (useCustomPlayer) {
+    if (directVideoUrl) {
+      // Se conseguiu a URL direta, usa o player customizado
+      return (
+        <div className={`relative ${className}`}>
+          <CustomVideoPlayer
+            src={directVideoUrl}
+            title={title}
+            className="w-full h-full"
+            onTimeUpdate={onTimeUpdate}
+            onPlay={onPlay}
+            onPause={onPause}
+            onEnded={onEnded}
+          />
+          
+          {/* Botão para voltar ao player original */}
+          <button
+            onClick={() => {
+              setUseCustomPlayer(false)
+              setDirectVideoUrl(null)
+              setHasError(false)
+              setIsLoading(true)
+              setRetryCount(0)
+            }}
+            className="absolute top-4 right-4 bg-black bg-opacity-70 text-white p-2 rounded-lg hover:bg-opacity-90 transition-all text-xs z-50"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        </div>
+      )
+    } else {
+      // Se não conseguiu URL direta, usa iframe com controles sobrepostos
+      return (
+        <div className={`relative ${className}`}>
+          <PandaVideoWithCustomControls
+            embedUrl={embedUrl}
+            title={title}
+            className="w-full h-full"
+            onTimeUpdate={onTimeUpdate}
+            onPlay={onPlay}
+            onPause={onPause}
+            onEnded={onEnded}
+          />
+          
+          {/* Botão para voltar ao player original */}
+          <button
+            onClick={() => {
+              setUseCustomPlayer(false)
+              setHasError(false)
+              setIsLoading(true)
+              setRetryCount(0)
+            }}
+            className="absolute top-4 right-16 bg-black bg-opacity-70 text-white p-2 rounded-lg hover:bg-opacity-90 transition-all text-xs z-50"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        </div>
+      )
+    }
   }
 
   // Tela de erro com múltiplas opções
