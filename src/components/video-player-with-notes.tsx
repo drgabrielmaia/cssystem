@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { CustomVideoPlayer } from './CustomVideoPlayer'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -158,14 +159,16 @@ export function VideoPlayerWithNotes({
                 />
               </div>
             ) : (
-              <video
-                ref={videoRef}
-                className="w-full aspect-video"
-                controls
+              <CustomVideoPlayer
                 src={videoUrl}
-              >
-                Seu navegador não suporta o elemento de vídeo.
-              </video>
+                title={lessonTitle}
+                className="aspect-video"
+                onTimeUpdate={(currentTime, duration) => {
+                  setCurrentTime(currentTime)
+                }}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+              />
             )}
           </div>
 
