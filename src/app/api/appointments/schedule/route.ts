@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
           scheduled_for: `${appointmentDate} ${startTime}`,
           closer_name: closer.nome_completo
         },
-        user_id: closer_id,
+        created_by: closer_id,
         organization_id: lead.organization_id
       })
 
