@@ -473,19 +473,19 @@ function FinancasPageContent() {
 
       let query = supabase
         .from('transacoes_financeiras')
-        .select(`
-          *,
-          categoria:categorias_financeiras(*),
-          business_unit:business_units(*)
-        `)
+        .select(`*`)
         .gte('data_transacao', dataLimite.toISOString().split('T')[0])
         .order('data_transacao', { ascending: false })
 
       if (filtros.tipo !== 'todas') {
-        query = query.eq('tipo', filtros.tipo)
+        if (filtros.tipo === 'receita') {
+          query = query.eq('tipo', 'entrada')
+        } else if (filtros.tipo === 'despesa') {
+          query = query.eq('tipo', 'saida')
+        }
       }
       if (filtros.categoria) {
-        query = query.eq('categoria_id', filtros.categoria)
+        query = query.eq('categoria', filtros.categoria)
       }
       if (selectedBusinessUnit && selectedBusinessUnit !== 'todos') {
         query = query.eq('business_unit_id', selectedBusinessUnit)
@@ -525,14 +525,14 @@ function FinancasPageContent() {
       const dataLimite = new Date()
       dataLimite.setDate(dataLimite.getDate() - diasAtras)
 
-      // Transações do período atual com detalhes da categoria
+      // Transações do período atual
       const { data: transacoesPeriodo } = await supabase
         .from('transacoes_financeiras')
         .select(`
           tipo, 
           valor, 
           automatico,
-          categoria:categorias_financeiras(nome, tipo)
+          categoria
         `)
         .gte('data_transacao', dataLimite.toISOString().split('T')[0])
 
@@ -543,7 +543,7 @@ function FinancasPageContent() {
           tipo, 
           valor, 
           automatico,
-          categoria:categorias_financeiras(nome, tipo)
+          categoria
         `)
         .gte('data_transacao', inicioMes.toISOString().split('T')[0])
 
@@ -571,16 +571,16 @@ function FinancasPageContent() {
       let transacoesManuais = 0
 
       transacoesPeriodo?.forEach(t => {
-        if (t.tipo === 'receita') {
+        if (t.tipo === 'entrada') {
           totalEntradas += t.valor
-          // Verificar se é receita de mentoria
-          if ((t.categoria as any)?.nome === 'Mentoria') {
+          // Verificar se é receita de vendas
+          if (t.categoria === 'Vendas' || t.categoria === 'Mentoria') {
             receitaMentoria += t.valor
           }
-        } else {
+        } else if (t.tipo === 'saida') {
           totalSaidas += t.valor
           // Verificar se são comissões pagas
-          if ((t.categoria as any)?.nome === 'Comissões Pagas') {
+          if (t.categoria === 'Comissões' || t.categoria === 'Comissões Pagas') {
             comissoesPagas += t.valor
           }
         }
@@ -594,8 +594,8 @@ function FinancasPageContent() {
       })
 
       transacoesMesPassado?.forEach(t => {
-        if (t.tipo === 'receita') entradasMesPassado += t.valor
-        else saidasMesPassado += t.valor
+        if (t.tipo === 'entrada') entradasMesPassado += t.valor
+        else if (t.tipo === 'saida') saidasMesPassado += t.valor
       })
 
       // Cálculos avançados
@@ -612,12 +612,12 @@ function FinancasPageContent() {
       // Análises por categoria
       const analisesPorCategoria: Record<string, any> = {}
       transacoesPeriodo?.forEach(t => {
-        const categoria = (t.categoria as any)?.nome || 'Sem Categoria'
+        const categoria = t.categoria || 'Sem Categoria'
         if (!analisesPorCategoria[categoria]) {
           analisesPorCategoria[categoria] = {
             total: 0,
             transacoes: 0,
-            tipo: t.tipo,
+            tipo: t.tipo === 'entrada' ? 'receita' : 'despesa',
             automatico: 0,
             manual: 0
           }
@@ -677,7 +677,8 @@ function FinancasPageContent() {
         .insert([{
           ...novaTransacao,
           valor: parseFloat(novaTransacao.valor),
-          usuario_id: usuario?.id
+          created_by: usuario?.id,
+          organization_id: usuario?.organization_id
         }])
 
       if (error) throw error
