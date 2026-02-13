@@ -26,80 +26,36 @@ export function PandaVideoPlayer({ embedUrl, title, className }: PandaVideoPlaye
     checkMobile()
     window.addEventListener('resize', checkMobile)
 
-    // 🔥 HACK: Tenta injetar script que modifica o comportamento do PandaVideo
-    const injectPandaHack = () => {
-      const script = document.createElement('script')
-      script.innerHTML = `
-        // Override de validações do PandaVideo
-        if (window.panda) {
-          window.panda.domain = 'cs.medicosderesultado.com.br';
-        }
-
-        // Intercepta postMessage do iframe
-        window.addEventListener('message', function(e) {
-          if (e.data && e.data.type === 'domain-error') {
-            console.log('🔥 Interceptando erro de domínio PandaVideo');
-            e.stopPropagation();
-            return false;
-          }
-        }, true);
-
-        // Force domain validation
-        Object.defineProperty(document, 'domain', {
-          get: function() { return 'cs.medicosderesultado.com.br'; },
-          configurable: true
-        });
-      `
-      document.head.appendChild(script)
-    }
-
-    injectPandaHack()
-
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
   const generatePandaUrl = (mobile: boolean = false, retryAttempt: number = 0) => {
     const baseUrl = `https://player-vz-00efd930-2fc.tv.pandavideo.com.br/embed/?v=${embedUrl}`
 
-    // Estratégias otimizadas com controles avançados
+    // Estratégias baseadas na documentação oficial do PandaVideo
     const strategies = [
-      // Tentativa 1: Todos os controles habilitados
+      // Tentativa 1: Controles completos do PandaVideo
       [
-        'controls=1',           // Controles nativos
-        'allowfullscreen=1',    // Fullscreen
-        'responsive=1',         // Responsivo  
-        'autoplay=0',          // Sem autoplay
-        'showinfo=1',          // Informações do vídeo
-        'playsinline=1',       // Play inline mobile
-        'keyboard=1',          // Atalhos de teclado
-        'speed=1',             // Controle de velocidade
-        'quality=auto',        // Qualidade automática
-        'theme=dark',          // Tema escuro
-        'color=red',           // Cor vermelha dos controles
-        'rel=0',               // Sem vídeos relacionados
-        'modestbranding=1',    // Branding mínimo
-        'cc=0'                 // Sem legendas por padrão
+        'controls=play-large,play,progress,current-time,volume,captions,settings,pip,fullscreen',
+        'autoplay=false',
+        'muted=false'
       ],
 
-      // Tentativa 2: Controles básicos + fullscreen
+      // Tentativa 2: Controles essenciais com settings (engrenagem)
       [
-        'controls=1',
-        'allowfullscreen=1', 
-        'responsive=1',
-        'autoplay=0',
-        'keyboard=1',
-        'speed=1'
+        'controls=play,progress,current-time,settings,fullscreen',
+        'autoplay=false'
       ],
 
-      // Tentativa 3: Mínimo com controles
+      // Tentativa 3: Controles básicos garantidos
       [
-        'controls=1',
-        'allowfullscreen=1',
-        'autoplay=0'
+        'controls=play,progress,settings,fullscreen'
       ],
 
-      // Tentativa 4: Básico
-      ['controls=1']
+      // Tentativa 4: Mínimo funcional
+      [
+        'controls=play,settings'
+      ]
     ]
 
     const params = strategies[Math.min(retryAttempt, strategies.length - 1)]
@@ -205,23 +161,11 @@ export function PandaVideoPlayer({ embedUrl, title, className }: PandaVideoPlaye
         src={generatePandaUrl(isMobile, retryCount)}
         className="w-full h-full"
         style={{ border: 'none' }}
-        allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen; microphone; camera"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; web-share"
         allowFullScreen={true}
-        referrerPolicy={retryCount > 1 ? "no-referrer" : "strict-origin-when-cross-origin"}
-        sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-top-navigation"
         title={title}
         onLoad={handleIframeLoad}
         onError={handleIframeError}
-        // User-Agent spoofing para desktop
-        {...(isMobile && retryCount > 0 && {
-          'data-desktop-mode': 'true'
-        })}
-        // Atributos específicos para mobile
-        {...(isMobile && {
-          'data-mobile': 'true',
-          'data-responsive': 'true',
-          'data-domain': 'cs.medicosderesultado.com.br'
-        })}
       />
 
       {/* Overlay transparente para capturar cliques em mobile */}
