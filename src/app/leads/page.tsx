@@ -591,6 +591,40 @@ export default function LeadsPage() {
 
       if (mentoradoError) throw mentoradoError
 
+      // 🚀 LIBERAR TODOS OS MÓDULOS AUTOMATICAMENTE
+      try {
+        // Buscar todos os módulos ativos da organização
+        const { data: modules, error: modulesError } = await supabase
+          .from('video_modules')
+          .select('id, title')
+          .eq('is_active', true)
+
+        if (!modulesError && modules && modules.length > 0) {
+          // Criar acessos para TODOS os módulos
+          const accessRecords = modules.map(module => ({
+            mentorado_id: mentorado.id,
+            module_id: module.id,
+            has_access: true,
+            granted_at: new Date().toISOString(),
+            granted_by: 'auto_lead_conversion',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }))
+
+          const { error: accessError } = await supabase
+            .from('video_access_control')
+            .insert(accessRecords)
+
+          if (accessError) {
+            console.error('❌ Erro ao liberar módulos:', accessError)
+          } else {
+            console.log(`🎉 ${modules.length} módulos liberados automaticamente para ${mentorado.nome_completo}!`)
+          }
+        }
+      } catch (autoError) {
+        console.error('⚠️ Erro na liberação automática de módulos:', autoError)
+      }
+
       // 2. Atualizar lead como convertido
       const { error: leadError } = await supabase
         .from('leads')

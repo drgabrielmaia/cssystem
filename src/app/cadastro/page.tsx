@@ -98,12 +98,53 @@ export default function CadastroPage() {
         alert('Mentorado atualizado com sucesso!')
       } else {
         // Criar novo
-        const { error } = await supabase
+        const { data: result, error } = await supabase
           .from('mentorados')
           .insert([mentoradoData])
+          .select()
 
         if (error) throw error
-        alert('Mentorado cadastrado com sucesso!')
+        
+        // 🚀 LIBERAR TODOS OS MÓDULOS AUTOMATICAMENTE
+        if (result && result[0]) {
+          try {
+            const newMentorado = result[0]
+            
+            // Buscar todos os módulos ativos da organização
+            const { data: modules, error: modulesError } = await supabase
+              .from('video_modules')
+              .select('id, title')
+              .eq('is_active', true)
+              .eq('organization_id', newMentorado.organization_id || '9c8c0033-15ea-4e33-a55f-28d81a19693b')
+
+            if (!modulesError && modules && modules.length > 0) {
+              // Criar acessos para TODOS os módulos
+              const accessRecords = modules.map(module => ({
+                mentorado_id: newMentorado.id,
+                module_id: module.id,
+                has_access: true,
+                granted_at: new Date().toISOString(),
+                granted_by: 'auto_cadastro',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }))
+
+              const { error: accessError } = await supabase
+                .from('video_access_control')
+                .insert(accessRecords)
+
+              if (accessError) {
+                console.error('❌ Erro ao liberar módulos:', accessError)
+              } else {
+                console.log(`🎉 ${modules.length} módulos liberados automaticamente para ${newMentorado.nome_completo}!`)
+              }
+            }
+          } catch (autoError) {
+            console.error('⚠️ Erro na liberação automática de módulos:', autoError)
+          }
+        }
+        
+        alert('Mentorado cadastrado com sucesso! Todos os módulos foram liberados automaticamente!')
       }
 
       // Reset form
