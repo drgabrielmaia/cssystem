@@ -1,0 +1,1355 @@
+'use client'
+
+import { useState, useCallback, useMemo } from 'react'
+import { useStableData } from '@/hooks/use-stable-data'
+import { useStableMutation } from '@/hooks/use-stable-mutation'
+import { supabase } from '@/lib/supabase'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Search, DollarSign, Check, X, Edit, Eye, Calendar,
+  User, TrendingUp, AlertCircle, Clock, Calculator,
+  CreditCard, Timer
+} from 'lucide-react'
+
+interface Comissao {
+  id: string
+  mentorado_id: string
+  lead_id: string
+  valor_comissao: number
+  percentual_comissao?: number
+  valor_venda: number
+  data_venda: string
+  observacoes: string
+  status_pagamento?: string  // Mudança: era status, mas na DB é status_pagamento
+  created_at: string
+  updated_at: string
+
+  // Joins
+  mentorados?: {
+    nome_completo: string
+    email: string
+  }
+  leads?: {
+    nome_completo: string
+    empresa: string | null
+  }
+  mentorado_nome?: string
+  mentorado_email?: string
+  lead_nome?: string
+  lead_empresa?: string
+}
+
+interface ComissaoSplit {
+  id: string
+  mentorado_id: string
+  lead_id: string
+  valor_comissao: number  // Valor real da comissão do banco
+  percentual_comissao: number
+  status_pagamento: 'pendente' | 'pago' | 'cancelado'  // Status real do banco
+  data_venda: string
+  data_pagamento?: string | null
+  
+  // Campos calculados para split
+  valor_primeira_parte: number  // 50% - paga quando vende
+  valor_segunda_parte: number   // 50% - paga quando cliente quita
+  status_primeira_parte: 'pendente' | 'pago'
+  status_segunda_parte: 'bloqueado' | 'liberado' | 'pago'
+  cliente_quitou: boolean
+  
+  // Dados do lead
+  leads?: {
+    nome_completo: string
+    valor_vendido: number | null
+    valor_arrecadado: number | null
+    status: string | null
+  }
+  
+  // Dados do mentorado
+  mentorados?: {
+    nome_completo: string
+    porcentagem_comissao: number
+  }
+}
+
+export default function AdminComissoesPage() {
+  const [activeTab, setActiveTab] = useState<'comissoes' | 'split'>('comissoes')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterStatus, setFilterStatus] = useState<'todos' | 'pendente' | 'pago' | 'recusado' | 'cancelado'>('todos')
+  const [selectedComissao, setSelectedComissao] = useState<Comissao | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [editForm, setEditForm] = useState({
+    valor_comissao: 0,
+    percentual_comissao: 5,
+    observacoes: ''
+  })
+  const [showGlobalConfigModal, setShowGlobalConfigModal] = useState(false)
+  const [activeTabSplit, setActiveTabSplit] = useState<'primeira_parte' | 'segunda_parte' | 'todas'>('primeira_parte')
+
+  // Use stable hook for commissions data
+  const {
+    data: rawComissoes,
+    loading: comissoesLoading,
+    error: comissoesError,
+    refetch: refetchComissoes
+  } = useStableData<any>({
+    tableName: 'comissoes',
+    select: `
+      *,
+      mentorados:mentorado_id (
+        nome_completo,
+        email
+      ),
+      leads:lead_id (
+        nome_completo,
+        empresa
+      )
+    `,
+    dependencies: [],
+    autoLoad: true,
+    debounceMs: 300
+  })
+
+  // Buscar comissões com dados dos leads para verificar pagamentos (para split)
+  const {
+    data: rawComissoesSplit,
+    loading: comissoesSplitLoading,
+    refetch: refetchComissoesSplit
+  } = useStableData<any>({
+    tableName: 'comissoes',
+    select: `
+      id,
+      mentorado_id,
+      lead_id,
+      valor_comissao,
+      percentual_comissao,
+      status_pagamento,
+      data_venda,
+      data_pagamento,
+      observacoes,
+      leads:lead_id (
+        nome_completo,
+        valor_vendido,
+        valor_arrecadado,
+        status
+      ),
+      mentorados:mentorado_id (
+        nome_completo,
+        porcentagem_comissao
+      )
+    `,
+    dependencies: [],
+    autoLoad: true,
+    debounceMs: 300
+  })
+
+  // Hook para pagar primeira parte
+  const pagarPrimeiraParte = useStableMutation('comissoes', 'update', {
+    onSuccess: () => refetchComissoesSplit()
+  })
+
+  // Hook para pagar segunda parte
+  const pagarSegundaParte = useStableMutation('comissoes', 'update', {
+    onSuccess: () => refetchComissoesSplit()
+  })
+
+  // Memoized commissions transformation
+  const comissoes = useMemo(() => {
+    if (!rawComissoes?.length) return []
+    
+    return rawComissoes.map(comissao => ({
+      ...comissao,
+      mentorado_nome: comissao.mentorados?.nome_completo,
+      mentorado_email: comissao.mentorados?.email,
+      lead_nome: comissao.leads?.nome_completo,
+      lead_empresa: comissao.leads?.empresa,
+    })) as Comissao[]
+  }, [rawComissoes])
+
+  // Stable mutations for commission operations
+  const { mutate: mutateUpdateComissao, isLoading: isUpdatingComissao, error: updateError } = useStableMutation(
+    'comissoes',
+    'update',
+    {
+      onSuccess: async () => {
+        await refetchComissoes()
+      },
+      debounceMs: 150
+    }
+  )
+
+  // Transformar dados para sistema de split
+  const comissoesSplit = useMemo(() => {
+    if (!rawComissoesSplit?.length) return []
+    
+    return rawComissoesSplit.map(comissao => {
+      const valorTotal = comissao.valor_comissao || 0
+      const primeiraParte = valorTotal * 0.5  // 50%
+      const segundaParte = valorTotal * 0.5   // 50%
+      
+      // Verificar se cliente já pagou tudo
+      const lead = comissao.leads
+      const clienteQuitou = lead && 
+        lead.valor_vendido > 0 && 
+        lead.valor_arrecadado >= lead.valor_vendido
+      
+      // Verificar split payments via observações (solução temporária)
+      const observacoes = comissao.observacoes || ''
+      const primeiraPagaPelaObservacao = observacoes.includes('SPLIT_PAYMENT:PRIMEIRA_PARTE_PAGA')
+      const totalmentePagaPelaObservacao = observacoes.includes('SPLIT_PAYMENT:TOTALMENTE_PAGA')
+      
+      let statusPrimeiraParte: 'pendente' | 'pago'
+      let statusSegundaParte: 'bloqueado' | 'liberado' | 'pago'
+      
+      if (comissao.status_pagamento === 'pago' || totalmentePagaPelaObservacao) {
+        // Se está completamente pago, ambas as partes foram pagas
+        statusPrimeiraParte = 'pago'
+        statusSegundaParte = 'pago'
+      } else if (primeiraPagaPelaObservacao) {
+        // Primeira parte já foi paga, verificar se segunda pode ser liberada
+        statusPrimeiraParte = 'pago'
+        
+        if (clienteQuitou) {
+          statusSegundaParte = 'liberado'  // Cliente quitou, pode pagar segunda parte
+        } else {
+          statusSegundaParte = 'bloqueado' // Cliente ainda deve
+        }
+      } else {
+        // Primeira parte ainda não foi paga
+        statusPrimeiraParte = 'pendente'
+        statusSegundaParte = 'bloqueado' // Segunda parte fica bloqueada até primeira ser paga
+      }
+
+      return {
+        id: comissao.id,
+        mentorado_id: comissao.mentorado_id,
+        lead_id: comissao.lead_id,
+        valor_comissao: valorTotal,
+        percentual_comissao: comissao.percentual_comissao,
+        status_pagamento: comissao.status_pagamento,
+        data_venda: comissao.data_venda,
+        data_pagamento: comissao.data_pagamento,
+        valor_primeira_parte: primeiraParte,
+        valor_segunda_parte: segundaParte,
+        status_primeira_parte: statusPrimeiraParte,
+        status_segunda_parte: statusSegundaParte,
+        cliente_quitou: clienteQuitou,
+        leads: lead,
+        mentorados: comissao.mentorados
+      } as ComissaoSplit
+    })
+  }, [rawComissoesSplit])
+
+  // Filtrar comissões split por tab ativa
+  const comissoesSplitFiltradas = useMemo(() => {
+    switch (activeTabSplit) {
+      case 'primeira_parte':
+        return comissoesSplit.filter(c => c.status_primeira_parte === 'pendente')
+      case 'segunda_parte':
+        return comissoesSplit.filter(c => 
+          c.status_primeira_parte === 'pago' && 
+          c.status_segunda_parte === 'liberado'
+        )
+      case 'todas':
+        return comissoesSplit
+      default:
+        return comissoesSplit
+    }
+  }, [comissoesSplit, activeTabSplit])
+
+  // Estatísticas para split
+  const splitStats = useMemo(() => {
+    const primeiraPendentes = comissoesSplit.filter(c => c.status_primeira_parte === 'pendente')
+    const segundaLiberadas = comissoesSplit.filter(c => c.status_segunda_parte === 'liberado')
+    const segundaBloqueadas = comissoesSplit.filter(c => c.status_segunda_parte === 'bloqueado')
+    
+    return {
+      primeira_parte_pendente: {
+        quantidade: primeiraPendentes.length,
+        valor: primeiraPendentes.reduce((sum, c) => sum + c.valor_primeira_parte, 0)
+      },
+      segunda_parte_liberada: {
+        quantidade: segundaLiberadas.length,
+        valor: segundaLiberadas.reduce((sum, c) => sum + c.valor_segunda_parte, 0)
+      },
+      segunda_parte_bloqueada: {
+        quantidade: segundaBloqueadas.length,
+        valor: segundaBloqueadas.reduce((sum, c) => sum + c.valor_segunda_parte, 0)
+      }
+    }
+  }, [comissoesSplit])
+
+  const handlePagarPrimeiraParte = useCallback(async (comissaoId: string) => {
+    // Por enquanto, vou usar o campo observacoes para rastrear split payments
+    // Em produção, seria melhor adicionar campos específicos na tabela
+    await pagarPrimeiraParte.mutate({
+      id: comissaoId,
+      status_pagamento: 'pendente', // Mantém pendente, primeira parte paga
+      observacoes: 'SPLIT_PAYMENT:PRIMEIRA_PARTE_PAGA:' + new Date().toISOString(),
+      data_pagamento: null // Ainda não completamente pago
+    })
+  }, [pagarPrimeiraParte])
+
+  const handlePagarSegundaParte = useCallback(async (comissaoId: string) => {
+    await pagarSegundaParte.mutate({
+      id: comissaoId,
+      status_pagamento: 'pago', // Agora completamente pago
+      observacoes: 'SPLIT_PAYMENT:TOTALMENTE_PAGA:' + new Date().toISOString(),
+      data_pagamento: new Date().toISOString()
+    })
+  }, [pagarSegundaParte])
+
+  const aprovarComissao = useCallback(async (id: string) => {
+    try {
+      await mutateUpdateComissao({
+        id,
+        status_pagamento: 'pago',
+        updated_at: new Date().toISOString()
+      })
+      
+      console.log('✅ Comissão aprovada com sucesso')
+      alert('Comissão aprovada e marcada como paga!')
+    } catch (error) {
+      console.error('❌ Erro ao aprovar comissão:', error)
+      alert('Erro ao aprovar comissão')
+    }
+  }, [mutateUpdateComissao])
+
+  const recusarComissao = useCallback(async (id: string) => {
+    try {
+      const motivo = prompt('Motivo da recusa (opcional):')
+      const comissao = comissoes.find(c => c.id === id)
+
+      await mutateUpdateComissao({
+        id,
+        status_pagamento: 'recusado',
+        observacoes: (comissao?.observacoes || '') + (motivo ? ` | RECUSADA: ${motivo}` : ' | RECUSADA'),
+        updated_at: new Date().toISOString()
+      })
+
+      console.log('✅ Comissão recusada com sucesso')
+      alert('Comissão recusada!')
+    } catch (error) {
+      console.error('❌ Erro ao recusar comissão:', error)
+      alert('Erro ao recusar comissão')
+    }
+  }, [mutateUpdateComissao, comissoes])
+
+  const abrirModalEditar = useCallback((comissao: Comissao) => {
+    console.log('✏️ Abrindo modal de edição para comissão:', comissao.id)
+    setSelectedComissao(comissao)
+    setEditForm({
+      valor_comissao: comissao.valor_comissao || 0,
+      percentual_comissao: comissao.percentual_comissao || 5,
+      observacoes: comissao.observacoes || ''
+    })
+    setShowEditModal(true)
+  }, [])
+
+  const calcularValorPorPercentual = useCallback((percentual: number, valorVenda: number) => {
+    return (valorVenda * percentual) / 100
+  }, [])
+
+  const salvarEdicaoComissao = useCallback(async () => {
+    if (!selectedComissao) return
+    
+    console.log('🔄 Iniciando edição de comissão...')
+    
+    try {
+      await mutateUpdateComissao({
+        id: selectedComissao.id,
+        valor_comissao: editForm.valor_comissao,
+        percentual_comissao: editForm.percentual_comissao,
+        observacoes: editForm.observacoes,
+        updated_at: new Date().toISOString()
+      })
+
+      console.log('✅ Comissão editada com sucesso')
+      alert('Comissão editada com sucesso!')
+      setShowEditModal(false)
+    } catch (error) {
+      console.error('❌ Erro ao editar comissão:', error)
+      alert('Erro ao editar comissão')
+    }
+  }, [selectedComissao, editForm, mutateUpdateComissao])
+
+  const definirTodosCom5Porcento = useCallback(async () => {
+    if (!confirm('Isso irá definir TODAS as comissões pendentes para 5%. Continuar?')) {
+      return
+    }
+
+    try {
+      // Buscar apenas comissões pendentes dos dados já carregados
+      const comissoesPendentes = comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente')
+      
+      // Atualizar cada comissão com 5% do valor de venda
+      for (const comissao of comissoesPendentes) {
+        const novoValor = calcularValorPorPercentual(5, comissao.valor_venda)
+        
+        await mutateUpdateComissao({
+          id: comissao.id,
+          valor_comissao: novoValor,
+          percentual_comissao: 5,
+          updated_at: new Date().toISOString()
+        })
+      }
+
+      alert(`✅ ${comissoesPendentes.length} comissões atualizadas para 5%!`)
+      setShowGlobalConfigModal(false)
+
+    } catch (error) {
+      console.error('❌ Erro ao atualizar comissões:', error)
+      alert('Erro ao atualizar comissões')
+    }
+  }, [comissoes, calcularValorPorPercentual, mutateUpdateComissao])
+
+  const corrigirComissoesZeradas = useCallback(async () => {
+    const comissoesZeradas = comissoes.filter(c => 
+      (c.status_pagamento || 'pendente') === 'pendente' && 
+      (c.valor_comissao || 0) === 0
+    ).length
+
+    if (!confirm(`Corrigir ${comissoesZeradas} comissões zeradas para R$ 2.000,00 cada?`)) {
+      return
+    }
+
+    try {
+      const response = await fetch('/api/admin/fix-commissions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        alert(`✅ ${result.corrigidas || 0} comissões corrigidas com sucesso!`)
+        await refetchComissoes() // Use stable refetch instead
+      } else {
+        throw new Error(result.error || 'Erro na correção')
+      }
+
+    } catch (error: any) {
+      console.error('❌ Erro ao corrigir comissões:', error)
+      alert(`❌ Erro: ${error.message}`)
+    }
+  }, [comissoes, refetchComissoes])
+
+  const getStatusBadge = (status?: string) => {
+    switch (status) {
+      case 'pago':
+        return <Badge className="bg-green-500 hover:bg-green-600">Pago</Badge>
+      case 'recusado':
+        return <Badge className="bg-red-500 hover:bg-red-600">Recusado</Badge>
+      case 'cancelado':
+        return <Badge className="bg-gray-500 hover:bg-gray-600">Cancelado</Badge>
+      case 'pendente':
+      default:
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600">Pendente</Badge>
+    }
+  }
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value)
+  }
+
+  const getStatusBadgeSplit = (status: string, type: 'primeira' | 'segunda') => {
+    if (type === 'primeira') {
+      switch (status) {
+        case 'pendente':
+          return <Badge variant="outline" className="bg-yellow-100 text-yellow-700">Pendente</Badge>
+        case 'pago':
+          return <Badge variant="outline" className="bg-green-100 text-green-700">Pago</Badge>
+        default:
+          return <Badge variant="outline">Desconhecido</Badge>
+      }
+    } else {
+      switch (status) {
+        case 'bloqueado':
+          return <Badge variant="outline" className="bg-red-100 text-red-700">Bloqueado</Badge>
+        case 'liberado':
+          return <Badge variant="outline" className="bg-blue-100 text-blue-700">Liberado</Badge>
+        case 'pago':
+          return <Badge variant="outline" className="bg-green-100 text-green-700">Pago</Badge>
+        default:
+          return <Badge variant="outline">Desconhecido</Badge>
+      }
+    }
+  }
+
+  const getProgressoCliente = (comissao: ComissaoSplit) => {
+    const lead = comissao.leads
+    if (!lead || !lead.valor_vendido) return 0
+    
+    const progresso = (lead.valor_arrecadado || 0) / lead.valor_vendido * 100
+    return Math.min(progresso, 100)
+  }
+
+  const formatDate = useCallback((dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
+  }, [])
+
+  // Memoized filtered commissions
+  const filteredComissoes = useMemo(() => {
+    return comissoes.filter(comissao => {
+      const matchesSearch = searchTerm.length === 0 || 
+        comissao.mentorado_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        comissao.lead_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        comissao.observacoes?.toLowerCase().includes(searchTerm.toLowerCase())
+
+      const matchesStatus = filterStatus === 'todos' || (comissao.status_pagamento || 'pendente') === filterStatus
+
+      return matchesSearch && matchesStatus
+    })
+  }, [comissoes, searchTerm, filterStatus])
+
+  // Memoized statistics calculation
+  const stats = useMemo(() => ({
+    total: comissoes.length,
+    pendentes: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente').length,
+    pagas: comissoes.filter(c => c.status_pagamento === 'pago').length,
+    recusadas: comissoes.filter(c => c.status_pagamento === 'recusado').length,
+    canceladas: comissoes.filter(c => c.status_pagamento === 'cancelado').length,
+    totalValor: comissoes.reduce((acc, c) => acc + (c.valor_comissao || 0), 0),
+    valorPendente: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente').reduce((acc, c) => acc + (c.valor_comissao || 0), 0),
+    comissoesZeradas: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente' && (c.valor_comissao || 0) === 0).length
+  }), [comissoes])
+
+  // Combined loading state
+  const loading = comissoesLoading || isUpdatingComissao
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex flex-col space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Gestão de Comissões</h1>
+              <p className="text-gray-600 mt-1">Gerencie aprovações, recusas e edições de comissões</p>
+            </div>
+            <Button
+              onClick={() => setShowGlobalConfigModal(true)}
+              className="bg-blue-500 hover:bg-blue-600"
+            >
+              Configurar Comissões
+            </Button>
+          </div>
+
+          {/* Navigation Tabs */}
+          <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="comissoes" className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                Comissões Tradicionais
+              </TabsTrigger>
+              <TabsTrigger value="split" className="flex items-center gap-2">
+                <Calculator className="w-4 h-4" />
+                Sistema Split (50%+50%)
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Tab Content - Comissões Tradicionais */}
+            <TabsContent value="comissoes" className="space-y-6">
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <DollarSign className="w-5 h-5 text-blue-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">Total Comissões</p>
+                    <p className="text-2xl font-bold">{stats.total}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Clock className="w-5 h-5 text-yellow-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">Pendentes</p>
+                    <p className="text-2xl font-bold">{stats.pendentes}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Check className="w-5 h-5 text-green-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">Pagas</p>
+                    <p className="text-2xl font-bold">{stats.pagas}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <X className="w-5 h-5 text-gray-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">Canceladas</p>
+                    <p className="text-2xl font-bold">{stats.canceladas}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <TrendingUp className="w-5 h-5 text-blue-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">Valor Pendente</p>
+                    <p className="text-lg font-bold">{formatCurrency(stats.valorPendente)}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Alerta para comissões zeradas */}
+          {stats.comissoesZeradas > 0 && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <AlertCircle className="w-6 h-6 text-red-500" />
+                    <div>
+                      <p className="font-semibold text-red-700">
+                        ⚠️ {stats.comissoesZeradas} comissões com valor zerado encontradas
+                      </p>
+                      <p className="text-sm text-red-600">
+                        Estas comissões deveriam ter R$ 2.000,00 cada. Total perdido: R$ {(stats.comissoesZeradas * 2000).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={corrigirComissoesZeradas}
+                    className="bg-red-500 hover:bg-red-600 text-white"
+                    disabled={loading}
+                  >
+                    {loading ? 'Corrigindo...' : 'Corrigir Agora'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Filters */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Buscar por mentorado, lead ou observações..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as any)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="todos">Todos os status</option>
+                <option value="pendente">Pendente</option>
+                <option value="pago">Pago</option>
+                <option value="recusado">Recusado</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Comissões Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Comissões ({filteredComissoes.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <p className="mt-2 text-gray-600">Carregando comissões...</p>
+              </div>
+            ) : filteredComissoes.length === 0 ? (
+              <div className="text-center py-8">
+                <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">Nenhuma comissão encontrada</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Mentorado</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Lead</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Valor Comissão</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Percentual</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Valor Venda</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Data Venda</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredComissoes.map((comissao) => (
+                      <tr
+                        key={comissao.id}
+                        className={`border-b transition-colors ${
+                          (comissao.valor_comissao || 0) === 0 && (comissao.status_pagamento || 'pendente') === 'pendente'
+                            ? 'bg-red-50 hover:bg-red-100 border-red-200'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <td className="py-3 px-4">
+                          <div>
+                            <p className="font-medium text-gray-900">{comissao.mentorado_nome}</p>
+                            <p className="text-sm text-gray-500">{comissao.mentorado_email}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div>
+                            <p className="font-medium text-gray-900">{comissao.lead_nome}</p>
+                            <p className="text-sm text-gray-500">{comissao.lead_empresa}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center space-x-2">
+                            <p className={`font-bold ${
+                              (comissao.valor_comissao || 0) === 0 && (comissao.status_pagamento || 'pendente') === 'pendente'
+                                ? 'text-red-600'
+                                : 'text-green-600'
+                            }`}>
+                              {formatCurrency(comissao.valor_comissao || 0)}
+                            </p>
+                            {(comissao.valor_comissao || 0) === 0 && (comissao.status_pagamento || 'pendente') === 'pendente' && (
+                              <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
+                                ZERADA
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="font-medium text-blue-600">
+                            {(comissao.percentual_comissao || 5)}%
+                          </p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="text-gray-900">
+                            {formatCurrency(comissao.valor_venda || 0)}
+                          </p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="text-gray-900">
+                            {formatDate(comissao.data_venda)}
+                          </p>
+                        </td>
+                        <td className="py-3 px-4">
+                          {getStatusBadge(comissao.status_pagamento)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                console.log('👁️ Clicou no olhinho para comissão:', comissao.id)
+                                setSelectedComissao(comissao)
+                                setShowViewModal(true)
+                                console.log('👁️ Modal de visualização aberto')
+                              }}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => abrirModalEditar(comissao)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+
+                            {(comissao.status_pagamento || 'pendente') === 'pendente' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  className="bg-green-500 hover:bg-green-600"
+                                  onClick={() => aprovarComissao(comissao.id)}
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => recusarComissao(comissao.id)}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Modal de Visualização */}
+        {showViewModal && selectedComissao && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full m-4 max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Detalhes da Comissão</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowViewModal(false)}
+                >
+                  ✕
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mentorado</label>
+                    <p className="text-gray-900">{selectedComissao.mentorado_nome}</p>
+                    <p className="text-sm text-gray-500">{selectedComissao.mentorado_email}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Lead</label>
+                    <p className="text-gray-900">{selectedComissao.lead_nome}</p>
+                    <p className="text-sm text-gray-500">{selectedComissao.lead_empresa}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Valor da Comissão</label>
+                    <p className="text-lg font-bold text-green-600">
+                      {formatCurrency(selectedComissao.valor_comissao || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Percentual</label>
+                    <p className="text-lg font-bold text-blue-600">
+                      {(selectedComissao.percentual_comissao || 5)}%
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Valor da Venda</label>
+                    <p className="text-lg font-bold">
+                      {formatCurrency(selectedComissao.valor_venda || 0)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Data da Venda</label>
+                    <p className="text-gray-900">{formatDate(selectedComissao.data_venda)}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    {getStatusBadge(selectedComissao.status_pagamento)}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                  <p className="text-gray-900 bg-gray-50 p-3 rounded">
+                    {selectedComissao.observacoes || 'Nenhuma observação'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm text-gray-500">
+                  <div>
+                    <span className="font-medium">Criado em:</span> {formatDate(selectedComissao.created_at)}
+                  </div>
+                  <div>
+                    <span className="font-medium">Atualizado em:</span> {formatDate(selectedComissao.updated_at)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Edição */}
+        {showEditModal && selectedComissao && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full m-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Editar Comissão</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEditModal(false)}
+                >
+                  ✕
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Mentorado: {selectedComissao.mentorado_nome}
+                  </label>
+                  <label className="block text-sm text-gray-500 mb-3">
+                    Valor da venda: {formatCurrency(selectedComissao.valor_venda || 0)}
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Percentual de Comissão
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={editForm.percentual_comissao}
+                    onChange={(e) => {
+                      const percentual = parseFloat(e.target.value) || 0
+                      const novoValor = calcularValorPorPercentual(percentual, selectedComissao.valor_venda || 0)
+                      setEditForm({
+                        ...editForm,
+                        percentual_comissao: percentual,
+                        valor_comissao: novoValor
+                      })
+                    }}
+                    className="mb-2"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Valor calculado: {formatCurrency(editForm.valor_comissao)}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Valor da Comissão (R$)
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editForm.valor_comissao}
+                    onChange={(e) => {
+                      const valor = parseFloat(e.target.value) || 0
+                      const percentual = selectedComissao.valor_venda ? (valor / selectedComissao.valor_venda) * 100 : 0
+                      setEditForm({
+                        ...editForm,
+                        valor_comissao: valor,
+                        percentual_comissao: Math.round(percentual * 100) / 100
+                      })
+                    }}
+                    className="mb-2"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Percentual calculado: {editForm.percentual_comissao.toFixed(2)}%
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Observações
+                  </label>
+                  <Input
+                    value={editForm.observacoes}
+                    onChange={(e) => setEditForm({ ...editForm, observacoes: e.target.value })}
+                    placeholder="Observações adicionais..."
+                  />
+                </div>
+
+                <div className="flex space-x-3 pt-4">
+                  <Button
+                    onClick={salvarEdicaoComissao}
+                    className="flex-1 bg-green-500 hover:bg-green-600"
+                  >
+                    Salvar
+                  </Button>
+                  <Button
+                    onClick={() => setShowEditModal(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Configuração Global */}
+        {showGlobalConfigModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full m-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Configurar Comissões</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowGlobalConfigModal(false)}
+                >
+                  ✕
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-medium text-blue-900 mb-2">Definir Padrão Global</h3>
+                  <p className="text-sm text-blue-700 mb-3">
+                    Esta ação irá configurar todas as comissões pendentes para 5% do valor de venda.
+                  </p>
+                  <div className="text-sm text-gray-600">
+                    <p>• Comissões pendentes: <strong>{stats.pendentes}</strong></p>
+                    <p>• Comissões zeradas: <strong>{stats.comissoesZeradas}</strong></p>
+                  </div>
+                </div>
+
+                <div className="flex space-x-3">
+                  <Button
+                    onClick={definirTodosCom5Porcento}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600"
+                    disabled={loading}
+                  >
+                    {loading ? 'Processando...' : 'Definir Todos com 5%'}
+                  </Button>
+                  <Button
+                    onClick={() => setShowGlobalConfigModal(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+          </TabsContent>
+
+          {/* Tab Content - Sistema Split */}
+          <TabsContent value="split" className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Pagamento de Comissões Split</h2>
+                <p className="text-gray-600 mb-6">
+                  Sistema de pagamento em duas partes: 50% quando vende + 50% quando cliente quita
+                </p>
+              </div>
+
+              {/* Estatísticas Split */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">1ª Parte Pendente</p>
+                        <p className="text-2xl font-bold text-yellow-600">
+                          {formatCurrency(splitStats.primeira_parte_pendente.valor)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {splitStats.primeira_parte_pendente.quantidade} comissões
+                        </p>
+                      </div>
+                      <Clock className="w-6 h-6 text-yellow-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">2ª Parte Liberada</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          {formatCurrency(splitStats.segunda_parte_liberada.valor)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {splitStats.segunda_parte_liberada.quantidade} liberadas
+                        </p>
+                      </div>
+                      <Check className="w-6 h-6 text-green-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">2ª Parte Bloqueada</p>
+                        <p className="text-2xl font-bold text-red-600">
+                          {formatCurrency(splitStats.segunda_parte_bloqueada.valor)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {splitStats.segunda_parte_bloqueada.quantidade} aguardando
+                        </p>
+                      </div>
+                      <AlertCircle className="w-6 h-6 text-red-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Tabs de Pagamentos Split */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Controle de Pagamentos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Tabs value={activeTabSplit} onValueChange={(value: any) => setActiveTabSplit(value)}>
+                    <TabsList>
+                      <TabsTrigger value="primeira_parte">1ª Parte (Pendentes)</TabsTrigger>
+                      <TabsTrigger value="segunda_parte">2ª Parte (Liberadas)</TabsTrigger>
+                      <TabsTrigger value="todas">Todas</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="primeira_parte" className="space-y-4">
+                      <div className="text-sm text-gray-600 mb-4">
+                        Comissões que precisam do primeiro pagamento (50% quando vendeu)
+                      </div>
+                      
+                      {comissoesSplitFiltradas.map((comissao) => (
+                        <Card key={comissao.id} className="border-yellow-200">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <User className="w-4 h-4 text-gray-500" />
+                                  <span className="font-medium">{comissao.mentorados?.nome_completo}</span>
+                                  <span className="text-gray-500">→</span>
+                                  <span className="text-gray-700">{comissao.leads?.nome_completo}</span>
+                                </div>
+                                
+                                <div className="flex items-center gap-6 text-sm">
+                                  <div>
+                                    <span className="text-gray-500">Comissão Total:</span>
+                                    <span className="font-medium ml-1">
+                                      {formatCurrency(comissao.valor_comissao)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">1ª Parte (50%):</span>
+                                    <span className="font-medium ml-1 text-yellow-600">
+                                      {formatCurrency(comissao.valor_primeira_parte)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Status:</span>
+                                    <span className="ml-1">
+                                      {getStatusBadgeSplit(comissao.status_primeira_parte, 'primeira')}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <Button 
+                                onClick={() => handlePagarPrimeiraParte(comissao.id)}
+                                disabled={pagarPrimeiraParte.isLoading}
+                                className="bg-yellow-600 hover:bg-yellow-700"
+                              >
+                                <DollarSign className="w-4 h-4 mr-2" />
+                                Pagar 1ª Parte
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </TabsContent>
+
+                    <TabsContent value="segunda_parte" className="space-y-4">
+                      <div className="text-sm text-gray-600 mb-4">
+                        Comissões liberadas para segundo pagamento (50% quando cliente quitou)
+                      </div>
+                      
+                      {comissoesSplitFiltradas.map((comissao) => (
+                        <Card key={comissao.id} className="border-green-200">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <User className="w-4 h-4 text-gray-500" />
+                                  <span className="font-medium">{comissao.mentorados?.nome_completo}</span>
+                                  <span className="text-gray-500">→</span>
+                                  <span className="text-gray-700">{comissao.leads?.nome_completo}</span>
+                                  <Badge variant="outline" className="bg-green-100 text-green-700">
+                                    Cliente Quitou
+                                  </Badge>
+                                </div>
+                                
+                                <div className="flex items-center gap-6 text-sm mb-3">
+                                  <div>
+                                    <span className="text-gray-500">2ª Parte (50%):</span>
+                                    <span className="font-medium ml-1 text-green-600">
+                                      {formatCurrency(comissao.valor_segunda_parte)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Valor Cliente:</span>
+                                    <span className="font-medium ml-1">
+                                      {formatCurrency(comissao.leads?.valor_vendido || 0)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Status:</span>
+                                    <span className="ml-1">
+                                      {getStatusBadgeSplit(comissao.status_segunda_parte, 'segunda')}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                                  <div 
+                                    className="bg-green-500 h-2 rounded-full"
+                                    style={{ width: `${getProgressoCliente(comissao)}%` }}
+                                  ></div>
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  Cliente pagou: {formatCurrency(comissao.leads?.valor_arrecadado || 0)} 
+                                  de {formatCurrency(comissao.leads?.valor_vendido || 0)} (100%)
+                                </div>
+                              </div>
+                              
+                              <Button 
+                                onClick={() => handlePagarSegundaParte(comissao.id)}
+                                disabled={pagarSegundaParte.isLoading}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <Check className="w-4 h-4 mr-2" />
+                                Pagar 2ª Parte
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </TabsContent>
+
+                    <TabsContent value="todas" className="space-y-4">
+                      <div className="text-sm text-gray-600 mb-4">
+                        Visão geral de todas as comissões no sistema split
+                      </div>
+                      
+                      {comissoesSplitFiltradas.map((comissao) => (
+                        <Card key={comissao.id}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <User className="w-4 h-4 text-gray-500" />
+                                  <span className="font-medium">{comissao.mentorados?.nome_completo}</span>
+                                  <span className="text-gray-500">→</span>
+                                  <span className="text-gray-700">{comissao.leads?.nome_completo}</span>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm text-gray-500">1ª Parte (50%):</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">{formatCurrency(comissao.valor_primeira_parte)}</span>
+                                        {getStatusBadgeSplit(comissao.status_primeira_parte, 'primeira')}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm text-gray-500">2ª Parte (50%):</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">{formatCurrency(comissao.valor_segunda_parte)}</span>
+                                        {getStatusBadgeSplit(comissao.status_segunda_parte, 'segunda')}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3">
+                                  <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                                    <span>Progresso do Cliente:</span>
+                                    <span>{getProgressoCliente(comissao).toFixed(1)}%</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-1">
+                                    <div 
+                                      className={`h-1 rounded-full ${
+                                        getProgressoCliente(comissao) >= 100 ? 'bg-green-500' : 'bg-blue-500'
+                                      }`}
+                                      style={{ width: `${getProgressoCliente(comissao)}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="flex flex-col gap-2">
+                                {comissao.status_primeira_parte === 'pendente' && (
+                                  <Button 
+                                    size="sm"
+                                    onClick={() => handlePagarPrimeiraParte(comissao.id)}
+                                    disabled={pagarPrimeiraParte.isLoading}
+                                    className="bg-yellow-600 hover:bg-yellow-700"
+                                  >
+                                    Pagar 1ª Parte
+                                  </Button>
+                                )}
+                                {comissao.status_segunda_parte === 'liberado' && (
+                                  <Button 
+                                    size="sm"
+                                    onClick={() => handlePagarSegundaParte(comissao.id)}
+                                    disabled={pagarSegundaParte.isLoading}
+                                    className="bg-green-600 hover:bg-green-700"
+                                  >
+                                    Pagar 2ª Parte
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+          </TabsContent>
+        </Tabs>
+        </div>
+      </div>
+    </div>
+  )
+}

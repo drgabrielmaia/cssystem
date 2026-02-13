@@ -1,8 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useStableData } from '@/hooks/use-stable-data'
 import { commissionSystem } from '@/lib/commission-service'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   DollarSign,
   TrendingUp,
@@ -22,7 +26,13 @@ import {
   Clock,
   CheckCircle,
   ArrowUpRight,
-  Eye
+  Eye,
+  User,
+  Calculator,
+  CreditCard,
+  Timer,
+  AlertCircle,
+  Check
 } from 'lucide-react'
 import type { 
   Commission, 
@@ -38,6 +48,33 @@ interface RankingMentorado {
   total_indicacoes: number
 }
 
+interface ComissaoSplit {
+  id: string
+  lead_id: string
+  valor_comissao: number
+  percentual_comissao: number
+  status_pagamento: 'pendente' | 'pago' | 'cancelado'
+  data_venda: string
+  data_pagamento?: string | null
+  observacoes?: string | null
+  
+  // Campos calculados para split
+  valor_primeira_parte: number  // 50% - paga quando vende
+  valor_segunda_parte: number   // 50% - paga quando cliente quita
+  status_primeira_parte: 'pendente' | 'pago'
+  status_segunda_parte: 'bloqueado' | 'liberado' | 'pago'
+  cliente_quitou: boolean
+  progresso_cliente: number
+  
+  // Dados do lead
+  leads?: {
+    nome_completo: string
+    valor_vendido: number | null
+    valor_arrecadado: number | null
+    status: string | null
+  }
+}
+
 export default function MentoradoComissoesPage() {
   const [mentorado, setMentorado] = useState<any>(null)
   const [commissions, setCommissions] = useState<Commission[]>([])
@@ -51,7 +88,36 @@ export default function MentoradoComissoesPage() {
   const [showRanking, setShowRanking] = useState(true)
   const [showFullRanking, setShowFullRanking] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'commissions' | 'referrals' | 'withdrawals'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'commissions' | 'split' | 'referrals' | 'withdrawals'>('overview')
+
+  // Buscar comissões split do banco de dados
+  const {
+    data: rawComissoesSplit,
+    loading: comissoesSplitLoading,
+    refetch: refetchComissoesSplit
+  } = useStableData<any>({
+    tableName: 'comissoes',
+    select: `
+      id,
+      lead_id,
+      valor_comissao,
+      percentual_comissao,
+      status_pagamento,
+      data_venda,
+      data_pagamento,
+      observacoes,
+      leads:lead_id (
+        nome_completo,
+        valor_vendido,
+        valor_arrecadado,
+        status
+      )
+    `,
+    filters: mentorado?.id ? { mentorado_id: mentorado.id } : {},
+    dependencies: [mentorado?.id],
+    autoLoad: !!mentorado?.id,
+    debounceMs: 300
+  })
 
   useEffect(() => {
     const savedMentorado = localStorage.getItem('mentorado')
@@ -187,6 +253,102 @@ export default function MentoradoComissoesPage() {
       console.error('❌ Erro ao carregar ranking:', error)
     }
   }
+
+  // Transformar dados para sistema de split
+  const comissoesSplit = useMemo(() => {
+    if (!rawComissoesSplit?.length) return []
+    
+    return rawComissoesSplit.map(comissao => {
+      const valorTotal = comissao.valor_comissao || 0
+      const primeiraParte = valorTotal * 0.5  // 50%
+      const segundaParte = valorTotal * 0.5   // 50%
+      
+      // Verificar se cliente já pagou tudo
+      const lead = comissao.leads
+      const clienteQuitou = lead && 
+        lead.valor_vendido > 0 && 
+        lead.valor_arrecadado >= lead.valor_vendido
+      
+      // Calcular progresso do cliente
+      const progressoCliente = lead && lead.valor_vendido > 0
+        ? Math.min((lead.valor_arrecadado || 0) / lead.valor_vendido * 100, 100)
+        : 0
+      
+      // Verificar split payments via observações
+      const observacoes = comissao.observacoes || ''
+      const primeiraPagaPelaObservacao = observacoes.includes('SPLIT_PAYMENT:PRIMEIRA_PARTE_PAGA')
+      const totalmentePagaPelaObservacao = observacoes.includes('SPLIT_PAYMENT:TOTALMENTE_PAGA')
+      
+      let statusPrimeiraParte: 'pendente' | 'pago'
+      let statusSegundaParte: 'bloqueado' | 'liberado' | 'pago'
+      
+      if (comissao.status_pagamento === 'pago' || totalmentePagaPelaObservacao) {
+        statusPrimeiraParte = 'pago'
+        statusSegundaParte = 'pago'
+      } else if (primeiraPagaPelaObservacao) {
+        statusPrimeiraParte = 'pago'
+        statusSegundaParte = clienteQuitou ? 'liberado' : 'bloqueado'
+      } else {
+        statusPrimeiraParte = 'pendente'
+        statusSegundaParte = 'bloqueado'
+      }
+
+      return {
+        id: comissao.id,
+        lead_id: comissao.lead_id,
+        valor_comissao: valorTotal,
+        percentual_comissao: comissao.percentual_comissao,
+        status_pagamento: comissao.status_pagamento,
+        data_venda: comissao.data_venda,
+        data_pagamento: comissao.data_pagamento,
+        observacoes: comissao.observacoes,
+        valor_primeira_parte: primeiraParte,
+        valor_segunda_parte: segundaParte,
+        status_primeira_parte: statusPrimeiraParte,
+        status_segunda_parte: statusSegundaParte,
+        cliente_quitou: clienteQuitou,
+        progresso_cliente: progressoCliente,
+        leads: lead
+      } as ComissaoSplit
+    })
+  }, [rawComissoesSplit])
+
+  // Estatísticas para split
+  const splitStats = useMemo(() => {
+    const totalComissoes = comissoesSplit.length
+    const primeirasPartesPagas = comissoesSplit.filter(c => c.status_primeira_parte === 'pago').length
+    const segundasPartesLiberadas = comissoesSplit.filter(c => c.status_segunda_parte === 'liberado').length
+    const totalmentePagas = comissoesSplit.filter(c => 
+      c.status_primeira_parte === 'pago' && c.status_segunda_parte === 'pago'
+    ).length
+    
+    const valorRecebido = comissoesSplit
+      .filter(c => c.status_primeira_parte === 'pago' && c.status_segunda_parte === 'pago')
+      .reduce((sum, c) => sum + c.valor_comissao, 0)
+    
+    const valorPrimeirasPendentes = comissoesSplit
+      .filter(c => c.status_primeira_parte === 'pendente')
+      .reduce((sum, c) => sum + c.valor_primeira_parte, 0)
+    
+    const valorSegundasLiberadas = comissoesSplit
+      .filter(c => c.status_segunda_parte === 'liberado')
+      .reduce((sum, c) => sum + c.valor_segunda_parte, 0)
+    
+    const valorBloqueado = comissoesSplit
+      .filter(c => c.status_segunda_parte === 'bloqueado')
+      .reduce((sum, c) => sum + c.valor_segunda_parte, 0)
+    
+    return {
+      total_comissoes: totalComissoes,
+      valor_recebido: valorRecebido,
+      valor_primeiras_pendentes: valorPrimeirasPendentes,
+      valor_segundas_liberadas: valorSegundasLiberadas,
+      valor_bloqueado: valorBloqueado,
+      primeiras_pagas: primeirasPartesPagas,
+      segundas_liberadas: segundasPartesLiberadas,
+      totalmente_pagas: totalmentePagas
+    }
+  }, [comissoesSplit])
 
   const getDisplayStats = () => {
     // Use calculated stats if available, otherwise fall back to calculated values
@@ -349,6 +511,7 @@ export default function MentoradoComissoesPage() {
             {[
               { id: 'overview', label: 'Visão Geral', icon: TrendingUp },
               { id: 'commissions', label: 'Comissões', icon: DollarSign },
+              { id: 'split', label: 'Comissões Split', icon: Calculator },
               { id: 'referrals', label: 'Indicações', icon: Target },
               { id: 'withdrawals', label: 'Saques', icon: Download }
             ].map((tab) => (
@@ -788,6 +951,191 @@ export default function MentoradoComissoesPage() {
                 ))}
               </div>
             )}
+          </section>
+        )}
+
+        {/* Split Commissions Tab */}
+        {activeTab === 'split' && (
+          <section>
+            <h2 className="text-[24px] font-semibold text-white mb-6">
+              Sistema de Comissões Split
+            </h2>
+            
+            {/* Stats para Split */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[13px] text-gray-400 font-medium mb-2">Já Recebido</p>
+                    <p className="text-[20px] font-bold text-green-400">{formatCurrency(splitStats.valor_recebido)}</p>
+                    <p className="text-[10px] text-gray-500">{splitStats.totalmente_pagas} comissões completas</p>
+                  </div>
+                  <div className="w-12 h-12 bg-[#22C55E] rounded-[8px] flex items-center justify-center">
+                    <Check className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[13px] text-gray-400 font-medium mb-2">1ªs Partes Pendentes</p>
+                    <p className="text-[20px] font-bold text-yellow-400">{formatCurrency(splitStats.valor_primeiras_pendentes)}</p>
+                    <p className="text-[10px] text-gray-500">Aguardando pagamento</p>
+                  </div>
+                  <div className="w-12 h-12 bg-[#EAB308] rounded-[8px] flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[13px] text-gray-400 font-medium mb-2">2ªs Partes Liberadas</p>
+                    <p className="text-[20px] font-bold text-blue-400">{formatCurrency(splitStats.valor_segundas_liberadas)}</p>
+                    <p className="text-[10px] text-gray-500">Pronto para receber</p>
+                  </div>
+                  <div className="w-12 h-12 bg-[#3B82F6] rounded-[8px] flex items-center justify-center">
+                    <CreditCard className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[13px] text-gray-400 font-medium mb-2">Aguardando Cliente</p>
+                    <p className="text-[20px] font-bold text-orange-400">{formatCurrency(splitStats.valor_bloqueado)}</p>
+                    <p className="text-[10px] text-gray-500">Cliente ainda pagando</p>
+                  </div>
+                  <div className="w-12 h-12 bg-[#F97316] rounded-[8px] flex items-center justify-center">
+                    <Timer className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Lista de Comissões Split */}
+            {comissoesSplitLoading ? (
+              <div className="text-center py-16">
+                <Clock className="w-16 h-16 text-gray-600 mx-auto mb-4 animate-spin" />
+                <h4 className="text-[20px] font-medium text-white mb-2">Carregando comissões split...</h4>
+              </div>
+            ) : comissoesSplit.length === 0 ? (
+              <div className="text-center py-16">
+                <Calculator className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                <h4 className="text-[20px] font-medium text-white mb-2">Nenhuma comissão split encontrada</h4>
+                <p className="text-gray-400">
+                  Suas comissões split aparecerão aqui conforme suas indicações virarem vendas.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {comissoesSplit.map((comissao) => (
+                  <div
+                    key={comissao.id}
+                    className="bg-[#1A1A1A] hover:bg-[#2A2A2A] rounded-[8px] p-6 transition-colors"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <User className="w-4 h-4 text-gray-400" />
+                          <span className="font-medium text-white">{comissao.leads?.nome_completo}</span>
+                          <span className="text-[12px] text-gray-400 bg-gray-700/50 px-2 py-1 rounded">
+                            Venda: {formatDate(comissao.data_venda)}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-white">{formatCurrency(comissao.valor_comissao)}</div>
+                          <div className="text-xs text-gray-400">{comissao.percentual_comissao}% de comissão</div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-[#2A2A2A] p-3 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-white">1ª Parte (50%)</span>
+                            <span className={`px-2 py-1 text-xs font-medium rounded ${
+                              comissao.status_primeira_parte === 'pago' 
+                                ? 'bg-green-400/20 text-green-400' 
+                                : 'bg-yellow-400/20 text-yellow-400'
+                            }`}>
+                              {comissao.status_primeira_parte === 'pago' ? 'Recebido' : 'Aguardando'}
+                            </span>
+                          </div>
+                          <div className="text-lg font-bold text-yellow-400">
+                            {formatCurrency(comissao.valor_primeira_parte)}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {comissao.status_primeira_parte === 'pago' ? 'Já recebido! ✅' : 'Pago quando você vende'}
+                          </div>
+                        </div>
+
+                        <div className="bg-[#2A2A2A] p-3 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-white">2ª Parte (50%)</span>
+                            <span className={`px-2 py-1 text-xs font-medium rounded ${
+                              comissao.status_segunda_parte === 'pago' ? 'bg-green-400/20 text-green-400' :
+                              comissao.status_segunda_parte === 'liberado' ? 'bg-blue-400/20 text-blue-400' :
+                              'bg-red-400/20 text-red-400'
+                            }`}>
+                              {comissao.status_segunda_parte === 'pago' ? 'Recebido' :
+                               comissao.status_segunda_parte === 'liberado' ? 'Liberado' : 'Bloqueado'}
+                            </span>
+                          </div>
+                          <div className="text-lg font-bold text-green-400">
+                            {formatCurrency(comissao.valor_segunda_parte)}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {comissao.cliente_quitou ? 'Cliente quitou! 🎉' : 
+                             comissao.status_segunda_parte === 'pago' ? 'Já recebido! ✅' :
+                             'Aguardando cliente quitar'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Progresso do Cliente */}
+                      <div>
+                        <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+                          <span>Progresso do Pagamento do Cliente:</span>
+                          <span>{comissao.progresso_cliente.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full transition-all duration-300 ${
+                              comissao.progresso_cliente >= 100 ? 'bg-green-500' : 'bg-blue-500'
+                            }`}
+                            style={{ width: `${comissao.progresso_cliente}%` }}
+                          ></div>
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          Cliente pagou: {formatCurrency(comissao.leads?.valor_arrecadado || 0)} 
+                          de {formatCurrency(comissao.leads?.valor_vendido || 0)}
+                          {comissao.progresso_cliente >= 100 && ' ✅'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Explicação do Sistema */}
+            <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-400/30 rounded-lg p-6 mt-8">
+              <div className="flex items-start gap-4">
+                <Calculator className="w-6 h-6 text-blue-400 mt-1" />
+                <div>
+                  <h3 className="font-semibold text-blue-400 mb-2">Como funciona o sistema de comissões split?</h3>
+                  <div className="text-blue-300 text-sm space-y-2">
+                    <p><strong>1ª Parte (50%):</strong> É paga assim que a venda é confirmada</p>
+                    <p><strong>2ª Parte (50%):</strong> É liberada quando o cliente paga 100% do valor vendido</p>
+                    <p><strong>Progresso do Cliente:</strong> Você pode acompanhar quanto % do valor o cliente já pagou</p>
+                    <p><strong>💡 Dica:</strong> Quanto mais rápido seu cliente pagar, mais rápido você recebe a segunda parte!</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
         )}
 
