@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Play, BookOpen, Clock, CheckCircle, Lock, Search, Star, Trophy, Medal, Award, FileText, MessageSquare, ThumbsUp, Download } from 'lucide-react'
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
-import { EnhancedPandaVideoPlayer } from '@/components/EnhancedPandaVideoPlayer'
+import { PandaVideoPlayer } from '@/components/PandaVideoPlayer'
 
 interface VideoModule {
   id: string
@@ -928,20 +928,10 @@ export default function NetflixStyleVideosPage() {
           {selectedLesson && (
             <div className="space-y-0">
               <div className="aspect-video bg-[#1A1A1A] rounded-t-[8px] overflow-hidden">
-                <EnhancedPandaVideoPlayer
+                <PandaVideoPlayer
                   embedUrl={selectedLesson.panda_video_embed_url}
                   title={selectedLesson.title}
                   className="w-full h-full rounded-t-[8px]"
-                  onTimeUpdate={(currentTime, duration) => {
-                    // Atualizar progresso automaticamente
-                    if (currentTime > 0 && duration > 0) {
-                      const watchPercentage = (currentTime / duration) * 100
-                      if (watchPercentage > 85 && !selectedLesson.progress?.is_completed) {
-                        // Auto-completar quando assistir 85% da aula
-                        handleCompleteLesson(selectedLesson.id)
-                      }
-                    }
-                  }}
                 />
               </div>
 

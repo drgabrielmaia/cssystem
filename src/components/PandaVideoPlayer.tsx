@@ -61,48 +61,49 @@ export function PandaVideoPlayer({ embedUrl, title, className }: PandaVideoPlaye
   const generatePandaUrl = (mobile: boolean = false, retryAttempt: number = 0) => {
     const baseUrl = `https://player-vz-00efd930-2fc.tv.pandavideo.com.br/embed/?v=${embedUrl}`
 
-    // Diferentes estratégias por tentativa
+    // Estratégias otimizadas com controles avançados
     const strategies = [
-      // Tentativa 1: Parâmetros mobile completos
-      mobile ? [
-        'mobile=true',
-        'responsive=true',
-        'allowfullscreen=true',
-        'autoplay=false',
-        'controls=true',
-        'skin=dark',
-        'domain=' + encodeURIComponent(window.location.hostname),
-        'origin=' + encodeURIComponent(window.location.origin),
-        'referrer=' + encodeURIComponent(document.referrer || window.location.href)
-      ] : [
-        'allowfullscreen=true',
-        'responsive=true',
-        'autoplay=false',
-        'controls=true',
-        'skin=dark'
-      ],
-
-      // Tentativa 2: Minimal + bypass
+      // Tentativa 1: Todos os controles habilitados
       [
-        'mobile=false',
-        'responsive=false',
-        'domain=' + encodeURIComponent('cs.medicosderesultado.com.br'),
-        'allowfullscreen=true'
+        'controls=1',           // Controles nativos
+        'allowfullscreen=1',    // Fullscreen
+        'responsive=1',         // Responsivo  
+        'autoplay=0',          // Sem autoplay
+        'showinfo=1',          // Informações do vídeo
+        'playsinline=1',       // Play inline mobile
+        'keyboard=1',          // Atalhos de teclado
+        'speed=1',             // Controle de velocidade
+        'quality=auto',        // Qualidade automática
+        'theme=dark',          // Tema escuro
+        'color=red',           // Cor vermelha dos controles
+        'rel=0',               // Sem vídeos relacionados
+        'modestbranding=1',    // Branding mínimo
+        'cc=0'                 // Sem legendas por padrão
       ],
 
-      // Tentativa 3: Desktop mode forçado
+      // Tentativa 2: Controles básicos + fullscreen
       [
-        'desktop=true',
-        'mobile=false',
-        'domain=cs.medicosderesultado.com.br'
+        'controls=1',
+        'allowfullscreen=1', 
+        'responsive=1',
+        'autoplay=0',
+        'keyboard=1',
+        'speed=1'
       ],
 
-      // Tentativa 4: Sem parâmetros extras
-      []
+      // Tentativa 3: Mínimo com controles
+      [
+        'controls=1',
+        'allowfullscreen=1',
+        'autoplay=0'
+      ],
+
+      // Tentativa 4: Básico
+      ['controls=1']
     ]
 
     const params = strategies[Math.min(retryAttempt, strategies.length - 1)]
-    return params.length > 0 ? `${baseUrl}&${params.join('&')}` : baseUrl
+    return `${baseUrl}&${params.join('&')}`
   }
 
   const handleIframeLoad = () => {
