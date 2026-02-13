@@ -32,34 +32,22 @@ export function PandaVideoPlayer({ embedUrl, title, className }: PandaVideoPlaye
   const generatePandaUrl = (mobile: boolean = false, retryAttempt: number = 0) => {
     const baseUrl = `https://player-vz-00efd930-2fc.tv.pandavideo.com.br/embed/?v=${embedUrl}`
 
-    // Estratégias baseadas na documentação oficial do PandaVideo
-    const strategies = [
-      // Tentativa 1: Controles completos do PandaVideo
-      [
-        'controls=play-large,play,progress,current-time,volume,captions,settings,pip,fullscreen',
-        'autoplay=false',
-        'muted=false'
-      ],
-
-      // Tentativa 2: Controles essenciais com settings (engrenagem)
-      [
-        'controls=play,progress,current-time,settings,fullscreen',
-        'autoplay=false'
-      ],
-
-      // Tentativa 3: Controles básicos garantidos
-      [
-        'controls=play,progress,settings,fullscreen'
-      ],
-
-      // Tentativa 4: Mínimo funcional
-      [
-        'controls=play,settings'
-      ]
+    // Usar EXATAMENTE os mesmos parâmetros que funcionam no navegador
+    const workingParams = [
+      'controls=play-large,play,progress,current-time,volume,captions,settings,pip,fullscreen',
+      'autoplay=false', 
+      'muted=false'
     ]
 
-    const params = strategies[Math.min(retryAttempt, strategies.length - 1)]
-    return `${baseUrl}&${params.join('&')}`
+    // Forçar domain como cs.medicosderesultado.com.br (domínio autorizado)
+    const authorizedDomain = 'cs.medicosderesultado.com.br'
+    const domainParam = `domain=${authorizedDomain}`
+
+    const allParams = [...workingParams, domainParam]
+    const finalUrl = `${baseUrl}&${allParams.join('&')}`
+    
+    console.log('🎥 URL do PandaVideo gerada:', finalUrl)
+    return finalUrl
   }
 
   const handleIframeLoad = () => {
@@ -92,14 +80,35 @@ export function PandaVideoPlayer({ embedUrl, title, className }: PandaVideoPlaye
   useEffect(() => {
     const timer = setTimeout(() => {
       if (isLoading && !hasError) {
-        console.warn('⚠️ PandaVideo demorou para carregar, possível bloqueio')
+        console.warn('⚠️ PandaVideo demorou para carregar, possível problema de domínio')
         setHasError(true)
         setIsLoading(false)
       }
-    }, 15000) // 15 segundos timeout
+    }, 8000) // 8 segundos timeout - mais rápido
 
     return () => clearTimeout(timer)
   }, [isLoading, hasError, retryCount])
+
+  // Adicionar listener para postMessage do PandaVideo
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Verificar se vem do domínio do PandaVideo
+      if (event.origin.includes('pandavideo.com.br')) {
+        console.log('📡 Mensagem do PandaVideo:', event.data)
+        
+        if (event.data?.type === 'player-ready') {
+          setIsLoading(false)
+          setHasError(false)
+        } else if (event.data?.type === 'player-error') {
+          setHasError(true)
+          setIsLoading(false)
+        }
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [])
 
   if (hasError) {
     return (
@@ -122,18 +131,34 @@ export function PandaVideoPlayer({ embedUrl, title, className }: PandaVideoPlaye
             Tentar estratégia {retryCount + 1}
           </button>
 
-          {retryCount >= 2 && (
+          {retryCount >= 1 && (
             <button
               onClick={() => {
-                const directUrl = `https://player-vz-00efd930-2fc.tv.pandavideo.com.br/embed/?v=${embedUrl}&domain=cs.medicosderesultado.com.br`
-                window.open(directUrl, '_blank', 'width=800,height=600')
+                const workingUrl = `https://player-vz-00efd930-2fc.tv.pandavideo.com.br/embed/?v=${embedUrl}&controls=play-large,play,progress,current-time,volume,captions,settings,pip,fullscreen&autoplay=false&muted=false`
+                window.open(workingUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes')
               }}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
             >
               <Play className="w-4 h-4" />
-              Abrir em nova aba
+              Assistir em Nova Aba
             </button>
           )}
+
+          <button
+            onClick={() => {
+              // Força reload completo do iframe
+              if (iframeRef.current) {
+                const newUrl = generatePandaUrl(isMobile, 0) + '&t=' + Date.now() // Cache bust
+                iframeRef.current.src = newUrl
+                setIsLoading(true)
+                setHasError(false)
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Recarregar Player
+          </button>
 
           {isMobile && (
             <div className="text-xs text-gray-500 text-center max-w-sm">
@@ -161,8 +186,10 @@ export function PandaVideoPlayer({ embedUrl, title, className }: PandaVideoPlaye
         src={generatePandaUrl(isMobile, retryCount)}
         className="w-full h-full"
         style={{ border: 'none' }}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; web-share"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; web-share; camera; microphone"
         allowFullScreen={true}
+        sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
+        referrerPolicy="strict-origin-when-cross-origin"
         title={title}
         onLoad={handleIframeLoad}
         onError={handleIframeError}
