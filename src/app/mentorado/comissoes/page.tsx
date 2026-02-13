@@ -1095,24 +1095,65 @@ export default function MentoradoComissoesPage() {
                         </div>
                       </div>
 
-                      {/* Progresso do Cliente */}
-                      <div>
-                        <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
-                          <span>Progresso do Pagamento do Cliente:</span>
-                          <span>{comissao.progresso_cliente.toFixed(1)}%</span>
+                      {/* Progresso do Cliente - Visual Melhorado */}
+                      <div className="bg-[#1A1A1A] p-4 rounded-lg border-l-4 border-blue-500">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                            <span className="font-medium text-white">Status do Pagamento do Cliente</span>
+                          </div>
+                          <span className="text-2xl font-bold text-blue-400">{comissao.progresso_cliente.toFixed(1)}%</span>
                         </div>
-                        <div className="w-full bg-gray-700 rounded-full h-2">
+                        
+                        <div className="w-full bg-gray-700 rounded-full h-4 mb-3">
                           <div 
-                            className={`h-2 rounded-full transition-all duration-300 ${
-                              comissao.progresso_cliente >= 100 ? 'bg-green-500' : 'bg-blue-500'
+                            className={`h-4 rounded-full transition-all duration-500 relative ${
+                              comissao.progresso_cliente >= 100 ? 'bg-gradient-to-r from-green-500 to-green-400' : 'bg-gradient-to-r from-blue-600 to-blue-400'
                             }`}
                             style={{ width: `${comissao.progresso_cliente}%` }}
-                          ></div>
+                          >
+                            {comissao.progresso_cliente > 15 && (
+                              <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-white text-xs font-bold">
+                                {comissao.progresso_cliente.toFixed(0)}%
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          Cliente pagou: {formatCurrency(comissao.leads?.valor_arrecadado || 0)} 
-                          de {formatCurrency(comissao.leads?.valor_vendido || 0)}
-                          {comissao.progresso_cliente >= 100 && ' ✅'}
+                        
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Já recebido:</span>
+                            <span className="text-green-400 font-medium">
+                              {formatCurrency(comissao.leads?.valor_arrecadado || 0)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Total vendido:</span>
+                            <span className="text-white font-medium">
+                              {formatCurrency(comissao.leads?.valor_vendido || 0)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Falta receber:</span>
+                            <span className="text-orange-400 font-medium">
+                              {formatCurrency((comissao.leads?.valor_vendido || 0) - (comissao.leads?.valor_arrecadado || 0))}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className={`mt-3 p-2 rounded text-center text-sm font-medium ${
+                          comissao.progresso_cliente >= 100 
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                            : comissao.status_segunda_parte === 'liberado'
+                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                            : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                        }`}>
+                          {comissao.progresso_cliente >= 100 
+                            ? '🎉 Cliente quitou! Você pode receber a 2ª parte' 
+                            : comissao.status_segunda_parte === 'liberado'
+                            ? '💙 2ª parte liberada! Solicite seu saque'
+                            : '⏳ Aguardando cliente quitar para liberar 2ª parte'
+                          }
                         </div>
                       </div>
                     </div>

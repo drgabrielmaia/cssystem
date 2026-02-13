@@ -1,26 +1,43 @@
 'use client'
 
-import { useAuth } from '@/contexts/auth'
+import { useSecureAuth } from '@/hooks/use-secure-auth'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 interface AuthGuardProps {
   children: React.ReactNode
+  requireAdmin?: boolean
+  fallback?: React.ReactNode
+  redirectTo?: string
 }
 
-export function AuthGuard({ children }: AuthGuardProps) {
-  const { user, loading } = useAuth()
+export function AuthGuard({ 
+  children, 
+  requireAdmin = false, 
+  fallback = null,
+  redirectTo
+}: AuthGuardProps) {
+  const { user, orgUser, loading, isSecurelyValidated, validationError } = useSecureAuth()
   const router = useRouter()
   const [hasChecked, setHasChecked] = useState(false)
 
   useEffect(() => {
     if (!loading && !hasChecked) {
       setHasChecked(true)
-      if (!user) {
-        router.replace('/login')
+      
+      if (!isSecurelyValidated || validationError) {
+        const loginPath = redirectTo || '/login'
+        router.replace(loginPath)
+        return
+      }
+
+      if (requireAdmin && orgUser?.role !== 'admin') {
+        const dashboardPath = redirectTo || '/dashboard?error=admin_required'
+        router.replace(dashboardPath)
+        return
       }
     }
-  }, [user, loading, router, hasChecked])
+  }, [loading, isSecurelyValidated, validationError, orgUser, requireAdmin, redirectTo, router, hasChecked])
 
   // Se ainda carregando ou não checou ainda, mostra loading
   if (loading || !hasChecked) {
@@ -31,11 +48,16 @@ export function AuthGuard({ children }: AuthGuardProps) {
     )
   }
 
-  // Se não tem usuário após check, não renderiza
-  if (!user) {
-    return null
+  // Se não tem validação segura ou erro de validação, não renderiza
+  if (!isSecurelyValidated || validationError) {
+    return fallback || null
   }
 
-  // Tem usuário, renderiza conteúdo
+  // Se requer admin mas usuário não é admin
+  if (requireAdmin && orgUser?.role !== 'admin') {
+    return fallback || null
+  }
+
+  // Tem usuário autenticado, renderiza conteúdo
   return <>{children}</>
 }

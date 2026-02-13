@@ -5,13 +5,24 @@ import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 
+interface OrganizationUser {
+  is_active: boolean
+  organization_id: string
+  role: string
+  email: string
+}
+
 interface AuthContextType {
   user: User | null
   loading: boolean
   organizationId: string | null
+  orgUser: OrganizationUser | null
   isAuthenticated: boolean
+  isAdmin: boolean
   refreshAuth: () => Promise<void>
   signOut: () => Promise<void>
+  requireAuth: (redirectTo?: string) => boolean
+  requireAdmin: (redirectTo?: string) => boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -30,6 +41,7 @@ const ORG_STORAGE_KEY = 'customer_success_org'
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [organizationId, setOrganizationId] = useState<string | null>(null)
+  const [orgUser, setOrgUser] = useState<OrganizationUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [isInitialized, setIsInitialized] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -105,16 +117,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Get initial session
     const getInitialSession = async () => {
       try {
-        console.log('🔍 Verificando sessão inicial...')
+        console.log('🔍 Verificando sessão inicial (server-side)...')
 
-        // 1. Check Supabase session
-        console.log('🔄 Verificando sessão Supabase...')
+        // 1. SEMPRE validar no Supabase (server-side) - não confia no localStorage
+        console.log('🔄 Validação server-side obrigatória...')
         const { data: { session }, error } = await supabase.auth.getSession()
 
         if (error) {
           console.error('❌ Erro ao buscar sessão:', error)
+          clearAuthData() // Limpa qualquer coisa local
           setUser(null)
           setOrganizationId(null)
+          setOrgUser(null)
           setLoading(false)
           setIsInitialized(true)
           return
@@ -124,18 +138,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('👤 Usuário Supabase encontrado:', currentUser ? 'SIM' : 'NÃO')
 
         if (currentUser) {
-          console.log('✅ Usuário autenticado encontrado')
+          console.log('✅ Sessão válida confirmada server-side')
           setUser(currentUser)
 
-          // Get organization for the user
+          // Validar organização SEMPRE no servidor
           const orgId = await getOrganizationForUser(currentUser)
 
-          // Salvar no localStorage para próximas vezes
-          saveAuthData(currentUser, orgId || undefined)
+          if (orgId) {
+            // Só salvar se validação server-side passou
+            saveAuthData(currentUser, orgId)
+          } else {
+            // Se não tem org válida, limpar tudo
+            clearAuthData()
+            setUser(null)
+            setOrganizationId(null)
+            setOrgUser(null)
+          }
         } else {
-          console.log('❌ Nenhum usuário autenticado')
+          console.log('❌ Sessão inválida ou expirada')
+          clearAuthData() // Limpa localStorage comprometido
           setUser(null)
           setOrganizationId(null)
+          setOrgUser(null)
         }
 
         setLoading(false)
@@ -146,6 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearAuthData()
         setUser(null)
         setOrganizationId(null)
+        setOrgUser(null)
         setLoading(false)
         setIsInitialized(true)
       }
@@ -176,6 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUser(null)
         setOrganizationId(null)
+        setOrgUser(null)
 
         // Limpar localStorage quando logout
         if (event === 'SIGNED_OUT') {
@@ -200,6 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 1. Limpar estado local PRIMEIRO
       setUser(null)
       setOrganizationId(null)
+      setOrgUser(null)
 
       // 2. Limpar localStorage de auth
       clearAuthData()
@@ -226,6 +253,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearAuthData()
       setUser(null)
       setOrganizationId(null)
+      setOrgUser(null)
       router.push('/login')
     } finally {
       setLoading(false)
@@ -244,6 +272,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('❌ Refresh: sem sessão válida')
         setUser(null)
         setOrganizationId(null)
+        setOrgUser(null)
         setIsAuthenticated(false)
         clearAuthData()
         return
@@ -259,6 +288,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('❌ Refresh: usuário sem organização ativa')
         setUser(null)
         setOrganizationId(null)
+        setOrgUser(null)
         setIsAuthenticated(false)
         clearAuthData()
         return
@@ -274,6 +304,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('❌ Erro no refresh auth:', error)
       setUser(null)
       setOrganizationId(null)
+      setOrgUser(null)
       setIsAuthenticated(false)
       clearAuthData()
     } finally {
@@ -283,38 +314,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const getOrganizationForUser = async (user: User): Promise<string | null> => {
     try {
-      const { data: orgUser, error } = await supabase
+      const { data: userData, error } = await supabase
         .from('organization_users')
-        .select('organization_id, is_active')
+        .select('organization_id, is_active, role, email')
         .eq('email', user.email)
         .eq('is_active', true)
         .single()
 
-      if (error || !orgUser || !orgUser.is_active) {
+      if (error || !userData || !userData.is_active) {
         console.warn('Usuário sem organização ativa:', user.email, error)
         setOrganizationId(null)
+        setOrgUser(null)
         setIsAuthenticated(false)
         return null
       }
 
-      setOrganizationId(orgUser.organization_id)
+      setOrganizationId(userData.organization_id)
+      setOrgUser(userData)
       setIsAuthenticated(true)
-      return orgUser.organization_id
+      return userData.organization_id
     } catch (error: any) {
       console.error('Erro ao buscar organização:', error)
       setOrganizationId(null)
+      setOrgUser(null)
       setIsAuthenticated(false)
       return null
     }
   }
 
+  const isAdmin = () => {
+    return orgUser?.role === 'admin'
+  }
+
+  const requireAuth = (redirectTo: string = '/login') => {
+    if (!loading && !isAuthenticated) {
+      router.push(redirectTo)
+      return false
+    }
+    return true
+  }
+
+  const requireAdmin = (redirectTo: string = '/dashboard?error=admin_required') => {
+    if (!loading && (!isAuthenticated || !isAdmin())) {
+      router.push(redirectTo)
+      return false
+    }
+    return true
+  }
+
   const value = {
     user,
     organizationId,
+    orgUser,
     loading,
     isAuthenticated,
+    isAdmin: isAdmin(),
     refreshAuth,
     signOut,
+    requireAuth,
+    requireAdmin,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

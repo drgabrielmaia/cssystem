@@ -71,7 +71,10 @@ export default function AdminComissoesPage() {
       ),
       leads:lead_id (
         nome_completo,
-        empresa
+        empresa,
+        valor_vendido,
+        valor_arrecadado,
+        status
       )
     `,
     dependencies: [],
@@ -214,7 +217,7 @@ export default function AdminComissoesPage() {
       (c.valor_comissao || 0) === 0
     ).length
 
-    if (!confirm(`Corrigir ${comissoesZeradas} comissões zeradas para R$ 2.000,00 cada?`)) {
+    if (!confirm(`Padronizar TODAS as comissões para R$ 2.000,00 fixo (remove percentual)?\n\n⚠️ Isso afetará TODAS as comissões, não só as zeradas.`)) {
       return
     }
 
@@ -229,10 +232,10 @@ export default function AdminComissoesPage() {
       const result = await response.json()
 
       if (response.ok) {
-        alert(`✅ ${result.corrigidas || 0} comissões corrigidas com sucesso!`)
+        alert(`✅ ${result.corrigidas || 0} comissões padronizadas para R$ 2.000,00!\n\n${result.observacao || 'Todas agora são comissões fixas.'}`)
         await refetchComissoes() // Use stable refetch instead
       } else {
-        throw new Error(result.error || 'Erro na correção')
+        throw new Error(result.error || 'Erro na padronização')
       }
 
     } catch (error: any) {
@@ -641,6 +644,70 @@ export default function AdminComissoesPage() {
                     {getStatusBadge(selectedComissao.status_pagamento)}
                   </div>
                 </div>
+
+                {/* Progresso do Cliente */}
+                {selectedComissao.leads && (
+                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                    <label className="block text-sm font-medium text-blue-700 mb-3">Status do Pagamento do Cliente</label>
+                    
+                    {(() => {
+                      const valorVendido = selectedComissao.leads.valor_vendido || 0
+                      const valorArrecadado = selectedComissao.leads.valor_arrecadado || 0
+                      const progresso = valorVendido > 0 ? Math.min((valorArrecadado / valorVendido) * 100, 100) : 0
+                      const clienteQuitou = progresso >= 100
+                      
+                      return (
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-700">Progresso:</span>
+                            <span className="text-xl font-bold text-blue-600">{progresso.toFixed(1)}%</span>
+                          </div>
+                          
+                          <div className="w-full bg-gray-200 rounded-full h-3">
+                            <div 
+                              className={`h-3 rounded-full transition-all duration-300 ${
+                                clienteQuitou ? 'bg-gradient-to-r from-green-500 to-green-400' : 'bg-gradient-to-r from-blue-600 to-blue-400'
+                              }`}
+                              style={{ width: `${progresso}%` }}
+                            />
+                          </div>
+                          
+                          <div className="grid grid-cols-3 gap-3 text-sm">
+                            <div>
+                              <span className="text-gray-600">Já recebido:</span>
+                              <div className="font-medium text-green-600">
+                                {formatCurrency(valorArrecadado)}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Total vendido:</span>
+                              <div className="font-medium">
+                                {formatCurrency(valorVendido)}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Falta receber:</span>
+                              <div className="font-medium text-orange-600">
+                                {formatCurrency(valorVendido - valorArrecadado)}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className={`text-center text-sm p-2 rounded ${
+                            clienteQuitou 
+                              ? 'bg-green-100 text-green-700 border border-green-200' 
+                              : 'bg-orange-100 text-orange-700 border border-orange-200'
+                          }`}>
+                            {clienteQuitou 
+                              ? '🎉 Cliente quitou! Comissão pode ser liberada' 
+                              : '⏳ Aguardando cliente quitar para liberar 2ª parte'
+                            }
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>

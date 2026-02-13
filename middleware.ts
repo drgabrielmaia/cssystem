@@ -7,8 +7,14 @@ const PUBLIC_ROUTES = [
   '/login',
   '/cadastro', 
   '/forms',
-  '/privacy-policy',
-  '/api/webhook'
+  '/privacy-policy'
+]
+
+// APIs públicas específicas
+const PUBLIC_APIS = [
+  '/api/webhook',
+  '/api/cron',
+  '/api/config'
 ]
 
 // Rotas de formulários públicos (dinâmicas)
@@ -38,14 +44,18 @@ export async function middleware(req: NextRequest) {
 
   console.log('🔐 Middleware verificando rota:', pathname)
 
-  // Permitir recursos estáticos e API routes específicas
+  // Permitir recursos estáticos
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
-    pathname.includes('.') ||
-    pathname.startsWith('/api/webhook') ||
-    pathname.startsWith('/api/cron')
+    pathname.includes('.')
   ) {
+    return NextResponse.next()
+  }
+
+  // Verificar APIs públicas específicas
+  if (PUBLIC_APIS.some(api => pathname.startsWith(api))) {
+    console.log('✅ API pública permitida:', pathname)
     return NextResponse.next()
   }
 
@@ -128,15 +138,40 @@ export async function middleware(req: NextRequest) {
     }
 
     // Validar se usuário existe e está ativo
-    const { data: orgUser } = await supabase
+    const { data: orgUser, error: userError } = await supabase
       .from('organization_users')
-      .select('is_active, organization_id')
+      .select('is_active, organization_id, role, email')
       .eq('email', session.user.email)
-      .single()
+      .maybeSingle()
 
-    if (!orgUser || !orgUser.is_active) {
-      console.log('❌ Usuário inativo ou não encontrado')
-      return NextResponse.redirect(new URL('/login?error=unauthorized', req.url))
+    if (userError) {
+      console.log('❌ Erro ao buscar usuário:', userError)
+      return NextResponse.redirect(new URL('/login?error=db_error', req.url))
+    }
+
+    if (!orgUser) {
+      console.log('❌ Usuário não encontrado na organização:', session.user.email)
+      return NextResponse.redirect(new URL('/login?error=not_found', req.url))
+    }
+
+    if (!orgUser.is_active) {
+      console.log('❌ Usuário inativo:', session.user.email)
+      return NextResponse.redirect(new URL('/login?error=inactive', req.url))
+    }
+
+    // Verificar acesso a rotas administrativas
+    if (pathname.startsWith('/admin') && orgUser.role !== 'admin') {
+      console.log('❌ Acesso negado a área admin:', session.user.email, 'role:', orgUser.role)
+      return NextResponse.redirect(new URL('/dashboard?error=admin_required', req.url))
+    }
+
+    // Para APIs, validar se tem permissão
+    if (pathname.startsWith('/api') && !PUBLIC_APIS.some(api => pathname.startsWith(api))) {
+      // Adicionar headers de autorização para APIs
+      response.headers.set('x-user-id', session.user.id)
+      response.headers.set('x-user-email', session.user.email!)
+      response.headers.set('x-organization-id', orgUser.organization_id)
+      response.headers.set('x-user-role', orgUser.role)
     }
 
     console.log('✅ Acesso autorizado para:', session.user.email)
@@ -156,7 +191,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public files with extensions
+     * Include ALL API routes for validation
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\..*|api/webhook|api/cron).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)',
   ],
 }
