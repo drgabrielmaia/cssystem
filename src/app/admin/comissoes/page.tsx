@@ -35,6 +35,9 @@ interface Comissao {
   leads?: {
     nome_completo: string
     empresa: string | null
+    valor_vendido?: number
+    valor_arrecadado?: number
+    status?: string
   }
   mentorado_nome?: string
   mentorado_email?: string
