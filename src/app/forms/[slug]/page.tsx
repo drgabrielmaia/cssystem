@@ -27,6 +27,14 @@ interface FormTemplate {
   form_type: 'lead' | 'nps' | 'survey' | 'feedback' | 'other'
   fields: FormField[]
   organization_id?: string
+  leadQualification?: {
+    enabled: boolean
+    scoringConfigId?: string
+    lowScoreCloserId?: string
+    highScoreCloserId?: string
+    threshold?: number
+    enableCalendar?: boolean
+  }
 }
 
 interface Step {
@@ -48,6 +56,10 @@ export default function FormPageSafe() {
   const [mounted, setMounted] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [steps, setSteps] = useState<Step[]>([])
+  const [showCalendar, setShowCalendar] = useState(false)
+  const [leadScore, setLeadScore] = useState<any>(null)
+  const [assignedCloser, setAssignedCloser] = useState<any>(null)
+  const [qualificationResult, setQualificationResult] = useState<any>(null)
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set())
   const [bookingToken, setBookingToken] = useState<string | null>(null)
 
@@ -58,7 +70,7 @@ export default function FormPageSafe() {
     const stepsFromFields = fields.map((field, index) => {
       let stepConfig = {
         title: field.label,
-        description: `Pergunta ${index + 1} de ${fields.length}`,
+        description: field.placeholder || `Complete sua informação`,
         icon: User
       }
 
@@ -252,7 +264,93 @@ export default function FormPageSafe() {
     try {
       console.log('📤 Enviando formulário:', formData)
 
-      // Para o formulário médico, usar o novo sistema automático
+      // Verificar se o formulário tem qualificação de leads habilitada
+      if (template?.leadQualification?.enabled) {
+        console.log('🎯 Formulário com qualificação habilitada')
+        
+        // Mapear dados do formulário para o formato esperado pela API de qualificação
+        const qualificationData = {
+          nome_completo: formData.nome || formData.nome_completo || formData.name || '',
+          email: formData.email || '',
+          telefone: formData.telefone || formData.phone || formData.whatsapp || '',
+          empresa: formData.empresa || formData.company || '',
+          cargo: formData.cargo || formData.position || formData.funcao || '',
+          
+          // Mapear campos de qualificação baseado no tipo de resposta
+          temperatura: formData.temperatura || 
+                      (formData.urgencia === 'Muito urgente' ? 'quente' : 
+                       formData.urgencia === 'Urgente' ? 'morno' : 
+                       formData.interesse === 'Muito interessado' ? 'quente' : 'morno'),
+          
+          nivel_interesse: formData.nivel_interesse || 
+                          (formData.interesse === 'Muito interessado' ? 3 : 
+                           formData.interesse === 'Interessado' ? 2 : 1),
+          
+          orcamento_disponivel: parseInt(formData.orcamento || formData.investimento || '0'),
+          
+          decisor_principal: formData.decisor === 'Sim' || 
+                           formData.decisor_principal === true ||
+                           formData.responsavel === 'Sim',
+          
+          dor_principal: formData.dor || formData.problema || formData.desafio || formData.observacoes || '',
+          
+          preferred_datetime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          organization_id: template.organization_id || '00000000-0000-0000-0000-000000000001'
+        }
+
+        console.log('🧮 Dados para qualificação:', qualificationData)
+
+        // Chamar API de qualificação v2 que funciona sem problemas de schema
+        const qualificationResponse = await fetch('/api/leads/qualification-form-v2', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(qualificationData)
+        })
+
+        const qualificationResult = await qualificationResponse.json()
+
+        if (qualificationResult.success) {
+          console.log('✅ Qualificação processada:', qualificationResult)
+          
+          setQualificationResult(qualificationResult)
+          setLeadScore(qualificationResult.score_result)
+          setAssignedCloser(qualificationResult.assignment_result)
+
+          // Se tem agendamento automático e foi bem sucedido
+          if (qualificationResult.appointment_result?.appointment_scheduled) {
+            const token = qualificationResult.appointment_result.appointment_token
+            console.log('📅 Agendamento automático criado:', token)
+            
+            setBookingToken(token)
+            setSubmitted(true)
+            
+            // Redirecionar para agendamento após 3s
+            setTimeout(() => {
+              window.location.href = `/agenda/agendar/${token}`
+            }, 3000)
+            
+            return
+          }
+
+          // Se tem closer atribuído mas sem agendamento automático
+          if (qualificationResult.assignment_result?.closer_id && template.leadQualification.enableCalendar) {
+            // Criar link de agendamento manual
+            await createBookingLink(qualificationResult.lead_id)
+            return
+          }
+
+          // Sucesso mas sem agendamento
+          setSubmitted(true)
+          return
+        } else {
+          console.error('❌ Erro na qualificação:', qualificationResult.error)
+          // Continuar com fluxo normal como fallback
+        }
+      }
+
+      // Para o formulário médico específico, usar o sistema antigo
       if (slug === 'qualificacao-medica') {
         // Usar organização do próprio template (formulários são públicos)
         const organizationId = template?.organization_id || '00000000-0000-0000-0000-000000000001'
@@ -687,7 +785,7 @@ export default function FormPageSafe() {
               </Button>
 
               <div className="text-sm text-gray-500">
-                Etapa {currentStep + 1} de {steps.length}
+                {/* Contador removido conforme solicitado */}
               </div>
 
               <Button

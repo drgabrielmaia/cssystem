@@ -1,14 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   try {
+    const cookieStore = await cookies()
+    const supabase = createClient(cookieStore)
+
+    // Check authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check if user is super admin or owner
+    const { data: orgUser, error: orgError } = await supabase
+      .from('organization_users')
+      .select('role')
+      .eq('user_id', user.id)
+      .single()
+
+    if (orgError || !orgUser || !['admin', 'owner'].includes(orgUser.role)) {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+    }
+
     // Parse the request body to get options
     const body = await request.json().catch(() => ({}))
     const { force = false, dryRun = false } = body
 
     console.log('🚀 Iniciando processo de liberação de acesso universal aos módulos')
     console.log('🔧 Parâmetros:', { force, dryRun })
+    console.log('👤 Admin user:', user.email)
 
     // Get all active mentorados
     const { data: mentorados, error: mentoradosError } = await supabase

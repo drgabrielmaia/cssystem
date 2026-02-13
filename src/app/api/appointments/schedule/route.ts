@@ -1,29 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   try {
+    const cookieStore = await cookies()
+    const supabase = createClient(cookieStore)
+
+    // Check authentication (allow both authenticated users and anon for form submissions)
+    const { data: { user } } = await supabase.auth.getUser()
+    let userOrgId = null
+
+    if (user) {
+      // If user is authenticated, get their organization
+      const { data: orgUser } = await supabase
+        .from('organization_users')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+      
+      userOrgId = orgUser?.organization_id
+    }
+
     const body = await request.json()
-    const { lead_id, closer_id, appointment_type = 'discovery', preferred_date, preferred_time } = body
+    const { lead_id, closer_id, appointment_type = 'discovery', preferred_date, preferred_time, organization_id } = body
 
     console.log('📅 Agendando call para lead:', { lead_id, closer_id, appointment_type })
 
-    // Validar se o lead existe
+    // Determine target organization
+    const targetOrgId = organization_id || userOrgId
+    if (!targetOrgId) {
+      return NextResponse.json({ error: 'Organization not specified' }, { status: 400 })
+    }
+
+    // Validate organization access
+    if (user && userOrgId && userOrgId !== targetOrgId) {
+      return NextResponse.json({ error: 'Forbidden: Different organization' }, { status: 403 })
+    }
+
+    // Validar se o lead existe e pertence à organização
     const { data: lead, error: leadError } = await supabase
       .from('leads')
       .select('id, nome_completo, email, telefone, organization_id')
       .eq('id', lead_id)
+      .eq('organization_id', targetOrgId)
       .single()
 
     if (leadError || !lead) {
       return NextResponse.json({ error: 'Lead não encontrado' }, { status: 404 })
     }
 
-    // Validar se o closer existe
+    // Validar se o closer existe e pertence à organização
     const { data: closer, error: closerError } = await supabase
       .from('closers')
       .select('id, nome_completo, organization_id')
       .eq('id', closer_id)
+      .eq('organization_id', targetOrgId)
       .single()
 
     if (closerError || !closer) {
@@ -157,6 +189,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const cookieStore = await cookies()
+    const supabase = createClient(cookieStore)
+    
     const { searchParams } = new URL(request.url)
     const closer_id = searchParams.get('closer_id')
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0]

@@ -367,37 +367,62 @@ export function CloserAuthProvider({ children }: { children: ReactNode }) {
       return false
     }
 
-    // Check password (accepts any password if password_hash is null, otherwise verifies)
-    if (!closerData.password_hash || closerData.password_hash === password) {
-      setCloser(closerData)
-      setCookie(COOKIE_NAME, closerData.id)
-      localStorage.removeItem('closer') // Clear legacy localStorage
+    // Check password - ALWAYS require valid password
+    if (!closerData.password_hash) {
+      console.log('🚫 No password configured for this user')
+      setError('Conta sem senha configurada. Entre em contato com o suporte.')
+      return false
+    }
 
-      // Track dashboard access
-      try {
-        await supabase.from('closers_dashboard_access').insert({
-          closer_id: closerData.id,
-          ip_address: 'unknown', // Would need server-side to get real IP
-          user_agent: navigator.userAgent,
-          device_type: /Mobile|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
-          browser: navigator.userAgent.split(' ').pop()?.split('/')[0] || 'unknown'
-        })
-      } catch (accessError) {
-        console.log('Error tracking dashboard access:', accessError)
-      }
-
-      // Dispatch success event
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('closerLoginSuccess'))
-      }, 50)
-
-      console.log('Login successful')
-      errorCountRef.current = 0 // Reset error counter on success
-      return true
-    } else {
+    // Verify password with bcrypt migration support
+    const { PasswordSecurity } = await import('@/lib/password-security')
+    const passwordCheck = await PasswordSecurity.migratePlainTextPassword(password, closerData.password_hash)
+    
+    if (!passwordCheck.isValid) {
+      console.log('🚫 Incorrect password')
       setError('Senha incorreta')
       return false
     }
+
+    // If password was migrated from plain text, update the hash
+    if (passwordCheck.newHash) {
+      console.log('🔄 Migrating password to bcrypt hash...')
+      try {
+        await supabase
+          .from('closers')
+          .update({ password_hash: passwordCheck.newHash })
+          .eq('id', closerData.id)
+      } catch (error) {
+        console.warn('⚠️ Failed to update password hash:', error)
+        // Continue with login even if hash update fails
+      }
+    }
+
+    setCloser(closerData)
+    setCookie(COOKIE_NAME, closerData.id)
+    localStorage.removeItem('closer') // Clear legacy localStorage
+
+    // Track dashboard access
+    try {
+      await supabase.from('closers_dashboard_access').insert({
+        closer_id: closerData.id,
+        ip_address: 'unknown', // Would need server-side to get real IP
+        user_agent: navigator.userAgent,
+        device_type: /Mobile|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+        browser: navigator.userAgent.split(' ').pop()?.split('/')[0] || 'unknown'
+      })
+    } catch (accessError) {
+      console.log('Error tracking dashboard access:', accessError)
+    }
+
+    // Dispatch success event
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('closerLoginSuccess'))
+    }, 50)
+
+    console.log('Login successful')
+    errorCountRef.current = 0 // Reset error counter on success
+    return true
   }
 
   const signOut = async (): Promise<void> => {

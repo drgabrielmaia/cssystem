@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Header } from '@/components/header'
 import { PageLayout } from '@/components/ui/page-layout'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -69,6 +69,12 @@ interface FormField {
   options?: string[]
   placeholder?: string
   mapToLead?: string
+  // Scoring system
+  scoring?: {
+    enabled: boolean
+    points?: number
+    optionScores?: { [key: string]: number } // Para select/radio
+  }
 }
 
 interface FormStyle {
@@ -87,6 +93,15 @@ interface FormTemplate {
   slug: string
   form_type: 'lead' | 'nps' | 'survey' | 'feedback' | 'other'
   fields: FormField[]
+  // Lead qualification settings
+  leadQualification?: {
+    enabled: boolean
+    scoringConfigId?: string
+    lowScoreCloserId?: string
+    highScoreCloserId?: string
+    threshold?: number
+    enableCalendar?: boolean
+  }
   style?: FormStyle
   created_at?: string
   updated_at?: string
@@ -122,6 +137,10 @@ export default function FormBuilderPage() {
   })
   const [showEditor, setShowEditor] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [editingField, setEditingField] = useState<FormField | null>(null)
+  const [scoringConfigs, setScoringConfigs] = useState<any[]>([])
+  const [closers, setClosers] = useState<any[]>([])
+  const [showScoringSettings, setShowScoringSettings] = useState(false)
   const [activeTab, setActiveTab] = useState('fields')
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop')
 
@@ -164,6 +183,8 @@ export default function FormBuilderPage() {
 
   useEffect(() => {
     fetchTemplates()
+    fetchScoringConfigs()
+    fetchClosers()
   }, [])
 
   const fetchTemplates = async () => {
@@ -183,6 +204,35 @@ export default function FormBuilderPage() {
       console.error('Erro:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchScoringConfigs = async () => {
+    try {
+      // TODO: Get organization_id from user context
+      const response = await fetch('/api/scoring-configs?organization_id=default')
+      const data = await response.json()
+      setScoringConfigs(data || [])
+    } catch (error) {
+      console.error('Erro ao buscar configs de scoring:', error)
+    }
+  }
+
+  const fetchClosers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('closers')
+        .select('id, nome_completo, status_contrato')
+        .eq('status_contrato', 'ativo')
+
+      if (error) {
+        console.error('Erro ao buscar closers:', error)
+        return
+      }
+
+      setClosers(data || [])
+    } catch (error) {
+      console.error('Erro ao buscar closers:', error)
     }
   }
 
@@ -696,9 +746,10 @@ export default function FormBuilderPage() {
             {/* Editor Panel */}
             <div className="space-y-6">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="config">Configuração</TabsTrigger>
                   <TabsTrigger value="fields">Campos</TabsTrigger>
+                  <TabsTrigger value="scoring">Qualificação</TabsTrigger>
                   <TabsTrigger value="style">Visual</TabsTrigger>
                 </TabsList>
 
@@ -947,6 +998,231 @@ export default function FormBuilderPage() {
                           </SelectContent>
                         </Select>
                       </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Scoring Tab */}
+                <TabsContent value="scoring" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        🎯 Qualificação de Leads
+                      </CardTitle>
+                      <CardDescription>
+                        Configure pontuação automática e direcionamento para closers baseado no score
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Enable Lead Qualification */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-base font-medium">Ativar Qualificação de Leads</Label>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Calcular pontuação e direcionar automaticamente para closers
+                          </p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={currentTemplate.leadQualification?.enabled || false}
+                          onChange={(e) => setCurrentTemplate(prev => ({
+                            ...prev,
+                            leadQualification: {
+                              ...prev.leadQualification,
+                              enabled: e.target.checked,
+                              threshold: prev.leadQualification?.threshold || 60,
+                              enableCalendar: prev.leadQualification?.enableCalendar || true
+                            }
+                          }))}
+                          className="w-5 h-5"
+                        />
+                      </div>
+
+                      {currentTemplate.leadQualification?.enabled && (
+                        <>
+                          {/* Scoring Configuration */}
+                          <div className="space-y-3">
+                            <Label>Configuração de Pontuação</Label>
+                            <Select
+                              value={currentTemplate.leadQualification?.scoringConfigId || ''}
+                              onValueChange={(value) => setCurrentTemplate(prev => ({
+                                ...prev,
+                                leadQualification: {
+                                  ...prev.leadQualification!,
+                                  scoringConfigId: value
+                                }
+                              }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione uma configuração de pontuação" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {scoringConfigs.map((config) => (
+                                  <SelectItem key={config.id} value={config.id}>
+                                    {config.name} (Max: {
+                                      config.telefone_score + config.email_score + 
+                                      config.empresa_score + config.cargo_score +
+                                      config.temperatura_quente_score + config.nivel_interesse_alto_score +
+                                      config.orcamento_disponivel_score + config.decisor_principal_score +
+                                      config.dor_principal_score
+                                    } pts)
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {scoringConfigs.length === 0 && (
+                              <p className="text-sm text-amber-600">
+                                ⚠️ Nenhuma configuração de pontuação encontrada. Crie uma primeiro.
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Score Threshold */}
+                          <div className="space-y-3">
+                            <Label>Limite de Score Alto</Label>
+                            <div className="flex items-center gap-4">
+                              <Input
+                                type="number"
+                                value={currentTemplate.leadQualification?.threshold || 60}
+                                onChange={(e) => setCurrentTemplate(prev => ({
+                                  ...prev,
+                                  leadQualification: {
+                                    ...prev.leadQualification!,
+                                    threshold: Number(e.target.value)
+                                  }
+                                }))}
+                                className="w-24"
+                                min="0"
+                                max="200"
+                              />
+                              <span className="text-sm text-gray-600">pontos</span>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              Score ≥ {currentTemplate.leadQualification?.threshold || 60}: Closer Principal | 
+                              Score &lt; {currentTemplate.leadQualification?.threshold || 60}: Closer de Aquecimento
+                            </p>
+                          </div>
+
+                          {/* Closer Assignment */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-3">
+                              <Label className="text-orange-700">Closer para Score Baixo</Label>
+                              <Select
+                                value={currentTemplate.leadQualification?.lowScoreCloserId || ''}
+                                onValueChange={(value) => setCurrentTemplate(prev => ({
+                                  ...prev,
+                                  leadQualification: {
+                                    ...prev.leadQualification!,
+                                    lowScoreCloserId: value
+                                  }
+                                }))}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione closer para aquecimento" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {closers.map((closer) => (
+                                    <SelectItem key={closer.id} value={closer.id}>
+                                      {closer.nome_completo}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-3">
+                              <Label className="text-green-700">Closer Principal</Label>
+                              <Select
+                                value={currentTemplate.leadQualification?.highScoreCloserId || ''}
+                                onValueChange={(value) => setCurrentTemplate(prev => ({
+                                  ...prev,
+                                  leadQualification: {
+                                    ...prev.leadQualification!,
+                                    highScoreCloserId: value
+                                  }
+                                }))}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione closer principal" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {closers.map((closer) => (
+                                    <SelectItem key={closer.id} value={closer.id}>
+                                      {closer.nome_completo}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          {closers.length === 0 && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                              <p className="text-sm text-red-700">
+                                ⚠️ Nenhum closer encontrado! Configure closers no sistema primeiro.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Calendar Integration */}
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label className="text-base font-medium">Agendamento Automático</Label>
+                                <p className="text-sm text-gray-500 mt-1">
+                                  Mostrar agenda do closer no final do formulário para agendamento direto
+                                </p>
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={currentTemplate.leadQualification?.enableCalendar || false}
+                                onChange={(e) => setCurrentTemplate(prev => ({
+                                  ...prev,
+                                  leadQualification: {
+                                    ...prev.leadQualification!,
+                                    enableCalendar: e.target.checked
+                                  }
+                                }))}
+                                className="w-5 h-5"
+                              />
+                            </div>
+
+                            {currentTemplate.leadQualification?.enableCalendar && (
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <p className="text-sm text-blue-700">
+                                  ✅ <strong>Fluxo Ativado:</strong> Após responder todas as perguntas, o lead verá:
+                                </p>
+                                <ul className="list-disc list-inside text-sm text-blue-600 mt-2 space-y-1">
+                                  <li>Score calculado automaticamente</li>
+                                  <li>Agenda do closer correspondente</li>
+                                  <li>Agendamento direto sem sair do formulário</li>
+                                  <li>Lead criado e atribuído automaticamente</li>
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Scoring Preview */}
+                          {currentTemplate.leadQualification?.scoringConfigId && (
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                              <h4 className="font-medium text-gray-700 mb-3">📊 Configuração de Pontuação Ativa:</h4>
+                              {(() => {
+                                const config = scoringConfigs.find(c => c.id === currentTemplate.leadQualification?.scoringConfigId)
+                                return config ? (
+                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                                    <div>📞 Telefone: +{config.telefone_score}</div>
+                                    <div>📧 Email: +{config.email_score}</div>
+                                    <div>🏢 Empresa: +{config.empresa_score}</div>
+                                    <div>👔 Cargo: +{config.cargo_score}</div>
+                                    <div>🔥 Quente: +{config.temperatura_quente_score}</div>
+                                    <div>📈 Interest Alto: +{config.nivel_interesse_alto_score}</div>
+                                  </div>
+                                ) : null
+                              })()}
+                            </div>
+                          )}
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>

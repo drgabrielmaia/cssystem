@@ -361,24 +361,49 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
       return false
     }
 
-    // Verificar senha (aceita qualquer senha se password_hash for null, senão verifica)
-    if (!mentoradoData.password_hash || mentoradoData.password_hash === password) {
-      setMentorado(mentoradoData)
-      setCookie(COOKIE_NAME, mentoradoData.id)
-      localStorage.removeItem('mentorado') // Limpar localStorage legado
+    // Verificar senha - SEMPRE exige senha válida
+    if (!mentoradoData.password_hash) {
+      console.log('🚫 Senha não configurada para este usuário')
+      setError('Conta sem senha configurada. Entre em contato com o suporte.')
+      return false
+    }
 
-      // Disparar evento de sucesso
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('mentoradoLoginSuccess'))
-      }, 50)
-
-      console.log('✅ Login realizado com sucesso')
-      errorCountRef.current = 0 // Reset error counter on success
-      return true
-    } else {
+    // Verify password with bcrypt migration support
+    const { PasswordSecurity } = await import('@/lib/password-security')
+    const passwordCheck = await PasswordSecurity.migratePlainTextPassword(password, mentoradoData.password_hash)
+    
+    if (!passwordCheck.isValid) {
+      console.log('🚫 Senha incorreta')
       setError('Senha incorreta')
       return false
     }
+
+    // If password was migrated from plain text, update the hash
+    if (passwordCheck.newHash) {
+      console.log('🔄 Migrando senha para hash bcrypt...')
+      try {
+        await supabase
+          .from('mentorados')
+          .update({ password_hash: passwordCheck.newHash })
+          .eq('id', mentoradoData.id)
+      } catch (error) {
+        console.warn('⚠️ Falha ao atualizar hash da senha:', error)
+        // Continue with login even if hash update fails
+      }
+    }
+
+    setMentorado(mentoradoData)
+    setCookie(COOKIE_NAME, mentoradoData.id)
+    localStorage.removeItem('mentorado') // Limpar localStorage legado
+
+    // Disparar evento de sucesso
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('mentoradoLoginSuccess'))
+    }, 50)
+
+    console.log('✅ Login realizado com sucesso')
+    errorCountRef.current = 0 // Reset error counter on success
+    return true
   }
 
   const signOut = async (): Promise<void> => {

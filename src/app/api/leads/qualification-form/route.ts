@@ -42,7 +42,18 @@ export async function POST(request: NextRequest) {
         p_empresa: empresa || null,
         p_cargo: cargo || null,
         p_temperatura: temperatura || 'morno',
-        p_nivel_interesse: nivel_interesse || 'medio',
+        p_nivel_interesse: (() => {
+          // Convert to integer regardless of input type
+          if (typeof nivel_interesse === 'number') return nivel_interesse
+          if (typeof nivel_interesse === 'string') {
+            if (nivel_interesse === 'alto' || nivel_interesse === 'high') return 3
+            if (nivel_interesse === 'medio' || nivel_interesse === 'medium') return 2
+            if (nivel_interesse === 'baixo' || nivel_interesse === 'low') return 1
+            const parsed = parseInt(nivel_interesse)
+            if (!isNaN(parsed) && parsed >= 1 && parsed <= 3) return parsed
+          }
+          return 2 // Default to medium
+        })(),
         p_orcamento_disponivel: orcamento_disponivel || 0,
         p_decisor_principal: decisor_principal || false,
         p_dor_principal: dor_principal || null,
