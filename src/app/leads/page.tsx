@@ -5,6 +5,7 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { useStableData } from '@/hooks/use-stable-data'
 import { useStableMutation } from '@/hooks/use-stable-mutation'
 import { PageLayout } from '@/components/ui/page-layout'
+import { useActiveOrganization } from '@/contexts/organization'
 import { KPICardVibrant } from '@/components/ui/kpi-card-vibrant'
 import { MetricCard } from '@/components/ui/metric-card'
 import { DataTable } from '@/components/ui/data-table'
@@ -90,6 +91,7 @@ interface Closer {
 
 export default function LeadsPage() {
   const router = useRouter()
+  const { activeOrganizationId, loading: orgLoading } = useActiveOrganization()
   
   // Estados locais simples (não precisam de hooks especiais)
   const [searchTerm, setSearchTerm] = useState('')
@@ -114,6 +116,11 @@ export default function LeadsPage() {
   const leadFilters = useMemo(() => {
     const filters: Record<string, any> = {}
     
+    // Filtrar por organização ativa
+    if (activeOrganizationId) {
+      filters.organization_id = activeOrganizationId
+    }
+    
     if (statusFilter !== 'todos') {
       filters.status = statusFilter
     }
@@ -123,7 +130,7 @@ export default function LeadsPage() {
     }
     
     return filters
-  }, [statusFilter, origemFilter])
+  }, [activeOrganizationId, statusFilter, origemFilter])
 
   // Hook para buscar leads com filtros estáveis
   const { 
@@ -135,7 +142,7 @@ export default function LeadsPage() {
   } = useStableData<Lead>({
     tableName: 'leads',
     filters: leadFilters,
-    dependencies: [statusFilter, origemFilter, dateFilter, customStartDate, customEndDate],
+    dependencies: [activeOrganizationId, statusFilter, origemFilter, dateFilter, customStartDate, customEndDate],
     debounceMs: 500
   })
 
@@ -163,7 +170,7 @@ export default function LeadsPage() {
   })
 
   // Estado derivado
-  const loading = leadsLoading
+  const loading = leadsLoading || orgLoading
   const isLoadingData = isRefetchingLeads || createLead.isLoading || updateLead.isLoading || deleteLead.isLoading
 
   // Função para obter range de datas
@@ -290,6 +297,12 @@ export default function LeadsPage() {
     try {
       // Query para leads totais (usar data inteligente baseada no status)
       let queryTotal = supabase.from('leads').select('*')
+      
+      // Filtrar por organização
+      if (activeOrganizationId) {
+        queryTotal = queryTotal.eq('organization_id', activeOrganizationId)
+      }
+      
       const dateRange = getDateRange(dateFilter)
       if (dateRange) {
         // Usar data_venda para vendidos e data_primeiro_contato para outros
@@ -298,6 +311,12 @@ export default function LeadsPage() {
 
       // Query para vendas (usar data_venda para leads vendidos) - apenas com valor arrecadado
       let queryVendas = supabase.from('leads').select('*').eq('status', 'vendido').not('valor_arrecadado', 'is', null).gt('valor_arrecadado', 0)
+      
+      // Filtrar por organização
+      if (activeOrganizationId) {
+        queryVendas = queryVendas.eq('organization_id', activeOrganizationId)
+      }
+      
       if (dateRange) {
         queryVendas = queryVendas
           .gte('data_venda', dateRange.start)
@@ -343,7 +362,14 @@ export default function LeadsPage() {
 
   const loadOrigemData = async () => {
     try {
-      const { data: leads } = await supabase.from('leads').select('origem, status, valor_arrecadado')
+      let query = supabase.from('leads').select('origem, status, valor_arrecadado')
+      
+      // Filtrar por organização
+      if (activeOrganizationId) {
+        query = query.eq('organization_id', activeOrganizationId)
+      }
+      
+      const { data: leads } = await query
 
       if (leads) {
         const origemStats = leads.reduce((acc, lead) => {
@@ -395,14 +421,20 @@ export default function LeadsPage() {
         const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59)
 
         // Buscar leads totais do mês
-        const { data: totalLeads } = await supabase
+        let queryTotalLeads = supabase
           .from('leads')
           .select('id')
           .gte('data_primeiro_contato', startDate.toISOString())
           .lte('data_primeiro_contato', endDate.toISOString())
+        
+        if (activeOrganizationId) {
+          queryTotalLeads = queryTotalLeads.eq('organization_id', activeOrganizationId)
+        }
+        
+        const { data: totalLeads } = await queryTotalLeads
 
         // Buscar vendas do mês - apenas vendas com valor arrecadado
-        const { data: vendas } = await supabase
+        let queryVendas = supabase
           .from('leads')
           .select('id')
           .eq('status', 'vendido')
@@ -410,6 +442,12 @@ export default function LeadsPage() {
           .gt('valor_arrecadado', 0)
           .gte('data_venda', startDate.toISOString())
           .lte('data_venda', endDate.toISOString())
+        
+        if (activeOrganizationId) {
+          queryVendas = queryVendas.eq('organization_id', activeOrganizationId)
+        }
+        
+        const { data: vendas } = await queryVendas
 
         const totalLeadsCount = totalLeads?.length || 0
         const vendasCount = vendas?.length || 0
