@@ -8,6 +8,7 @@ import { DataTable } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { ChartCard } from '@/components/ui/chart-card'
 import { supabase } from '@/lib/supabase'
+import { useActiveOrganization } from '@/contexts/organization'
 import {
   DollarSign,
   Users,
@@ -67,6 +68,7 @@ interface ComissaoStats {
 }
 
 export default function ComissoesPage() {
+  const { activeOrganizationId } = useActiveOrganization()
   const [comissoes, setComissoes] = useState<Comissao[]>([])
   const [stats, setStats] = useState<ComissaoStats>({
     total_comissoes: 0,
@@ -102,9 +104,11 @@ export default function ComissoesPage() {
   const [statusDistribution, setStatusDistribution] = useState<{name: string, value: number, color: string}[]>([])
 
   useEffect(() => {
-    loadComissoes()
-    loadStats()
-  }, [])
+    if (activeOrganizationId) {
+      loadComissoes()
+      loadStats()
+    }
+  }, [activeOrganizationId])
 
   useEffect(() => {
     if (!loading) {
@@ -115,7 +119,7 @@ export default function ComissoesPage() {
 
   const loadComissoes = async () => {
     try {
-      // Buscar dados reais da tabela comissoes com joins
+      // Buscar dados reais da tabela comissoes com joins FILTRADO POR ORGANIZAÇÃO
       let query = supabase
         .from('comissoes')
         .select(`
@@ -143,6 +147,11 @@ export default function ComissoesPage() {
             empresa
           )
         `)
+
+      // Filtrar por organização
+      if (activeOrganizationId) {
+        query = query.eq('organization_id', activeOrganizationId)
+      }
 
       // Aplicar filtros
       if (statusFilter !== 'todos') {
@@ -198,9 +207,16 @@ export default function ComissoesPage() {
   const loadStats = async () => {
     try {
       // Buscar dados detalhados para estatísticas e gráficos
-      const { data: comissoesData, error } = await supabase
+      let statsQuery = supabase
         .from('comissoes')
         .select('valor_comissao, status_pagamento, data_venda, created_at')
+      
+      // Filtrar por organização
+      if (activeOrganizationId) {
+        statsQuery = statsQuery.eq('organization_id', activeOrganizationId)
+      }
+
+      const { data: comissoesData, error } = await statsQuery
 
       if (error) throw error
 

@@ -113,8 +113,8 @@ export default function PendenciasPage() {
   } = useStableData<any>({
     tableName: 'dividas',
     select: '*',
-    filters: {},
-    dependencies: [anoSelecionado],
+    filters: organizationId ? { organization_id: organizationId } : {},
+    dependencies: [anoSelecionado, organizationId],
     debounceMs: 300
   })
 
@@ -138,8 +138,8 @@ export default function PendenciasPage() {
   } = useStableData<Comissao>({
     tableName: 'comissoes',
     select: '*',
-    filters: { status_pagamento: 'pendente' },
-    dependencies: [],
+    filters: organizationId ? { status_pagamento: 'pendente', organization_id: organizationId } : { status_pagamento: 'pendente' },
+    dependencies: [organizationId],
     debounceMs: 1000
   })
 

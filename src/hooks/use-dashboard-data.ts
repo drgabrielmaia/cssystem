@@ -12,7 +12,7 @@ interface DashboardData {
   error: string | null
 }
 
-export function useDashboardData(): DashboardData {
+export function useDashboardData(organizationId: string | null = null): DashboardData {
   const [data, setData] = useState<DashboardData>({
     kpis: [],
     recentActivity: [],
@@ -23,12 +23,18 @@ export function useDashboardData(): DashboardData {
 
   useEffect(() => {
     async function fetchDashboardData() {
+      if (!organizationId) {
+        setData(prev => ({ ...prev, loading: false, error: 'Organization ID is required' }))
+        return
+      }
+
       try {
         setData(prev => ({ ...prev, loading: true, error: null }))
 
         const { data: mentorados, error: mentoradosError } = await supabase
           .from('mentorados')
           .select('*')
+          .eq('organization_id', organizationId)
           .order('created_at', { ascending: false })
 
         if (mentoradosError) throw mentoradosError
@@ -37,8 +43,9 @@ export function useDashboardData(): DashboardData {
           .from('formularios_respostas')
           .select(`
             *,
-            mentorados (nome)
+            mentorados (nome, organization_id)
           `)
+          .eq('organization_id', organizationId)
           .order('data_envio', { ascending: false })
           .limit(10)
 
@@ -117,7 +124,7 @@ export function useDashboardData(): DashboardData {
     }
 
     fetchDashboardData()
-  }, [])
+  }, [organizationId])
 
   return data
 }

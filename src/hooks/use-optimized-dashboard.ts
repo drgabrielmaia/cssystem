@@ -53,6 +53,10 @@ export function useOptimizedDashboard(organizationId: string | null, isReady: bo
   }, [])
 
   const loadMetrics = useCallback(async (): Promise<DashboardMetrics> => {
+    // Early exit if no organizationId
+    if (!organizationId) {
+      throw new Error('Organization ID is required to load metrics')
+    }
     // Check cache first
     if (metricsCache && Date.now() - metricsCache.timestamp < CACHE_TTL) {
       console.log('📊 Using cached dashboard metrics')
@@ -64,16 +68,18 @@ export function useOptimizedDashboard(organizationId: string | null, isReady: bo
 
     // Parallel data loading with optimized queries
     const [salesResult, callsResult] = await Promise.allSettled([
-      // Sales metrics - optimized single query
+      // Sales metrics - optimized single query WITH ORGANIZATION FILTER
       supabase
         .from('leads')
         .select('id, valor_vendido, valor_arrecadado, data_primeiro_contato, data_venda, status')
+        .eq('organization_id', organizationId)
         .or(`data_primeiro_contato.gte.${startOfMonth.toISOString()},and(status.eq.vendido,data_venda.gte.${startOfMonth.toISOString()})`),
 
-      // Calls metrics - single query to materialized view
+      // Calls metrics - single query to materialized view WITH ORGANIZATION FILTER
       supabase
         .from('social_seller_metrics')
         .select('*')
+        .eq('organization_id', organizationId)
         .gte('month_year', startOfMonth.toISOString())
         .single()
     ])
@@ -137,7 +143,7 @@ export function useOptimizedDashboard(organizationId: string | null, isReady: bo
     metricsCache = { data: metrics, timestamp: Date.now() }
 
     return metrics
-  }, [dateRange])
+  }, [dateRange, organizationId])
 
   const refetch = useCallback(async () => {
     if (!isReady || !organizationId) return
