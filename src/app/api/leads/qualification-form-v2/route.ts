@@ -250,6 +250,7 @@ export async function POST(request: NextRequest) {
       appointment_token?: string
       scheduled_date?: string
       closer_id?: string
+      calendly_link?: string
     } = { appointment_scheduled: false }
     
     if (preferred_datetime && assignmentResult.success) {
@@ -274,15 +275,47 @@ export async function POST(request: NextRequest) {
           }])
 
         if (!linkError) {
+          // Get closer's calendly link
+          const { data: closerCalendar } = await supabase
+            .from('closers')
+            .select('observacoes')
+            .eq('id', assignmentResult.closer_id)
+            .single()
+
+          let calendlyLink = null
+          if (closerCalendar?.observacoes) {
+            try {
+              const agendaInfo = JSON.parse(closerCalendar.observacoes)
+              calendlyLink = agendaInfo.calendly_link
+            } catch {}
+          }
+
           appointmentResult = {
             appointment_scheduled: true,
             appointment_token: appointmentToken,
             scheduled_date: preferred_datetime,
-            closer_id: assignmentResult.closer_id
+            closer_id: assignmentResult.closer_id,
+            calendly_link: calendlyLink
           }
         }
       } catch (error) {
         console.log('⚠️  Appointment scheduling failed:', error)
+      }
+    }
+
+    // Always add calendly_link if closer was assigned
+    if (assignmentResult.success && !appointmentResult.calendly_link) {
+      const { data: closerCalendar } = await supabase
+        .from('closers')
+        .select('observacoes')
+        .eq('id', assignmentResult.closer_id)
+        .single()
+
+      if (closerCalendar?.observacoes) {
+        try {
+          const agendaInfo = JSON.parse(closerCalendar.observacoes)
+          appointmentResult.calendly_link = agendaInfo.calendly_link
+        } catch {}
       }
     }
 
