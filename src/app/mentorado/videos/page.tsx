@@ -176,12 +176,13 @@ export default function MentoradoVideosPage() {
         return loadAllModulesAsFallback(mentoradoData)
       }
 
-      // Carregar aulas dos módulos com acesso
+      // Carregar aulas dos módulos com acesso (apenas atuais)
       const { data: lessonsData, error: lessonsError } = await supabase
         .from('video_lessons')
         .select('*')
         .in('module_id', accessibleModuleIds.length > 0 ? accessibleModuleIds : [''])
         .eq('is_active', true)
+        .eq('is_current', true)
         .order('order_index', { ascending: true })
 
       if (lessonsError) throw lessonsError
@@ -311,13 +312,14 @@ export default function MentoradoVideosPage() {
         return
       }
 
-      // Carregar aulas de todos os módulos
+      // Carregar aulas de todos os módulos (apenas atuais)
       const moduleIds = allModulesData?.map(m => m.id) || []
       const { data: allLessonsData, error: allLessonsError } = await supabase
         .from('video_lessons')
         .select('*')
         .in('module_id', moduleIds.length > 0 ? moduleIds : ['fallback'])
         .eq('is_active', true)
+        .eq('is_current', true)
         .order('order_index', { ascending: true })
 
       if (allLessonsError) {

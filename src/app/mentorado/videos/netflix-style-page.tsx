@@ -129,13 +129,14 @@ export default function NetflixStyleVideosPage() {
         .eq('is_active', true)
         .order('order_index', { ascending: true })
 
-      // Step 3: Carregar aulas dos módulos acessíveis
+      // Step 3: Carregar aulas dos módulos acessíveis (apenas atuais)
       console.log('🎬 Carregando aulas para módulos:', accessibleModuleIds)
       let { data: lessonsData, error: lessonsError } = await supabase
         .from('video_lessons')
         .select('*')
         .in('module_id', accessibleModuleIds)
         .eq('is_active', true)
+        .eq('is_current', true)
         .order('order_index', { ascending: true })
 
       console.log('🎬 Query direta das aulas - Success:', !!lessonsData, 'Error:', !!lessonsError)
@@ -144,11 +145,12 @@ export default function NetflixStyleVideosPage() {
       if (lessonsError) {
         console.log('❌ Erro ao carregar aulas:', lessonsError.message)
         console.log('🔧 Implementando fallback para aulas...')
-        // Fallback: tentar carregar aulas sem filtro específico
+        // Fallback: tentar carregar aulas sem filtro específico (apenas atuais)
         const { data: fallbackLessons } = await supabase
           .from('video_lessons')
           .select('*')
           .eq('is_active', true)
+          .eq('is_current', true)
           .order('order_index', { ascending: true })
 
         console.log('🔧 Fallback aulas - Total:', fallbackLessons?.length || 0)
