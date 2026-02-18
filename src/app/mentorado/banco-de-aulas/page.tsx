@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { Play, BookOpen, Clock, CheckCircle, Lock, Search, ArrowLeft, Archive } from 'lucide-react'
+import { Play, BookOpen, Clock, CheckCircle, Lock, Search, ArrowLeft, Archive, ChevronDown, ChevronRight } from 'lucide-react'
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { PandaVideoPlayer } from '@/components/PandaVideoPlayer'
 import Link from 'next/link'
@@ -248,94 +248,140 @@ export default function BancoDeAulasPage() {
           </div>
         ) : (
           filteredModules.map((module) => (
-            <div key={module.id} className="mb-12">
-              {/* Module Header */}
-              <div className="flex items-center justify-between mb-6">
-                <div 
-                  className="flex items-center cursor-pointer"
-                  onClick={() => setExpandedModule(expandedModule === module.id ? null : module.id)}
-                >
-                  <h2 className="text-2xl font-semibold text-white">
-                    {module.title}
-                  </h2>
-                  <span className="ml-4 bg-[#E879F9] text-white px-3 py-1 rounded-full text-sm font-medium">
-                    {module.lessons.length} aulas
-                  </span>
+            <div key={module.id} className="mb-8">
+              {/* Module Header - Clickable */}
+              <div 
+                className="bg-[#1A1A1A] rounded-lg p-6 cursor-pointer hover:bg-[#2A2A2A] transition-all duration-300 mb-4"
+                onClick={() => setExpandedModule(expandedModule === module.id ? null : module.id)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    {/* Expand/Collapse Icon */}
+                    <div className="flex-shrink-0">
+                      {expandedModule === module.id ? (
+                        <ChevronDown className="w-6 h-6 text-[#E879F9]" />
+                      ) : (
+                        <ChevronRight className="w-6 h-6 text-gray-400" />
+                      )}
+                    </div>
+                    
+                    {/* Module Icon */}
+                    <div className="w-16 h-16 bg-gradient-to-br from-[#E879F9]/20 to-[#1A1A1A] rounded-lg flex items-center justify-center">
+                      {module.cover_image_url ? (
+                        <img
+                          src={module.cover_image_url}
+                          alt={module.title}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                      ) : (
+                        <BookOpen className="w-8 h-8 text-[#E879F9]" />
+                      )}
+                    </div>
+                    
+                    {/* Module Info */}
+                    <div>
+                      <h2 className="text-2xl font-semibold text-white mb-2">
+                        {module.title}
+                      </h2>
+                      {module.description && (
+                        <p className="text-gray-400 text-sm max-w-2xl line-clamp-2">
+                          {module.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Module Stats */}
+                  <div className="text-right">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <span className="bg-[#E879F9] text-white px-4 py-2 rounded-full text-sm font-medium">
+                        {module.lessons.length} aulas
+                      </span>
+                      <span className="bg-green-500 text-white px-4 py-2 rounded-full text-sm font-medium">
+                        {module.lessons.filter(l => l.is_current).length} atuais
+                      </span>
+                      {module.lessons.filter(l => !l.is_current).length > 0 && (
+                        <span className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-medium">
+                          {module.lessons.filter(l => !l.is_current).length} arquivadas
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-400 text-sm">
+                      {expandedModule === module.id ? 'Clique para recolher' : 'Clique para expandir'}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {/* Module Description */}
-              {module.description && (
-                <p className="text-gray-400 mb-6 max-w-3xl">
-                  {module.description}
-                </p>
-              )}
-
-              {/* Lessons Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {module.lessons.map((lesson) => (
-                  <div
-                    key={lesson.id}
-                    className="group cursor-pointer"
-                    onClick={() => handleLessonClick(lesson)}
-                  >
-                    <div className="bg-[#1A1A1A] rounded-lg overflow-hidden hover:bg-[#2A2A2A] transition-all duration-300 group-hover:scale-[1.02]">
-                      <div className="aspect-video bg-gradient-to-br from-[#E879F9]/20 to-[#1A1A1A] flex items-center justify-center relative">
-                        <Play className="w-12 h-12 text-white opacity-60 group-hover:opacity-100 transition-opacity" />
-                        
-                        {/* Lesson Status Indicators */}
-                        <div className="absolute top-3 left-3 flex space-x-2">
-                          {lesson.progress?.is_completed && (
-                            <div className="bg-green-500 rounded-full p-1">
-                              <CheckCircle className="w-4 h-4 text-white" />
+              {/* Lessons Grid - Only show when expanded */}
+              {expandedModule === module.id && (
+                <div className="animate-in slide-in-from-top duration-300">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pl-8">
+                    {module.lessons.map((lesson) => (
+                      <div
+                        key={lesson.id}
+                        className="group cursor-pointer"
+                        onClick={() => handleLessonClick(lesson)}
+                      >
+                        <div className="bg-[#1A1A1A] rounded-lg overflow-hidden hover:bg-[#2A2A2A] transition-all duration-300 group-hover:scale-[1.02] border border-gray-800">
+                          <div className="aspect-video bg-gradient-to-br from-[#E879F9]/20 to-[#1A1A1A] flex items-center justify-center relative">
+                            <Play className="w-10 h-10 text-white opacity-60 group-hover:opacity-100 transition-opacity" />
+                            
+                            {/* Lesson Status Indicators */}
+                            <div className="absolute top-3 left-3 flex space-x-2">
+                              {lesson.progress?.is_completed && (
+                                <div className="bg-green-500 rounded-full p-1">
+                                  <CheckCircle className="w-4 h-4 text-white" />
+                                </div>
+                              )}
+                              {!lesson.is_current && (
+                                <div className="bg-orange-500 rounded-full p-1" title="Versão arquivada">
+                                  <Archive className="w-4 h-4 text-white" />
+                                </div>
+                              )}
                             </div>
-                          )}
-                          {!lesson.is_current && (
-                            <div className="bg-orange-500 rounded-full p-1" title="Versão arquivada">
-                              <Archive className="w-4 h-4 text-white" />
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Duration */}
-                        <div className="absolute bottom-3 right-3 bg-black bg-opacity-70 px-2 py-1 rounded text-xs text-white flex items-center">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {formatDuration(lesson.duration_minutes)}
+                            {/* Duration */}
+                            <div className="absolute bottom-3 right-3 bg-black bg-opacity-80 px-2 py-1 rounded text-xs text-white flex items-center">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {formatDuration(lesson.duration_minutes)}
+                            </div>
+                          </div>
+
+                          <div className="p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <h3 className="text-white font-semibold group-hover:text-[#E879F9] transition-colors line-clamp-2">
+                                {lesson.title}
+                              </h3>
+                              {lesson.version && (
+                                <span className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded ml-2 flex-shrink-0">
+                                  {lesson.version}
+                                </span>
+                              )}
+                            </div>
+                            
+                            {lesson.description && (
+                              <p className="text-gray-400 text-sm line-clamp-2 mb-2">
+                                {lesson.description}
+                              </p>
+                            )}
+
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <span>Aula {lesson.order_index}</span>
+                              {!lesson.is_current && lesson.archived_at && (
+                                <span className="text-orange-400">Arquivada</span>
+                              )}
+                              {lesson.is_current && (
+                                <span className="text-green-400">Atual</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-
-                      <div className="p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <h3 className="text-white font-semibold group-hover:text-[#E879F9] transition-colors line-clamp-2">
-                            {lesson.title}
-                          </h3>
-                          {lesson.version && (
-                            <span className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded ml-2 flex-shrink-0">
-                              {lesson.version}
-                            </span>
-                          )}
-                        </div>
-                        
-                        {lesson.description && (
-                          <p className="text-gray-400 text-sm line-clamp-2 mb-2">
-                            {lesson.description}
-                          </p>
-                        )}
-
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>Aula {lesson.order_index}</span>
-                          {!lesson.is_current && lesson.archived_at && (
-                            <span className="text-orange-400">Arquivada</span>
-                          )}
-                          {lesson.is_current && (
-                            <span className="text-green-400">Atual</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           ))
         )}
