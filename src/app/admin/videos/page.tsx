@@ -25,7 +25,11 @@ import {
   Save,
   Upload,
   Download,
-  FileText
+  FileText,
+  Archive,
+  CheckCircle,
+  AlertCircle,
+  Star
 } from 'lucide-react'
 
 interface VideoModule {
@@ -57,6 +61,12 @@ interface VideoLesson {
   pdf_uploaded_at?: string
   created_at: string
   updated_at: string
+  // Campos de versionamento
+  is_current?: boolean
+  version?: string
+  archived_at?: string
+  replaced_by?: string
+  archive_reason?: string
 }
 
 interface VideoStats {
@@ -260,6 +270,37 @@ export default function AdminVideosPage() {
     } catch (error) {
       console.error('Erro ao excluir aula:', error)
       alert('Erro ao excluir aula')
+    } finally {
+      setIsLoadingData(false)
+    }
+  }
+
+  const handleToggleLessonStatus = async (lesson: VideoLesson) => {
+    const newStatus = !lesson.is_current
+    const actionText = newStatus ? 'marcar como atual' : 'arquivar'
+    
+    if (!confirm(`Tem certeza que deseja ${actionText} a aula "${lesson.title}"?`)) {
+      return
+    }
+
+    try {
+      setIsLoadingData(true)
+      const { error } = await supabase
+        .from('video_lessons')
+        .update({ 
+          is_current: newStatus,
+          archived_at: newStatus ? null : new Date().toISOString(),
+          archive_reason: newStatus ? null : 'Arquivado manualmente pelo admin'
+        })
+        .eq('id', lesson.id)
+
+      if (error) throw error
+
+      alert(`Aula ${newStatus ? 'marcada como atual' : 'arquivada'} com sucesso!`)
+      loadLessons()
+    } catch (error) {
+      console.error('Erro ao alterar status da aula:', error)
+      alert('Erro ao alterar status da aula')
     } finally {
       setIsLoadingData(false)
     }
@@ -860,9 +901,24 @@ export default function AdminVideosPage() {
                             ) : (
                               <div className="divide-y divide-[#E2E8F0]">
                                 {moduleLessons.map((lesson) => (
-                                  <div key={lesson.id} className="p-4 flex items-center justify-between hover:bg-[#F8FAFC]">
+                                  <div key={lesson.id} className={`p-4 flex items-center justify-between hover:bg-[#F8FAFC] ${
+                                    lesson.is_current === false ? 'bg-orange-50 border-l-4 border-orange-400' : ''
+                                  }`}>
                                     <div className="flex-1">
-                                      <h5 className="font-medium text-[#0F172A]">{lesson.title}</h5>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <h5 className="font-medium text-[#0F172A]">{lesson.title}</h5>
+                                        {lesson.is_current === false ? (
+                                          <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">
+                                            <Archive className="w-3 h-3" />
+                                            Arquivada {lesson.version ? `(${lesson.version})` : ''}
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                                            <CheckCircle className="w-3 h-3" />
+                                            Atual {lesson.version ? `(${lesson.version})` : '(v1.0)'}
+                                          </div>
+                                        )}
+                                      </div>
                                       <p className="text-sm text-[#64748B] mt-1">{lesson.description}</p>
                                       <div className="flex items-center gap-4 mt-2">
                                         <span className="text-xs text-[#64748B]">Ordem: {lesson.order_index}</span>
@@ -890,6 +946,21 @@ export default function AdminVideosPage() {
                                         title="Editar aula"
                                       >
                                         <Edit className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleToggleLessonStatus(lesson)}
+                                        className={`p-2 rounded-lg transition-colors ${
+                                          lesson.is_current === false 
+                                            ? 'text-green-600 hover:bg-green-50' 
+                                            : 'text-orange-600 hover:bg-orange-50'
+                                        }`}
+                                        title={lesson.is_current === false ? 'Marcar como atual' : 'Arquivar aula'}
+                                      >
+                                        {lesson.is_current === false ? (
+                                          <CheckCircle className="w-4 h-4" />
+                                        ) : (
+                                          <Archive className="w-4 h-4" />
+                                        )}
                                       </button>
                                       <button
                                         onClick={() => handleDeleteLesson(lesson)}
