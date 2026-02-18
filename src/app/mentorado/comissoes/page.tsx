@@ -4,6 +4,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useStableData } from '@/hooks/use-stable-data'
 import { commissionSystem } from '@/lib/commission-service'
+import { useMentoradoAuth, MentoradoAuthProvider } from '@/contexts/mentorado-auth'
+import { CacheRefreshHelper } from '@/components/cache-refresh-helper'
+import MentoradoInfoWrapper from '@/components/MentoradoInfoWrapper'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -75,8 +78,8 @@ interface ComissaoSplit {
   }
 }
 
-export default function MentoradoComissoesPage() {
-  const [mentorado, setMentorado] = useState<any>(null)
+function MentoradoComissoesPageContent() {
+  const { mentorado, loading: authLoading } = useMentoradoAuth()
   const [commissions, setCommissions] = useState<Commission[]>([])
   const [referrals, setReferrals] = useState<Referral[]>([])
   const [summary, setSummary] = useState<CommissionSummary | null>(null)
@@ -120,14 +123,12 @@ export default function MentoradoComissoesPage() {
   })
 
   useEffect(() => {
-    const savedMentorado = localStorage.getItem('mentorado')
-    if (savedMentorado) {
-      const mentoradoData = JSON.parse(savedMentorado)
-      setMentorado(mentoradoData)
-      loadCommissionData(mentoradoData.id)
+    if (mentorado && !authLoading) {
+      console.log('🔐 Mentorado autenticado:', mentorado.nome_completo, 'ID:', mentorado.id)
+      loadCommissionData(mentorado.id)
       loadRanking()
     }
-  }, [])
+  }, [mentorado, authLoading])
 
   const loadCommissionData = async (mentoradoId: string) => {
     setLoading(true)
@@ -256,6 +257,9 @@ export default function MentoradoComissoesPage() {
 
   // Transformar dados para sistema de split
   const comissoesSplit = useMemo(() => {
+    console.log('🔄 Processando comissões split para mentorado:', mentorado?.id)
+    console.log('📊 Dados brutos recebidos:', rawComissoesSplit?.length || 0, 'comissões')
+    
     if (!rawComissoesSplit?.length) return []
     
     return rawComissoesSplit.map(comissao => {
@@ -461,6 +465,31 @@ export default function MentoradoComissoesPage() {
   }
 
   const displayStats = getDisplayStats()
+
+  // Loading state para autenticação
+  if (authLoading) {
+    return (
+      <div className="bg-[#141414] min-h-screen text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-gray-400">Carregando...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Verificar se mentorado está autenticado
+  if (!mentorado) {
+    return (
+      <div className="bg-[#141414] min-h-screen text-white flex items-center justify-center">
+        <div className="text-center">
+          <DollarSign className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <h3 className="text-xl font-medium text-white mb-2">Acesso não autorizado</h3>
+          <p className="text-gray-400">Faça login para acessar suas comissões</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-[#141414] min-h-screen text-white">
@@ -1535,5 +1564,16 @@ export default function MentoradoComissoesPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function MentoradoComissoesPage() {
+  return (
+    <MentoradoAuthProvider>
+      <CacheRefreshHelper />
+      <MentoradoInfoWrapper>
+        <MentoradoComissoesPageContent />
+      </MentoradoInfoWrapper>
+    </MentoradoAuthProvider>
   )
 }
