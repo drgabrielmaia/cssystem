@@ -103,7 +103,7 @@ export default function AdminVideosPage() {
     order_index: 1, 
     module_id: '', 
     is_active: true,
-    is_current: false  // Novas aulas começam arquivadas
+    is_current: true  // Novas aulas começam como atuais
   })
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -458,7 +458,7 @@ export default function AdminVideosPage() {
         order_index: lessons.length + 1,
         module_id: modules[0]?.id || '',
         is_active: true,
-        is_current: false  // Novas aulas começam arquivadas
+        is_current: true  // Novas aulas começam como atuais
       })
       setLessonPdfs([])
     }
@@ -1324,8 +1324,8 @@ export default function AdminVideosPage() {
                     onChange={(e) => setLessonForm(prev => ({ ...prev, is_current: e.target.value === 'true' }))}
                     className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
                   >
-                    <option value="false">📦 Arquivada</option>
                     <option value="true">✅ Atual</option>
+                    <option value="false">📦 Arquivada</option>
                   </select>
                 </div>
               </div>
