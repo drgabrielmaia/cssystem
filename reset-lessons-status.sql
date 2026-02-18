@@ -19,14 +19,14 @@ SET
   archive_reason = NULL
 WHERE TRUE;
 
--- 3. Arquivar APENAS as aulas criadas nos dias 16 e 17 de fevereiro de 2025
+-- 3. Arquivar APENAS as aulas criadas nos dias 16 e 17 de fevereiro de 2026
 UPDATE video_lessons 
 SET 
   is_current = false,
   archived_at = NOW(),
-  archive_reason = 'Aula criada em 16/17 de fevereiro - arquivada automaticamente'
+  archive_reason = 'Aula criada em 16/17 de fevereiro/2026 - arquivada automaticamente'
 WHERE 
-  DATE(created_at) IN ('2025-02-16', '2025-02-17');
+  DATE(created_at) IN ('2026-02-16', '2026-02-17');
 
 -- 3. Criar índices para performance (se ainda não existem)
 CREATE INDEX IF NOT EXISTS idx_video_lessons_is_current ON video_lessons(is_current);
@@ -46,7 +46,7 @@ SELECT
   COUNT(*) as total_aulas,
   COUNT(*) FILTER (WHERE is_current = false) as arquivadas
 FROM video_lessons
-WHERE DATE(created_at) IN ('2025-02-16', '2025-02-17')
+WHERE DATE(created_at) IN ('2026-02-16', '2026-02-17')
 GROUP BY DATE(created_at)
 ORDER BY data_criacao;
 
