@@ -95,7 +95,16 @@ export default function AdminVideosPage() {
   const [selectedLesson, setSelectedLesson] = useState<VideoLesson | null>(null)
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set())
   const [moduleForm, setModuleForm] = useState({ title: '', description: '', cover_image_url: '', order_index: 1, is_active: true })
-  const [lessonForm, setLessonForm] = useState({ title: '', description: '', panda_video_embed_url: '', duration_minutes: 0, order_index: 1, module_id: '', is_active: true })
+  const [lessonForm, setLessonForm] = useState({ 
+    title: '', 
+    description: '', 
+    panda_video_embed_url: '', 
+    duration_minutes: 0, 
+    order_index: 1, 
+    module_id: '', 
+    is_active: true,
+    is_current: false  // Novas aulas começam arquivadas
+  })
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [lessonPdfs, setLessonPdfs] = useState<any[]>([])
@@ -435,7 +444,8 @@ export default function AdminVideosPage() {
         duration_minutes: lesson.duration_minutes,
         order_index: lesson.order_index,
         module_id: lesson.module_id,
-        is_active: lesson.is_active
+        is_active: lesson.is_active,
+        is_current: lesson.is_current ?? false
       })
       loadLessonPdfs(lesson.id)
     } else {
@@ -447,7 +457,8 @@ export default function AdminVideosPage() {
         duration_minutes: 0,
         order_index: lessons.length + 1,
         module_id: modules[0]?.id || '',
-        is_active: true
+        is_active: true,
+        is_current: false  // Novas aulas começam arquivadas
       })
       setLessonPdfs([])
     }
@@ -1293,16 +1304,30 @@ export default function AdminVideosPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-[#374151] mb-2">Status</label>
-                <select
-                  value={lessonForm.is_active.toString()}
-                  onChange={(e) => setLessonForm(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
-                >
-                  <option value="true">Ativo</option>
-                  <option value="false">Inativo</option>
-                </select>
+              {/* Status Fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-2">Status da Aula</label>
+                  <select
+                    value={lessonForm.is_active.toString()}
+                    onChange={(e) => setLessonForm(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
+                  >
+                    <option value="true">Ativo</option>
+                    <option value="false">Inativo</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-2">Versão</label>
+                  <select
+                    value={lessonForm.is_current.toString()}
+                    onChange={(e) => setLessonForm(prev => ({ ...prev, is_current: e.target.value === 'true' }))}
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
+                  >
+                    <option value="false">📦 Arquivada</option>
+                    <option value="true">✅ Atual</option>
+                  </select>
+                </div>
               </div>
             </div>
 

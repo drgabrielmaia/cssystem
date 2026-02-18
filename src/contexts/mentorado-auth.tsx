@@ -406,10 +406,15 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async (): Promise<void> => {
     try {
+      console.log('🚪 Fazendo logout do mentorado...')
       removeCookie(COOKIE_NAME)
       localStorage.removeItem('mentorado') // Limpar localStorage legado
       setMentorado(null)
       setError(null)
+      console.log('✅ Logout realizado com sucesso')
+      
+      // Redirect para a página de login após logout
+      window.location.href = '/mentorado'
     } catch (error: any) {
       console.error('Erro no logout do mentorado:', error)
       // Forçar logout mesmo com erro
