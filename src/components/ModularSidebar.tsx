@@ -32,7 +32,8 @@ import {
   Shield,
   Building2,
   Trophy,
-  PieChart
+  PieChart,
+  FileText
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -63,6 +64,7 @@ const modules = [
     items: [
       { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle, description: 'Mensagens automáticas' },
       { name: 'Instagram', href: '/instagram', icon: Instagram, description: 'Marketing no Instagram' },
+      { name: 'Calls & Eventos', href: '/calls-eventos', icon: Video, description: 'Calls em grupo e eventos' },
     ]
   },
   {
@@ -103,6 +105,7 @@ const modules = [
       { name: 'Dashboard', href: '/financeiro/dashboard', icon: BarChart3, description: 'Visão geral financeira' },
       { name: 'Análise Avançada', href: '/financeiro/analise', icon: TrendingUp, description: 'Gráficos e relatórios detalhados' },
       { name: 'Comissões', href: '/comissoes', icon: DollarSign, description: 'Gestão de comissões' },
+      { name: 'Comissões Terceiros', href: '/admin/comissoes-terceiros', icon: UserPlus, description: 'Comissões para usuários terceirizados' },
       { name: 'Pendências', href: '/pendencias', icon: Clock, description: 'Contas e pendências' },
       { name: 'Gestão de Usuários', href: '/financeiro/usuarios', icon: Shield, description: 'Gerenciar acessos do financeiro' },
     ]
@@ -112,6 +115,7 @@ const modules = [
     icon: Wrench,
     color: '#DAA520',
     items: [
+      { name: 'Kanban', href: '/kanban', icon: Target, description: 'Gerenciar tarefas e atividades' },
       { name: 'Calendário', href: '/calendario', icon: Calendar, description: 'Agendar eventos' },
       { name: 'Config. Agenda', href: '/calendar-settings', icon: Settings, description: 'Configurar horários disponíveis' },
       { name: 'Form Builder', href: '/form-builder', icon: Wrench, description: 'Criar formulários' },
@@ -127,6 +131,7 @@ const modules = [
       { name: 'Criar Usuário', href: '/admin/create-user', icon: UserPlus, description: 'Adicionar novo membro' },
       { name: 'Configurar Organização', href: '/admin/organization', icon: Building2, description: 'Configurações da organização' },
       { name: 'Follow-up Automático', href: '/admin/follow-up', icon: Clock, description: 'Configurar sequências de follow-up automático' },
+      { name: 'Contratos', href: '/admin/contratos', icon: FileText, description: 'Gestão de contratos eletrônicos' },
     ]
   },
   {

@@ -47,6 +47,21 @@ interface CloserMetrics {
   leadsAtendidos: number
 }
 
+interface DashboardMetrics {
+  total_leads: number
+  leads_atendidos: number
+  reunioes_agendadas: number
+  leads_fechados: number
+  taxa_conversao: number
+  receita_total: number
+  leads_hoje: number
+  leads_em_qualificacao: number
+  leads_em_andamento: number
+  valor_potencial_total: number
+  meta_mensal: number
+  percentual_meta: number
+}
+
 interface CloserActivity {
   id: string
   tipo_atividade: string
@@ -59,6 +74,7 @@ interface TeamMember {
   id: string
   nome_completo: string
   tipo_closer: string
+  email?: string
   leads_atribuidos: number
   conversoes: number
   taxa_conversao: number
@@ -72,6 +88,7 @@ function CloserPageContent() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [metrics, setMetrics] = useState<CloserMetrics | null>(null)
+  const [dashboardMetrics, setDashboardMetrics] = useState<DashboardMetrics | null>(null)
   const [recentActivities, setRecentActivities] = useState<CloserActivity[]>([])
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [showStudyMaterials, setShowStudyMaterials] = useState(false)
@@ -79,6 +96,7 @@ function CloserPageContent() {
   useEffect(() => {
     if (closer) {
       loadMetrics()
+      loadDashboardMetrics()
       loadRecentActivities()
       loadTeamMembers()
     }
@@ -128,6 +146,38 @@ function CloserPageContent() {
     }
   }
 
+  const loadDashboardMetrics = async () => {
+    if (!closer) return
+
+    try {
+      const { data, error } = await supabase.rpc('get_dashboard_metrics', {
+        p_organization_id: closer.organization_id
+      })
+
+      if (!error && data && data.length > 0) {
+        setDashboardMetrics(data[0])
+      } else {
+        console.error('Error loading dashboard metrics:', error)
+        setDashboardMetrics({
+          total_leads: 0,
+          leads_atendidos: 0,
+          reunioes_agendadas: 0,
+          leads_fechados: 0,
+          taxa_conversao: 0,
+          receita_total: 0,
+          leads_hoje: 0,
+          leads_em_qualificacao: 0,
+          leads_em_andamento: 0,
+          valor_potencial_total: 0,
+          meta_mensal: 500000,
+          percentual_meta: 0
+        })
+      }
+    } catch (error) {
+      console.error('Error loading dashboard metrics:', error)
+    }
+  }
+
   const loadRecentActivities = async () => {
     if (!closer) return
 
@@ -149,24 +199,47 @@ function CloserPageContent() {
 
   const loadTeamMembers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('closers')
-        .select('*')
-        .eq('organization_id', closer?.organization_id)
-        .limit(6)
+      // Use the new RPC function to get real team metrics
+      const { data, error } = await supabase.rpc('get_team_member_metrics', {
+        p_organization_id: closer?.organization_id || null
+      })
 
       if (!error && data) {
-        const formattedMembers: TeamMember[] = data.map(member => ({
+        const formattedMembers: TeamMember[] = data.map((member: any) => ({
           id: member.id,
           nome_completo: member.nome_completo || 'N/A',
-          tipo_closer: member.tipo_closer || 'SDR',
-          leads_atribuidos: Math.floor(Math.random() * 500) + 100,
-          conversoes: Math.floor(Math.random() * 100) + 20,
-          taxa_conversao: parseFloat((Math.random() * 15 + 10).toFixed(1)),
-          receita_gerada: Math.floor(Math.random() * 200000) + 50000,
-          status: ['Ativo', 'Em pausa', 'Inativo'][Math.floor(Math.random() * 3)]
+          tipo_closer: member.tipo_closer || 'sdr',
+          email: member.email || '',
+          leads_atribuidos: Number(member.leads_atribuidos) || 0,
+          conversoes: Number(member.conversoes) || 0,
+          taxa_conversao: parseFloat(member.taxa_conversao) || 0,
+          receita_gerada: parseFloat(member.receita_gerada) || 0,
+          status: member.status || 'Ativo'
         }))
         setTeamMembers(formattedMembers)
+      } else {
+        console.error('Error loading team metrics:', error)
+        // Fallback to basic closers data if RPC fails
+        const { data: fallbackData } = await supabase
+          .from('closers')
+          .select('*')
+          .eq('organization_id', closer?.organization_id)
+          .limit(10)
+
+        if (fallbackData) {
+          const fallbackMembers: TeamMember[] = fallbackData.map((member: any) => ({
+            id: member.id,
+            nome_completo: member.nome_completo || 'N/A',
+            tipo_closer: member.tipo_closer || 'sdr',
+            email: member.email || '',
+            leads_atribuidos: 0,
+            conversoes: 0,
+            taxa_conversao: 0,
+            receita_gerada: 0,
+            status: member.ativo ? 'Ativo' : 'Inativo'
+          }))
+          setTeamMembers(fallbackMembers)
+        }
       }
     } catch (error) {
       console.error('Error loading team members:', error)
@@ -313,10 +386,10 @@ function CloserPageContent() {
                 <BarChart3 className="h-4 w-4" />
                 <span className="text-sm">Analytics</span>
               </a>
-              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+              <Link href="/closer/leads" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
                 <Users className="h-4 w-4" />
-                <span className="text-sm">Customers</span>
-              </a>
+                <span className="text-sm">Leads</span>
+              </Link>
               <a 
                 href="#" 
                 className="flex items-center gap-3 px-4 py-2 rounded-lg bg-[#4ADE80]/10 border-l-4 border-[#4ADE80] text-[#4ADE80] transition-colors"
@@ -391,33 +464,41 @@ function CloserPageContent() {
             {/* Leads Contatados */}
             <div className="bg-[#1A1A1A] rounded-2xl p-6">
               <p className="text-[#71717A] text-sm mb-2">Leads Contatados</p>
-              <p className="text-white text-3xl font-bold mb-2">{metrics?.leadsAtendidos || 1847}</p>
+              <p className="text-white text-3xl font-bold mb-2">{dashboardMetrics?.leads_atendidos || 0}</p>
               <div className="flex items-center gap-1 text-sm">
                 <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
-                <span className="text-[#4ADE80]">12.5%</span>
-                <span className="text-[#71717A]">vs último mês</span>
+                <span className="text-[#4ADE80]">
+                  {dashboardMetrics?.total_leads ? 
+                    ((dashboardMetrics.leads_atendidos / dashboardMetrics.total_leads) * 100).toFixed(1) : '0.0'
+                  }%
+                </span>
+                <span className="text-[#71717A]">dos leads totais</span>
               </div>
             </div>
 
             {/* Taxa de Conversão */}
             <div className="bg-[#1A1A1A] rounded-2xl p-6">
               <p className="text-[#71717A] text-sm mb-2">Taxa de Conversão</p>
-              <p className="text-white text-3xl font-bold mb-2">{metrics?.taxaConversao?.toFixed(1) || '23.8'}%</p>
+              <p className="text-white text-3xl font-bold mb-2">{dashboardMetrics?.taxa_conversao?.toFixed(1) || '0.0'}%</p>
               <div className="flex items-center gap-1 text-sm">
                 <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
-                <span className="text-[#4ADE80]">3.2%</span>
-                <span className="text-[#71717A]">vs último mês</span>
+                <span className="text-[#4ADE80]">
+                  {dashboardMetrics?.leads_fechados || 0} fechados
+                </span>
+                <span className="text-[#71717A]">de {dashboardMetrics?.total_leads || 0} leads</span>
               </div>
             </div>
 
             {/* Reuniões Agendadas */}
             <div className="bg-[#1A1A1A] rounded-2xl p-6">
               <p className="text-[#71717A] text-sm mb-2">Reuniões Agendadas</p>
-              <p className="text-white text-3xl font-bold mb-2">342</p>
+              <p className="text-white text-3xl font-bold mb-2">{dashboardMetrics?.reunioes_agendadas || 0}</p>
               <div className="flex items-center gap-1 text-sm">
-                <ArrowDown className="h-4 w-4 text-[#EF4444]" />
-                <span className="text-[#EF4444]">5.1%</span>
-                <span className="text-[#71717A]">vs último mês</span>
+                <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
+                <span className="text-[#4ADE80]">
+                  {dashboardMetrics?.leads_em_andamento || 0} em andamento
+                </span>
+                <span className="text-[#71717A]">+ {dashboardMetrics?.leads_em_qualificacao || 0} qualificando</span>
               </div>
             </div>
 
@@ -425,12 +506,14 @@ function CloserPageContent() {
             <div className="bg-[#1A1A1A] rounded-2xl p-6">
               <p className="text-[#71717A] text-sm mb-2">Receita Gerada</p>
               <p className="text-white text-3xl font-bold mb-2">
-                R$ {metrics?.valorTotal?.toLocaleString('pt-BR') || '487.320'}
+                R$ {dashboardMetrics?.receita_total?.toLocaleString('pt-BR') || '0'}
               </p>
               <div className="flex items-center gap-1 text-sm">
                 <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
-                <span className="text-[#4ADE80]">18.7%</span>
-                <span className="text-[#71717A]">vs último mês</span>
+                <span className="text-[#4ADE80]">
+                  R$ {dashboardMetrics?.valor_potencial_total?.toLocaleString('pt-BR') || '0'}
+                </span>
+                <span className="text-[#71717A]">potencial</span>
               </div>
             </div>
           </div>
@@ -445,7 +528,7 @@ function CloserPageContent() {
                 </div>
                 <div>
                   <h3 className="text-white text-lg font-semibold">Performance por Closer</h3>
-                  <p className="text-white text-2xl font-bold">R$ {metrics?.valorTotal?.toLocaleString('pt-BR') || '487.320'}</p>
+                  <p className="text-white text-2xl font-bold">R$ {dashboardMetrics?.receita_total?.toLocaleString('pt-BR') || '0'}</p>
                 </div>
               </div>
 
@@ -455,7 +538,7 @@ function CloserPageContent() {
                   <div className="w-32 h-32 rounded-full border-8 border-[#3F3F46] border-t-[#4ADE80] animate-pulse"></div>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
-                      <p className="text-white text-xl font-bold">1.8k</p>
+                      <p className="text-white text-xl font-bold">{dashboardMetrics?.total_leads || 0}</p>
                       <p className="text-[#71717A] text-xs">Leads Totais</p>
                     </div>
                   </div>
@@ -486,7 +569,7 @@ function CloserPageContent() {
               </div>
               
               <div className="text-right mt-4">
-                <p className="text-[#A1A1AA] text-sm">Total Vendas: R$ {metrics?.valorTotal?.toLocaleString('pt-BR') || '487.320'}</p>
+                <p className="text-[#A1A1AA] text-sm">Total Vendas: R$ {dashboardMetrics?.receita_total?.toLocaleString('pt-BR') || '0'}</p>
               </div>
             </div>
 
@@ -500,10 +583,21 @@ function CloserPageContent() {
                   </div>
                   <h4 className="text-white font-medium">Novos Leads Hoje</h4>
                 </div>
-                <p className="text-white text-2xl font-bold mb-2">86</p>
-                <p className="text-[#4ADE80] text-sm mb-3">+42% vs ontem</p>
+                <p className="text-white text-2xl font-bold mb-2">{dashboardMetrics?.leads_hoje || 0}</p>
+                <p className="text-[#4ADE80] text-sm mb-3">
+                  {dashboardMetrics?.total_leads ? 
+                    ((dashboardMetrics.leads_hoje / dashboardMetrics.total_leads) * 100).toFixed(1) : '0'
+                  }% do total
+                </p>
                 <div className="h-8 bg-[#1E1E1E] rounded overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-[#4ADE80] to-[#10B981] w-3/4"></div>
+                  <div 
+                    className="h-full bg-gradient-to-r from-[#4ADE80] to-[#10B981]" 
+                    style={{ 
+                      width: `${dashboardMetrics?.total_leads ? 
+                        Math.min((dashboardMetrics.leads_hoje / dashboardMetrics.total_leads) * 100, 100) : 0
+                      }%` 
+                    }}
+                  ></div>
                 </div>
               </div>
 
@@ -515,11 +609,16 @@ function CloserPageContent() {
                   </div>
                   <h4 className="text-white font-medium">Meta Mensal</h4>
                 </div>
-                <p className="text-white text-xl font-bold mb-2">R$ 487.3k / R$ 650k</p>
+                <p className="text-white text-xl font-bold mb-2">
+                  R$ {dashboardMetrics?.receita_total?.toLocaleString('pt-BR') || '0'} / R$ {dashboardMetrics?.meta_mensal?.toLocaleString('pt-BR') || '500.000'}
+                </p>
                 <div className="h-2 bg-[#1E1E1E] rounded-full mb-2">
-                  <div className="h-full bg-gradient-to-r from-[#4ADE80] to-[#10B981] rounded-full" style={{ width: '75%' }}></div>
+                  <div 
+                    className="h-full bg-gradient-to-r from-[#4ADE80] to-[#10B981] rounded-full" 
+                    style={{ width: `${Math.min(dashboardMetrics?.percentual_meta || 0, 100)}%` }}
+                  ></div>
                 </div>
-                <p className="text-[#4ADE80] text-sm">75% atingido</p>
+                <p className="text-[#4ADE80] text-sm">{dashboardMetrics?.percentual_meta?.toFixed(1) || '0'}% atingido</p>
               </div>
             </div>
           </div>
@@ -556,7 +655,7 @@ function CloserPageContent() {
                           </div>
                           <div>
                             <p className="text-white text-sm font-medium">{member.nome_completo}</p>
-                            <p className="text-[#71717A] text-xs">user{index + 1}@empresa.com</p>
+                            <p className="text-[#71717A] text-xs">{member.email || `user${index + 1}@empresa.com`}</p>
                           </div>
                         </div>
                       </td>

@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { supabase } from '@/lib/supabase'
 import { AddMentoradoModalSafe } from '@/components/add-mentorado-modal-safe'
 import { EditMentoradoModal } from '@/components/edit-mentorado-modal'
+import { ChurnModal } from '@/components/churn-modal'
 import { useAuth } from '@/contexts/auth'
 import {
   Users,
@@ -66,6 +67,8 @@ export default function MentoradosClientPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingMentorado, setEditingMentorado] = useState<Mentorado | null>(null)
+  const [showChurnModal, setShowChurnModal] = useState(false)
+  const [churnMentorado, setChurnMentorado] = useState<Mentorado | null>(null)
   const [exportingPDF, setExportingPDF] = useState(false)
 
   useEffect(() => {
@@ -159,23 +162,13 @@ export default function MentoradosClientPage() {
     setShowEditModal(true)
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este mentorado?')) return
+  const handleDelete = (mentorado: Mentorado) => {
+    setChurnMentorado(mentorado)
+    setShowChurnModal(true)
+  }
 
-    try {
-      const { error } = await supabase
-        .from('mentorados')
-        .delete()
-        .eq('id', id)
-
-      if (error) throw error
-
-      await loadMentorados()
-      alert('Mentorado excluído com sucesso!')
-    } catch (error) {
-      console.error('Erro ao excluir mentorado:', error)
-      alert('Erro ao excluir mentorado')
-    }
+  const handleChurnProcessed = () => {
+    loadMentorados() // Reload the list after churn is processed
   }
 
   const toggleStatus = async (mentorado: Mentorado) => {
@@ -261,7 +254,7 @@ export default function MentoradosClientPage() {
             )}
           </button>
           <button
-            onClick={() => handleDelete(mentorado.id)}
+            onClick={() => handleDelete(mentorado)}
             className="p-1 hover:bg-gray-700 rounded"
             title="Excluir"
           >
@@ -505,6 +498,16 @@ export default function MentoradosClientPage() {
           setEditingMentorado(null)
           loadMentorados()
         }}
+      />
+
+      <ChurnModal
+        isOpen={showChurnModal}
+        onClose={() => {
+          setShowChurnModal(false)
+          setChurnMentorado(null)
+        }}
+        mentorado={churnMentorado}
+        onChurnProcessed={handleChurnProcessed}
       />
     </PageLayout>
   )
