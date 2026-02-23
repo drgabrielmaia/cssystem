@@ -31,7 +31,8 @@ import {
   Video,
   Shield,
   Building2,
-  Trophy
+  Trophy,
+  PieChart
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -50,6 +51,7 @@ const modules = [
     color: '#FFD700', // Dourado mais claro
     items: [
       { name: 'Leads', href: '/leads', icon: UserPlus, description: 'Novos prospects' },
+      { name: 'Distribuição de Leads', href: '/admin/lead-distribution', icon: PieChart, description: 'Análise de canais de aquisição' },
       { name: 'Follow-ups', href: '/follow-ups', icon: Clock, description: 'Acompanhamentos' },
       { name: 'Cadastro', href: '/cadastro', icon: UserCheck, description: 'Mentorados indicadores' },
     ]
