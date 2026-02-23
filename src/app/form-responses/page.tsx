@@ -285,28 +285,28 @@ export default function FormResponsesPage() {
   const SubmissionDetail = ({ submission }: { submission: FormSubmission }) => (
     <div className="space-y-6">
       {/* Header */}
-      <div className="border-b pb-4">
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+      <div className="border-b border-gray-600 pb-4">
+        <h3 className="text-xl font-semibold text-white mb-2">
           {submission.template?.name || submission.template_slug}
         </h3>
         <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary" className="flex items-center space-x-1">
+          <Badge variant="secondary" className="flex items-center space-x-1 bg-gray-700 text-white">
             <Clock className="h-3 w-3" />
             <span>{formatDate(submission.created_at)}</span>
           </Badge>
           {submission.source_url && (
-            <Badge className={getSourceColor(submission.source_url)}>
+            <Badge className="bg-blue-600 text-white hover:bg-blue-700">
               {submission.source_url}
             </Badge>
           )}
           {submission.lead && (
-            <Badge variant="outline" className="flex items-center space-x-1 text-blue-700 border-blue-300">
+            <Badge variant="outline" className="flex items-center space-x-1 text-blue-400 border-blue-400">
               <User className="h-3 w-3" />
               <span>Lead criado</span>
             </Badge>
           )}
           {submission.mentorado && (
-            <Badge variant="outline" className="flex items-center space-x-1 text-green-700 border-green-300">
+            <Badge variant="outline" className="flex items-center space-x-1 text-green-400 border-green-400">
               <User className="h-3 w-3" />
               <span>Mentorado</span>
             </Badge>
@@ -316,23 +316,23 @@ export default function FormResponsesPage() {
 
       {/* Lead Info */}
       {submission.lead && (
-        <div className="bg-blue-50 rounded-lg p-4">
-          <h4 className="font-semibold text-blue-900 mb-2">Informações do Lead:</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-            <div><strong>Nome:</strong> {submission.lead.nome_completo}</div>
-            <div><strong>Email:</strong> {submission.lead.email}</div>
-            <div><strong>Telefone:</strong> {submission.lead.telefone}</div>
+        <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+          <h4 className="font-semibold text-blue-300 mb-2">Informações do Lead:</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
+            <div><strong className="text-white">Nome:</strong> {submission.lead.nome_completo}</div>
+            <div><strong className="text-white">Email:</strong> {submission.lead.email}</div>
+            <div><strong className="text-white">Telefone:</strong> {submission.lead.telefone}</div>
           </div>
         </div>
       )}
 
       {/* Mentorado Info */}
       {submission.mentorado && (
-        <div className="bg-green-50 rounded-lg p-4">
-          <h4 className="font-semibold text-green-900 mb-2">Informações do Mentorado:</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-            <div><strong>Nome:</strong> {submission.mentorado.nome_completo}</div>
-            <div><strong>Email:</strong> {submission.mentorado.email}</div>
+        <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+          <h4 className="font-semibold text-green-300 mb-2">Informações do Mentorado:</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
+            <div><strong className="text-white">Nome:</strong> {submission.mentorado.nome_completo}</div>
+            <div><strong className="text-white">Email:</strong> {submission.mentorado.email}</div>
             {/* <div><strong>Turma:</strong> Campo turma não existe</div> */}
           </div>
         </div>
@@ -340,7 +340,7 @@ export default function FormResponsesPage() {
 
       {/* Form Data */}
       <div>
-        <h4 className="font-semibold text-gray-900 mb-4">Respostas do Formulário:</h4>
+        <h4 className="font-semibold text-white mb-4">Respostas do Formulário:</h4>
         <div className="space-y-4">
           {Object.entries(submission.submission_data).map(([key, value]) => {
             // Tentar encontrar o label do campo no template
@@ -348,9 +348,9 @@ export default function FormResponsesPage() {
             const label = field?.label || key
 
             return (
-              <div key={key} className="border rounded-lg p-4">
-                <div className="font-medium text-gray-700 mb-2">{label}</div>
-                <div className="text-gray-900">
+              <div key={key} className="border border-gray-600 rounded-lg p-4 bg-gray-800/50">
+                <div className="font-medium text-gray-300 mb-2">{label}</div>
+                <div className="text-white">
                   {Array.isArray(value) ? value.join(', ') : String(value)}
                 </div>
               </div>
