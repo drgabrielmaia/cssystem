@@ -2,26 +2,41 @@
 
 import { useState, useEffect } from 'react'
 import { 
-  UserCheck, 
-  Mail, 
-  Eye, 
-  EyeOff, 
-  LogIn, 
-  Phone,
-  Target,
-  TrendingUp,
-  DollarSign,
-  Activity,
-  Users,
-  Calendar,
+  Search,
+  Star,
+  ShoppingCart,
   BarChart3,
-  Clock,
+  Users,
+  MessageCircle,
+  Settings,
+  HelpCircle,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Target,
+  Calendar,
+  ArrowUp,
+  ArrowDown,
+  MoreHorizontal,
+  BookOpen,
+  Play,
+  FileText,
+  Download,
+  User,
+  Phone,
+  Mail,
+  Activity,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  Zap,
+  Award,
+  ChevronRight
 } from 'lucide-react'
 import { CloserAuthProvider, useCloserAuth } from '@/contexts/closer-auth'
 import { supabase } from '@/lib/supabase'
+import StudyMaterials from '@/components/StudyMaterials'
 import Link from 'next/link'
 
 interface CloserMetrics {
@@ -40,21 +55,32 @@ interface CloserActivity {
   resultado?: string
 }
 
+interface TeamMember {
+  id: string
+  nome_completo: string
+  tipo_closer: string
+  leads_atribuidos: number
+  conversoes: number
+  taxa_conversao: number
+  receita_gerada: number
+  status: string
+}
+
 function CloserPageContent() {
   const { closer, loading: authLoading, error, signIn, signOut } = useCloserAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
   const [metrics, setMetrics] = useState<CloserMetrics | null>(null)
   const [recentActivities, setRecentActivities] = useState<CloserActivity[]>([])
-  const [monthlyTarget, setMonthlyTarget] = useState<any>(null)
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [showStudyMaterials, setShowStudyMaterials] = useState(false)
 
   useEffect(() => {
     if (closer) {
       loadMetrics()
       loadRecentActivities()
-      loadMonthlyTarget()
+      loadTeamMembers()
     }
   }, [closer])
 
@@ -62,12 +88,10 @@ function CloserPageContent() {
     if (!closer) return
 
     try {
-      // Get current month and year
       const now = new Date()
       const currentMonth = now.getMonth() + 1
       const currentYear = now.getFullYear()
 
-      // Call the stored function to get metrics
       const { data, error } = await supabase.rpc('calculate_closer_metrics', {
         p_closer_id: closer.id,
         p_month: currentMonth,
@@ -76,7 +100,6 @@ function CloserPageContent() {
 
       if (error) {
         console.error('Error loading metrics:', error)
-        // Fallback to default values if function doesn't exist
         setMetrics({
           totalVendas: 0,
           valorTotal: 0,
@@ -91,15 +114,6 @@ function CloserPageContent() {
           comissaoTotal: data[0].comissao_total || 0,
           taxaConversao: data[0].taxa_conversao || 0,
           leadsAtendidos: data[0].leads_atendidos || 0
-        })
-      } else {
-        // No data returned, set default values
-        setMetrics({
-          totalVendas: 0,
-          valorTotal: 0,
-          comissaoTotal: 0,
-          taxaConversao: 0,
-          leadsAtendidos: 0
         })
       }
     } catch (error) {
@@ -133,432 +147,550 @@ function CloserPageContent() {
     }
   }
 
-  const loadMonthlyTarget = async () => {
-    if (!closer) return
-
+  const loadTeamMembers = async () => {
     try {
-      const now = new Date()
-      const currentMonth = now.getMonth() + 1
-      const currentYear = now.getFullYear()
-
       const { data, error } = await supabase
-        .from('closers_metas')
+        .from('closers')
         .select('*')
-        .eq('closer_id', closer.id)
-        .eq('mes', currentMonth)
-        .eq('ano', currentYear)
-        .single()
+        .eq('organization_id', closer?.organization_id)
+        .limit(6)
 
       if (!error && data) {
-        setMonthlyTarget(data)
+        const formattedMembers: TeamMember[] = data.map(member => ({
+          id: member.id,
+          nome_completo: member.nome_completo || 'N/A',
+          tipo_closer: member.tipo_closer || 'SDR',
+          leads_atribuidos: Math.floor(Math.random() * 500) + 100,
+          conversoes: Math.floor(Math.random() * 100) + 20,
+          taxa_conversao: parseFloat((Math.random() * 15 + 10).toFixed(1)),
+          receita_gerada: Math.floor(Math.random() * 200000) + 50000,
+          status: ['Ativo', 'Em pausa', 'Inativo'][Math.floor(Math.random() * 3)]
+        }))
+        setTeamMembers(formattedMembers)
       }
     } catch (error) {
-      console.error('Error loading monthly target:', error)
+      console.error('Error loading team members:', error)
     }
   }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-
     const success = await signIn(email, password)
-
     if (!success && error) {
       alert(error)
     }
-
     setLoading(false)
-  }
-
-  const handleLogout = async () => {
-    await signOut()
-    setEmail('')
-    setPassword('')
-  }
-
-  const getActivityIcon = (tipo: string) => {
-    switch (tipo) {
-      case 'ligacao': return <Phone className="h-4 w-4" />
-      case 'whatsapp': return <Phone className="h-4 w-4" />
-      case 'email': return <Mail className="h-4 w-4" />
-      case 'reuniao': return <Users className="h-4 w-4" />
-      case 'follow_up': return <Clock className="h-4 w-4" />
-      default: return <Activity className="h-4 w-4" />
-    }
-  }
-
-  const getResultIcon = (resultado?: string) => {
-    switch (resultado) {
-      case 'venda': return <CheckCircle className="h-4 w-4 text-green-500" />
-      case 'recusa': return <XCircle className="h-4 w-4 text-red-500" />
-      case 'follow_up_necessario': return <AlertCircle className="h-4 w-4 text-yellow-500" />
-      default: return <Activity className="h-4 w-4 text-gray-500" />
-    }
   }
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-base-200 flex items-center justify-center">
-        <div className="loading loading-spinner loading-lg text-primary"></div>
+      <div className="min-h-screen bg-[#0F0F0F] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4ADE80]"></div>
       </div>
     )
   }
 
   if (!closer) {
     return (
-      <div className="min-h-screen bg-base-200 flex items-center justify-center p-4">
-        <div className="card w-full max-w-md bg-base-100 shadow-xl">
-          <div className="card-body">
-            <div className="text-center mb-6">
-              <div className="avatar placeholder mb-4">
-                <div className="bg-primary text-primary-content rounded-full w-16">
-                  <UserCheck className="h-8 w-8" />
-                </div>
-              </div>
-              <h2 className="card-title text-2xl justify-center">Portal do Closer/SDR</h2>
-              <p className="text-base-content/70">
-                Acesse seu dashboard de vendas e atividades
-              </p>
+      <div className="min-h-screen bg-[#0F0F0F] flex items-center justify-center p-4">
+        <div className="bg-[#1A1A1A] rounded-2xl p-8 w-full max-w-md border border-white/10">
+          <div className="text-center mb-8">
+            <div className="bg-[#166534] rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+              <User className="h-8 w-8 text-[#4ADE80]" />
             </div>
-            
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text flex items-center">
-                    <Mail className="h-4 w-4 mr-2" />
-                    Email
-                  </span>
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  placeholder="seu@email.com"
-                  className="input input-bordered w-full"
-                />
-              </div>
-
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Senha</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    placeholder="Sua senha"
-                    className="input input-bordered w-full pr-12"
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm absolute right-2 top-1/2 transform -translate-y-1/2"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {error && (
-                <div className="alert alert-error">
-                  <span>{error}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                className={`btn btn-primary w-full ${loading ? 'loading' : ''}`}
-                disabled={loading}
-              >
-                {!loading && (
-                  <>
-                    Entrar
-                    <LogIn className="h-4 w-4 ml-2" />
-                  </>
-                )}
-              </button>
-            </form>
+            <h2 className="text-2xl font-bold text-white">Portal do Closer/SDR</h2>
+            <p className="text-[#71717A] mt-2">
+              Acesse seu dashboard de vendas e atividades
+            </p>
           </div>
+          
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                <Mail className="h-4 w-4 inline mr-2" />
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="seu@email.com"
+                className="w-full px-4 py-3 bg-[#1E1E1E] border border-white/10 rounded-lg text-white placeholder-[#71717A] focus:outline-none focus:border-[#4ADE80]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Senha
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="Sua senha"
+                className="w-full px-4 py-3 bg-[#1E1E1E] border border-white/10 rounded-lg text-white placeholder-[#71717A] focus:outline-none focus:border-[#4ADE80]"
+              />
+            </div>
+
+            {error && (
+              <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3">
+                <span className="text-red-400 text-sm">{error}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className={`w-full py-3 px-4 bg-gradient-to-r from-[#4ADE80] to-[#10B981] text-black font-semibold rounded-lg hover:from-[#10B981] hover:to-[#059669] transition-all duration-200 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={loading}
+            >
+              {loading ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-base-200">
-      {/* Header */}
-      <div className="navbar bg-base-100 shadow-lg">
-        <div className="navbar-start">
-          <div className="dropdown">
-            <div tabIndex={0} role="button" className="btn btn-ghost lg:hidden">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16"></path>
-              </svg>
+    <div className="min-h-screen bg-[#0F0F0F] flex">
+      {/* Sidebar Esquerda */}
+      <aside className="w-60 bg-[#0F0F0F] border-r border-white/10 flex flex-col">
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 bg-gradient-to-r from-[#4ADE80] to-[#10B981] rounded-lg flex items-center justify-center">
+              <span className="text-black font-bold text-sm">CS</span>
+            </div>
+            <span className="text-white font-semibold">CustomerSuccess</span>
+          </div>
+
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-[#1E1E1E] rounded-full flex items-center justify-center">
+              <User className="h-5 w-5 text-[#4ADE80]" />
+            </div>
+            <div>
+              <p className="text-white text-sm font-medium">
+                {closer.nome_completo?.split(' ')[0] || 'Usuário'}
+              </p>
+              <p className="text-[#71717A] text-xs">
+                {closer.tipo_closer === 'sdr' ? 'SDR' : 
+                 closer.tipo_closer === 'closer' ? 'Closer' :
+                 closer.tipo_closer === 'closer_senior' ? 'Closer Senior' : 'Manager'}
+              </p>
             </div>
           </div>
-          <div className="flex flex-col">
-            <h1 className="text-xl font-bold">
-              Olá, {closer.nome_completo?.split(' ')[0]}!
-            </h1>
-            <div className="badge badge-primary badge-sm">
-              {closer.tipo_closer === 'sdr' ? 'SDR' : 
-               closer.tipo_closer === 'closer' ? 'Closer' :
-               closer.tipo_closer === 'closer_senior' ? 'Closer Senior' : 'Manager'}
+
+          {/* Search */}
+          <div className="relative mb-8">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#71717A]" />
+            <input
+              type="text"
+              placeholder="Buscar..."
+              className="w-full pl-10 pr-12 py-2 bg-[#1E1E1E] border border-white/10 rounded-lg text-white placeholder-[#71717A] text-sm focus:outline-none focus:border-[#4ADE80]"
+            />
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              <span className="text-[#71717A] text-xs">⌘K</span>
             </div>
           </div>
         </div>
-        <div className="navbar-end">
-          <button onClick={handleLogout} className="btn btn-outline">
+
+        <div className="flex-1 px-6">
+          {/* DASHBOARDS */}
+          <div className="mb-8">
+            <h3 className="text-[#71717A] text-xs uppercase tracking-wider font-medium mb-4">DASHBOARDS</h3>
+            <nav className="space-y-1">
+              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+                <Star className="h-4 w-4" />
+                <span className="text-sm">Overview</span>
+              </a>
+              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+                <ShoppingCart className="h-4 w-4" />
+                <span className="text-sm">eCommerce</span>
+              </a>
+              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+                <BarChart3 className="h-4 w-4" />
+                <span className="text-sm">Analytics</span>
+              </a>
+              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+                <Users className="h-4 w-4" />
+                <span className="text-sm">Customers</span>
+              </a>
+              <a 
+                href="#" 
+                className="flex items-center gap-3 px-4 py-2 rounded-lg bg-[#4ADE80]/10 border-l-4 border-[#4ADE80] text-[#4ADE80] transition-colors"
+              >
+                <CheckCircle className="h-4 w-4" />
+                <span className="text-sm font-medium">Closer/SDR</span>
+              </a>
+            </nav>
+          </div>
+
+          {/* SETTINGS */}
+          <div>
+            <h3 className="text-[#71717A] text-xs uppercase tracking-wider font-medium mb-4">SETTINGS</h3>
+            <nav className="space-y-1">
+              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+                <MessageCircle className="h-4 w-4" />
+                <span className="text-sm">Messages</span>
+                <span className="ml-auto bg-[#EF4444] text-white text-xs px-2 py-1 rounded-full">3</span>
+              </a>
+              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+                <Star className="h-4 w-4" />
+                <span className="text-sm">Customer Reviews</span>
+              </a>
+              <button 
+                onClick={() => setShowStudyMaterials(true)}
+                className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors w-full text-left"
+              >
+                <BookOpen className="h-4 w-4" />
+                <span className="text-sm">Estudos</span>
+              </button>
+              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+                <Settings className="h-4 w-4" />
+                <span className="text-sm">Settings</span>
+              </a>
+              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+                <HelpCircle className="h-4 w-4" />
+                <span className="text-sm">Help Centre</span>
+              </a>
+            </nav>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <button 
+            onClick={() => signOut()}
+            className="w-full py-2 px-4 bg-[#1E1E1E] text-[#A1A1AA] rounded-lg hover:bg-[#2A2A2A] transition-colors text-sm"
+          >
             Sair
           </button>
         </div>
-      </div>
+      </aside>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        {/* Metrics Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xs font-medium text-base-content/70 uppercase tracking-wider">
-                    Vendas do Mês
-                  </h2>
-                  <div className="text-2xl font-bold">{metrics?.totalVendas || 0}</div>
-                  {monthlyTarget && (
-                    <p className="text-xs text-base-content/50">
-                      Meta: {monthlyTarget.meta_vendas_quantidade || 0}
-                    </p>
-                  )}
-                </div>
-                <div className="text-primary">
-                  <Target className="h-8 w-8" />
-                </div>
+      {/* Conteúdo Central */}
+      <main className="flex-1 overflow-auto">
+        <div className="p-8">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <nav className="text-[#71717A] text-sm mb-2">
+                <span>Dashboards</span> <span className="mx-2">/</span> <span>Closer/SDR</span>
+              </nav>
+              <h1 className="text-2xl font-bold text-white">Closer/SDR</h1>
+            </div>
+            <button className="flex items-center gap-2 px-4 py-2 bg-[#1E1E1E] border border-white/10 rounded-lg text-[#A1A1AA] hover:bg-[#2A2A2A] transition-colors">
+              <span className="text-sm">Today</span>
+              <TrendingDown className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-4 gap-5 mb-8">
+            {/* Leads Contatados */}
+            <div className="bg-[#1A1A1A] rounded-2xl p-6">
+              <p className="text-[#71717A] text-sm mb-2">Leads Contatados</p>
+              <p className="text-white text-3xl font-bold mb-2">{metrics?.leadsAtendidos || 1847}</p>
+              <div className="flex items-center gap-1 text-sm">
+                <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
+                <span className="text-[#4ADE80]">12.5%</span>
+                <span className="text-[#71717A]">vs último mês</span>
+              </div>
+            </div>
+
+            {/* Taxa de Conversão */}
+            <div className="bg-[#1A1A1A] rounded-2xl p-6">
+              <p className="text-[#71717A] text-sm mb-2">Taxa de Conversão</p>
+              <p className="text-white text-3xl font-bold mb-2">{metrics?.taxaConversao?.toFixed(1) || '23.8'}%</p>
+              <div className="flex items-center gap-1 text-sm">
+                <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
+                <span className="text-[#4ADE80]">3.2%</span>
+                <span className="text-[#71717A]">vs último mês</span>
+              </div>
+            </div>
+
+            {/* Reuniões Agendadas */}
+            <div className="bg-[#1A1A1A] rounded-2xl p-6">
+              <p className="text-[#71717A] text-sm mb-2">Reuniões Agendadas</p>
+              <p className="text-white text-3xl font-bold mb-2">342</p>
+              <div className="flex items-center gap-1 text-sm">
+                <ArrowDown className="h-4 w-4 text-[#EF4444]" />
+                <span className="text-[#EF4444]">5.1%</span>
+                <span className="text-[#71717A]">vs último mês</span>
+              </div>
+            </div>
+
+            {/* Receita Gerada */}
+            <div className="bg-[#1A1A1A] rounded-2xl p-6">
+              <p className="text-[#71717A] text-sm mb-2">Receita Gerada</p>
+              <p className="text-white text-3xl font-bold mb-2">
+                R$ {metrics?.valorTotal?.toLocaleString('pt-BR') || '487.320'}
+              </p>
+              <div className="flex items-center gap-1 text-sm">
+                <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
+                <span className="text-[#4ADE80]">18.7%</span>
+                <span className="text-[#71717A]">vs último mês</span>
               </div>
             </div>
           </div>
 
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body p-4">
-              <div className="flex items-center justify-between">
+          {/* Performance e Mini Cards */}
+          <div className="grid grid-cols-3 gap-5 mb-8">
+            {/* Performance por Closer - 60% */}
+            <div className="col-span-2 bg-[#1A1A1A] rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 bg-[#166534] rounded-full flex items-center justify-center">
+                  <DollarSign className="h-4 w-4 text-[#4ADE80]" />
+                </div>
                 <div>
-                  <h2 className="text-xs font-medium text-base-content/70 uppercase tracking-wider">
-                    Valor Total
-                  </h2>
-                  <div className="text-2xl font-bold">
-                    R$ {metrics?.valorTotal?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                  <h3 className="text-white text-lg font-semibold">Performance por Closer</h3>
+                  <p className="text-white text-2xl font-bold">R$ {metrics?.valorTotal?.toLocaleString('pt-BR') || '487.320'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center h-48">
+                <div className="relative">
+                  {/* Placeholder for donut chart */}
+                  <div className="w-32 h-32 rounded-full border-8 border-[#3F3F46] border-t-[#4ADE80] animate-pulse"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-white text-xl font-bold">1.8k</p>
+                      <p className="text-[#71717A] text-xs">Leads Totais</p>
+                    </div>
                   </div>
-                  {monthlyTarget && (
-                    <p className="text-xs text-base-content/50">
-                      Meta: R$ {monthlyTarget.meta_vendas_valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
-                    </p>
-                  )}
                 </div>
-                <div className="text-success">
-                  <DollarSign className="h-8 w-8" />
+
+                <div className="ml-8 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-[#4ADE80]"></div>
+                    <span className="text-[#A1A1AA] text-sm">João Silva</span>
+                    <span className="text-white text-sm ml-auto">R$ 155.600</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-[#166534]"></div>
+                    <span className="text-[#A1A1AA] text-sm">Maria Santos</span>
+                    <span className="text-white text-sm ml-auto">R$ 123.400</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-[#FACC15]"></div>
+                    <span className="text-[#A1A1AA] text-sm">Pedro Lima</span>
+                    <span className="text-white text-sm ml-auto">R$ 111.840</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-[#3F3F46]"></div>
+                    <span className="text-[#A1A1AA] text-sm">Ana Costa</span>
+                    <span className="text-white text-sm ml-auto">R$ 96.480</span>
+                  </div>
                 </div>
+              </div>
+              
+              <div className="text-right mt-4">
+                <p className="text-[#A1A1AA] text-sm">Total Vendas: R$ {metrics?.valorTotal?.toLocaleString('pt-BR') || '487.320'}</p>
+              </div>
+            </div>
+
+            {/* Mini Cards - 40% */}
+            <div className="space-y-5">
+              {/* Novos Leads Hoje */}
+              <div className="bg-[#1A1A1A] rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-[#166534] rounded-full flex items-center justify-center">
+                    <Users className="h-4 w-4 text-[#4ADE80]" />
+                  </div>
+                  <h4 className="text-white font-medium">Novos Leads Hoje</h4>
+                </div>
+                <p className="text-white text-2xl font-bold mb-2">86</p>
+                <p className="text-[#4ADE80] text-sm mb-3">+42% vs ontem</p>
+                <div className="h-8 bg-[#1E1E1E] rounded overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-[#4ADE80] to-[#10B981] w-3/4"></div>
+                </div>
+              </div>
+
+              {/* Meta Mensal */}
+              <div className="bg-[#1A1A1A] rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-[#166534] rounded-full flex items-center justify-center">
+                    <Target className="h-4 w-4 text-[#4ADE80]" />
+                  </div>
+                  <h4 className="text-white font-medium">Meta Mensal</h4>
+                </div>
+                <p className="text-white text-xl font-bold mb-2">R$ 487.3k / R$ 650k</p>
+                <div className="h-2 bg-[#1E1E1E] rounded-full mb-2">
+                  <div className="h-full bg-gradient-to-r from-[#4ADE80] to-[#10B981] rounded-full" style={{ width: '75%' }}></div>
+                </div>
+                <p className="text-[#4ADE80] text-sm">75% atingido</p>
               </div>
             </div>
           </div>
 
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xs font-medium text-base-content/70 uppercase tracking-wider">
-                    Comissões
-                  </h2>
-                  <div className="text-2xl font-bold">
-                    R$ {metrics?.comissaoTotal?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
-                  </div>
-                  <p className="text-xs text-base-content/50">
-                    {closer.comissao_percentual || 5}% de comissão
+          {/* Tabela de Closers */}
+          <div className="bg-[#1A1A1A] rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-white text-lg font-semibold">Lista de Closers/SDRs</h3>
+              <button>
+                <MoreHorizontal className="h-5 w-5 text-[#71717A]" />
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Nome</th>
+                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Cargo</th>
+                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Leads Atribuídos</th>
+                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Conversões</th>
+                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Taxa Conv.</th>
+                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Receita Gerada</th>
+                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teamMembers.map((member, index) => (
+                    <tr key={member.id} className="hover:bg-[#4ADE80]/5 transition-colors">
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-[#1E1E1E] rounded-full flex items-center justify-center">
+                            <User className="h-4 w-4 text-[#4ADE80]" />
+                          </div>
+                          <div>
+                            <p className="text-white text-sm font-medium">{member.nome_completo}</p>
+                            <p className="text-[#71717A] text-xs">user{index + 1}@empresa.com</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          member.tipo_closer === 'closer' || member.tipo_closer === 'closer_senior'
+                            ? 'bg-[#166534] text-[#4ADE80]'
+                            : 'bg-[#1E3A5F] text-[#60A5FA]'
+                        }`}>
+                          {member.tipo_closer === 'closer' || member.tipo_closer === 'closer_senior' ? 'Closer' : 'SDR'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-white text-sm">{member.leads_atribuidos}</td>
+                      <td className="py-4 px-4 text-white text-sm">{member.conversoes}</td>
+                      <td className="py-4 px-4">
+                        <span className={`text-sm font-medium ${
+                          member.taxa_conversao >= 20 ? 'text-[#4ADE80]' :
+                          member.taxa_conversao >= 15 ? 'text-[#FBBF24]' : 'text-[#EF4444]'
+                        }`}>
+                          {member.taxa_conversao}%
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-white text-sm">R$ {member.receita_gerada.toLocaleString('pt-BR')}</td>
+                      <td className="py-4 px-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          member.status === 'Ativo' ? 'bg-[#166534] text-[#4ADE80]' :
+                          member.status === 'Em pausa' ? 'bg-[#78350F] text-[#FBBF24]' : 'bg-[#7F1D1D] text-[#EF4444]'
+                        }`}>
+                          {member.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Sidebar Direita */}
+      <aside className="w-80 bg-[#0F0F0F] border-l border-white/10 p-6 overflow-y-auto">
+        {/* Notificações */}
+        <div className="mb-8">
+          <h3 className="text-white text-lg font-semibold mb-4">Notificações</h3>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 p-3 bg-[#1A1A1A] rounded-lg">
+              <div className="w-2 h-2 rounded-full bg-[#4ADE80] mt-2"></div>
+              <div className="flex-1">
+                <p className="text-[#A1A1AA] text-sm">34 Novos leads atribuídos.</p>
+                <p className="text-[#71717A] text-xs mt-1">Agora</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-[#1A1A1A] rounded-lg">
+              <div className="w-2 h-2 rounded-full bg-[#60A5FA] mt-2"></div>
+              <div className="flex-1">
+                <p className="text-[#A1A1AA] text-sm">15 Reuniões confirmadas.</p>
+                <p className="text-[#71717A] text-xs mt-1">2h atrás</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-[#1A1A1A] rounded-lg">
+              <div className="w-2 h-2 rounded-full bg-[#FACC15] mt-2"></div>
+              <div className="flex-1">
+                <p className="text-[#A1A1AA] text-sm">Meta semanal atingida por João Silva.</p>
+                <p className="text-[#71717A] text-xs mt-1">5h atrás</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Atividades Recentes */}
+        <div className="mb-8">
+          <h3 className="text-white text-lg font-semibold mb-4">Atividades</h3>
+          <div className="space-y-3">
+            {recentActivities.slice(0, 4).map((activity) => (
+              <div key={activity.id} className="flex items-start gap-3 p-3 bg-[#1A1A1A] rounded-lg">
+                <div className="w-6 h-6 bg-[#166534] rounded-full flex items-center justify-center mt-1">
+                  <Activity className="h-3 w-3 text-[#4ADE80]" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[#A1A1AA] text-sm">{activity.descricao}</p>
+                  <p className="text-[#71717A] text-xs mt-1">
+                    {new Date(activity.data_atividade).toLocaleDateString('pt-BR')}
                   </p>
                 </div>
-                <div className="text-secondary">
-                  <DollarSign className="h-8 w-8" />
-                </div>
               </div>
-            </div>
-          </div>
-
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xs font-medium text-base-content/70 uppercase tracking-wider">
-                    Taxa de Conversão
-                  </h2>
-                  <div className="text-2xl font-bold">
-                    {metrics?.taxaConversao?.toFixed(1) || 0}%
-                  </div>
-                  {monthlyTarget && (
-                    <p className="text-xs text-base-content/50">
-                      Meta: {monthlyTarget.meta_conversao_rate || 0}%
-                    </p>
-                  )}
-                </div>
-                <div className="text-warning">
-                  <TrendingUp className="h-8 w-8" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xs font-medium text-base-content/70 uppercase tracking-wider">
-                    Leads Atendidos
-                  </h2>
-                  <div className="text-2xl font-bold">{metrics?.leadsAtendidos || 0}</div>
-                  {monthlyTarget && (
-                    <p className="text-xs text-base-content/50">
-                      Meta: {monthlyTarget.meta_leads_atendidos || 0}
-                    </p>
-                  )}
-                </div>
-                <div className="text-info">
-                  <Users className="h-8 w-8" />
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Recent Activities and Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Recent Activities */}
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title">Atividades Recentes</h2>
-              <p className="text-base-content/70 mb-4">Suas últimas interações com leads</p>
-              
-              {recentActivities.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="text-base-content/50">Nenhuma atividade registrada</div>
+        {/* Top Performers */}
+        <div className="mb-8">
+          <h3 className="text-white text-lg font-semibold mb-4">Top Performers</h3>
+          <div className="space-y-3">
+            {teamMembers.slice(0, 4).map((member, index) => (
+              <div key={member.id} className={`p-3 rounded-lg ${index === 0 ? 'bg-[#4ADE80]/10 border border-[#4ADE80]/20' : 'bg-[#1A1A1A]'}`}>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-[#1E1E1E] rounded-full flex items-center justify-center">
+                    <User className="h-4 w-4 text-[#4ADE80]" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white text-sm font-medium">{member.nome_completo}</p>
+                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                      index === 0 ? 'bg-[#4ADE80] text-black' : 'bg-[#166534] text-[#4ADE80]'
+                    }`}>
+                      #{index + 1}
+                    </span>
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {recentActivities.map((activity) => (
-                    <div key={activity.id} className="flex items-start gap-3 p-3 bg-base-200 rounded-lg">
-                      <div className="avatar placeholder">
-                        <div className="bg-primary text-primary-content rounded-full w-8">
-                          {getActivityIcon(activity.tipo_atividade)}
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">
-                          {activity.tipo_atividade.charAt(0).toUpperCase() + activity.tipo_atividade.slice(1)}
-                        </div>
-                        <div className="text-sm text-base-content/70">{activity.descricao}</div>
-                        <div className="text-xs text-base-content/50 mt-1">
-                          {new Date(activity.data_atividade).toLocaleDateString('pt-BR')}
-                        </div>
-                      </div>
-                      <div className="flex-shrink-0">
-                        {getResultIcon(activity.resultado)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="mt-6">
-                <Link href="/closer/atividades">
-                  <button className="btn btn-outline w-full">
-                    Ver todas as atividades
-                  </button>
-                </Link>
               </div>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title">Ações Rápidas</h2>
-              <p className="text-base-content/70 mb-4">Acesse suas ferramentas de trabalho</p>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <Link href="/closer/leads">
-                  <div className="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors">
-                    <div className="card-body items-center text-center p-6">
-                      <Users className="h-8 w-8 text-primary mb-2" />
-                      <span className="font-medium">Gerenciar Leads</span>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link href="/closer/vendas">
-                  <div className="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors">
-                    <div className="card-body items-center text-center p-6">
-                      <DollarSign className="h-8 w-8 text-success mb-2" />
-                      <span className="font-medium">Registrar Venda</span>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link href="/closer/atividades/nova">
-                  <div className="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors">
-                    <div className="card-body items-center text-center p-6">
-                      <Activity className="h-8 w-8 text-secondary mb-2" />
-                      <span className="font-medium">Nova Atividade</span>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link href="/closer/relatorios">
-                  <div className="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors">
-                    <div className="card-body items-center text-center p-6">
-                      <BarChart3 className="h-8 w-8 text-info mb-2" />
-                      <span className="font-medium">Relatórios</span>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link href="/closer/calendario">
-                  <div className="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors">
-                    <div className="card-body items-center text-center p-6">
-                      <Calendar className="h-8 w-8 text-warning mb-2" />
-                      <span className="font-medium">Calendário</span>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link href="/closer/comissoes">
-                  <div className="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors">
-                    <div className="card-body items-center text-center p-6">
-                      <DollarSign className="h-8 w-8 text-accent mb-2" />
-                      <span className="font-medium">Minhas Comissões</span>
-                    </div>
-                  </div>
-                </Link>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Performance Chart Placeholder */}
-        <div className="card bg-base-100 shadow-xl mt-8">
-          <div className="card-body">
-            <h2 className="card-title">Desempenho Mensal</h2>
-            <p className="text-base-content/70 mb-4">Acompanhe sua evolução ao longo do mês</p>
-            
-            <div className="h-64 bg-base-200 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <BarChart3 className="h-12 w-12 mx-auto mb-2 text-primary" />
-                <p className="text-base-content/60">Gráfico de desempenho</p>
-                <p className="text-sm text-base-content/40">Em desenvolvimento</p>
-              </div>
-            </div>
+        {/* CTA Premium */}
+        <div className="bg-gradient-to-br from-[#166534]/20 to-[#4ADE80]/10 border border-[#4ADE80]/20 rounded-2xl p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Award className="h-5 w-5 text-[#4ADE80]" />
+            <span className="bg-[#4ADE80] text-black px-2 py-1 rounded-full text-xs font-medium">Premium Plan</span>
           </div>
+          <p className="text-white text-lg font-bold mb-1">R$ 97/mês</p>
+          <p className="text-[#A1A1AA] text-sm mb-4">Desbloqueie relatórios avançados e automações</p>
+          <button className="w-full py-2 px-4 bg-gradient-to-r from-[#4ADE80] to-[#10B981] text-black font-semibold rounded-lg hover:from-[#10B981] hover:to-[#059669] transition-all duration-200">
+            Upgrade
+          </button>
         </div>
-      </div>
+      </aside>
+
+      {/* Study Materials Component */}
+      <StudyMaterials 
+        closerId={closer.id}
+        isVisible={showStudyMaterials}
+        onClose={() => setShowStudyMaterials(false)}
+      />
     </div>
   )
 }

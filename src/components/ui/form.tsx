@@ -95,7 +95,11 @@ const FormLabel = React.forwardRef<
   return (
     <Label
       ref={ref}
-      className={cn(error && "text-destructive", className)}
+      className={cn(
+        error && "text-red-600 dark:text-red-400",
+        "text-gray-700 dark:text-gray-300",
+        className
+      )}
       htmlFor={formItemId}
       {...props}
     />
@@ -113,6 +117,12 @@ const FormControl = React.forwardRef<
     <Slot
       ref={ref}
       id={formItemId}
+      className={cn(
+        "bg-white dark:bg-gray-900",
+        "border-gray-300 dark:border-gray-700",
+        "text-gray-900 dark:text-gray-100",
+        props.className
+      )}
       aria-describedby={
         !error
           ? `${formDescriptionId}`
@@ -135,7 +145,7 @@ const FormDescription = React.forwardRef<
     <p
       ref={ref}
       id={formDescriptionId}
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-sm text-gray-600 dark:text-gray-400", className)}
       {...props}
     />
   )
@@ -157,7 +167,7 @@ const FormMessage = React.forwardRef<
     <p
       ref={ref}
       id={formMessageId}
-      className={cn("text-sm font-medium text-destructive", className)}
+      className={cn("text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30", className)}
       {...props}
     >
       {body}
