@@ -128,7 +128,6 @@ const modules = [
     color: '#6366F1', // Roxo para admin
     items: [
       { name: 'GMBV Club', href: '/admin/gmbv-club', icon: Shield, description: 'Visão de todas as organizações' },
-      { name: 'Criar Usuário', href: '/admin/create-user', icon: UserPlus, description: 'Adicionar novo membro' },
       { name: 'Configurar Organização', href: '/admin/organization', icon: Building2, description: 'Configurações da organização' },
       { name: 'Follow-up Automático', href: '/admin/follow-up', icon: Clock, description: 'Configurar sequências de follow-up automático' },
       { name: 'Contratos', href: '/admin/contratos', icon: FileText, description: 'Gestão de contratos eletrônicos' },

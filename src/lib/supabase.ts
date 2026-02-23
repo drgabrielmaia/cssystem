@@ -13,6 +13,12 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseKey, {
   global: {
     headers: {
       'x-application-name': 'cssystem'
+    },
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        signal: options.signal || AbortSignal.timeout(30000), // 30s timeout
+      })
     }
   },
   db: {
@@ -34,6 +40,12 @@ export const createClient = () => createBrowserClient(supabaseUrl, supabaseKey, 
   global: {
     headers: {
       'x-application-name': 'cssystem'
+    },
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        signal: options.signal || AbortSignal.timeout(30000), // 30s timeout
+      })
     }
   },
   db: {

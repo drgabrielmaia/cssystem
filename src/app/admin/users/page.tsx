@@ -145,12 +145,6 @@ export default function UsersManagementPage() {
 
           {canManageUsers && (
             <div className="flex gap-2">
-              <Link href="/admin/create-user">
-                <Button>
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Criar Usuário
-                </Button>
-              </Link>
               <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline">

@@ -314,15 +314,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const getOrganizationForUser = async (user: User): Promise<string | null> => {
     try {
-      const { data: userData, error } = await supabase
+      const { data: userDataArray, error } = await supabase
         .from('organization_users')
         .select('organization_id, is_active, role, email')
         .eq('email', user.email)
         .eq('is_active', true)
-        .single()
+        .limit(1)
 
-      if (error || !userData || !userData.is_active) {
-        console.warn('Usuário sem organização ativa:', user.email, error)
+      if (error) {
+        console.warn('Erro ao buscar organização do usuário:', user.email, error)
+        setOrganizationId(null)
+        setOrgUser(null)
+        setIsAuthenticated(false)
+        return null
+      }
+
+      const userData = userDataArray?.[0]
+
+      if (!userData || !userData.is_active) {
+        console.warn('Usuário sem organização ativa:', user.email)
         setOrganizationId(null)
         setOrgUser(null)
         setIsAuthenticated(false)

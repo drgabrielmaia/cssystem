@@ -68,7 +68,7 @@ export function useChatBotData() {
           tipo, 
           valor, 
           automatico,
-          categoria:categorias_financeiras(nome, tipo)
+          categoria
         `)
         .eq('organization_id', organizationId) // Ativado após migração
         .gte('data_transacao', inicioMes.toISOString().split('T')[0])
@@ -120,12 +120,12 @@ export function useChatBotData() {
       transacoesMes?.forEach(t => {
         if (t.tipo === 'entrada') {
           totalEntradas += t.valor
-          if ((t.categoria as any)?.nome === 'Mentoria') {
+          if (t.categoria === 'Mentoria') {
             receitaMentoria += t.valor
           }
         } else {
           totalSaidas += t.valor
-          if ((t.categoria as any)?.nome === 'Comissões Pagas') {
+          if (t.categoria === 'Comissões Pagas') {
             comissoesPagas += t.valor
           }
         }

@@ -181,10 +181,6 @@ export default function OptimizedMentoradosClientPage() {
               <h3>${stats.taxa_retencao.toFixed(1)}%</h3>
               <p>Taxa Retenção</p>
             </div>
-            <div class="stat">
-              <h3>${stats.pontuacao_media.toFixed(1)}</h3>
-              <p>Pontuação Média</p>
-            </div>
           </div>
 
           <table>
@@ -206,7 +202,6 @@ export default function OptimizedMentoradosClientPage() {
                   <td>${mentorado.telefone || '-'}</td>
                   <td>${new Date(mentorado.data_entrada).toLocaleDateString('pt-BR')}</td>
                   <td class="status-${mentorado.estado_atual}">${mentorado.estado_atual === 'ativo' ? 'Ativo' : 'Inativo'}</td>
-                  <td>${mentorado.pontuacao || 0}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -265,17 +260,6 @@ export default function OptimizedMentoradosClientPage() {
       label: 'Data Entrada',
       render: (mentorado: Mentorado) => (
         new Date(mentorado.data_entrada).toLocaleDateString('pt-BR')
-      )
-    },
-    {
-      key: 'pontuacao',
-      header: 'Pontuação',
-      label: 'Pontuação',
-      render: (mentorado: Mentorado) => (
-        <div className="flex items-center">
-          <Star className="w-4 h-4 text-yellow-400 mr-1" />
-          {mentorado.pontuacao || 0}
-        </div>
       )
     },
     {
@@ -405,7 +389,7 @@ export default function OptimizedMentoradosClientPage() {
           />
           <MetricCard
             title="Pontuação Média"
-            value={stats.pontuacao_media.toString()}
+            value="0"
             icon={Star}
             iconColor="orange"
           />

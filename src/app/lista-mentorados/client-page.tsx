@@ -120,19 +120,13 @@ export default function MentoradosClientPage() {
       // Taxa de retenção (simplificada)
       const taxa_retencao = total > 0 ? (ativos / total) * 100 : 0
 
-      // Pontuação média
-      const mentoradosComPontuacao = data?.filter(m => m.pontuacao != null) || []
-      const pontuacao_media = mentoradosComPontuacao.length > 0
-        ? mentoradosComPontuacao.reduce((sum, m) => sum + (m.pontuacao || 0), 0) / mentoradosComPontuacao.length
-        : 0
-
       setStats({
         total_mentorados: total,
         ativos,
         inativos,
         novos_mes,
         taxa_retencao: Math.round(taxa_retencao),
-        pontuacao_media: Math.round(pontuacao_media * 10) / 10
+        pontuacao_media: 0
       })
 
     } catch (error) {
@@ -216,17 +210,6 @@ export default function MentoradosClientPage() {
       label: 'Data Entrada',
       render: (mentorado: Mentorado) => (
         new Date(mentorado.data_entrada).toLocaleDateString('pt-BR')
-      )
-    },
-    {
-      key: 'pontuacao',
-      header: 'Pontuação',
-      label: 'Pontuação',
-      render: (mentorado: Mentorado) => (
-        <div className="flex items-center">
-          <Star className="w-4 h-4 text-yellow-400 mr-1" />
-          {mentorado.pontuacao || 0}
-        </div>
       )
     },
     {
@@ -316,10 +299,6 @@ export default function MentoradosClientPage() {
               <h3>${stats.taxa_retencao.toFixed(1)}%</h3>
               <p>Taxa Retenção</p>
             </div>
-            <div class="stat">
-              <h3>${stats.pontuacao_media.toFixed(1)}</h3>
-              <p>Pontuação Média</p>
-            </div>
           </div>
 
           <table>
@@ -330,7 +309,6 @@ export default function MentoradosClientPage() {
                 <th>Telefone</th>
                 <th>Data Entrada</th>
                 <th>Status</th>
-                <th>Pontuação</th>
               </tr>
             </thead>
             <tbody>
@@ -341,7 +319,6 @@ export default function MentoradosClientPage() {
                   <td>${mentorado.telefone || '-'}</td>
                   <td>${new Date(mentorado.data_entrada).toLocaleDateString('pt-BR')}</td>
                   <td class="status-${mentorado.estado_atual}">${mentorado.estado_atual === 'ativo' ? 'Ativo' : 'Inativo'}</td>
-                  <td>${mentorado.pontuacao || 0}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -420,12 +397,6 @@ export default function MentoradosClientPage() {
           value={`${stats.taxa_retencao}%`}
           icon={Clock}
           iconColor="purple"
-        />
-        <MetricCard
-          title="Pontuação Média"
-          value={stats.pontuacao_media.toString()}
-          icon={Star}
-          iconColor="orange"
         />
       </div>
 

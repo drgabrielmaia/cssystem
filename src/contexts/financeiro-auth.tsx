@@ -45,7 +45,7 @@ export function FinanceiroAuthProvider({ children }: { children: ReactNode }) {
       
       if (session?.user) {
         // Verificar se é usuário da organização com permissões financeiras
-        const { data: orgUser, error } = await supabase
+        const { data: orgUsers, error } = await supabase
           .from('organization_users')
           .select(`
             id,
@@ -58,7 +58,9 @@ export function FinanceiroAuthProvider({ children }: { children: ReactNode }) {
           `)
           .eq('email', session.user.email)
           .eq('is_active', true)
-          .single()
+          .limit(1)
+
+        const orgUser = orgUsers?.[0]
 
         if (orgUser && !error) {
           // Mapear para formato financeiro
