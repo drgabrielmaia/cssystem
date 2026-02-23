@@ -674,7 +674,54 @@ export default function LeadsPage() {
 
       if (leadError) throw leadError
 
-      alert(`Lead convertido em mentorado com sucesso!\nMentorado ID: ${mentorado.id}`)
+      // 3. Enviar contrato automaticamente
+      let contractSent = false
+      try {
+        // Buscar template padrão ativo
+        const { data: defaultTemplate } = await supabase
+          .from('contract_templates')
+          .select('id')
+          .eq('organization_id', organizationId)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (defaultTemplate && mentorado.email) {
+          // Criar contrato automaticamente
+          const { data: contractId, error: contractError } = await supabase.rpc('create_contract_from_template', {
+            p_template_id: defaultTemplate.id,
+            p_recipient_name: mentorado.nome_completo,
+            p_recipient_email: mentorado.email,
+            p_recipient_phone: mentorado.telefone,
+            p_organization_id: organizationId,
+            p_created_by_email: 'auto_lead_conversion',
+            p_mentorado_id: mentorado.id,
+            p_placeholders: {}
+          })
+
+          if (!contractError && contractId) {
+            // Importar e chamar função de envio de WhatsApp
+            const { sendContractAfterCreation } = await import('@/lib/contract-whatsapp')
+            
+            if (mentorado.telefone) {
+              const whatsappSent = await sendContractAfterCreation(contractId)
+              if (whatsappSent) {
+                contractSent = true
+                console.log('📱 Contrato enviado automaticamente via WhatsApp')
+              }
+            }
+          }
+        }
+      } catch (contractError) {
+        console.error('Erro ao enviar contrato automaticamente:', contractError)
+      }
+
+      const successMessage = contractSent 
+        ? `Lead convertido em mentorado com sucesso!\nContrato enviado automaticamente via WhatsApp 📱\nMentorado ID: ${mentorado.id}`
+        : `Lead convertido em mentorado com sucesso!\nMentorado ID: ${mentorado.id}\n⚠️ Contrato não foi enviado automaticamente - verifique se há template ativo`
+      
+      alert(successMessage)
       refetchLeads()
     } catch (error) {
       console.error('Erro ao converter lead:', error)

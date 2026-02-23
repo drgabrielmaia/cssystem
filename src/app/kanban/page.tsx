@@ -88,6 +88,7 @@ export default function KanbanPage() {
   const [currentBoard, setCurrentBoard] = useState<KanbanBoard | null>(null)
   const [columns, setColumns] = useState<KanbanColumn[]>([])
   const [tasks, setTasks] = useState<KanbanTask[]>([])
+  const [organizationMembers, setOrganizationMembers] = useState<{email: string; role: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [showNewTaskModal, setShowNewTaskModal] = useState(false)
@@ -119,8 +120,26 @@ export default function KanbanPage() {
   useEffect(() => {
     if (organizationId) {
       loadBoards()
+      loadOrganizationMembers()
     }
   }, [organizationId])
+
+  const loadOrganizationMembers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('organization_users')
+        .select('email, role')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .order('email')
+
+      if (error) throw error
+
+      setOrganizationMembers(data || [])
+    } catch (error) {
+      console.error('Error loading organization members:', error)
+    }
+  }
 
   useEffect(() => {
     if (currentBoard) {
@@ -659,13 +678,30 @@ export default function KanbanPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-white">Responsável</Label>
-                <Input
+                <Select
                   value={newTask.assigned_to_email}
-                  onChange={(e) => setNewTask(prev => ({ ...prev, assigned_to_email: e.target.value }))}
-                  placeholder="email@exemplo.com"
-                  type="email"
-                  className="bg-gray-800 border-gray-700 text-white"
-                />
+                  onValueChange={(value) => setNewTask(prev => ({ ...prev, assigned_to_email: value }))}
+                >
+                  <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                    <SelectValue placeholder="Selecione um responsável" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-gray-700">
+                    <SelectItem value="" className="text-white">
+                      Sem responsável
+                    </SelectItem>
+                    {organizationMembers.map(member => (
+                      <SelectItem key={member.email} value={member.email} className="text-white">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          <span>{member.email}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {member.role}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

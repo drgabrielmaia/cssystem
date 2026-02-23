@@ -231,11 +231,18 @@ export default function CallsEventosPage() {
       const { error } = await supabase
         .from('group_events')
         .insert({
-          ...newEvent,
-          duration_minutes: parseInt(newEvent.duration_minutes),
+          name: newEvent.name,
+          description: newEvent.description || null,
+          type: newEvent.type,
+          date_time: newEvent.date_time,
+          duration_minutes: parseInt(newEvent.duration_minutes) || 60,
           max_participants: newEvent.max_participants ? parseInt(newEvent.max_participants) : null,
+          meeting_link: newEvent.meeting_link || null,
+          status: 'scheduled',
           created_by_email: user?.email,
-          organization_id: organizationId
+          organization_id: organizationId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
 
       if (error) throw error
@@ -253,7 +260,7 @@ export default function CallsEventosPage() {
       setShowNewEventModal(false)
     } catch (error) {
       console.error('Error creating event:', error)
-      alert('Erro ao criar evento')
+      alert(`Erro ao criar evento: ${(error as any)?.message || 'Erro desconhecido'}`)
     }
   }
 

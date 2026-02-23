@@ -31,7 +31,8 @@ import {
   XCircle,
   MessageCircle,
   Users,
-  Settings
+  Settings,
+  Trash2
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { sendContractAfterCreation } from '@/lib/contract-whatsapp'
@@ -94,6 +95,11 @@ export default function ContractsPage() {
   })
 
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  
+  // View contract modal
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [viewingContract, setViewingContract] = useState<Contract | null>(null)
+  const [contractContent, setContractContent] = useState('')
 
   useEffect(() => {
     if (organizationId) {
@@ -118,7 +124,8 @@ export default function ContractsPage() {
       const { data: contractsData, error: contractsError } = await supabase
         .rpc('get_contracts_dashboard', {
           p_organization_id: organizationId,
-          p_status: statusFilter
+          p_status: statusFilter,
+          p_limit: 100
         })
 
       if (contractsError) throw contractsError
@@ -129,7 +136,7 @@ export default function ContractsPage() {
         .from('mentorados')
         .select('id, nome_completo, email, telefone')
         .eq('organization_id', organizationId)
-        .eq('status', 'ativo')
+        .eq('excluido', false)
         .order('nome_completo')
 
       if (mentoradosError) throw mentoradosError
@@ -356,6 +363,49 @@ export default function ContractsPage() {
     } catch (error) {
       console.error('Erro ao reenviar contrato:', error)
       alert('❌ Erro ao enviar contrato via WhatsApp')
+    }
+  }
+
+  const handleViewContract = async (contract: Contract) => {
+    try {
+      // Get contract content from database
+      const { data, error } = await supabase.rpc('get_contract_content', {
+        p_contract_id: contract.id
+      })
+
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        setContractContent(data[0].content)
+        setViewingContract(contract)
+        setShowViewModal(true)
+      } else {
+        alert('Conteúdo do contrato não encontrado')
+      }
+    } catch (error) {
+      console.error('Erro ao carregar contrato:', error)
+      alert('Erro ao visualizar contrato')
+    }
+  }
+
+  const handleDeleteContract = async (contractId: string, contractName: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o contrato de "${contractName}"?\nEsta ação não pode ser desfeita.`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('contracts')
+        .delete()
+        .eq('id', contractId)
+
+      if (error) throw error
+
+      alert('Contrato excluído com sucesso!')
+      loadData()
+    } catch (error) {
+      console.error('Erro ao excluir contrato:', error)
+      alert('Erro ao excluir contrato')
     }
   }
 
@@ -648,10 +698,20 @@ export default function ContractsPage() {
                           <Button
                             size="sm"
                             variant="outline"
+                            onClick={() => handleViewContract(contract)}
                             className="border-gray-600 text-gray-300 hover:bg-gray-700"
                             title="Visualizar contrato"
                           >
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteContract(contract.id, contract.recipient_name)}
+                            className="border-red-600 text-red-400 hover:bg-red-700/20"
+                            title="Excluir contrato"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -778,6 +838,74 @@ export default function ContractsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* View Contract Modal */}
+      <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+        <DialogContent className="bg-gray-900 border-gray-700 max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              Visualizar Contrato - {viewingContract?.recipient_name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {viewingContract && (
+            <div className="space-y-4">
+              {/* Contract Info */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-800 rounded-lg">
+                <div>
+                  <Label className="text-gray-400">Status</Label>
+                  <div className="mt-1">
+                    {getStatusBadge(viewingContract.status)}
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-gray-400">Criado em</Label>
+                  <p className="text-white mt-1">
+                    {new Date(viewingContract.created_at).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-gray-400">Expira em</Label>
+                  <p className="text-white mt-1">
+                    {new Date(viewingContract.expires_at).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-gray-400">Email</Label>
+                  <p className="text-white mt-1">{viewingContract.recipient_email}</p>
+                </div>
+              </div>
+
+              {/* Contract Content */}
+              <div className="max-h-[60vh] overflow-y-auto p-4 bg-white rounded-lg border border-gray-300">
+                <div 
+                  className="prose max-w-none text-gray-900"
+                  dangerouslySetInnerHTML={{ __html: contractContent.replace(/\n/g, '<br>') }}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => copySigningUrl(viewingContract.id)}
+                  className="bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copiar Link
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowViewModal(false)}
+                  className="bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
+                >
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

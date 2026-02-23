@@ -24,6 +24,7 @@ import {
   Clock
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/auth'
 
 interface LeadDistributionData {
   origem: string
@@ -56,6 +57,7 @@ interface ChannelPerformance {
 }
 
 export default function LeadDistributionDashboard() {
+  const { organizationId } = useAuth()
   const [distributionData, setDistributionData] = useState<LeadDistributionData[]>([])
   const [periodData, setPeriodData] = useState<LeadsByPeriod[]>([])
   const [performanceData, setPerformanceData] = useState<ChannelPerformance[]>([])
@@ -132,27 +134,35 @@ export default function LeadDistributionDashboard() {
           lastPeriodEnd.setSeconds(-1)
       }
 
-      // Get current period leads
-      const { data: currentLeads, error: currentError } = await supabase
+      // Get ALL leads for total counts
+      const { data: allLeads, error: allLeadsError } = await supabase
         .from('leads')
         .select('origem, created_at, status, valor_venda')
-        .gte('created_at', startDate.toISOString())
+        .eq('organization_id', organizationId)
         .not('origem', 'is', null)
 
-      if (currentError) throw currentError
+      if (allLeadsError) throw allLeadsError
+
+      // Get current period leads for period analysis
+      const currentLeads = allLeads.filter(lead => 
+        new Date(lead.created_at) >= startDate
+      )
 
       // Get previous period leads for comparison
-      const { data: previousLeads, error: previousError } = await supabase
-        .from('leads')
-        .select('origem, created_at, status, valor_venda')
-        .gte('created_at', lastPeriodStart.toISOString())
-        .lte('created_at', lastPeriodEnd.toISOString())
-        .not('origem', 'is', null)
+      const previousLeads = allLeads.filter(lead => {
+        const leadDate = new Date(lead.created_at)
+        return leadDate >= lastPeriodStart && leadDate <= lastPeriodEnd
+      })
 
-      if (previousError) throw previousError
+      // Process ALL leads for total counts
+      const allChannelCounts = allLeads.reduce((acc, lead) => {
+        const channel = lead.origem || 'outros'
+        acc[channel] = (acc[channel] || 0) + 1
+        return acc
+      }, {} as Record<string, number>)
 
-      // Process current period data
-      const channelCounts = currentLeads.reduce((acc, lead) => {
+      // Process current period for growth comparison
+      const currentChannelCounts = currentLeads.reduce((acc, lead) => {
         const channel = lead.origem || 'outros'
         acc[channel] = (acc[channel] || 0) + 1
         return acc
@@ -165,8 +175,8 @@ export default function LeadDistributionDashboard() {
         return acc
       }, {} as Record<string, number>)
 
-      // Calculate conversions
-      const channelConversions = currentLeads.reduce((acc, lead) => {
+      // Calculate conversions for ALL leads
+      const channelConversions = allLeads.reduce((acc, lead) => {
         const channel = lead.origem || 'outros'
         if (!acc[channel]) acc[channel] = { total: 0, converted: 0, revenue: 0 }
         acc[channel].total += 1
@@ -177,14 +187,15 @@ export default function LeadDistributionDashboard() {
         return acc
       }, {} as Record<string, { total: number; converted: number; revenue: number }>)
 
-      const total = Object.values(channelCounts).reduce((sum, count) => sum + count, 0)
+      const total = Object.values(allChannelCounts).reduce((sum, count) => sum + count, 0)
       setTotalLeads(total)
 
-      // Format data with real calculations
-      const formattedData: LeadDistributionData[] = Object.entries(channelCounts).map(([origem, count]) => {
+      // Format data with real calculations - use ALL leads for totals, period data for growth
+      const formattedData: LeadDistributionData[] = Object.entries(allChannelCounts).map(([origem, count]) => {
         const percentage = total > 0 ? (count / total) * 100 : 0
+        const currentCount = currentChannelCounts[origem] || 0
         const previousCount = previousChannelCounts[origem] || 0
-        const growthRate = previousCount > 0 ? ((count - previousCount) / previousCount) * 100 : 0
+        const growthRate = previousCount > 0 ? ((currentCount - previousCount) / previousCount) * 100 : 0
         
         const conversions = channelConversions[origem]
         const conversionRate = conversions ? (conversions.converted / conversions.total) * 100 : 0
@@ -194,7 +205,7 @@ export default function LeadDistributionDashboard() {
           origem,
           total_leads: count,
           percentage: Math.round(percentage * 100) / 100,
-          leads_this_month: count,
+          leads_this_month: currentCount,
           leads_last_month: previousCount,
           growth_rate: Math.round(growthRate * 100) / 100,
           conversion_rate: Math.round(conversionRate * 100) / 100,
