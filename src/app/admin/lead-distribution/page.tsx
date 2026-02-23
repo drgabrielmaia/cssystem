@@ -84,37 +84,121 @@ export default function LeadDistributionDashboard() {
 
   const loadDistributionData = async () => {
     try {
-      const { data, error } = await supabase
+      // Get date range based on selected period
+      const now = new Date()
+      let startDate: Date
+      let lastPeriodStart: Date
+      let lastPeriodEnd: Date
+
+      switch (selectedPeriod) {
+        case '7d':
+          // Monday to Sunday of this week
+          const dayOfWeek = now.getDay()
+          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - daysToMonday)
+          startDate.setHours(0, 0, 0, 0)
+          
+          lastPeriodStart = new Date(startDate)
+          lastPeriodStart.setDate(startDate.getDate() - 7)
+          lastPeriodEnd = new Date(startDate)
+          lastPeriodEnd.setSeconds(-1)
+          break
+        case '30d':
+          // This month (1st to today)
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+          lastPeriodStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+          lastPeriodEnd = new Date(now.getFullYear(), now.getMonth(), 0)
+          lastPeriodEnd.setHours(23, 59, 59, 999)
+          break
+        case '90d':
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - 90)
+          startDate.setHours(0, 0, 0, 0)
+          
+          lastPeriodStart = new Date(startDate)
+          lastPeriodStart.setDate(startDate.getDate() - 90)
+          lastPeriodEnd = new Date(startDate)
+          lastPeriodEnd.setSeconds(-1)
+          break
+        default:
+          startDate = new Date(now)
+          startDate.setFullYear(now.getFullYear() - 1)
+          startDate.setHours(0, 0, 0, 0)
+          
+          lastPeriodStart = new Date(startDate)
+          lastPeriodStart.setFullYear(startDate.getFullYear() - 1)
+          lastPeriodEnd = new Date(startDate)
+          lastPeriodEnd.setSeconds(-1)
+      }
+
+      // Get current period leads
+      const { data: currentLeads, error: currentError } = await supabase
         .from('leads')
-        .select('origem, created_at, status')
+        .select('origem, created_at, status, valor_venda')
+        .gte('created_at', startDate.toISOString())
         .not('origem', 'is', null)
 
-      if (error) throw error
+      if (currentError) throw currentError
 
-      // Process data for distribution
-      const channelCounts = data.reduce((acc, lead) => {
+      // Get previous period leads for comparison
+      const { data: previousLeads, error: previousError } = await supabase
+        .from('leads')
+        .select('origem, created_at, status, valor_venda')
+        .gte('created_at', lastPeriodStart.toISOString())
+        .lte('created_at', lastPeriodEnd.toISOString())
+        .not('origem', 'is', null)
+
+      if (previousError) throw previousError
+
+      // Process current period data
+      const channelCounts = currentLeads.reduce((acc, lead) => {
         const channel = lead.origem || 'outros'
         acc[channel] = (acc[channel] || 0) + 1
         return acc
       }, {} as Record<string, number>)
 
+      // Process previous period data
+      const previousChannelCounts = previousLeads.reduce((acc, lead) => {
+        const channel = lead.origem || 'outros'
+        acc[channel] = (acc[channel] || 0) + 1
+        return acc
+      }, {} as Record<string, number>)
+
+      // Calculate conversions
+      const channelConversions = currentLeads.reduce((acc, lead) => {
+        const channel = lead.origem || 'outros'
+        if (!acc[channel]) acc[channel] = { total: 0, converted: 0, revenue: 0 }
+        acc[channel].total += 1
+        if (lead.status === 'fechado_ganho' || lead.valor_venda > 0) {
+          acc[channel].converted += 1
+          acc[channel].revenue += lead.valor_venda || 0
+        }
+        return acc
+      }, {} as Record<string, { total: number; converted: number; revenue: number }>)
+
       const total = Object.values(channelCounts).reduce((sum, count) => sum + count, 0)
       setTotalLeads(total)
 
-      // Calculate growth rates (mock data for now)
+      // Format data with real calculations
       const formattedData: LeadDistributionData[] = Object.entries(channelCounts).map(([origem, count]) => {
-        const percentage = (count / total) * 100
-        const mockGrowthRate = Math.random() * 40 - 20 // -20% to +20%
+        const percentage = total > 0 ? (count / total) * 100 : 0
+        const previousCount = previousChannelCounts[origem] || 0
+        const growthRate = previousCount > 0 ? ((count - previousCount) / previousCount) * 100 : 0
+        
+        const conversions = channelConversions[origem]
+        const conversionRate = conversions ? (conversions.converted / conversions.total) * 100 : 0
+        const avgTimeToContact = Math.floor(Math.random() * 120) + 30 // Still mock - would need interaction tracking
         
         return {
           origem,
           total_leads: count,
           percentage: Math.round(percentage * 100) / 100,
-          leads_this_month: Math.floor(count * 0.7), // Mock this month
-          leads_last_month: Math.floor(count * 0.6), // Mock last month
-          growth_rate: Math.round(mockGrowthRate * 100) / 100,
-          conversion_rate: Math.random() * 15 + 5, // 5-20%
-          avg_time_to_contact: Math.floor(Math.random() * 120) + 30 // 30-150 minutes
+          leads_this_month: count,
+          leads_last_month: previousCount,
+          growth_rate: Math.round(growthRate * 100) / 100,
+          conversion_rate: Math.round(conversionRate * 100) / 100,
+          avg_time_to_contact: avgTimeToContact
         }
       }).sort((a, b) => b.total_leads - a.total_leads)
 

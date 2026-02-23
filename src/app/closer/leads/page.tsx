@@ -1,14 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import Link from 'next/link'
 import { 
   Search, 
   Filter, 
@@ -30,10 +23,30 @@ import {
   RefreshCw,
   Building,
   Star,
-  Users
+  Users,
+  ArrowUp,
+  ArrowDown,
+  MoreHorizontal,
+  BookOpen,
+  Play,
+  FileText,
+  Activity,
+  Target,
+  TrendingUp,
+  BarChart3,
+  Menu,
+  X as CloseIcon
 } from 'lucide-react'
 import { CloserAuthProvider, useCloserAuth } from '@/contexts/closer-auth'
 import { supabase } from '@/lib/supabase'
+import StudyMaterials from '@/components/StudyMaterials'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 
 interface Lead {
@@ -121,6 +134,8 @@ function LeadsPageContent() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
+  const [showStudyMaterials, setShowStudyMaterials] = useState(false)
+  const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month'>('today')
   
   // Form state
   const [formData, setFormData] = useState({
@@ -146,7 +161,7 @@ function LeadsPageContent() {
       loadClosers()
       loadSdrs()
     }
-  }, [closer, showMyLeadsOnly, showUnassignedOnly])
+  }, [closer, showMyLeadsOnly, showUnassignedOnly, periodFilter])
 
   const loadLeads = async () => {
     if (!closer) return
@@ -164,21 +179,43 @@ function LeadsPageContent() {
         .eq('organization_id', closer.organization_id)
         .order('created_at', { ascending: false })
 
+      // Filtro de período
+      const now = new Date()
+      let startDate: Date
+      
+      switch (periodFilter) {
+        case 'today':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          break
+        case 'week':
+          // Monday to Sunday of this week
+          const dayOfWeek = now.getDay()
+          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - daysToMonday)
+          startDate.setHours(0, 0, 0, 0)
+          break
+        case 'month':
+          // First day of current month
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+          break
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      }
+      
+      query = query.gte('created_at', startDate.toISOString())
+
       // Regras de visibilidade baseada no tipo de usuário
       if (closer.tipo_closer === 'closer' || closer.tipo_closer === 'closer_senior') {
-        // Closers só veem leads atribuídos a eles
         query = query.eq('closer_id', closer.id)
       } else if (closer.tipo_closer === 'sdr') {
         // SDRs veem todos os leads da organização
-        // Não precisa de filtro adicional além do organization_id
       }
       
-      // Filtro opcional "Apenas meus leads" (só para SDRs)
       if (showMyLeadsOnly && closer.tipo_closer === 'sdr') {
         query = query.eq('sdr_id', closer.id)
       }
       
-      // Se showUnassignedOnly estiver ativo, filtra só leads sem SDR atribuído
       if (showUnassignedOnly) {
         query = query.is('sdr_id', null)
       }
@@ -342,46 +379,6 @@ function LeadsPageContent() {
     }
   }
 
-  const handleAssignCloser = async (leadId: string, closerId: string) => {
-    try {
-      const { error } = await supabase
-        .from('leads')
-        .update({ 
-          closer_id: closerId || null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', leadId)
-
-      if (error) throw error
-
-      toast.success('Lead atribuído com sucesso!')
-      loadLeads()
-    } catch (error) {
-      console.error('Error assigning closer:', error)
-      toast.error('Erro ao atribuir closer')
-    }
-  }
-
-  const handleAssignSdr = async (leadId: string, sdrId: string) => {
-    try {
-      const { error } = await supabase
-        .from('leads')
-        .update({ 
-          sdr_id: sdrId || null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', leadId)
-
-      if (error) throw error
-
-      toast.success('SDR atribuído com sucesso!')
-      loadLeads()
-    } catch (error) {
-      console.error('Error assigning SDR:', error)
-      toast.error('Erro ao atribuir SDR')
-    }
-  }
-
   const resetForm = () => {
     setFormData({
       nome_completo: '',
@@ -422,19 +419,14 @@ function LeadsPageContent() {
     setIsEditModalOpen(true)
   }
 
-  const openViewModal = (lead: Lead) => {
-    setSelectedLead(lead)
-    setIsViewModalOpen(true)
-  }
-
   const getStatusBadge = (status: string) => {
     const statusOption = STATUS_OPTIONS.find(s => s.value === status)
     return statusOption ? (
-      <Badge className={`${statusOption.color} text-white`}>
+      <Badge className={`${statusOption.color} text-white text-xs`}>
         {statusOption.label}
       </Badge>
     ) : (
-      <Badge variant="secondary">{status}</Badge>
+      <Badge variant="secondary" className="text-xs">{status}</Badge>
     )
   }
 
@@ -444,16 +436,6 @@ function LeadsPageContent() {
     return tempOption ? (
       <Badge className={`${tempOption.color} text-white text-xs`}>
         {tempOption.label}
-      </Badge>
-    ) : null
-  }
-
-  const getPrioridadeBadge = (prioridade?: string) => {
-    if (!prioridade) return null
-    const prioOption = PRIORIDADE_OPTIONS.find(p => p.value === prioridade)
-    return prioOption ? (
-      <Badge className={`${prioOption.color} text-white text-xs`}>
-        {prioOption.label}
       </Badge>
     ) : null
   }
@@ -473,436 +455,530 @@ function LeadsPageContent() {
     return matchesSearch && matchesStatus && matchesCloser
   })
 
-  const exportToCSV = () => {
-    const csvHeaders = [
-      'Nome Completo', 'Email', 'Telefone', 'Empresa', 'Cargo', 
-      'Status', 'Temperatura', 'Prioridade', 'Valor Potencial', 
-      'Closer', 'Data Criação'
-    ]
-
-    const csvData = filteredLeads.map(lead => [
-      lead.nome_completo,
-      lead.email || '',
-      lead.telefone || '',
-      lead.empresa || '',
-      lead.cargo || '',
-      lead.status,
-      lead.temperatura || '',
-      lead.prioridade || '',
-      lead.valor_potencial || '',
-      lead.closers?.nome_completo || 'Não atribuído',
-      new Date(lead.created_at).toLocaleDateString('pt-BR')
-    ])
-
-    const csvContent = [csvHeaders, ...csvData]
-      .map(row => row.map(field => `"${field}"`).join(','))
-      .join('\n')
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = `leads_${new Date().toISOString().split('T')[0]}.csv`
-    link.click()
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0F0F0F] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4ADE80]"></div>
+      </div>
+    )
   }
 
-  if (loading) {
+  if (!closer) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen bg-[#0F0F0F] flex items-center justify-center p-4">
+        <div className="bg-[#1A1A1A] rounded-2xl p-8 w-full max-w-md border border-white/10">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-white">Acesso Restrito</h2>
+            <p className="text-[#71717A] mt-2">
+              Você precisa estar logado como Closer/SDR para acessar esta página.
+            </p>
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gestão de Leads</h1>
-          <p className="text-gray-600 mt-1">
-            Bem-vindo, {closer?.nome_completo}! Gerencie seus leads aqui.
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <Button onClick={exportToCSV} variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Exportar CSV
-          </Button>
-          <Button onClick={loadLeads} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Atualizar
-          </Button>
-          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm}>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Lead
-              </Button>
-            </DialogTrigger>
-          </Dialog>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Users className="h-8 w-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Leads</p>
-                <p className="text-2xl font-bold text-gray-900">{leads.length}</p>
-              </div>
+    <div className="min-h-screen bg-[#0F0F0F] flex">
+      {/* Sidebar Esquerda */}
+      <aside className="w-60 bg-[#0F0F0F] border-r border-white/10 flex flex-col">
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 bg-gradient-to-r from-[#4ADE80] to-[#10B981] rounded-lg flex items-center justify-center">
+              <span className="text-black font-bold text-sm">CS</span>
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Convertidos</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {leads.filter(l => l.status === 'fechado_ganho').length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Clock className="h-8 w-8 text-yellow-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Em Andamento</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {leads.filter(l => !['fechado_ganho', 'fechado_perdido'].includes(l.status)).length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <UserX className="h-8 w-8 text-gray-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Meus Leads</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {leads.filter(l => l.closer_id === closer?.id).length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-64">
-              <Input
-                placeholder="Buscar por nome, email, telefone ou empresa..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-              />
-            </div>
-            
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Status</SelectItem>
-                {STATUS_OPTIONS.map(status => (
-                  <SelectItem key={status.value} value={status.value}>
-                    {status.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={closerFilter} onValueChange={setCloserFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Closer" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Closers</SelectItem>
-                <SelectItem value="unassigned">Não Atribuídos</SelectItem>
-                {closers.map(closer => (
-                  <SelectItem key={closer.id} value={closer.id}>
-                    {closer.nome_completo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant={showMyLeadsOnly ? "default" : "outline"}
-              onClick={() => setShowMyLeadsOnly(!showMyLeadsOnly)}
-            >
-              <User className="h-4 w-4 mr-2" />
-              {showMyLeadsOnly ? 'Todos os Leads' : 'Apenas Meus Leads'}
-            </Button>
-
-            <Button
-              variant={showUnassignedOnly ? "default" : "outline"}
-              onClick={() => setShowUnassignedOnly(!showUnassignedOnly)}
-            >
-              <UserX className="h-4 w-4 mr-2" />
-              {showUnassignedOnly ? 'Todos os Leads' : 'Leads Sem SDR'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Leads Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            Leads ({filteredLeads.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">Nome</th>
-                  <th className="text-left p-2">Contato</th>
-                  <th className="text-left p-2">Empresa</th>
-                  <th className="text-left p-2">Status</th>
-                  <th className="text-left p-2">Temperatura</th>
-                  <th className="text-left p-2">SDR</th>
-                  <th className="text-left p-2">Closer</th>
-                  <th className="text-left p-2">Valor</th>
-                  <th className="text-center p-2">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLeads.map((lead) => (
-                  <tr key={lead.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3">
-                      <div>
-                        <p className="font-medium">{lead.nome_completo}</p>
-                        {lead.cargo && (
-                          <p className="text-sm text-gray-500">{lead.cargo}</p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="space-y-1">
-                        {lead.email && (
-                          <div className="flex items-center text-sm">
-                            <Mail className="h-3 w-3 mr-1" />
-                            {lead.email}
-                          </div>
-                        )}
-                        {lead.telefone && (
-                          <div className="flex items-center text-sm">
-                            <Phone className="h-3 w-3 mr-1" />
-                            {lead.telefone}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      {lead.empresa && (
-                        <div className="flex items-center text-sm">
-                          <Building className="h-3 w-3 mr-1" />
-                          {lead.empresa}
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <Select
-                        value={lead.status}
-                        onValueChange={(value) => handleQuickStatusUpdate(lead.id, value)}
-                      >
-                        <SelectTrigger className="w-36 h-8">
-                          <SelectValue>
-                            {getStatusBadge(lead.status)}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {STATUS_OPTIONS.map(status => (
-                            <SelectItem key={status.value} value={status.value}>
-                              {status.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex gap-1">
-                        {getTemperaturaBadge(lead.temperatura)}
-                        {getPrioridadeBadge(lead.prioridade)}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <Select
-                        value={lead.sdr_id || 'unassigned'}
-                        onValueChange={(value) => 
-                          handleAssignSdr(lead.id, value === 'unassigned' ? '' : value)
-                        }
-                      >
-                        <SelectTrigger className="w-36 h-8">
-                          <SelectValue>
-                            {lead.sdrs?.nome_completo || 'Não atribuído'}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unassigned">Não atribuído</SelectItem>
-                          {sdrs.map(sdr => (
-                            <SelectItem key={sdr.id} value={sdr.id}>
-                              {sdr.nome_completo}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-3">
-                      <Select
-                        value={lead.closer_id || 'unassigned'}
-                        onValueChange={(value) => 
-                          handleAssignCloser(lead.id, value === 'unassigned' ? '' : value)
-                        }
-                      >
-                        <SelectTrigger className="w-36 h-8">
-                          <SelectValue>
-                            {lead.closers?.nome_completo || 'Não atribuído'}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unassigned">Não atribuído</SelectItem>
-                          {closers.map(closer => (
-                            <SelectItem key={closer.id} value={closer.id}>
-                              {closer.nome_completo}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-3">
-                      {lead.valor_potencial && (
-                        <div className="flex items-center text-sm">
-                          <DollarSign className="h-3 w-3 mr-1 text-green-600" />
-                          R$ {lead.valor_potencial.toLocaleString('pt-BR')}
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openViewModal(lead)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openEditModal(lead)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteLead(lead.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <span className="text-white font-semibold">CustomerSuccess</span>
           </div>
 
-          {filteredLeads.length === 0 && (
-            <div className="text-center py-8">
-              <User className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500">Nenhum lead encontrado</p>
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-[#1E1E1E] rounded-full flex items-center justify-center">
+              <User className="h-5 w-5 text-[#4ADE80]" />
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div>
+              <p className="text-white text-sm font-medium">
+                {closer.nome_completo?.split(' ')[0] || 'Usuário'}
+              </p>
+              <p className="text-[#71717A] text-xs">
+                {closer.tipo_closer === 'sdr' ? 'SDR' : 
+                 closer.tipo_closer === 'closer' ? 'Closer' :
+                 closer.tipo_closer === 'closer_senior' ? 'Closer Senior' : 'Manager'}
+              </p>
+            </div>
+          </div>
 
-      {/* Modal Criar Lead */}
-      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Criar Novo Lead</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
+          {/* Search */}
+          <div className="relative mb-8">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#71717A]" />
+            <input
+              type="text"
+              placeholder="Buscar leads..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-[#1E1E1E] border border-white/10 rounded-lg text-white placeholder-[#71717A] text-sm focus:outline-none focus:border-[#4ADE80]"
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 px-6">
+          {/* NAVEGAÇÃO */}
+          <div className="mb-8">
+            <h3 className="text-[#71717A] text-xs uppercase tracking-wider font-medium mb-4">NAVEGAÇÃO</h3>
+            <nav className="space-y-1">
+              <Link href="/closer" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+                <CheckCircle className="h-4 w-4" />
+                <span className="text-sm">Dashboard</span>
+              </Link>
+              <a 
+                href="#" 
+                className="flex items-center gap-3 px-4 py-2 rounded-lg bg-[#4ADE80]/10 border-l-4 border-[#4ADE80] text-[#4ADE80] transition-colors"
+              >
+                <Users className="h-4 w-4" />
+                <span className="text-sm font-medium">Leads</span>
+              </a>
+              <button 
+                onClick={() => setShowStudyMaterials(true)}
+                className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors w-full text-left"
+              >
+                <BookOpen className="h-4 w-4" />
+                <span className="text-sm">Estudos</span>
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <Link
+            href="/closer"
+            className="w-full py-2 px-4 bg-[#1E1E1E] text-[#A1A1AA] rounded-lg hover:bg-[#2A2A2A] transition-colors text-sm text-center block"
+          >
+            ← Voltar ao Dashboard
+          </Link>
+        </div>
+      </aside>
+
+      {/* Conteúdo Central */}
+      <main className="flex-1 overflow-auto">
+        <div className="p-8">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <Label>Nome Completo *</Label>
-              <Input
-                value={formData.nome_completo}
-                onChange={(e) => setFormData({...formData, nome_completo: e.target.value})}
-                placeholder="Nome completo"
-              />
+              <nav className="text-[#71717A] text-sm mb-2">
+                <span>Dashboards</span> <span className="mx-2">/</span> <span>Leads</span>
+              </nav>
+              <h1 className="text-2xl font-bold text-white">Gestão de Leads</h1>
             </div>
-            <div>
-              <Label>Email</Label>
-              <Input
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                placeholder="Email"
-                type="email"
-              />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPeriodFilter('today')}
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                  periodFilter === 'today' 
+                    ? 'bg-[#4ADE80] text-black font-medium' 
+                    : 'bg-[#1E1E1E] border border-white/10 text-[#A1A1AA] hover:bg-[#2A2A2A]'
+                }`}
+              >
+                Hoje
+              </button>
+              <button
+                onClick={() => setPeriodFilter('week')}
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                  periodFilter === 'week' 
+                    ? 'bg-[#4ADE80] text-black font-medium' 
+                    : 'bg-[#1E1E1E] border border-white/10 text-[#A1A1AA] hover:bg-[#2A2A2A]'
+                }`}
+              >
+                Esta Semana
+              </button>
+              <button
+                onClick={() => setPeriodFilter('month')}
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                  periodFilter === 'month' 
+                    ? 'bg-[#4ADE80] text-black font-medium' 
+                    : 'bg-[#1E1E1E] border border-white/10 text-[#A1A1AA] hover:bg-[#2A2A2A]'
+                }`}
+              >
+                Este Mês
+              </button>
             </div>
-            <div>
-              <Label>SDR</Label>
-              <Select value={formData.sdr_id} onValueChange={(value) => setFormData({...formData, sdr_id: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar SDR" />
+          </div>
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-4 gap-5 mb-8">
+            <div className="bg-[#1A1A1A] rounded-2xl p-6">
+              <p className="text-[#71717A] text-sm mb-2">Total Leads</p>
+              <p className="text-white text-3xl font-bold mb-2">{leads.length}</p>
+              <div className="flex items-center gap-1 text-sm">
+                <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
+                <span className="text-[#4ADE80]">No período</span>
+                <span className="text-[#71717A]">selecionado</span>
+              </div>
+            </div>
+
+            <div className="bg-[#1A1A1A] rounded-2xl p-6">
+              <p className="text-[#71717A] text-sm mb-2">Convertidos</p>
+              <p className="text-white text-3xl font-bold mb-2">
+                {leads.filter(l => l.status === 'fechado_ganho').length}
+              </p>
+              <div className="flex items-center gap-1 text-sm">
+                <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
+                <span className="text-[#4ADE80]">
+                  {leads.length > 0 
+                    ? ((leads.filter(l => l.status === 'fechado_ganho').length / leads.length) * 100).toFixed(1)
+                    : '0'
+                  }%
+                </span>
+                <span className="text-[#71717A]">taxa conversão</span>
+              </div>
+            </div>
+
+            <div className="bg-[#1A1A1A] rounded-2xl p-6">
+              <p className="text-[#71717A] text-sm mb-2">Em Andamento</p>
+              <p className="text-white text-3xl font-bold mb-2">
+                {leads.filter(l => !['fechado_ganho', 'fechado_perdido'].includes(l.status)).length}
+              </p>
+              <div className="flex items-center gap-1 text-sm">
+                <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
+                <span className="text-[#4ADE80]">
+                  {leads.filter(l => l.status === 'qualificado').length} qualificados
+                </span>
+                <span className="text-[#71717A]">+ {leads.filter(l => l.status === 'interessado').length} interessados</span>
+              </div>
+            </div>
+
+            <div className="bg-[#1A1A1A] rounded-2xl p-6">
+              <p className="text-[#71717A] text-sm mb-2">Valor Potencial</p>
+              <p className="text-white text-3xl font-bold mb-2">
+                R$ {leads.reduce((sum, l) => sum + (l.valor_potencial || 0), 0).toLocaleString('pt-BR')}
+              </p>
+              <div className="flex items-center gap-1 text-sm">
+                <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
+                <span className="text-[#4ADE80]">
+                  {leads.filter(l => l.valor_potencial && l.valor_potencial > 0).length} leads
+                </span>
+                <span className="text-[#71717A]">com valor</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Filtros */}
+          <div className="bg-[#1A1A1A] rounded-2xl p-6 mb-8">
+            <div className="flex flex-wrap gap-4 items-center">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48 bg-[#1E1E1E] border-white/10 text-white">
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Não atribuído</SelectItem>
-                  {sdrs.map(sdr => (
-                    <SelectItem key={sdr.id} value={sdr.id}>
-                      {sdr.nome_completo}
+                <SelectContent className="bg-[#1E1E1E] border-white/10">
+                  <SelectItem value="all" className="text-white">Todos os Status</SelectItem>
+                  {STATUS_OPTIONS.map(status => (
+                    <SelectItem key={status.value} value={status.value} className="text-white">
+                      {status.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>Closer</Label>
-              <Select value={formData.closer_id} onValueChange={(value) => setFormData({...formData, closer_id: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar Closer" />
+
+              <Select value={closerFilter} onValueChange={setCloserFilter}>
+                <SelectTrigger className="w-48 bg-[#1E1E1E] border-white/10 text-white">
+                  <SelectValue placeholder="Closer" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Não atribuído</SelectItem>
+                <SelectContent className="bg-[#1E1E1E] border-white/10">
+                  <SelectItem value="all" className="text-white">Todos os Closers</SelectItem>
+                  <SelectItem value="unassigned" className="text-white">Não Atribuídos</SelectItem>
                   {closers.map(closer => (
-                    <SelectItem key={closer.id} value={closer.id}>
+                    <SelectItem key={closer.id} value={closer.id} className="text-white">
                       {closer.nome_completo}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
+              <button
+                onClick={() => setShowMyLeadsOnly(!showMyLeadsOnly)}
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                  showMyLeadsOnly 
+                    ? 'bg-[#4ADE80] text-black font-medium' 
+                    : 'bg-[#1E1E1E] border border-white/10 text-[#A1A1AA] hover:bg-[#2A2A2A]'
+                }`}
+              >
+                <User className="h-4 w-4 mr-2 inline" />
+                {showMyLeadsOnly ? 'Todos os Leads' : 'Apenas Meus Leads'}
+              </button>
+
+              <button
+                onClick={() => setShowUnassignedOnly(!showUnassignedOnly)}
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                  showUnassignedOnly 
+                    ? 'bg-[#4ADE80] text-black font-medium' 
+                    : 'bg-[#1E1E1E] border border-white/10 text-[#A1A1AA] hover:bg-[#2A2A2A]'
+                }`}
+              >
+                <UserX className="h-4 w-4 mr-2 inline" />
+                {showUnassignedOnly ? 'Todos os Leads' : 'Leads Sem SDR'}
+              </button>
+
+              <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+                <DialogTrigger asChild>
+                  <button 
+                    onClick={resetForm}
+                    className="px-4 py-2 bg-[#4ADE80] text-black rounded-lg hover:bg-[#10B981] transition-colors text-sm font-medium"
+                  >
+                    <Plus className="h-4 w-4 mr-2 inline" />
+                    Novo Lead
+                  </button>
+                </DialogTrigger>
+              </Dialog>
+            </div>
+          </div>
+
+          {/* Tabela de Leads */}
+          <div className="bg-[#1A1A1A] rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-white text-lg font-semibold">
+                Leads ({filteredLeads.length})
+              </h3>
+              <button>
+                <MoreHorizontal className="h-5 w-5 text-[#71717A]" />
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Nome</th>
+                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Contato</th>
+                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Status</th>
+                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Temperatura</th>
+                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Valor</th>
+                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Closer</th>
+                    <th className="text-center py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLeads.map((lead, index) => (
+                    <tr key={lead.id} className="hover:bg-[#4ADE80]/5 transition-colors">
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-[#1E1E1E] rounded-full flex items-center justify-center">
+                            <User className="h-4 w-4 text-[#4ADE80]" />
+                          </div>
+                          <div>
+                            <p className="text-white text-sm font-medium">{lead.nome_completo}</p>
+                            <p className="text-[#71717A] text-xs">{lead.cargo || lead.empresa || 'Lead'}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="space-y-1">
+                          {lead.email && (
+                            <div className="flex items-center text-sm text-[#A1A1AA]">
+                              <Mail className="h-3 w-3 mr-2" />
+                              {lead.email}
+                            </div>
+                          )}
+                          {lead.telefone && (
+                            <div className="flex items-center text-sm text-[#A1A1AA]">
+                              <Phone className="h-3 w-3 mr-2" />
+                              {lead.telefone}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        {getStatusBadge(lead.status)}
+                      </td>
+                      <td className="py-4 px-4">
+                        {getTemperaturaBadge(lead.temperatura)}
+                      </td>
+                      <td className="py-4 px-4">
+                        {lead.valor_potencial && (
+                          <div className="flex items-center text-sm text-white">
+                            <DollarSign className="h-3 w-3 mr-1 text-[#4ADE80]" />
+                            R$ {lead.valor_potencial.toLocaleString('pt-BR')}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="text-[#A1A1AA] text-sm">
+                          {lead.closers?.nome_completo || 'Não atribuído'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => openEditModal(lead)}
+                            className="p-1 text-[#A1A1AA] hover:text-[#4ADE80] transition-colors"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteLead(lead.id)}
+                            className="p-1 text-[#A1A1AA] hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {filteredLeads.length === 0 && (
+              <div className="text-center py-8">
+                <User className="h-12 w-12 mx-auto text-[#71717A] mb-4" />
+                <p className="text-[#71717A]">Nenhum lead encontrado</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+
+      {/* Sidebar Direita */}
+      <aside className="w-80 bg-[#0F0F0F] border-l border-white/10 p-6 overflow-y-auto">
+        <div className="mb-8">
+          <h3 className="text-white text-lg font-semibold mb-4">Estatísticas</h3>
+          <div className="space-y-3">
+            {STATUS_OPTIONS.slice(0, 5).map((status) => {
+              const count = leads.filter(l => l.status === status.value).length
+              return (
+                <div key={status.value} className="flex items-center justify-between p-3 bg-[#1A1A1A] rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${status.color}`}></div>
+                    <span className="text-[#A1A1AA] text-sm">{status.label}</span>
+                  </div>
+                  <span className="text-white font-medium">{count}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="mb-8">
+          <h3 className="text-white text-lg font-semibold mb-4">Ações Rápidas</h3>
+          <div className="space-y-2">
+            <button
+              onClick={loadLeads}
+              className="w-full flex items-center gap-2 p-3 bg-[#1A1A1A] rounded-lg text-[#A1A1AA] hover:bg-[#2A2A2A] transition-colors text-sm"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Atualizar Leads
+            </button>
+            <button className="w-full flex items-center gap-2 p-3 bg-[#1A1A1A] rounded-lg text-[#A1A1AA] hover:bg-[#2A2A2A] transition-colors text-sm">
+              <Download className="h-4 w-4" />
+              Exportar CSV
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Modal Criar/Editar Lead */}
+      <Dialog open={isCreateModalOpen || isEditModalOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsCreateModalOpen(false)
+          setIsEditModalOpen(false)
+          setSelectedLead(null)
+          resetForm()
+        }
+      }}>
+        <DialogContent className="max-w-4xl bg-[#1A1A1A] border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              {selectedLead ? 'Editar Lead' : 'Criar Novo Lead'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-white">Nome Completo *</Label>
+              <Input
+                value={formData.nome_completo}
+                onChange={(e) => setFormData({...formData, nome_completo: e.target.value})}
+                placeholder="Nome completo"
+                className="bg-[#1E1E1E] border-white/10 text-white"
+              />
+            </div>
+            <div>
+              <Label className="text-white">Email</Label>
+              <Input
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                placeholder="Email"
+                type="email"
+                className="bg-[#1E1E1E] border-white/10 text-white"
+              />
+            </div>
+            <div>
+              <Label className="text-white">Telefone</Label>
+              <Input
+                value={formData.telefone}
+                onChange={(e) => setFormData({...formData, telefone: e.target.value})}
+                placeholder="Telefone"
+                className="bg-[#1E1E1E] border-white/10 text-white"
+              />
+            </div>
+            <div>
+              <Label className="text-white">Empresa</Label>
+              <Input
+                value={formData.empresa}
+                onChange={(e) => setFormData({...formData, empresa: e.target.value})}
+                placeholder="Empresa"
+                className="bg-[#1E1E1E] border-white/10 text-white"
+              />
+            </div>
+            <div>
+              <Label className="text-white">Status</Label>
+              <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
+                <SelectTrigger className="bg-[#1E1E1E] border-white/10 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1E1E1E] border-white/10">
+                  {STATUS_OPTIONS.map(status => (
+                    <SelectItem key={status.value} value={status.value} className="text-white">
+                      {status.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-white">Valor Potencial</Label>
+              <Input
+                value={formData.valor_potencial}
+                onChange={(e) => setFormData({...formData, valor_potencial: e.target.value})}
+                placeholder="0"
+                type="number"
+                className="bg-[#1E1E1E] border-white/10 text-white"
+              />
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+            <button 
+              onClick={() => {
+                setIsCreateModalOpen(false)
+                setIsEditModalOpen(false)
+                setSelectedLead(null)
+                resetForm()
+              }}
+              className="px-4 py-2 bg-[#1E1E1E] text-[#A1A1AA] rounded-lg hover:bg-[#2A2A2A] transition-colors"
+            >
               Cancelar
-            </Button>
-            <Button onClick={handleCreateLead}>
-              Criar Lead
-            </Button>
+            </button>
+            <button 
+              onClick={selectedLead ? handleUpdateLead : handleCreateLead}
+              className="px-4 py-2 bg-[#4ADE80] text-black rounded-lg hover:bg-[#10B981] transition-colors font-medium"
+            >
+              {selectedLead ? 'Atualizar' : 'Criar'} Lead
+            </button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Study Materials Component */}
+      <StudyMaterials 
+        closerId={closer.id}
+        isVisible={showStudyMaterials}
+        onClose={() => setShowStudyMaterials(false)}
+      />
     </div>
   )
 }

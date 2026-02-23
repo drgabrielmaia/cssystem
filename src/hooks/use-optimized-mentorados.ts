@@ -265,9 +265,14 @@ export function useOptimizedMentorados(organizationId: string | null, filters: M
 
   const deleteMentorado = useCallback(async (id: string) => {
     try {
+      // Use logical deletion instead of hard delete
       const { error } = await supabase
         .from('mentorados')
-        .delete()
+        .update({
+          excluido: true,
+          data_exclusao: new Date().toISOString(),
+          motivo_exclusao: 'solicitacao_usuario'
+        })
         .eq('id', id)
 
       if (error) throw error

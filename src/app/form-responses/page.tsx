@@ -78,111 +78,88 @@ export default function FormResponsesPage() {
   const fetchSubmissions = async () => {
     try {
       console.log('🔍 Buscando respostas de formulários...')
+      setLoading(true)
 
-      // Primeiro, verificar se as tabelas existem
-      const { count: tableCount, error: tableError } = await supabase
+      // Use uma única query otimizada com joins
+      const { data: submissions, error } = await supabase
         .from('form_submissions')
-        .select('*', { count: 'exact', head: true })
-
-      if (tableError) {
-        console.error('❌ Tabela form_submissions não encontrada:', tableError)
-        setSubmissions([])
-        setLoading(false)
-        return
-      }
-
-      console.log('📊 Total de registros na tabela:', tableCount)
-
-      // Buscar dados básicos primeiro
-      const { data: basicSubmissions, error: basicError } = await supabase
-        .from('form_submissions')
-        .select('*')
+        .select(`
+          id,
+          template_id,
+          template_slug,
+          lead_id,
+          mentorado_id,
+          source_url,
+          submission_data,
+          created_at,
+          form_templates:template_id(
+            name,
+            description,
+            fields
+          ),
+          leads:lead_id(
+            nome_completo,
+            email,
+            telefone
+          ),
+          mentorados:mentorado_id(
+            nome_completo,
+            email
+          )
+        `)
         .order('created_at', { ascending: false })
-        .limit(50)
+        .limit(100)
 
-      if (basicError) {
-        console.error('❌ Erro ao buscar dados básicos:', basicError)
-        setSubmissions([])
-        setLoading(false)
-        return
+      if (error) {
+        console.error('❌ Erro ao buscar form submissions:', error)
+        // If table doesn't exist, create empty state
+        if (error.code === '42P01') {
+          setSubmissions([])
+          setTemplates([])
+          setLoading(false)
+          return
+        }
+        throw error
       }
 
-      console.log('✅ Encontrados', basicSubmissions?.length || 0, 'form submissions')
+      console.log('✅ Encontrados', submissions?.length || 0, 'form submissions')
 
-      if (basicSubmissions && basicSubmissions.length > 0) {
-        // Tentar adicionar dados relacionados
-        const enrichedSubmissions = await Promise.all(
-          basicSubmissions.map(async (submission) => {
-            let enrichedSubmission = { ...submission }
+      // Transform data to match interface
+      const transformedSubmissions: FormSubmission[] = (submissions || []).map(submission => ({
+        id: submission.id,
+        template_id: submission.template_id,
+        template_slug: submission.template_slug,
+        lead_id: submission.lead_id,
+        mentorado_id: submission.mentorado_id,
+        source_url: submission.source_url,
+        submission_data: submission.submission_data || {},
+        created_at: submission.created_at,
+        template: submission.form_templates ? {
+          name: (submission.form_templates as any).name,
+          description: (submission.form_templates as any).description,
+          fields: (submission.form_templates as any).fields || []
+        } : null,
+        lead: submission.leads ? {
+          nome_completo: (submission.leads as any).nome_completo,
+          email: (submission.leads as any).email,
+          telefone: (submission.leads as any).telefone
+        } : null,
+        mentorado: submission.mentorados ? {
+          nome_completo: (submission.mentorados as any).nome_completo,
+          email: (submission.mentorados as any).email
+        } : null
+      }))
 
-            // Buscar dados do template se existir
-            if (submission.template_id || submission.template_slug) {
-              try {
-                const { data: template } = await supabase
-                  .from('form_templates')
-                  .select('name, description, fields')
-                  .or(`id.eq.${submission.template_id || ''},slug.eq.${submission.template_slug || ''}`)
-                  .single()
+      setSubmissions(transformedSubmissions)
 
-                if (template) {
-                  enrichedSubmission.template = template
-                }
-              } catch (err) {
-                console.warn('Template não encontrado para submission:', submission.id)
-              }
-            }
-
-            // Buscar dados do lead se existir
-            if (submission.lead_id) {
-              try {
-                const { data: lead } = await supabase
-                  .from('leads')
-                  .select('nome_completo, email, telefone')
-                  .eq('id', submission.lead_id)
-                  .single()
-
-                if (lead) {
-                  enrichedSubmission.lead = lead
-                }
-              } catch (err) {
-                console.warn('Lead não encontrado para submission:', submission.id)
-              }
-            }
-
-            // Buscar dados do mentorado se existir
-            if (submission.mentorado_id) {
-              try {
-                const { data: mentorado } = await supabase
-                  .from('mentorados')
-                  .select('nome_completo, email')
-                  .eq('id', submission.mentorado_id)
-                  .single()
-
-                if (mentorado) {
-                  enrichedSubmission.mentorado = mentorado
-                }
-              } catch (err) {
-                console.warn('Mentorado não encontrado para submission:', submission.id)
-              }
-            }
-
-            return enrichedSubmission
-          })
-        )
-
-        setSubmissions(enrichedSubmissions)
-
-        // Extrair templates únicos
-        const templateSlugs = enrichedSubmissions
-          .map(s => s.template_slug)
-          .filter(slug => slug && slug.trim() !== '')
-        const uniqueTemplates = templateSlugs.filter((slug, index) => templateSlugs.indexOf(slug) === index)
-        setTemplates(uniqueTemplates)
-        console.log('📝 Templates encontrados:', uniqueTemplates)
-      } else {
-        setSubmissions([])
-        console.log('ℹ️ Nenhum form submission encontrado')
-      }
+      // Extract unique template names for filter
+      const templateNames = transformedSubmissions
+        .map(s => s.template?.name)
+        .filter(Boolean) as string[]
+      
+      const uniqueTemplates = Array.from(new Set(templateNames))
+      
+      setTemplates(uniqueTemplates)
 
     } catch (error) {
       console.error('❌ Erro geral:', error)

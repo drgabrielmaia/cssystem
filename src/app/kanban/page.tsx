@@ -91,6 +91,7 @@ export default function KanbanPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [showNewTaskModal, setShowNewTaskModal] = useState(false)
+  const [showNewBoardModal, setShowNewBoardModal] = useState(false)
   const [newTaskColumnId, setNewTaskColumnId] = useState<string>('')
 
   // New task form state
@@ -102,6 +103,17 @@ export default function KanbanPage() {
     due_date: '',
     estimated_hours: '',
     tags: [] as string[]
+  })
+
+  // New board form state
+  const [newBoard, setNewBoard] = useState<{
+    name: string
+    description: string
+    type: 'geral' | 'individual' | 'departamento'
+  }>({
+    name: '',
+    description: '',
+    type: 'geral'
   })
 
   useEffect(() => {
@@ -179,6 +191,56 @@ export default function KanbanPage() {
       }
     } catch (error) {
       console.error('Error loading board data:', error)
+    }
+  }
+
+  const handleCreateBoard = async () => {
+    if (!newBoard.name.trim()) return
+
+    try {
+      const { data, error } = await supabase
+        .from('kanban_boards')
+        .insert({
+          name: newBoard.name,
+          description: newBoard.description || null,
+          type: newBoard.type,
+          organization_id: organizationId,
+          owner_id: user?.id,
+          is_active: true
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Create default columns for the new board
+      const defaultColumns = [
+        { name: 'A Fazer', color: '#6B7280', position: 1 },
+        { name: 'Em Progresso', color: '#3B82F6', position: 2 },
+        { name: 'Em Revisão', color: '#F59E0B', position: 3 },
+        { name: 'Concluído', color: '#10B981', position: 4 }
+      ]
+
+      await supabase
+        .from('kanban_columns')
+        .insert(defaultColumns.map(col => ({
+          ...col,
+          board_id: data.id
+        })))
+
+      // Reload boards and set new board as current
+      await loadBoards()
+      setCurrentBoard(data)
+      
+      setNewBoard({
+        name: '',
+        description: '',
+        type: 'geral'
+      })
+      setShowNewBoardModal(false)
+    } catch (error) {
+      console.error('Error creating board:', error)
+      alert('Erro ao criar board')
     }
   }
 
@@ -327,6 +389,17 @@ export default function KanbanPage() {
             />
           </div>
         </div>
+        
+        <div className="flex items-center gap-2">
+          <Dialog open={showNewBoardModal} onOpenChange={setShowNewBoardModal}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Board
+              </Button>
+            </DialogTrigger>
+          </Dialog>
+        </div>
       </div>
 
       {/* Kanban Board */}
@@ -472,6 +545,88 @@ export default function KanbanPage() {
           </div>
         </DragDropContext>
       )}
+
+      {/* New Board Modal */}
+      <Dialog open={showNewBoardModal} onOpenChange={setShowNewBoardModal}>
+        <DialogContent className="sm:max-w-lg bg-gray-900 border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Criar Novo Board</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label className="text-white">Nome do Board *</Label>
+              <Input
+                value={newBoard.name}
+                onChange={(e) => setNewBoard(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Ex: Sprint Atual, Projetos Q1..."
+                className="bg-gray-800 border-gray-700 text-white"
+              />
+            </div>
+
+            <div>
+              <Label className="text-white">Descrição</Label>
+              <Textarea
+                value={newBoard.description}
+                onChange={(e) => setNewBoard(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Descreva o propósito deste board..."
+                className="bg-gray-800 border-gray-700 text-white"
+              />
+            </div>
+
+            <div>
+              <Label className="text-white">Tipo do Board</Label>
+              <Select value={newBoard.type} onValueChange={(value: 'geral' | 'individual' | 'departamento') => setNewBoard(prev => ({ ...prev, type: value }))}>
+                <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 border-gray-700">
+                  <SelectItem value="geral" className="text-white">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Board Geral
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="individual" className="text-white">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Board Individual
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="departamento" className="text-white">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      Board de Departamento
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-400 mt-1">
+                {newBoard.type === 'geral' && 'Visível para todos da organização'}
+                {newBoard.type === 'individual' && 'Apenas você pode ver e editar'}
+                {newBoard.type === 'departamento' && 'Visível para membros do departamento'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowNewBoardModal(false)}
+              className="flex-1 bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleCreateBoard}
+              disabled={!newBoard.name.trim()}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Criar Board
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* New Task Modal */}
       <Dialog open={showNewTaskModal} onOpenChange={setShowNewTaskModal}>

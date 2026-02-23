@@ -67,9 +67,34 @@ interface ComissaoStats {
   taxa_pagamento: number
 }
 
+interface ThirdPartyCommission {
+  commission_id: string
+  user_name: string
+  user_email: string
+  user_pix_key: string
+  amount: number
+  description?: string
+  status: 'pending' | 'paid' | 'cancelled'
+  created_at: string
+  paid_at?: string
+}
+
+interface ThirdPartyUser {
+  id: string
+  name: string
+  email: string
+  pix_key: string
+  phone?: string
+  notes?: string
+  created_at: string
+}
+
 export default function ComissoesPage() {
   const { activeOrganizationId } = useActiveOrganization()
+  const [activeTab, setActiveTab] = useState('mentorados')
   const [comissoes, setComissoes] = useState<Comissao[]>([])
+  const [thirdPartyCommissions, setThirdPartyCommissions] = useState<ThirdPartyCommission[]>([])
+  const [thirdPartyUsers, setThirdPartyUsers] = useState<ThirdPartyUser[]>([])
   const [stats, setStats] = useState<ComissaoStats>({
     total_comissoes: 0,
     valor_total: 0,
@@ -88,10 +113,24 @@ export default function ComissoesPage() {
   const [selectedComissao, setSelectedComissao] = useState<Comissao | null>(null)
   const [showViewModal, setShowViewModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showUserModal, setShowUserModal] = useState(false)
+  const [showThirdPartyModal, setShowThirdPartyModal] = useState(false)
   const [editForm, setEditForm] = useState({
     valor_comissao: 0,
     percentual_comissao: 0,
     observacoes: ''
+  })
+  const [userForm, setUserForm] = useState({
+    name: '',
+    email: '',
+    pix_key: '',
+    phone: '',
+    notes: ''
+  })
+  const [thirdPartyForm, setThirdPartyForm] = useState({
+    third_party_user_id: '',
+    amount: '',
+    description: ''
   })
 
   const statusMap = {

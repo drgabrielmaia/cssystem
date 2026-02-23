@@ -35,68 +35,78 @@ export default function GMBVClubPage() {
     try {
       setLoading(true)
       
-      // Buscar todas as organizações
-      const { data: orgsData, error: orgsError } = await supabase
-        .from('organizations')
-        .select('id, name, created_at')
-        .order('created_at', { ascending: false })
+      // Execute all queries in parallel for better performance
+      const [
+        { data: orgsData, error: orgsError },
+        { data: leadsStats, error: leadsError },
+        { data: mentoradosStats, error: mentoradosError },
+        { data: faturamentoStats, error: faturamentoError },
+        { data: atividadesStats, error: atividadesError }
+      ] = await Promise.all([
+        // Get organizations
+        supabase
+          .from('organizations')
+          .select('id, name, created_at')
+          .order('created_at', { ascending: false }),
+        
+        // Get leads stats aggregated by organization
+        supabase
+          .from('leads')
+          .select('organization_id, possui_comissao')
+          .not('organization_id', 'is', null),
+        
+        // Get mentorados stats
+        supabase
+          .from('mentorado_atividades')
+          .select('organization_id, mentorado_id')
+          .not('organization_id', 'is', null),
+        
+        // Get faturamento stats
+        supabase
+          .from('leads')
+          .select('organization_id, valor_vendido')
+          .not('organization_id', 'is', null)
+          .not('valor_vendido', 'is', null),
+        
+        // Get atividades stats
+        supabase
+          .from('mentorado_atividades')
+          .select('organization_id')
+          .not('organization_id', 'is', null)
+      ])
       
       if (orgsError) {
         console.error('Erro ao carregar organizações:', orgsError)
         return
       }
 
-      // Buscar estatísticas para cada organização
-      const organizationsWithStats: OrganizationStats[] = []
-      
-      for (const org of (orgsData || [])) {
-        // Contar leads
-        const { count: leadsCount } = await supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true })
-          .eq('organization_id', org.id)
-        
-        // Contar mentorados
-        const { count: mentoradosCount } = await supabase
-          .from('mentorado_atividades')
-          .select('mentorado_id', { count: 'exact', head: true })
-          .eq('organization_id', org.id)
-        
-        // Buscar total faturamento (simulado para exemplo)
-        const { data: leadsData } = await supabase
-          .from('leads')
-          .select('valor_vendido')
-          .eq('organization_id', org.id)
-          .not('valor_vendido', 'is', null)
-        
-        const faturamentoTotal = leadsData?.reduce((sum, lead) => {
+      // Process stats in memory instead of multiple database calls
+      const organizationsWithStats: OrganizationStats[] = (orgsData || []).map(org => {
+        const orgLeads = leadsStats?.filter(l => l.organization_id === org.id) || []
+        const orgMentorados = mentoradosStats?.filter(m => m.organization_id === org.id) || []
+        const orgFaturamento = faturamentoStats?.filter(f => f.organization_id === org.id) || []
+        const orgAtividades = atividadesStats?.filter(a => a.organization_id === org.id) || []
+
+        const faturamentoTotal = orgFaturamento.reduce((sum, lead) => {
           return sum + (lead.valor_vendido || 0)
-        }, 0) || 0
+        }, 0)
 
-        // Contar comissões (simulado)
-        const { count: comissoesCount } = await supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true })
-          .eq('organization_id', org.id)
-          .eq('possui_comissao', true)
+        const comissoesCount = orgLeads.filter(lead => lead.possui_comissao === true).length
 
-        // Contar atividades ativas
-        const { count: ativosCount } = await supabase
-          .from('mentorado_atividades')
-          .select('*', { count: 'exact', head: true })
-          .eq('organization_id', org.id)
+        // Count unique mentorados
+        const uniqueMentorados = new Set(orgMentorados.map(m => m.mentorado_id))
 
-        organizationsWithStats.push({
+        return {
           id: org.id,
           name: org.name || 'Sem nome',
-          leads_count: leadsCount || 0,
-          mentorados_count: mentoradosCount || 0,
+          leads_count: orgLeads.length,
+          mentorados_count: uniqueMentorados.size,
           faturamento_total: faturamentoTotal,
-          comissoes_count: comissoesCount || 0,
-          ativos_count: ativosCount || 0,
+          comissoes_count: comissoesCount,
+          ativos_count: orgAtividades.length,
           created_at: org.created_at
-        })
-      }
+        }
+      })
 
       setOrganizations(organizationsWithStats)
     } catch (error) {

@@ -92,6 +92,7 @@ function CloserPageContent() {
   const [recentActivities, setRecentActivities] = useState<CloserActivity[]>([])
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [showStudyMaterials, setShowStudyMaterials] = useState(false)
+  const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month'>('today')
 
   useEffect(() => {
     if (closer) {
@@ -100,7 +101,7 @@ function CloserPageContent() {
       loadRecentActivities()
       loadTeamMembers()
     }
-  }, [closer])
+  }, [closer, periodFilter])
 
   const loadMetrics = async () => {
     if (!closer) return
@@ -370,49 +371,21 @@ function CloserPageContent() {
         </div>
 
         <div className="flex-1 px-6">
-          {/* DASHBOARDS */}
+          {/* NAVEGAÇÃO */}
           <div className="mb-8">
-            <h3 className="text-[#71717A] text-xs uppercase tracking-wider font-medium mb-4">DASHBOARDS</h3>
+            <h3 className="text-[#71717A] text-xs uppercase tracking-wider font-medium mb-4">NAVEGAÇÃO</h3>
             <nav className="space-y-1">
-              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
-                <Star className="h-4 w-4" />
-                <span className="text-sm">Overview</span>
-              </a>
-              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
-                <ShoppingCart className="h-4 w-4" />
-                <span className="text-sm">eCommerce</span>
-              </a>
-              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
-                <BarChart3 className="h-4 w-4" />
-                <span className="text-sm">Analytics</span>
-              </a>
-              <Link href="/closer/leads" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
-                <Users className="h-4 w-4" />
-                <span className="text-sm">Leads</span>
-              </Link>
               <a 
                 href="#" 
                 className="flex items-center gap-3 px-4 py-2 rounded-lg bg-[#4ADE80]/10 border-l-4 border-[#4ADE80] text-[#4ADE80] transition-colors"
               >
                 <CheckCircle className="h-4 w-4" />
-                <span className="text-sm font-medium">Closer/SDR</span>
+                <span className="text-sm font-medium">Dashboard</span>
               </a>
-            </nav>
-          </div>
-
-          {/* SETTINGS */}
-          <div>
-            <h3 className="text-[#71717A] text-xs uppercase tracking-wider font-medium mb-4">SETTINGS</h3>
-            <nav className="space-y-1">
-              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
-                <MessageCircle className="h-4 w-4" />
-                <span className="text-sm">Messages</span>
-                <span className="ml-auto bg-[#EF4444] text-white text-xs px-2 py-1 rounded-full">3</span>
-              </a>
-              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
-                <Star className="h-4 w-4" />
-                <span className="text-sm">Customer Reviews</span>
-              </a>
+              <Link href="/closer/leads" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+                <Users className="h-4 w-4" />
+                <span className="text-sm">Leads</span>
+              </Link>
               <button 
                 onClick={() => setShowStudyMaterials(true)}
                 className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors w-full text-left"
@@ -420,14 +393,6 @@ function CloserPageContent() {
                 <BookOpen className="h-4 w-4" />
                 <span className="text-sm">Estudos</span>
               </button>
-              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
-                <Settings className="h-4 w-4" />
-                <span className="text-sm">Settings</span>
-              </a>
-              <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
-                <HelpCircle className="h-4 w-4" />
-                <span className="text-sm">Help Centre</span>
-              </a>
             </nav>
           </div>
         </div>
@@ -453,10 +418,38 @@ function CloserPageContent() {
               </nav>
               <h1 className="text-2xl font-bold text-white">Closer/SDR</h1>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#1E1E1E] border border-white/10 rounded-lg text-[#A1A1AA] hover:bg-[#2A2A2A] transition-colors">
-              <span className="text-sm">Today</span>
-              <TrendingDown className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPeriodFilter('today')}
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                  periodFilter === 'today' 
+                    ? 'bg-[#4ADE80] text-black font-medium' 
+                    : 'bg-[#1E1E1E] border border-white/10 text-[#A1A1AA] hover:bg-[#2A2A2A]'
+                }`}
+              >
+                Hoje
+              </button>
+              <button
+                onClick={() => setPeriodFilter('week')}
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                  periodFilter === 'week' 
+                    ? 'bg-[#4ADE80] text-black font-medium' 
+                    : 'bg-[#1E1E1E] border border-white/10 text-[#A1A1AA] hover:bg-[#2A2A2A]'
+                }`}
+              >
+                Esta Semana
+              </button>
+              <button
+                onClick={() => setPeriodFilter('month')}
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                  periodFilter === 'month' 
+                    ? 'bg-[#4ADE80] text-black font-medium' 
+                    : 'bg-[#1E1E1E] border border-white/10 text-[#A1A1AA] hover:bg-[#2A2A2A]'
+                }`}
+              >
+                Este Mês
+              </button>
+            </div>
           </div>
 
           {/* KPI Cards */}
@@ -770,18 +763,6 @@ function CloserPageContent() {
           </div>
         </div>
 
-        {/* CTA Premium */}
-        <div className="bg-gradient-to-br from-[#166534]/20 to-[#4ADE80]/10 border border-[#4ADE80]/20 rounded-2xl p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Award className="h-5 w-5 text-[#4ADE80]" />
-            <span className="bg-[#4ADE80] text-black px-2 py-1 rounded-full text-xs font-medium">Premium Plan</span>
-          </div>
-          <p className="text-white text-lg font-bold mb-1">R$ 97/mês</p>
-          <p className="text-[#A1A1AA] text-sm mb-4">Desbloqueie relatórios avançados e automações</p>
-          <button className="w-full py-2 px-4 bg-gradient-to-r from-[#4ADE80] to-[#10B981] text-black font-semibold rounded-lg hover:from-[#10B981] hover:to-[#059669] transition-all duration-200">
-            Upgrade
-          </button>
-        </div>
       </aside>
 
       {/* Study Materials Component */}
