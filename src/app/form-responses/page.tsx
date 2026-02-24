@@ -66,6 +66,7 @@ export default function FormResponsesPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<string>('all')
   const [selectedSubmission, setSelectedSubmission] = useState<FormSubmission | null>(null)
   const [bookingSubmission, setBookingSubmission] = useState<FormSubmission | null>(null)
+  const [abandonedSubmissions, setAbandonedSubmissions] = useState<FormSubmission[]>([])
 
   useEffect(() => {
     fetchSubmissions()
@@ -152,12 +153,12 @@ export default function FormResponsesPage() {
 
       setSubmissions(transformedSubmissions)
 
-      // Extract unique template names for filter
-      const templateNames = transformedSubmissions
-        .map(s => s.template?.name)
+      // Extract unique template slugs for filter (using slugs instead of names for consistency)
+      const templateSlugs = transformedSubmissions
+        .map(s => s.template_slug)
         .filter(Boolean) as string[]
       
-      const uniqueTemplates = Array.from(new Set(templateNames))
+      const uniqueTemplates = Array.from(new Set(templateSlugs))
       
       setTemplates(uniqueTemplates)
 
@@ -381,11 +382,17 @@ export default function FormResponsesPage() {
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">Todos os formulários</option>
-              {templates.map(template => (
-                <option key={template} value={template}>
-                  {template.replace('-', ' ').replace('_', ' ')}
-                </option>
-              ))}
+              {templates.map(templateSlug => {
+                // Encontrar o nome do formulário baseado no slug
+                const submission = submissions.find(s => s.template_slug === templateSlug)
+                const displayName = submission?.template?.name || templateSlug.replace(/-/g, ' ').replace(/_/g, ' ')
+                
+                return (
+                  <option key={templateSlug} value={templateSlug}>
+                    {displayName}
+                  </option>
+                )
+              })}
             </select>
           </div>
 

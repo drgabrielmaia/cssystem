@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { serviceClient } from '@/lib/supabase-service'
 import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
     // Use the correct organization ID
     const orgId = organization_id || '9c8c0033-15ea-4e33-a55f-28d81a19693b'
 
-    // Create Supabase client
+    // Create Supabase client with service role for this operation
     const cookieStore = await cookies()
     const supabase = createClient(cookieStore)
 
@@ -190,7 +191,7 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', createdLead.id)
 
-    // 5. Assign closer based on score
+    // 5. Assign closer based on score using scoring configuration
     const isHighScore = totalScore >= scoringConfig.low_score_threshold
     let assignmentResult: {
       success: boolean
@@ -200,57 +201,76 @@ export async function POST(request: NextRequest) {
       assignment_type?: string
     } = { success: false, reason: 'No closers configured' }
 
-    // Get available closers
-    const { data: closers, error: closersError } = await supabase
-      .from('closers')
-      .select('*')
-      .eq('organization_id', orgId)
-      .eq('ativo', true)
+    console.log('🎯 Assignment logic: score =', totalScore, 'threshold =', scoringConfig.low_score_threshold, 'isHighScore =', isHighScore)
+    console.log('🎯 Configured closers: high =', scoringConfig.high_score_closer_id, 'low =', scoringConfig.low_score_closer_id)
 
-    if (!closersError && closers && closers.length > 0) {
-      // Find appropriate closer
-      let targetCloser = null
+    // Use the configured closers from scoring configuration
+    let targetCloserId = null
+    let assignmentType = ''
+
+    if (isHighScore && scoringConfig.high_score_closer_id) {
+      targetCloserId = scoringConfig.high_score_closer_id
+      assignmentType = 'high_score'
+    } else if (!isHighScore && scoringConfig.low_score_closer_id) {
+      targetCloserId = scoringConfig.low_score_closer_id
+      assignmentType = 'low_score'
+    }
+
+    if (targetCloserId) {
+      // Get closer details using service client to bypass RLS
+      const { data: closerDataArray, error: closerError } = await serviceClient
+        .from('closers')
+        .select('id, nome_completo, ativo')
+        .eq('id', targetCloserId)
+        .eq('organization_id', orgId)
+        .eq('ativo', true)
+        .limit(1)
       
-      if (isHighScore) {
-        // Look for high-score specialist
-        targetCloser = closers.find(c => 
-          c.especialidade === 'vendas_alto_score' || 
-          c.nome.toLowerCase().includes('principal')
-        ) || closers[0] // Fallback to first available
-      } else {
-        // Look for low-score specialist (Paulo Guimarães)
-        targetCloser = closers.find(c => 
-          c.nome.toLowerCase().includes('paulo') ||
-          c.especialidade === 'vendas_baixo_score'
-        ) || closers[0] // Fallback to first available
-      }
+      const closerData = closerDataArray?.[0]
+      console.log('🔍 Closer lookup result:', { 
+        closerDataArray, 
+        closerError, 
+        targetCloserId, 
+        orgId,
+        queryUsed: `id=${targetCloserId}, organization_id=${orgId}, ativo=true`
+      })
 
-      if (targetCloser) {
-        // Assign the closer
-        const { error: assignError } = await supabase
+      if (!closerError && closerData) {
+        // Assign the closer using service client to bypass RLS
+        const { error: assignError } = await serviceClient
           .from('leads')
-          .update({ closer_id: targetCloser.id })
+          .update({ closer_id: targetCloserId })
           .eq('id', createdLead.id)
 
         if (!assignError) {
           assignmentResult = {
             success: true,
-            closer_id: targetCloser.id,
-            closer_name: targetCloser.nome,
-            assignment_type: isHighScore ? 'high_score' : 'low_score',
-            reason: `Score ${totalScore} → ${isHighScore ? 'High' : 'Low'} score closer`
+            closer_id: targetCloserId,
+            closer_name: closerData.nome_completo,
+            assignment_type: assignmentType,
+            reason: `Score ${totalScore} → ${assignmentType} closer (${closerData.nome_completo})`
           }
+          console.log('✅ Closer assigned successfully:', assignmentResult)
+        } else {
+          console.error('❌ Error assigning closer:', assignError)
+          assignmentResult.reason = `Error assigning closer: ${assignError.message || 'Unknown error'}`
         }
+      } else {
+        console.error('❌ Closer not found or inactive:', closerError)
+        assignmentResult.reason = 'Configured closer not available'
       }
+    } else {
+      console.log('⚠️ No closer configured for this score range')
+      assignmentResult.reason = 'No closer configured for this score range'
     }
 
-    // 6. Handle appointment scheduling
+    // 6. Handle appointment scheduling with internal system
     let appointmentResult: {
       appointment_scheduled: boolean
       appointment_token?: string
       scheduled_date?: string
       closer_id?: string
-      calendly_link?: string
+      appointment_link?: string
     } = { appointment_scheduled: false }
     
     if (preferred_datetime && assignmentResult.success) {
@@ -275,27 +295,15 @@ export async function POST(request: NextRequest) {
           }])
 
         if (!linkError) {
-          // Get closer's calendly link
-          const { data: closerCalendar } = await supabase
-            .from('closers')
-            .select('observacoes')
-            .eq('id', assignmentResult.closer_id)
-            .single()
-
-          let calendlyLink = null
-          if (closerCalendar?.observacoes) {
-            try {
-              const agendaInfo = JSON.parse(closerCalendar.observacoes)
-              calendlyLink = agendaInfo.calendly_link
-            } catch {}
-          }
+          // Create internal appointment link
+          const appointmentLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://cssystem.com.br'}/agendar/${appointmentToken}`
 
           appointmentResult = {
             appointment_scheduled: true,
             appointment_token: appointmentToken,
             scheduled_date: preferred_datetime,
             closer_id: assignmentResult.closer_id,
-            calendly_link: calendlyLink
+            appointment_link: appointmentLink
           }
         }
       } catch (error) {
@@ -303,19 +311,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Always add calendly_link if closer was assigned
-    if (assignmentResult.success && !appointmentResult.calendly_link) {
-      const { data: closerCalendar } = await supabase
-        .from('closers')
-        .select('observacoes')
-        .eq('id', assignmentResult.closer_id)
-        .single()
+    // Always add appointment_link if closer was assigned and no link exists
+    if (assignmentResult.success && !appointmentResult.appointment_link) {
+      // Generate token for immediate appointment booking
+      const appointmentToken = 'lead-' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36)
+      
+      // Create appointment link for this lead
+      const { error: linkError } = await serviceClient
+        .from('agendamento_links')
+        .insert([{
+          token_link: appointmentToken,
+          lead_id: createdLead.id,
+          closer_id: assignmentResult.closer_id,
+          tipo_call_permitido: 'vendas',
+          titulo_personalizado: `Agendamento - ${nome_completo}`,
+          descricao_personalizada: `Olá ${nome_completo}! Link de agendamento baseado na sua qualificação.`,
+          cor_tema: '#3b82f6',
+          ativo: true,
+          uso_unico: false,
+          organization_id: orgId
+        }])
 
-      if (closerCalendar?.observacoes) {
-        try {
-          const agendaInfo = JSON.parse(closerCalendar.observacoes)
-          appointmentResult.calendly_link = agendaInfo.calendly_link
-        } catch {}
+      if (!linkError) {
+        appointmentResult.appointment_link = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://cssystem.com.br'}/agendar/${appointmentToken}`
       }
     }
 

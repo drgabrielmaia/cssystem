@@ -581,16 +581,47 @@ export default function FormPageSafe() {
   const currentStepData = steps[currentStep]
   const isLastStep = currentStep === steps.length - 1
 
+  // Enhanced styling for persona form
+  const isPersonaForm = template?.slug === 'persona-marketing-digital'
+  
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        {/* Header */}
+    <div className={`
+      min-h-screen py-8
+      ${
+        isPersonaForm
+          ? 'bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100'
+          : 'bg-gradient-to-br from-green-50 via-white to-emerald-50'
+      }
+    `}>
+      <div className="max-w-5xl mx-auto px-4">
+        {/* Enhanced Header for persona form */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          {isPersonaForm && (
+            <div className="mb-6">
+              <div className="inline-flex items-center px-4 py-2 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                🎯 Pesquisa de Persona Exclusiva
+              </div>
+            </div>
+          )}
+          <h1 className={`
+            font-bold mb-4
+            ${
+              isPersonaForm
+                ? 'text-4xl md:text-5xl bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent'
+                : 'text-4xl text-gray-900'
+            }
+          `}>
             {template.name}
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            {template.description}
+          <p className={`
+            text-lg max-w-3xl mx-auto
+            ${
+              isPersonaForm
+                ? 'text-gray-700 font-medium'
+                : 'text-gray-600'
+            }
+          `}>
+            {template.description || 'Preencha as informações abaixo para prosseguir.'}
           </p>
         </div>
 
@@ -611,11 +642,18 @@ export default function FormPageSafe() {
                   <div
                     className={`
                       w-12 h-12 rounded-full border-2 flex items-center justify-center mb-2 transition-all duration-300
-                      ${isActive
-                        ? 'bg-green-600 border-green-600 text-white scale-110'
-                        : isCompleted
-                          ? 'bg-emerald-500 border-emerald-500 text-white'
-                          : 'bg-white border-gray-300 text-gray-400'
+                      ${
+                        isPersonaForm
+                          ? isActive
+                            ? 'bg-purple-600 border-purple-600 text-white scale-110 shadow-lg'
+                            : isCompleted
+                              ? 'bg-blue-500 border-blue-500 text-white shadow-md'
+                              : 'bg-white border-purple-200 text-purple-400'
+                          : isActive
+                            ? 'bg-green-600 border-green-600 text-white scale-110'
+                            : isCompleted
+                              ? 'bg-emerald-500 border-emerald-500 text-white'
+                              : 'bg-white border-gray-300 text-gray-400'
                       }
                       ${isClickable ? 'hover:scale-105' : ''}
                     `}
@@ -627,9 +665,22 @@ export default function FormPageSafe() {
                     )}
                   </div>
                   <span
-                    className={`text-sm font-medium ${
-                      isActive ? 'text-green-600' : isCompleted ? 'text-emerald-600' : 'text-gray-400'
-                    }`}
+                    className={`
+                      text-sm font-medium transition-colors duration-200
+                      ${
+                        isPersonaForm
+                          ? isActive
+                            ? 'text-purple-600'
+                            : isCompleted
+                              ? 'text-blue-600'
+                              : 'text-purple-400'
+                          : isActive
+                            ? 'text-green-600'
+                            : isCompleted
+                              ? 'text-emerald-600'
+                              : 'text-gray-400'
+                      }
+                    `}
                   >
                     {step.title}
                   </span>
@@ -642,7 +693,14 @@ export default function FormPageSafe() {
           <div className="relative">
             <div className="absolute top-0 left-0 w-full h-2 bg-gray-200 rounded-full"></div>
             <div
-              className="absolute top-0 left-0 h-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-500 ease-out"
+              className={`
+                absolute top-0 left-0 h-2 rounded-full transition-all duration-500 ease-out
+                ${
+                  isPersonaForm
+                    ? 'bg-gradient-to-r from-purple-500 to-blue-500 shadow-sm'
+                    : 'bg-gradient-to-r from-green-500 to-emerald-500'
+                }
+              `}
               style={{
                 width: `${((currentStep + (completedSteps.has(currentStep) ? 1 : 0)) / steps.length) * 100}%`,
               }}
@@ -650,17 +708,44 @@ export default function FormPageSafe() {
           </div>
         </div>
 
-        {/* Form Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          {/* Step Header */}
+        {/* Enhanced Form Card */}
+        <div className={`
+          bg-white rounded-2xl shadow-xl border p-8
+          ${
+            isPersonaForm
+              ? 'border-purple-200 shadow-purple-100/50'
+              : 'border-gray-100'
+          }
+        `}>
+          {/* Enhanced Step Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl mb-4">
+            <div className={`
+              inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4
+              ${
+                isPersonaForm
+                  ? 'bg-gradient-to-br from-purple-500 to-blue-600 shadow-lg'
+                  : 'bg-gradient-to-br from-green-500 to-emerald-600'
+              }
+            `}>
               <currentStepData.icon className="w-8 h-8 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className={`
+              text-2xl font-bold mb-2
+              ${
+                isPersonaForm
+                  ? 'bg-gradient-to-r from-purple-700 to-blue-700 bg-clip-text text-transparent'
+                  : 'text-gray-900'
+              }
+            `}>
               {currentStepData.title}
             </h2>
-            <p className="text-gray-600">
+            <p className={`
+              ${
+                isPersonaForm
+                  ? 'text-gray-700 font-medium'
+                  : 'text-gray-600'
+              }
+            `}>
               {currentStepData.description}
             </p>
           </div>
@@ -720,43 +805,109 @@ export default function FormPageSafe() {
                       ))}
                     </div>
                   ) : field.type === 'checkbox' ? (
-                    <div className="space-y-3">
-                      {field.options?.map((option, index) => (
-                        <label
-                          key={index}
-                          className="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-green-50 transition-all"
-                        >
-                          <input
-                            type="checkbox"
-                            name={field.name}
-                            value={option}
-                            checked={Array.isArray(formData[field.name])
-                              ? formData[field.name].includes(option)
-                              : formData[field.name] === option
-                            }
-                            onChange={(e) => {
-                              const currentValue = formData[field.name] || []
-                              let newValue
-
-                              if (Array.isArray(currentValue)) {
-                                // Multiple selection for checkboxes
-                                if (e.target.checked) {
-                                  newValue = [...currentValue, option]
-                                } else {
-                                  newValue = currentValue.filter(v => v !== option)
-                                }
-                              } else {
-                                // Single selection (treat as radio)
-                                newValue = e.target.checked ? option : ''
+                    // Enhanced UX for persona form checkboxes with better visual design
+                    <div className={`${
+                      // Special styling for persona form with many options
+                      template?.slug === 'persona-marketing-digital' && field.options && field.options.length > 10
+                        ? 'grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto border border-gray-200 rounded-xl p-4 bg-gray-50/50'
+                        : 'space-y-3'
+                    }`}>
+                      {field.options?.map((option, index) => {
+                        const isSelected = Array.isArray(formData[field.name])
+                          ? formData[field.name].includes(option)
+                          : formData[field.name] === option
+                        
+                        return (
+                          <label
+                            key={index}
+                            className={`
+                              flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 group
+                              ${
+                                isSelected
+                                  ? 'border-green-500 bg-green-50 shadow-md transform scale-[1.02]'
+                                  : 'border-gray-200 bg-white hover:border-green-300 hover:bg-green-25 hover:shadow-sm'
                               }
+                              ${
+                                template?.slug === 'persona-marketing-digital'
+                                  ? 'min-h-[60px] hover:scale-[1.01] active:scale-[0.99]'
+                                  : ''
+                              }
+                            `}
+                          >
+                            <input
+                              type="checkbox"
+                              name={field.name}
+                              value={option}
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const currentValue = formData[field.name] || []
+                                let newValue
 
-                              handleInputChange(field.name, newValue)
-                            }}
-                            className="w-4 h-4 text-green-600 border-2 border-gray-300 rounded focus:ring-2 focus:ring-green-500"
-                          />
-                          <span className="ml-3 text-gray-700">{option}</span>
-                        </label>
-                      ))}
+                                if (Array.isArray(currentValue)) {
+                                  // Multiple selection for checkboxes
+                                  if (e.target.checked) {
+                                    newValue = [...currentValue, option]
+                                  } else {
+                                    newValue = currentValue.filter(v => v !== option)
+                                  }
+                                } else {
+                                  // Single selection (treat as radio)
+                                  newValue = e.target.checked ? option : ''
+                                }
+
+                                handleInputChange(field.name, newValue)
+                              }}
+                              className={`
+                                w-5 h-5 mt-0.5 text-green-600 border-2 rounded-md focus:ring-2 focus:ring-green-500 transition-all
+                                ${isSelected ? 'border-green-500 bg-green-600' : 'border-gray-300'}
+                              `}
+                            />
+                            <div className="ml-4 flex-1">
+                              <span className={`
+                                text-sm font-medium leading-relaxed
+                                ${isSelected ? 'text-green-800' : 'text-gray-700'}
+                                ${template?.slug === 'persona-marketing-digital' ? 'text-xs md:text-sm' : ''}
+                              `}>
+                                {option}
+                              </span>
+                              {/* Visual indicator for selected items */}
+                              {isSelected && (
+                                <div className="mt-1">
+                                  <div className="h-1 w-8 bg-green-500 rounded-full opacity-75"></div>
+                                </div>
+                              )}
+                            </div>
+                          </label>
+                        )
+                      })}
+                      
+                      {/* Selection counter for persona form */}
+                      {template?.slug === 'persona-marketing-digital' && field.options && field.options.length > 10 && (
+                        <div className="col-span-full mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-blue-700 font-medium">
+                              📊 Selecionadas: {Array.isArray(formData[field.name]) ? formData[field.name].length : (formData[field.name] ? 1 : 0)} opções
+                            </span>
+                            <span className="text-blue-600">
+                              💡 Selecione quantas desejar
+                            </span>
+                          </div>
+                          {Array.isArray(formData[field.name]) && formData[field.name].length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {formData[field.name].slice(0, 3).map((item: string, idx: number) => (
+                                <span key={idx} className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                  {item.length > 20 ? item.substring(0, 20) + '...' : item}
+                                </span>
+                              ))}
+                              {formData[field.name].length > 3 && (
+                                <span className="inline-block px-2 py-1 bg-blue-200 text-blue-800 text-xs rounded-full">
+                                  +{formData[field.name].length - 3} mais
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <Input
@@ -800,7 +951,14 @@ export default function FormPageSafe() {
               <Button
                 type="submit"
                 disabled={submitting}
-                className="flex items-center px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                className={`
+                  flex items-center px-6 py-3 text-white font-medium transition-all duration-200
+                  ${
+                    isPersonaForm
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-purple-200'
+                      : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                  }
+                `}
               >
                 {submitting ? (
                   <>

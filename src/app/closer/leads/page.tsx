@@ -92,7 +92,7 @@ interface SDR {
   id: string
   nome_completo: string
   email: string
-  ativo: boolean
+  status: string
 }
 
 const STATUS_OPTIONS = [
@@ -207,14 +207,22 @@ function LeadsPageContent() {
       query = query.gte('created_at', startDate.toISOString())
 
       // Regras de visibilidade baseada no tipo de usuário
-      if (closer.tipo_closer === 'closer' || closer.tipo_closer === 'closer_senior') {
-        query = query.eq('closer_id', closer.id)
-      } else if (closer.tipo_closer === 'sdr') {
-        // SDRs veem todos os leads da organização
-      }
-      
-      if (showMyLeadsOnly && closer.tipo_closer === 'sdr') {
-        query = query.eq('sdr_id', closer.id)
+      if (closer.tipo_closer === 'sdr') {
+        // SDRs veem: leads atribuídos a eles + leads sem SDR atribuído
+        if (!showMyLeadsOnly) {
+          query = query.or(`sdr_id.eq.${closer.id},sdr_id.is.null`)
+        } else {
+          query = query.eq('sdr_id', closer.id)
+        }
+      } else if (closer.tipo_closer === 'closer' || closer.tipo_closer === 'closer_senior') {
+        // Closers veem: leads atribuídos a eles + leads qualificados sem closer atribuído
+        if (!showMyLeadsOnly) {
+          query = query.or(`closer_id.eq.${closer.id},and(closer_id.is.null,status.in.(qualificado,interessado,proposta_enviada,negociacao))`)
+        } else {
+          query = query.eq('closer_id', closer.id)
+        }
+      } else if (closer.tipo_closer === 'manager' || closer.tipo_closer === 'admin') {
+        // Managers e admins veem todos os leads da organização
       }
       
       if (showUnassignedOnly) {
@@ -263,9 +271,9 @@ function LeadsPageContent() {
     try {
       const { data, error } = await supabase
         .from('sdrs')
-        .select('id, nome_completo, email, ativo')
+        .select('id, nome_completo, email, status')
         .eq('organization_id', closer.organization_id)
-        .eq('ativo', true)
+        .eq('status', 'ativo')
 
       if (error) {
         console.error('Error loading SDRs:', error)
@@ -718,7 +726,12 @@ function LeadsPageContent() {
                 }`}
               >
                 <User className="h-4 w-4 mr-1 lg:mr-2" />
-                <span className="hidden sm:inline">{showMyLeadsOnly ? 'Todos os Leads' : 'Apenas Meus Leads'}</span>
+                <span className="hidden sm:inline">
+                  {showMyLeadsOnly 
+                    ? (closer?.tipo_closer === 'sdr' ? 'Todos os Leads' : 'Leads Disponíveis')
+                    : 'Apenas Meus Leads'
+                  }
+                </span>
                 <span className="sm:hidden">{showMyLeadsOnly ? 'Todos' : 'Meus'}</span>
               </button>
 
