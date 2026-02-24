@@ -64,7 +64,8 @@ export function AppContent({ children }: { children: React.ReactNode }) {
   // Páginas que requerem autenticação mas sem sidebar
   const noSidebarPages = pathname.startsWith('/mentorado') || 
                          pathname.startsWith('/closer') ||
-                         pathname.startsWith('/financas') || 
+                         pathname.startsWith('/financas') ||
+                         pathname.startsWith('/area-do-aluno') || 
                          isMentorado
 
   // Se for página pública, não aplicar AuthGuard

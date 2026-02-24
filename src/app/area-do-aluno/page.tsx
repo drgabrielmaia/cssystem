@@ -116,8 +116,53 @@ function AreaDoAlunoPageContent() {
   }, [mentorado]);
 
   const loadExistingData = async () => {
-    // Carregar dados existentes do banco
-    console.log('Carregando dados existentes para:', mentorado?.id);
+    if (!mentorado?.id) return;
+
+    try {
+      console.log('Carregando dados existentes para:', mentorado.id);
+
+      // Carregar dados da persona
+      const { data: personaData, error: personaError } = await supabase
+        .from('persona_form_responses')
+        .select('*')
+        .eq('mentorado_id', mentorado.id)
+        .single();
+
+      if (personaError && personaError.code !== 'PGRST116') {
+        console.error('Erro ao carregar persona:', personaError);
+      } else if (personaData) {
+        console.log('Dados da persona carregados:', personaData);
+        setPersonaForm(personaData);
+        setPersonaCompleted(true);
+      }
+
+      // Carregar dados das dores e desejos
+      const { data: doresDesejosData, error: doresDesejosError } = await supabase
+        .from('persona_pains_desires')
+        .select('*')
+        .eq('mentorado_id', mentorado.id)
+        .single();
+
+      if (doresDesejosError && doresDesejosError.code !== 'PGRST116') {
+        console.error('Erro ao carregar dores e desejos:', doresDesejosError);
+      } else if (doresDesejosData) {
+        console.log('Dados de dores e desejos carregados:', doresDesejosData);
+        
+        // Montar arrays das dores e desejos
+        const dores = [];
+        const desejos = [];
+        
+        for (let i = 1; i <= 20; i++) {
+          dores.push(doresDesejosData[`dor_${i}`] || '');
+          desejos.push(doresDesejosData[`desejo_${i}`] || '');
+        }
+        
+        setDoresDesejosForm({ dores, desejos });
+        setDoresDesejosCompleted(true);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados existentes:', error);
+    }
   };
 
   const savePersonaForm = async () => {
@@ -176,7 +221,7 @@ function AreaDoAlunoPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-green-900 to-emerald-900">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">

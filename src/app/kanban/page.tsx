@@ -97,6 +97,24 @@ export default function KanbanPage() {
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null)
   const [showTaskModal, setShowTaskModal] = useState(false)
   const [showTaskMenu, setShowTaskMenu] = useState<string | null>(null)
+  const [isEditingTask, setIsEditingTask] = useState(false)
+  const [editTask, setEditTask] = useState<{
+    title: string
+    description: string
+    assigned_to_email: string
+    priority: 'low' | 'medium' | 'high' | 'urgent'
+    due_date: string
+    estimated_hours: string
+    tags: string[]
+  }>({
+    title: '',
+    description: '',
+    assigned_to_email: '',
+    priority: 'medium',
+    due_date: '',
+    estimated_hours: '',
+    tags: []
+  })
 
   // New task form state
   const [newTask, setNewTask] = useState({
@@ -367,6 +385,56 @@ export default function KanbanPage() {
   const handleTaskClick = (task: KanbanTask) => {
     setSelectedTask(task)
     setShowTaskModal(true)
+    setIsEditingTask(false)
+  }
+
+  const handleEditTask = (task: KanbanTask) => {
+    setSelectedTask(task)
+    setEditTask({
+      title: task.title,
+      description: task.description || '',
+      assigned_to_email: task.assigned_to_email || 'none',
+      priority: task.priority,
+      due_date: task.due_date || '',
+      estimated_hours: task.estimated_hours ? task.estimated_hours.toString() : '',
+      tags: task.tags
+    })
+    setIsEditingTask(true)
+    setShowTaskModal(true)
+  }
+
+  const handleSaveEditTask = async () => {
+    if (!selectedTask || !editTask.title.trim()) return
+    
+    try {
+      const { error } = await supabase
+        .from('kanban_tasks')
+        .update({
+          title: editTask.title,
+          description: editTask.description || null,
+          assigned_to_email: (editTask.assigned_to_email && editTask.assigned_to_email !== 'none') ? editTask.assigned_to_email : null,
+          priority: editTask.priority,
+          due_date: editTask.due_date || null,
+          estimated_hours: editTask.estimated_hours ? parseFloat(editTask.estimated_hours) : null,
+          tags: editTask.tags,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedTask.id)
+
+      if (error) throw error
+
+      // Reload board data
+      if (currentBoard) {
+        await loadBoardData(currentBoard.id)
+      }
+
+      setShowTaskModal(false)
+      setIsEditingTask(false)
+      setSelectedTask(null)
+    } catch (error) {
+      console.error('Error updating task:', error)
+      alert('Erro ao atualizar tarefa')
+    }
   }
 
   const handleDeleteTask = async (taskId: string) => {
@@ -552,7 +620,7 @@ export default function KanbanPage() {
                                             className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
                                             onClick={(e) => {
                                               e.stopPropagation()
-                                              handleTaskClick(task)
+                                              handleEditTask(task)
                                               setShowTaskMenu(null)
                                             }}
                                           >
@@ -859,11 +927,11 @@ export default function KanbanPage() {
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
               <div className={`w-3 h-3 rounded-full ${selectedTask ? priorityColors[selectedTask.priority] : ''}`} />
-              {selectedTask?.title || 'Visualizar Tarefa'}
+              {isEditingTask ? 'Editar Tarefa' : (selectedTask?.title || 'Visualizar Tarefa')}
             </DialogTitle>
           </DialogHeader>
           
-          {selectedTask && (
+          {selectedTask && !isEditingTask && (
             <div className="space-y-4">
               {/* Task Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -880,7 +948,7 @@ export default function KanbanPage() {
                   <Label className="text-gray-400 text-sm">Prioridade</Label>
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${priorityColors[selectedTask.priority]}`} />
-                    <span className="text-white capitalize">{selectedTask.priority}</span>
+                    <span className="text-white capitalize">{priorityLabels[selectedTask.priority]}</span>
                   </div>
                 </div>
               </div>
@@ -942,25 +1010,143 @@ export default function KanbanPage() {
             </div>
           )}
 
+          {/* Edit Form */}
+          {isEditingTask && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-white">Título *</Label>
+                <Input
+                  value={editTask.title}
+                  onChange={(e) => setEditTask(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Digite o título da tarefa..."
+                  className="bg-gray-800 border-gray-700 text-white"
+                />
+              </div>
+
+              <div>
+                <Label className="text-white">Descrição</Label>
+                <Textarea
+                  value={editTask.description}
+                  onChange={(e) => setEditTask(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Descrição detalhada da tarefa..."
+                  className="bg-gray-800 border-gray-700 text-white min-h-[80px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-white">Responsável</Label>
+                  <Select
+                    value={editTask.assigned_to_email}
+                    onValueChange={(value) => setEditTask(prev => ({ ...prev, assigned_to_email: value }))}
+                  >
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                      <SelectValue placeholder="Selecione um responsável" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-gray-700">
+                      <SelectItem value="none" className="text-white">
+                        Sem responsável
+                      </SelectItem>
+                      {organizationMembers.map(member => (
+                        <SelectItem key={member.email} value={member.email} className="text-white">
+                          {member.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-white">Prioridade</Label>
+                  <Select 
+                    value={editTask.priority} 
+                    onValueChange={(value: any) => setEditTask(prev => ({ ...prev, priority: value }))}
+                  >
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-gray-700">
+                      {Object.entries(priorityLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key} className="text-white">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${priorityColors[key as keyof typeof priorityColors]}`} />
+                            {label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-white">Data de Entrega</Label>
+                  <Input
+                    value={editTask.due_date}
+                    onChange={(e) => setEditTask(prev => ({ ...prev, due_date: e.target.value }))}
+                    type="date"
+                    className="bg-gray-800 border-gray-700 text-white"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-white">Estimativa (horas)</Label>
+                  <Input
+                    value={editTask.estimated_hours}
+                    onChange={(e) => setEditTask(prev => ({ ...prev, estimated_hours: e.target.value }))}
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    placeholder="Ex: 2.5"
+                    className="bg-gray-800 border-gray-700 text-white"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3 mt-6">
             <Button 
               variant="outline" 
-              onClick={() => setShowTaskModal(false)}
+              onClick={() => {
+                setShowTaskModal(false)
+                setIsEditingTask(false)
+              }}
               className="flex-1 bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
             >
-              Fechar
+              {isEditingTask ? 'Cancelar' : 'Fechar'}
             </Button>
-            <Button 
-              onClick={() => {
-                handleDeleteTask(selectedTask?.id || '')
-                setShowTaskModal(false)
-              }}
-              disabled={!selectedTask}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Excluir
-            </Button>
+            {isEditingTask ? (
+              <Button 
+                onClick={handleSaveEditTask}
+                disabled={!editTask.title.trim()}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Salvar
+              </Button>
+            ) : (
+              <Button 
+                onClick={() => setIsEditingTask(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Editar
+              </Button>
+            )}
+            {!isEditingTask && (
+              <Button 
+                onClick={() => {
+                  handleDeleteTask(selectedTask?.id || '')
+                  setShowTaskModal(false)
+                }}
+                disabled={!selectedTask}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

@@ -109,6 +109,9 @@ export default function ComissoesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('todos')
   const [mentoradoFilter, setMentoradoFilter] = useState('todos')
+  const [dateFilter, setDateFilter] = useState('mes_atual')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
   const [isLoadingData, setIsLoadingData] = useState(false)
   const [selectedComissao, setSelectedComissao] = useState<Comissao | null>(null)
   const [showViewModal, setShowViewModal] = useState(false)
@@ -142,12 +145,79 @@ export default function ComissoesPage() {
   const [monthlyData, setMonthlyData] = useState<any[]>([])
   const [statusDistribution, setStatusDistribution] = useState<{name: string, value: number, color: string}[]>([])
 
+  // Função para obter range de datas
+  const getDateRange = (filter: string) => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth()
+
+    switch (filter) {
+      case 'mes_atual':
+        return {
+          start: new Date(year, month, 1).toISOString(),
+          end: new Date(year, month + 1, 0, 23, 59, 59, 999).toISOString()
+        }
+      case 'ano_atual':
+        return {
+          start: new Date(year, 0, 1).toISOString(),
+          end: new Date(year, 11, 31, 23, 59, 59, 999).toISOString()
+        }
+      case 'semana_atual':
+        const currentDay = now.getDay()
+        const startOfWeek = new Date(now)
+        startOfWeek.setDate(now.getDate() - currentDay)
+        startOfWeek.setHours(0, 0, 0, 0)
+        
+        const endOfWeek = new Date(startOfWeek)
+        endOfWeek.setDate(startOfWeek.getDate() + 6)
+        endOfWeek.setHours(23, 59, 59, 999)
+        
+        return {
+          start: startOfWeek.toISOString(),
+          end: endOfWeek.toISOString()
+        }
+      case 'semana_passada':
+        const lastWeekStart = new Date(now)
+        lastWeekStart.setDate(now.getDate() - now.getDay() - 7)
+        lastWeekStart.setHours(0, 0, 0, 0)
+        
+        const lastWeekEnd = new Date(lastWeekStart)
+        lastWeekEnd.setDate(lastWeekStart.getDate() + 6)
+        lastWeekEnd.setHours(23, 59, 59, 999)
+        
+        return {
+          start: lastWeekStart.toISOString(),
+          end: lastWeekEnd.toISOString()
+        }
+      case 'mes_passado':
+        const lastMonth = new Date(year, month - 1, 1)
+        return {
+          start: lastMonth.toISOString(),
+          end: new Date(year, month, 0, 23, 59, 59, 999).toISOString()
+        }
+      case 'personalizado':
+        if (customStartDate && customEndDate) {
+          const start = new Date(customStartDate)
+          start.setHours(0, 0, 0, 0)
+          const end = new Date(customEndDate)
+          end.setHours(23, 59, 59, 999)
+          return {
+            start: start.toISOString(),
+            end: end.toISOString()
+          }
+        }
+        return null
+      default:
+        return null
+    }
+  }
+
   useEffect(() => {
     if (activeOrganizationId) {
       loadComissoes()
       loadStats()
     }
-  }, [activeOrganizationId])
+  }, [activeOrganizationId, dateFilter, customStartDate, customEndDate])
 
   useEffect(() => {
     if (!loading) {
@@ -187,9 +257,18 @@ export default function ComissoesPage() {
           )
         `)
 
-      // Filtrar por organização
+      // Filtrar por organização (incluir registros sem organização por compatibilidade)
       if (activeOrganizationId) {
-        query = query.eq('organization_id', activeOrganizationId)
+        query = query.or(`organization_id.eq.${activeOrganizationId},organization_id.is.null`)
+      }
+
+      // Aplicar filtros de data
+      if (dateFilter !== 'todos') {
+        const dateRange = getDateRange(dateFilter)
+        if (dateRange) {
+          query = query.gte('data_venda', dateRange.start)
+                       .lte('data_venda', dateRange.end)
+        }
       }
 
       // Aplicar filtros
@@ -250,9 +329,18 @@ export default function ComissoesPage() {
         .from('comissoes')
         .select('valor_comissao, status_pagamento, data_venda, created_at')
       
-      // Filtrar por organização
+      // Filtrar por organização (incluir registros sem organização por compatibilidade)
       if (activeOrganizationId) {
-        statsQuery = statsQuery.eq('organization_id', activeOrganizationId)
+        statsQuery = statsQuery.or(`organization_id.eq.${activeOrganizationId},organization_id.is.null`)
+      }
+
+      // Aplicar filtros de data
+      if (dateFilter !== 'todos') {
+        const dateRange = getDateRange(dateFilter)
+        if (dateRange) {
+          statsQuery = statsQuery.gte('data_venda', dateRange.start)
+                                  .lte('data_venda', dateRange.end)
+        }
       }
 
       const { data: comissoesData, error } = await statsQuery
@@ -631,6 +719,20 @@ fill="hsl(var(--primary))"
             <option value="cancelado">Cancelado</option>
           </select>
 
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="px-4 py-2 bg-background border border-border rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
+          >
+            <option value="mes_atual">Mês Atual</option>
+            <option value="ano_atual">Ano Atual</option>
+            <option value="semana_atual">Semana Atual</option>
+            <option value="semana_passada">Última Semana</option>
+            <option value="mes_passado">Mês Passado</option>
+            <option value="personalizado">Personalizado</option>
+            <option value="todos">Todas as Datas</option>
+          </select>
+
           {availableMentorados.length > 0 && (
             <select
               value={mentoradoFilter}
@@ -642,6 +744,25 @@ fill="hsl(var(--primary))"
                 <option key={nome} value={nome}>{nome}</option>
               ))}
             </select>
+          )}
+
+          {dateFilter === 'personalizado' && (
+            <>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-3 py-2 bg-background border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
+                placeholder="Data início"
+              />
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-3 py-2 bg-background border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
+                placeholder="Data fim"
+              />
+            </>
           )}
         </div>
 

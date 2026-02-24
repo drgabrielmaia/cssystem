@@ -329,9 +329,9 @@ function CloserPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] flex">
+    <div className="min-h-screen bg-[#0F0F0F] flex flex-col lg:flex-row">
       {/* Sidebar Esquerda */}
-      <aside className="w-60 bg-[#0F0F0F] border-r border-white/10 flex flex-col">
+      <aside className="w-full lg:w-60 bg-[#0F0F0F] border-b lg:border-r lg:border-b-0 border-white/10 flex flex-col">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-8 h-8 bg-gradient-to-r from-[#4ADE80] to-[#10B981] rounded-lg flex items-center justify-center">
@@ -409,16 +409,16 @@ function CloserPageContent() {
 
       {/* Conteúdo Central */}
       <main className="flex-1 overflow-auto">
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
             <div>
               <nav className="text-[#71717A] text-sm mb-2">
                 <span>Dashboards</span> <span className="mx-2">/</span> <span>Closer/SDR</span>
               </nav>
               <h1 className="text-2xl font-bold text-white">Closer/SDR</h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setPeriodFilter('today')}
                 className={`px-4 py-2 rounded-lg text-sm transition-colors ${
@@ -453,7 +453,7 @@ function CloserPageContent() {
           </div>
 
           {/* KPI Cards */}
-          <div className="grid grid-cols-4 gap-5 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
             {/* Leads Contatados */}
             <div className="bg-[#1A1A1A] rounded-2xl p-6">
               <p className="text-[#71717A] text-sm mb-2">Leads Contatados</p>
@@ -512,9 +512,9 @@ function CloserPageContent() {
           </div>
 
           {/* Performance e Mini Cards */}
-          <div className="grid grid-cols-3 gap-5 mb-8">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-8">
             {/* Performance por Closer - 60% */}
-            <div className="col-span-2 bg-[#1A1A1A] rounded-2xl p-6">
+            <div className="xl:col-span-2 bg-[#1A1A1A] rounded-2xl p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-8 h-8 bg-[#166534] rounded-full flex items-center justify-center">
                   <DollarSign className="h-4 w-4 text-[#4ADE80]" />
@@ -525,7 +525,7 @@ function CloserPageContent() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-center h-48">
+              <div className="flex flex-col md:flex-row items-center justify-center h-48">
                 <div className="relative">
                   {/* Placeholder for donut chart */}
                   <div className="w-32 h-32 rounded-full border-8 border-[#3F3F46] border-t-[#4ADE80] animate-pulse"></div>
@@ -537,7 +537,7 @@ function CloserPageContent() {
                   </div>
                 </div>
 
-                <div className="ml-8 space-y-3">
+                <div className="md:ml-8 mt-4 md:mt-0 space-y-3">
                   {teamMembers
                     .sort((a, b) => b.receita_gerada - a.receita_gerada)
                     .slice(0, 4)
@@ -623,8 +623,64 @@ function CloserPageContent() {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            {/* Mobile Cards for smaller screens */}
+            <div className="block md:hidden space-y-4">
+              {teamMembers.map((member, index) => (
+                <div key={member.id} className="bg-[#1E1E1E] rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-8 h-8 bg-[#1E1E1E] rounded-full flex items-center justify-center">
+                      <User className="h-4 w-4 text-[#4ADE80]" />
+                    </div>
+                    <div>
+                      <p className="text-white text-sm font-medium">{member.nome_completo}</p>
+                      <p className="text-[#71717A] text-xs">{member.email || `user${index + 1}@empresa.com`}</p>
+                    </div>
+                    <span className={`ml-auto px-2 py-1 rounded-full text-xs font-medium ${
+                      member.tipo_closer === 'closer' || member.tipo_closer === 'closer_senior'
+                        ? 'bg-[#166534] text-[#4ADE80]'
+                        : 'bg-[#1E3A5F] text-[#60A5FA]'
+                    }`}>
+                      {member.tipo_closer === 'closer' || member.tipo_closer === 'closer_senior' ? 'Closer' : 'SDR'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-[#71717A]">Leads: </span>
+                      <span className="text-white">{member.leads_atribuidos}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#71717A]">Conversões: </span>
+                      <span className="text-white">{member.conversoes}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#71717A]">Taxa Conv.: </span>
+                      <span className={`font-medium ${
+                        member.taxa_conversao >= 20 ? 'text-[#4ADE80]' :
+                        member.taxa_conversao >= 15 ? 'text-[#FBBF24]' : 'text-[#EF4444]'
+                      }`}>
+                        {member.taxa_conversao}%
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#71717A]">Receita: </span>
+                      <span className="text-white">R$ {member.receita_gerada.toLocaleString('pt-BR')}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      member.status === 'Ativo' ? 'bg-[#166534] text-[#4ADE80]' :
+                      member.status === 'Em pausa' ? 'bg-[#78350F] text-[#FBBF24]' : 'bg-[#7F1D1D] text-[#EF4444]'
+                    }`}>
+                      {member.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table for larger screens */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full min-w-[800px]">
                 <thead>
                   <tr className="border-b border-white/10">
                     <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Nome</th>
@@ -688,7 +744,7 @@ function CloserPageContent() {
       </main>
 
       {/* Sidebar Direita */}
-      <aside className="w-80 bg-[#0F0F0F] border-l border-white/10 p-6 overflow-y-auto">
+      <aside className="hidden xl:block w-80 bg-[#0F0F0F] border-l border-white/10 p-6 overflow-y-auto">
         {/* Notificações */}
         <div className="mb-8">
           <h3 className="text-white text-lg font-semibold mb-4">Notificações</h3>

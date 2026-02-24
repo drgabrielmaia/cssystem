@@ -221,9 +221,6 @@ export default function RuixenMoonChat() {
             <p className="mt-1 text-lg text-green-300 font-medium">
               Powered by Médicos de Resultado
             </p>
-            <p className="mt-1 text-neutral-200 text-sm">
-              Gemma 3 27B — start typing below.
-            </p>
           </div>
         </div>
       )}
