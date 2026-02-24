@@ -169,84 +169,84 @@ export default function DashboardPage() {
       // Obter range de datas baseado no período selecionado
       const dateRange = getDateRange(selectedPeriod)
 
-      let leadsQuery = supabase.from('leads').select('origem, created_at, status, valor_vendido, convertido_em')
-      let mentoradosQuery = supabase.from('mentorados').select('*')
-      let vendasQuery = supabase.from('leads').select('origem, created_at, status, valor_vendido, convertido_em').eq('status', 'vendido')
+      // Buscar TODOS os leads primeiro, depois filtrar apropriadamente
+      const { data: allLeads } = await supabase
+        .from('leads')
+        .select('id, origem, created_at, status, valor_vendido, valor_arrecadado, data_venda, convertido_em, status_updated_at')
 
-      // Aplicar filtros de data se necessário
-      if (dateRange.start && dateRange.end) {
-        // Para leads TOTAIS, usar created_at (data do lead)
-        leadsQuery = leadsQuery.gte('created_at', dateRange.start).lte('created_at', dateRange.end)
-        mentoradosQuery = mentoradosQuery.gte('created_at', dateRange.start).lte('created_at', dateRange.end)
-        // Para vendas, usar convertido_em (data da conversão)
-        vendasQuery = vendasQuery.gte('convertido_em', dateRange.start).lte('convertido_em', dateRange.end)
+      const { data: mentoradosPeriod } = await supabase
+        .from('mentorados')
+        .select('*')
+        .gte('created_at', dateRange.start || '1900-01-01')
+        .lte('created_at', dateRange.end || '2100-01-01')
+
+      // Filtrar leads baseado no período e status, seguindo a mesma lógica da Performance
+      let leadsPeriod = allLeads || []
+      let vendasPeriod = []
+
+      if (dateRange.start && dateRange.end && allLeads) {
+        // Para leads totais: usar data_primeiro_contato/created_at
+        leadsPeriod = allLeads.filter(lead => {
+          const dataLead = new Date(lead.created_at)
+          const startDate = new Date(dateRange.start!)
+          const endDate = new Date(dateRange.end!)
+          return dataLead >= startDate && dataLead <= endDate
+        })
+
+        // Para vendas: usar data_venda ou convertido_em (igual Performance)
+        vendasPeriod = allLeads.filter(lead => {
+          if (lead.status !== 'vendido') return false
+          
+          // Priorizar data_venda, depois convertido_em
+          const dataVenda = lead.data_venda || lead.convertido_em
+          if (!dataVenda) return false
+          
+          const dataVendaDate = new Date(dataVenda)
+          const startDate = new Date(dateRange.start!)
+          const endDate = new Date(dateRange.end!)
+          return dataVendaDate >= startDate && dataVendaDate <= endDate
+        })
+      } else {
+        // Se não há filtro de data, pegar todos os leads vendidos
+        vendasPeriod = allLeads?.filter(lead => lead.status === 'vendido') || []
       }
 
-      // Executar queries
-      const { data: leadsPeriod } = await leadsQuery
-      const { data: mentoradosPeriod } = await mentoradosQuery
-      const { data: vendasPeriod } = await vendasQuery
-
-      // Buscar dados de calls realizadas da tabela appointments
-      let appointmentsQuery = supabase
-        .from('appointments')
-        .select(`
-          id, 
-          status, 
-          outcome,
-          appointment_date,
-          actual_start_time,
-          actual_end_time,
-          lead_id,
-          created_at
-        `)
-
-      // Aplicar filtro de data se necessário
-      if (dateRange.start && dateRange.end && selectedPeriod !== 'all') {
-        appointmentsQuery = appointmentsQuery
-          .gte('appointment_date', dateRange.start.split('T')[0]) // Usar apenas a data
-          .lte('appointment_date', dateRange.end.split('T')[0])
-      }
-
-      const { data: appointments } = await appointmentsQuery
-
-      // Buscar vendas realizadas no período
-      let vendasRealizadasQuery = supabase
-        .from('vendas')
-        .select('id, mentorado_id, data_venda, valor, status')
-        .eq('status', 'confirmada')
-
-      // Aplicar filtro de data se necessário  
-      if (dateRange.start && dateRange.end && selectedPeriod !== 'all') {
-        vendasRealizadasQuery = vendasRealizadasQuery
-          .gte('data_venda', dateRange.start.split('T')[0])
-          .lte('data_venda', dateRange.end.split('T')[0])
-      }
-
-      const { data: vendasRealizadas } = await vendasRealizadasQuery
-
-      // Calcular métricas de calls
-      let callsRealizadas = 0
-      let callsVendidas = 0
-
-      if (appointments) {
-        // Calls realizadas = appointments que realmente aconteceram (status completed ou com outcome)
-        callsRealizadas = appointments.filter(app => 
-          app.status === 'completed' || 
-          app.actual_start_time || 
-          (app.outcome && app.outcome !== 'no_show')
-        ).length
-      }
-
-      if (vendasRealizadas) {
-        // Calls vendidas = número de vendas confirmadas no período
-        callsVendidas = vendasRealizadas.length
+      // Calcular calls realizadas baseado nos leads (igual Performance)
+      // Calls realizadas = leads vendidos + leads perdidos (não vendidos)
+      let callsRealizadasPeriod = []
+      
+      if (dateRange.start && dateRange.end && allLeads) {
+        // Filtrar leads vendidos e perdidos baseado na data apropriada
+        callsRealizadasPeriod = allLeads.filter(lead => {
+          if (lead.status !== 'vendido' && lead.status !== 'perdido') return false
+          
+          let dataReferencia = null
+          if (lead.status === 'vendido') {
+            // Para vendidos: usar data_venda ou convertido_em
+            dataReferencia = lead.data_venda || lead.convertido_em
+          } else if (lead.status === 'perdido') {
+            // Para perdidos: usar status_updated_at
+            dataReferencia = lead.status_updated_at
+          }
+          
+          if (!dataReferencia) return false
+          
+          const dataRef = new Date(dataReferencia)
+          const startDate = new Date(dateRange.start!)
+          const endDate = new Date(dateRange.end!)
+          return dataRef >= startDate && dataRef <= endDate
+        })
+      } else {
+        // Se não há filtro, pegar todos vendidos e perdidos
+        callsRealizadasPeriod = allLeads?.filter(lead => 
+          lead.status === 'vendido' || lead.status === 'perdido'
+        ) || []
       }
 
       const callsMetrics = {
-        calls_vendidas: callsVendidas,
-        total_calls: callsRealizadas, // Total de calls realizadas
-        calls_nao_vendidas: Math.max(0, callsRealizadas - callsVendidas)
+        calls_vendidas: vendasPeriod.length, // Vendas no período
+        calls_nao_vendidas: callsRealizadasPeriod.filter(l => l.status === 'perdido').length, // Perdidos no período
+        total_calls: callsRealizadasPeriod.length // Total de calls realizadas (vendidas + perdidas)
       }
 
       console.log('🔍 Debug calls metrics:', {
@@ -272,7 +272,7 @@ export default function DashboardPage() {
 
       const { data: eventosAgendados } = await eventosQuery
 
-      const totalVendasPeriod = vendasPeriod?.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0) || 0
+      const totalVendasPeriod = vendasPeriod.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
 
       // Carregar evolução do faturamento baseado no período do gráfico
       await loadRevenueData(chartPeriod)
@@ -283,8 +283,8 @@ export default function DashboardPage() {
       // Carregar distribuição de leads por origem
       await loadLeadDistribution(leadsPeriod || [])
 
-      // Calcular valor arrecadado (aproximadamente 50% do vendido)
-      const valorArrecadado = vendasPeriod?.reduce((sum, lead) => sum + ((lead.valor_vendido || 0) * 0.5), 0) || 0
+      // Calcular valor arrecadado usando valor_arrecadado real dos leads vendidos
+      const valorArrecadado = vendasPeriod.reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0)
 
       // Calcular taxa de conversão usando calls realizadas (vendidas + não vendidas)
       const totalCallsRealizadas = callsMetrics.calls_vendidas + callsMetrics.calls_nao_vendidas
@@ -928,7 +928,7 @@ export default function DashboardPage() {
                 <span className="text-xs font-bold text-orange-900">{kpiData.taxa_conversao.toFixed(1)}%</span>
               </div>
               <div className="text-xs text-orange-600 mt-1">
-                {kpiData.leads_vendidos} vendas de {kpiData.total_leads} calls realizadas
+                {kpiData.leads_vendidos} calls vendidas de {kpiData.total_leads} calls realizadas
               </div>
             </div>
           </div>

@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { CalendarBooking } from '@/components/calendar-booking'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/auth'
 import {
   FileText,
   Eye,
@@ -58,6 +59,7 @@ interface FormSubmission {
 }
 
 export default function FormResponsesPage() {
+  const { user } = useAuth()
   const [submissions, setSubmissions] = useState<FormSubmission[]>([])
   const [filteredSubmissions, setFilteredSubmissions] = useState<FormSubmission[]>([])
   const [templates, setTemplates] = useState<string[]>([])
@@ -81,7 +83,14 @@ export default function FormResponsesPage() {
       console.log('🔍 Buscando respostas de formulários...')
       setLoading(true)
 
-      // Use uma única query otimizada com joins
+      if (!user?.organizationId) {
+        setSubmissions([])
+        setTemplates([])
+        setLoading(false)
+        return
+      }
+
+      // Use uma única query otimizada com joins e filtro por organização
       const { data: submissions, error } = await supabase
         .from('form_submissions')
         .select(`
@@ -108,6 +117,7 @@ export default function FormResponsesPage() {
             email
           )
         `)
+        .eq('organization_id', user.organizationId)
         .order('created_at', { ascending: false })
         .limit(100)
 

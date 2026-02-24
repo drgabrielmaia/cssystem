@@ -56,9 +56,13 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
     cargo: '',
     origem: '',
     status: '',
+    temperatura: '',
+    prioridade: '',
     observacoes: '',
     valor_vendido: '',
+    valor_potencial: '',
     data_venda: '',
+    next_followup_date: '',
     desistiu: false,
     indicado_por: '',
     closer_email: ''
@@ -77,9 +81,13 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
         cargo: lead.cargo || '',
         origem: lead.origem || '',
         status: lead.status || '',
+        temperatura: lead.temperatura || '',
+        prioridade: lead.prioridade || '',
         observacoes: lead.observacoes || '',
         valor_vendido: lead.valor_vendido?.toString() || '',
+        valor_potencial: lead.valor_potencial?.toString() || '',
         data_venda: lead.data_venda ? new Date(lead.data_venda).toISOString().split('T')[0] : '',
+        next_followup_date: lead.next_followup_date ? new Date(lead.next_followup_date).toISOString().split('T')[0] : '',
         desistiu: lead.desistiu || false,
         indicado_por: (lead as any).indicado_por || '',
         closer_email: lead.closer_email || ''
@@ -123,9 +131,13 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
         cargo: formData.cargo || null,
         origem: formData.origem || null,
         status: formData.status,
+        temperatura: formData.temperatura || null,
+        prioridade: formData.prioridade || null,
         observacoes: formData.observacoes || null,
         valor_vendido: formData.valor_vendido ? parseFloat(formData.valor_vendido) : null,
+        valor_potencial: formData.valor_potencial ? parseFloat(formData.valor_potencial) : null,
         data_venda: formData.data_venda || null,
+        next_followup_date: formData.next_followup_date || null,
         desistiu: formData.desistiu,
         indicado_por: formData.indicado_por || null,
         closer_email: formData.closer_email || null,
@@ -339,6 +351,51 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
 
             <div className="grid grid-cols-2 gap-4">
               <div>
+                <Label htmlFor="temperatura">Temperatura do Lead</Label>
+                <select
+                  id="temperatura"
+                  value={formData.temperatura}
+                  onChange={(e) => setFormData({ ...formData, temperatura: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Selecione a temperatura</option>
+                  <option value="frio">❄️ Frio</option>
+                  <option value="morno">🌤️ Morno</option>
+                  <option value="quente">🔥 Quente</option>
+                </select>
+              </div>
+
+              <div>
+                <Label htmlFor="prioridade">Prioridade</Label>
+                <select
+                  id="prioridade"
+                  value={formData.prioridade}
+                  onChange={(e) => setFormData({ ...formData, prioridade: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Selecione a prioridade</option>
+                  <option value="baixa">🟢 Baixa</option>
+                  <option value="media">🟡 Média</option>
+                  <option value="alta">🟠 Alta</option>
+                  <option value="urgente">🔴 Urgente</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="valor_potencial">Valor Potencial (R$)</Label>
+                <Input
+                  id="valor_potencial"
+                  type="number"
+                  step="0.01"
+                  value={formData.valor_potencial}
+                  onChange={(e) => setFormData({ ...formData, valor_potencial: e.target.value })}
+                  placeholder="0,00"
+                />
+              </div>
+
+              <div>
                 <Label htmlFor="valor_vendido">Valor Vendido (R$)</Label>
                 <Input
                   id="valor_vendido"
@@ -349,7 +406,6 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
                   placeholder="0,00"
                 />
               </div>
-              <div></div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -363,7 +419,18 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
                 />
               </div>
 
-              <div className="flex items-center space-x-2 pt-6">
+              <div>
+                <Label htmlFor="next_followup_date">Próximo Follow-up</Label>
+                <Input
+                  id="next_followup_date"
+                  type="date"
+                  value={formData.next_followup_date}
+                  onChange={(e) => setFormData({ ...formData, next_followup_date: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2 pt-6">
                 <input
                   type="checkbox"
                   id="desistiu"

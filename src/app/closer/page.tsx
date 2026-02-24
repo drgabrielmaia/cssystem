@@ -386,6 +386,14 @@ function CloserPageContent() {
                 <Users className="h-4 w-4" />
                 <span className="text-sm">Leads</span>
               </Link>
+              <Link href="/closer/agenda" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+                <Calendar className="h-4 w-4" />
+                <span className="text-sm">Agenda</span>
+              </Link>
+              <Link href="/closer/availability" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+                <Settings className="h-4 w-4" />
+                <span className="text-sm">Configurar Agenda</span>
+              </Link>
               <button 
                 onClick={() => setShowStudyMaterials(true)}
                 className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors w-full text-left"
