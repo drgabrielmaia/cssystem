@@ -422,49 +422,16 @@ function MentoradoPageContent() {
               <span className="text-[14px] text-white block font-medium">Comissões</span>
             </Link>
 
-            {/* Formulário de Persona */}
+            {/* Área do Aluno */}
             <Link
-              href="#"
+              href="/area-do-aluno"
               className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-400/30 rounded-[8px] p-4 hover:from-blue-600/30 hover:to-purple-600/30 transition-all group text-center"
-              onClick={(e) => {
-                e.preventDefault()
-                alert('Em breve! O formulário de persona será disponibilizado em uma atualização futura.')
-              }}
             >
               <div className="w-12 h-12 bg-blue-500 rounded-[8px] flex items-center justify-center mx-auto mb-3">
-                <FileText className="w-6 h-6 text-white" />
+                <Brain className="w-6 h-6 text-white" />
               </div>
-              <span className="text-[14px] text-blue-200 block font-medium">Persona Form</span>
+              <span className="text-[14px] text-blue-200 block font-medium">Área do Aluno</span>
             </Link>
-
-            {/* Dores e Desejos */}
-            <Link
-              href="#"
-              className="bg-gradient-to-r from-pink-600/20 to-red-600/20 border border-pink-400/30 rounded-[8px] p-4 hover:from-pink-600/30 hover:to-red-600/30 transition-all group text-center"
-              onClick={(e) => {
-                e.preventDefault()
-                alert('Em breve! O formulário de dores e desejos será disponibilizado em uma atualização futura.')
-              }}
-            >
-              <div className="w-12 h-12 bg-pink-500 rounded-[8px] flex items-center justify-center mx-auto mb-3">
-                <Heart className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-[14px] text-pink-200 block font-medium">Dores & Desejos</span>
-            </Link>
-
-            {/* Chat IA Gemini - Apenas para usuário específico */}
-            {mentorado?.email === 'emersonbljr2802@gmail.com' && (
-              <Link
-                href="/chat-ia-persona"
-                target="_blank"
-                className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 border border-green-400/30 rounded-[8px] p-4 hover:from-green-600/30 hover:to-emerald-600/30 transition-all group text-center"
-              >
-                <div className="w-12 h-12 bg-green-500 rounded-[8px] flex items-center justify-center mx-auto mb-3">
-                  <Brain className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-[14px] text-green-200 block font-medium">IA Gemini</span>
-              </Link>
-            )}
 
             <Link
               href="/mentorado/metas"
