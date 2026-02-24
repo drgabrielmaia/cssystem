@@ -31,14 +31,14 @@ export async function POST(request: NextRequest) {
     // Inicializar o Google AI
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
     
-    // Usar o modelo Gemini Pro (modelo mais robusto disponível)
+    // Usar o modelo Gemma 3 27B
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-pro", // Modelo correto e mais poderoso
+      model: "gemma-3-27b-it", // Modelo Gemma 3 27B
       generationConfig: {
         temperature: 0.7,
         topK: 40,
         topP: 0.95,
-        maxOutputTokens: 8192, // Aumentado para perguntas complexas
+        maxOutputTokens: 2048, // Limite de tokens mantido
       },
     })
 
@@ -93,7 +93,7 @@ Responda como um estrategista experiente e humano que domina o mercado médico.`
       return NextResponse.json({
         success: true,
         message: aiResponse,
-        model: 'gemini-1.5-pro',
+        model: 'gemma-3-27b-it',
         timestamp: new Date().toISOString()
       })
     }
