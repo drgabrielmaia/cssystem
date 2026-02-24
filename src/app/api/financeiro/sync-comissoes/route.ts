@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
         id,
         valor_comissao,
         data_pagamento,
+        organization_id,
         mentorados:mentorados!inner(nome)
       `)
       .eq('status_pagamento', 'pago')
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest) {
           descricao: `Comissão paga - ${(comissao.mentorados as any)?.nome}`,
           categoria: 'Comissões',
           data_transacao: comissao.data_pagamento,
+          organization_id: comissao.organization_id,
           status: 'pago',
           fornecedor: (comissao.mentorados as any)?.nome,
           referencia_id: comissao.id,

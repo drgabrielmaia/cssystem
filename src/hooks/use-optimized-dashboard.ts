@@ -75,13 +75,18 @@ export function useOptimizedDashboard(organizationId: string | null, isReady: bo
         .eq('organization_id', organizationId)
         .or(`data_primeiro_contato.gte.${startOfMonth.toISOString()},and(status.eq.vendido,data_venda.gte.${startOfMonth.toISOString()})`),
 
-      // Calls metrics - single query to materialized view WITH ORGANIZATION FILTER
+      // Calls metrics - buscar diretamente dos leads excluindo churns e excluídos
       supabase
-        .from('social_seller_metrics')
-        .select('*')
+        .from('leads')
+        .select(`
+          id, status, call_details, call_history, valor_vendido, data_venda, data_primeiro_contato,
+          mentorados!inner(is_churned, excluido)
+        `)
         .eq('organization_id', organizationId)
-        .gte('month_year', startOfMonth.toISOString())
-        .single()
+        .gte('data_primeiro_contato', startOfMonth.toISOString())
+        .lte('data_primeiro_contato', endOfMonth.toISOString())
+        .eq('mentorados.is_churned', false)
+        .eq('mentorados.excluido', false)
     ])
 
     // Process sales data
@@ -128,13 +133,30 @@ export function useOptimizedDashboard(organizationId: string | null, isReady: bo
     }
 
     if (callsResult.status === 'fulfilled' && callsResult.value.data) {
-      const data = callsResult.value.data
-      callsMetrics.total_calls = data.total_calls || 0
-      callsMetrics.calls_vendidas = data.calls_vendidas || 0
-      callsMetrics.calls_nao_vendidas = data.calls_nao_vendidas || 0
-      callsMetrics.no_shows = data.no_shows || 0
-      callsMetrics.total_vendas_calls = data.total_vendas || 0
-      callsMetrics.taxa_conversao_calls = data.taxa_conversao || 0
+      const callsData = callsResult.value.data
+      
+      // Filtrar calls (leads que tem call_details ou call_history)
+      const callLeads = callsData.filter((lead: any) => 
+        lead.call_details !== null || lead.call_history !== null
+      )
+      
+      // Calls vendidas (leads vendidos que vieram de calls)
+      const callsVendidas = callLeads.filter((lead: any) => lead.status === 'vendido')
+      
+      // Calls não vendidas (leads de calls que não foram vendidos)
+      const callsNaoVendidas = callLeads.filter((lead: any) => 
+        lead.status !== 'vendido' && lead.status !== 'novo' && lead.status !== 'qualificado'
+      )
+
+      callsMetrics.total_calls = callLeads.length
+      callsMetrics.calls_vendidas = callsVendidas.length
+      callsMetrics.calls_nao_vendidas = callsNaoVendidas.length
+      callsMetrics.no_shows = 0 // Pode implementar lógica específica se necessário
+      callsMetrics.total_vendas_calls = callsVendidas.reduce((sum: number, lead: any) => 
+        sum + (parseFloat(lead.valor_vendido) || 0), 0
+      )
+      callsMetrics.taxa_conversao_calls = callLeads.length > 0 ? 
+        (callsVendidas.length / callLeads.length) * 100 : 0
     }
 
     const metrics = { sales: salesMetrics, calls: callsMetrics }

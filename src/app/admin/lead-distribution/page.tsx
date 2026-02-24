@@ -94,9 +94,13 @@ export default function LeadDistributionDashboard() {
 
       switch (selectedPeriod) {
         case '7d':
-          // Últimos 7 dias (hoje até 7 dias atrás)
-          startDate = new Date(now)
-          startDate.setDate(now.getDate() - 7)
+          // Últimos 7 dias de segunda a domingo
+          const today = new Date()
+          const dayOfWeek = today.getDay() // 0 = Sunday, 1 = Monday, etc.
+          const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // Adjust so Monday = 0
+          
+          startDate = new Date(today)
+          startDate.setDate(today.getDate() - daysToSubtract - 7) // Go to Monday of last week
           startDate.setHours(0, 0, 0, 0)
           
           lastPeriodStart = new Date(startDate)
@@ -105,15 +109,13 @@ export default function LeadDistributionDashboard() {
           lastPeriodEnd.setSeconds(-1)
           break
         case '30d':
-          // Últimos 30 dias (hoje até 30 dias atrás)
-          startDate = new Date(now)
-          startDate.setDate(now.getDate() - 30)
+          // Do dia 1 do mês vigente até a data atual
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
           startDate.setHours(0, 0, 0, 0)
           
-          lastPeriodStart = new Date(startDate)
-          lastPeriodStart.setDate(startDate.getDate() - 30)
-          lastPeriodEnd = new Date(startDate)
-          lastPeriodEnd.setSeconds(-1)
+          // Para período anterior, usar mesmo período do mês passado
+          lastPeriodStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+          lastPeriodEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
           break
         case '90d':
           startDate = new Date(now)
@@ -124,6 +126,15 @@ export default function LeadDistributionDashboard() {
           lastPeriodStart.setDate(startDate.getDate() - 90)
           lastPeriodEnd = new Date(startDate)
           lastPeriodEnd.setSeconds(-1)
+          break
+        case '1y':
+          // De 1 de janeiro do ano vigente até a data atual
+          startDate = new Date(now.getFullYear(), 0, 1) // 1° de janeiro
+          startDate.setHours(0, 0, 0, 0)
+          
+          // Para período anterior, usar mesmo período do ano passado
+          lastPeriodStart = new Date(now.getFullYear() - 1, 0, 1)
+          lastPeriodEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59)
           break
         default:
           startDate = new Date(now)
@@ -268,20 +279,28 @@ export default function LeadDistributionDashboard() {
 
       switch (selectedPeriod) {
         case '7d':
-          // Últimos 7 dias (consistente com loadDistributionData)
-          startDate = new Date(now)
-          startDate.setDate(now.getDate() - 7)
+          // Últimos 7 dias de segunda a domingo (consistente com loadDistributionData)
+          const today = new Date()
+          const dayOfWeek = today.getDay()
+          const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+          
+          startDate = new Date(today)
+          startDate.setDate(today.getDate() - daysToSubtract - 7)
           startDate.setHours(0, 0, 0, 0)
           break
         case '30d':
-          // Últimos 30 dias (consistente com loadDistributionData)
-          startDate = new Date(now)
-          startDate.setDate(now.getDate() - 30)
+          // Do dia 1 do mês vigente até a data atual (consistente com loadDistributionData)
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
           startDate.setHours(0, 0, 0, 0)
           break
         case '90d':
           startDate = new Date(now)
           startDate.setDate(now.getDate() - 90)
+          startDate.setHours(0, 0, 0, 0)
+          break
+        case '1y':
+          // De 1 de janeiro do ano vigente até a data atual
+          startDate = new Date(now.getFullYear(), 0, 1)
           startDate.setHours(0, 0, 0, 0)
           break
         default:

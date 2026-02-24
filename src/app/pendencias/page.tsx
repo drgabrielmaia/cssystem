@@ -104,44 +104,87 @@ export default function PendenciasPage() {
     ano: anoSelecionado
   }), [anoSelecionado])
 
-  // Hook para buscar dívidas de forma otimizada
-  const { 
-    data: rawDividas, 
-    loading: dividasLoading, 
-    refetch: refetchDividas,
-    isRefetching: isRefetchingDividas 
-  } = useStableData<any>({
-    tableName: 'dividas',
-    select: '*',
-    filters: organizationId ? { organization_id: organizationId } : {},
-    dependencies: [anoSelecionado, organizationId],
-    debounceMs: 300
-  })
+  // Estados para carregamento manual
+  const [rawDividas, setRawDividas] = useState<any[]>([])
+  const [dividasLoading, setDividasLoading] = useState(true)
+  const [isRefetchingDividas, setIsRefetchingDividas] = useState(false)
 
-  // Hook para buscar mentorados
-  const { 
-    data: mentoradosDisponiveis, 
-    loading: mentoradosLoading,
-    refetch: refetchMentorados 
-  } = useStableData<any>({
-    tableName: 'mentorados',
-    select: 'id, nome_completo',
-    filters: organizationId ? { organization_id: organizationId } : {},
-    dependencies: [organizationId],
-    debounceMs: 500
-  })
+  // Função para carregar dívidas
+  const refetchDividas = useCallback(async () => {
+    if (!organizationId) return
+    
+    setIsRefetchingDividas(true)
+    try {
+      const { data, error } = await supabase
+        .from('dividas')
+        .select('*')
+        .eq('organization_id', organizationId)
+      
+      if (error) throw error
+      setRawDividas(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar dívidas:', error)
+    } finally {
+      setIsRefetchingDividas(false)
+      setDividasLoading(false)
+    }
+  }, [organizationId])
 
-  // Hook para buscar comissões pendentes
-  const { 
-    data: comissoesPendentes, 
-    loading: comissoesLoading 
-  } = useStableData<Comissao>({
-    tableName: 'comissoes',
-    select: '*',
-    filters: organizationId ? { status_pagamento: 'pendente', organization_id: organizationId } : { status_pagamento: 'pendente' },
-    dependencies: [organizationId],
-    debounceMs: 1000
-  })
+  // Estados para mentorados
+  const [mentoradosDisponiveis, setMentoradosDisponiveis] = useState<any[]>([])
+  const [mentoradosLoading, setMentoradosLoading] = useState(true)
+
+  // Função para carregar mentorados
+  const refetchMentorados = useCallback(async () => {
+    if (!organizationId) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('mentorados')
+        .select('id, nome_completo')
+        .eq('organization_id', organizationId)
+      
+      if (error) throw error
+      setMentoradosDisponiveis(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar mentorados:', error)
+    } finally {
+      setMentoradosLoading(false)
+    }
+  }, [organizationId])
+
+  // Estados para comissões
+  const [comissoesPendentes, setComissoesPendentes] = useState<Comissao[]>([])
+  const [comissoesLoading, setComissoesLoading] = useState(true)
+
+  // Função para carregar comissões
+  const refetchComissoes = useCallback(async () => {
+    if (!organizationId) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('comissoes')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .eq('status_pagamento', 'pendente')
+      
+      if (error) throw error
+      setComissoesPendentes(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar comissões:', error)
+    } finally {
+      setComissoesLoading(false)
+    }
+  }, [organizationId])
+
+  // useEffect para carregar dados automaticamente
+  useEffect(() => {
+    if (organizationId) {
+      refetchDividas()
+      refetchMentorados()
+      refetchComissoes()
+    }
+  }, [organizationId, refetchDividas, refetchMentorados, refetchComissoes])
 
   // Hooks de mutação otimizados
   const createDivida = useStableMutation('dividas', 'insert', {

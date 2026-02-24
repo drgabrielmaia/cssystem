@@ -42,6 +42,7 @@ interface Comissao {
   data_vencimento: string
   data_pagamento?: string | null
   observacoes?: string | null
+  recipient_pix_key?: string | null
   created_at: string
   updated_at: string
   mentorados?: {
@@ -243,6 +244,7 @@ export default function ComissoesPage() {
           data_vencimento,
           data_pagamento,
           observacoes,
+          recipient_pix_key,
           created_at,
           updated_at,
           mentorados:mentorado_id(
@@ -257,9 +259,9 @@ export default function ComissoesPage() {
           )
         `)
 
-      // Filtrar por organização (incluir registros sem organização por compatibilidade)
+      // Filtrar por organização (apenas dados da organização atual)
       if (activeOrganizationId) {
-        query = query.or(`organization_id.eq.${activeOrganizationId},organization_id.is.null`)
+        query = query.eq('organization_id', activeOrganizationId)
       }
 
       // Aplicar filtros de data
@@ -329,9 +331,9 @@ export default function ComissoesPage() {
         .from('comissoes')
         .select('valor_comissao, status_pagamento, data_venda, created_at')
       
-      // Filtrar por organização (incluir registros sem organização por compatibilidade)
+      // Filtrar por organização (apenas dados da organização atual)
       if (activeOrganizationId) {
-        statsQuery = statsQuery.or(`organization_id.eq.${activeOrganizationId},organization_id.is.null`)
+        statsQuery = statsQuery.eq('organization_id', activeOrganizationId)
       }
 
       // Aplicar filtros de data
@@ -442,6 +444,71 @@ export default function ComissoesPage() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR')
+  }
+
+  const exportComissoes = () => {
+    try {
+      // Filtrar comissões baseado nos filtros atuais
+      let exportData = comissoes
+
+      // Aplicar filtro de status se selecionado
+      if (statusFilter && statusFilter !== 'todos') {
+        exportData = exportData.filter(c => c.status_pagamento === statusFilter)
+      }
+
+      // Aplicar filtro de mentorado se selecionado
+      if (mentoradoFilter && mentoradoFilter !== 'todos') {
+        exportData = exportData.filter(c => c.mentorados?.nome === mentoradoFilter)
+      }
+
+      // Aplicar filtro de busca se houver
+      if (searchTerm) {
+        exportData = exportData.filter(comissao => {
+          return comissao.mentorados?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            comissao.leads?.nome_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            comissao.leads?.empresa?.toLowerCase().includes(searchTerm.toLowerCase())
+        })
+      }
+
+      // Preparar dados CSV
+      const csvData = exportData.map(comissao => ({
+        'Nome': comissao.mentorados?.nome || comissao.leads?.nome_completo || 'N/A',
+        'Email': comissao.mentorados?.email || comissao.leads?.email || 'N/A',
+        'PIX': comissao.recipient_pix_key || 'N/A',
+        'Valor da Venda': formatCurrency(comissao.valor_venda || 0),
+        'Percentual Comissão': `${(comissao.percentual_comissao || 0)}%`,
+        'Valor da Comissão': formatCurrency(comissao.valor_comissao || 0),
+        'Status': comissao.status_pagamento === 'pago' ? 'Pago' : 
+                 comissao.status_pagamento === 'pendente' ? 'Pendente' : 'Cancelado',
+        'Data da Venda': formatDate(comissao.data_venda),
+        'Data de Vencimento': formatDate(comissao.data_vencimento),
+        'Data de Pagamento': comissao.data_pagamento ? formatDate(comissao.data_pagamento) : 'N/A',
+        'Observações': comissao.observacoes || 'N/A'
+      }))
+
+      // Criar CSV
+      const headers = Object.keys(csvData[0] || {})
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => headers.map(header => `"${(row as any)[header]}"`).join(','))
+      ].join('\n')
+
+      // Download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `comissoes_${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      console.log('✅ Comissões exportadas com sucesso!')
+    } catch (error) {
+      console.error('❌ Erro ao exportar comissões:', error)
+      alert('Erro ao exportar comissões. Tente novamente.')
+    }
   }
 
   const isOverdue = (dateString: string, status: string) => {
@@ -774,7 +841,10 @@ fill="hsl(var(--primary))"
             <RefreshCw className="w-4 h-4" />
             Atualizar
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 text-foreground hover:bg-muted rounded-xl transition-colors">
+          <button 
+            onClick={exportComissoes}
+            className="flex items-center gap-2 px-4 py-2 text-foreground hover:bg-muted rounded-xl transition-colors"
+          >
             <Download className="w-4 h-4" />
             Exportar
           </button>
