@@ -47,6 +47,16 @@ interface GroupEvent {
   created_by_email?: string
 }
 
+interface Lead {
+  id: string
+  nome_completo: string
+  email?: string
+  telefone?: string
+  status: string
+  origem?: string
+  created_at: string
+}
+
 interface EventParticipant {
   id: string
   event_id: string

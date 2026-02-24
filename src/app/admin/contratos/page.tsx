@@ -63,7 +63,7 @@ interface Lead {
   nome_completo: string
   email: string
   telefone?: string
-  status_qualificacao?: string
+  status?: string
 }
 
 interface SignatureSettings {
@@ -152,9 +152,9 @@ export default function ContractsPage() {
       // Load leads for contract creation
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
-        .select('id, nome_completo, email, telefone, status_qualificacao')
+        .select('id, nome_completo, email, telefone, status')
         .eq('organization_id', organizationId)
-        .neq('status_qualificacao', 'convertido')
+        .neq('status', 'convertido')
         .order('nome_completo')
 
       if (leadsError) throw leadsError
