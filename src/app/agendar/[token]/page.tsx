@@ -463,7 +463,7 @@ ${formData.objetivo_call || 'Não especificado'}
               </div>
               <div>
                 <h1 className="text-xl font-bold" style={{ color: 'var(--text-main)' }}>Agendamento Online</h1>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Com Larissa - Consultora Estratégica</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Com Paulo Guimarães - Consultor Sênior</p>
               </div>
             </div>
             {step < 6 && (
@@ -1137,8 +1137,8 @@ ${formData.objetivo_call || 'Não especificado'}
                       <User className="w-5 h-5 text-emerald-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">Com Larissa</p>
-                      <p className="text-sm text-gray-600">Consultora Estratégica</p>
+                      <p className="font-medium text-gray-900">Com Paulo Guimarães</p>
+                      <p className="text-sm text-gray-600">Consultor Sênior</p>
                     </div>
                   </div>
                 </div>

@@ -296,7 +296,7 @@ export async function POST(request: NextRequest) {
 
         if (!linkError) {
           // Create internal appointment link
-          const appointmentLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://cssystem.com.br'}/agendar/${appointmentToken}`
+          const appointmentLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://cs.medicosderesultado.com.br'}/agendar/${appointmentToken}`
 
           appointmentResult = {
             appointment_scheduled: true,
@@ -333,7 +333,7 @@ export async function POST(request: NextRequest) {
         }])
 
       if (!linkError) {
-        appointmentResult.appointment_link = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://cssystem.com.br'}/agendar/${appointmentToken}`
+        appointmentResult.appointment_link = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://cs.medicosderesultado.com.br'}/agendar/${appointmentToken}`
       }
     }
 
