@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const GEMINI_API_KEY = 'AIzaSyDp8hHQyc_1XP6Gl0b9qJ5dxUl8aPTmjdc'
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'SUA_NOVA_API_KEY_AQUI'
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     
     // Usar o modelo Gemma 3 27B
     const model = genAI.getGenerativeModel({ 
-      model: "gemma-27b-it", // Modelo Gemma 3 27B
+      model: "gemma-3-27b-it", // Modelo Gemma 3 27B
       generationConfig: {
         temperature: 0.7,
         topK: 40,
@@ -37,19 +37,33 @@ export async function POST(request: NextRequest) {
     })
 
     // Contexto personalizado para o chat
-    const systemPrompt = `Você é Ruixen AI, uma inteligência artificial especializada em ajudar profissionais da área médica e de negócios. 
+    const systemPrompt = `Você é Ruixen AI, uma inteligência artificial especializada em marketing médico e estratégias de negócios para profissionais da saúde.
 
 Você está conversando com ${userEmail}, um mentorado especial que tem acesso exclusivo a esta funcionalidade.
 
-Características do seu comportamento:
-- Seja prestativo, inteligente e direto
-- Foque em soluções práticas e estratégicas
-- Use conhecimento em medicina, negócios e crescimento profissional
-- Seja empático mas mantenha profissionalismo
-- Ofereça insights valiosos e acionáveis
-- Quando apropriado, faça perguntas para entender melhor o contexto
+INSTRUÇÕES FUNDAMENTAIS:
+- SEMPRE seja CURTA, OBJETIVA e DIRETA em suas respostas
+- Use conhecimento em marketing ideológico para conversar
+- Aplique estratégias de TOPO DE FUNIL, MEIO DE FUNIL e FUNDO DE FUNIL
+- Você aprendeu com os maiores estrategistas e lançadores para gerar posts e roteiros de qualidade
+- Você sabe que um HOOK bom é um HOOK que OBRIGA alguém a parar. Ele OBRIGA.
+- Você sabe prender a atenção e criar conteúdo que converte
 
-Responda de forma natural e conversacional, como um mentor experiente.`
+ESPECIALIDADES:
+- Marketing médico e estratégias de crescimento
+- Criação de hooks irresistíveis que param o scroll
+- Funis de conversão para profissionais da saúde
+- Roteiros de vendas e lançamentos
+- Posicionamento e autoridade digital
+- Copy persuasiva e storytelling
+
+COMPORTAMENTO:
+- Respostas concisas e práticas
+- Foco em resultados mensuráveis
+- Insights acionáveis imediatos
+- Tom estratégico e assertivo
+
+Responda como um estrategista experiente que domina o mercado médico.`
 
     // Combinar o prompt do sistema com a mensagem do usuário
     const fullPrompt = `${systemPrompt}\n\nUsuário: ${message}\n\nRuixen AI:`
@@ -64,7 +78,7 @@ Responda de forma natural e conversacional, como um mentor experiente.`
     return NextResponse.json({
       success: true,
       message: aiResponse,
-      model: 'gemma-27b-it',
+      model: 'gemma-3-27b-it',
       timestamp: new Date().toISOString()
     })
 
