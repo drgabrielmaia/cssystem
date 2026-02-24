@@ -85,6 +85,12 @@ export function useStableData<T = any>({
       setData((result as T[]) || [])
 
     } catch (err: any) {
+      // Ignorar erros de abort silenciosamente
+      if (err.name === 'AbortError' || abortController.signal.aborted) {
+        console.log(`🚫 Fetch ${fetchId} abortado`)
+        return
+      }
+      
       if (fetchId === lastFetchId.current && !abortController.signal.aborted) {
         console.error(`❌ Erro no fetch ${tableName}:`, err)
         setError(err.message || 'Erro desconhecido')

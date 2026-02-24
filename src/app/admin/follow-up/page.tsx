@@ -47,6 +47,7 @@ import {
   FollowupStep, 
   LeadFollowupExecution
 } from '@/types/commission'
+import { useAuth } from '@/contexts/auth'
 
 interface SequenceFormData {
   nome_sequencia: string;
@@ -138,6 +139,7 @@ const STEP_TEMPLATES = {
 }
 
 export default function FollowUpConfigPage() {
+  const { organizationId, isAdmin } = useAuth()
   const [sequences, setSequences] = useState<LeadFollowupSequence[]>([])
   const [sequenceStats, setSequenceStats] = useState<SequenceStats[]>([])
   const [executions, setExecutions] = useState<LeadFollowupExecution[]>([])
@@ -160,8 +162,10 @@ export default function FollowUpConfigPage() {
   })
 
   useEffect(() => {
-    loadData()
-  }, [])
+    if (organizationId) {
+      loadData()
+    }
+  }, [organizationId])
 
   const loadData = async () => {
     setLoading(true)
@@ -180,9 +184,12 @@ export default function FollowUpConfigPage() {
   }
 
   const loadSequences = async () => {
+    if (!organizationId) return
+    
     const { data, error } = await supabase
       .from('lead_followup_sequences')
       .select('*')
+      .eq('organization_id', organizationId)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -194,6 +201,8 @@ export default function FollowUpConfigPage() {
   }
 
   const loadSequenceStats = async () => {
+    if (!organizationId) return
+    
     // Esta query seria otimizada numa view materializada em produção
     const { data: execData, error } = await supabase
       .from('lead_followup_executions')
@@ -204,6 +213,7 @@ export default function FollowUpConfigPage() {
         data_resposta,
         lead_followup_sequences!inner(nome_sequencia)
       `)
+      .eq('organization_id', organizationId)
 
     if (error) {
       console.error('Error loading sequence stats:', error)
@@ -266,6 +276,8 @@ export default function FollowUpConfigPage() {
   }
 
   const loadExecutions = async () => {
+    if (!organizationId) return
+    
     const { data, error } = await supabase
       .from('lead_followup_executions')
       .select(`
@@ -273,6 +285,7 @@ export default function FollowUpConfigPage() {
         leads!inner(nome_completo, email, temperatura),
         lead_followup_sequences!inner(nome_sequencia)
       `)
+      .eq('organization_id', organizationId)
       .eq('status', 'active')
       .order('proxima_execucao', { ascending: true })
       .limit(50)
@@ -294,7 +307,7 @@ export default function FollowUpConfigPage() {
     try {
       const sequenceData = {
         ...formData,
-        organization_id: '1', // Substituir pela organização atual
+        organization_id: organizationId,
         criterios_ativacao: JSON.stringify(formData.criterios_ativacao),
         steps: JSON.stringify(formData.steps)
       }

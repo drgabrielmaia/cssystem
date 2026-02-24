@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
 import { AlertTriangle, CheckCircle, AlertCircle, TrendingDown, Calendar, Users } from 'lucide-react'
+import { useAuth } from '@/contexts/auth'
 
 interface ChurnStats {
   totalMentorias: number
@@ -20,6 +21,7 @@ interface ChurnStats {
 }
 
 export function ChurnRateCard() {
+  const { organizationId } = useAuth()
   const [stats, setStats] = useState<ChurnStats>({
     totalMentorias: 0,
     desistencias: 0,
@@ -31,8 +33,10 @@ export function ChurnRateCard() {
   const [showChurnedModal, setShowChurnedModal] = useState(false)
 
   useEffect(() => {
-    loadChurnStats()
-  }, [timeFilter])
+    if (organizationId) {
+      loadChurnStats()
+    }
+  }, [timeFilter, organizationId])
 
   const getDateRange = () => {
     const now = new Date()
@@ -93,6 +97,7 @@ export function ChurnRateCard() {
       const { data: todosMentorados, error: allError } = await supabase
         .from('mentorados')
         .select('id')
+        .eq('organization_id', organizationId)
 
       if (allError) throw allError
 
@@ -101,6 +106,7 @@ export function ChurnRateCard() {
       let churnQuery = supabase
         .from('mentorados')
         .select('id, nome_completo, motivo_exclusao, data_entrada, data_exclusao, excluido')
+        .eq('organization_id', organizationId)
         .eq('excluido', true)
         .eq('motivo_exclusao', 'reembolso')
 
