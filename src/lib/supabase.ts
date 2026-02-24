@@ -8,7 +8,15 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    // Melhor tratamento de erros de auth
+    onAuthStateChange: (event, session) => {
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('🔄 Token refreshed successfully')
+      } else if (event === 'SIGNED_OUT') {
+        console.log('👋 User signed out')
+      }
+    }
   },
   global: {
     headers: {
@@ -17,7 +25,23 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseKey, {
     fetch: (url, options = {}) => {
       return fetch(url, {
         ...options,
-        signal: options.signal || AbortSignal.timeout(30000), // 30s timeout
+        // Use signal only if explicitly provided, avoiding conflicts
+        ...(options.signal && { signal: options.signal })
+      }).catch((error: any) => {
+        // Silenciar AbortError no nível do fetch
+        if (error.name === 'AbortError') {
+          console.log('🚫 Request aborted:', url.slice(-50))
+          throw error // Re-throw mas com log
+        }
+        
+        // Tratar erros de auth de forma mais suave
+        if (error.message?.includes('Invalid Refresh') || error.message?.includes('refresh_token')) {
+          console.log('🔑 Auth token expired, redirecting to login...')
+          // Não quebrar a aplicação, apenas logar
+          throw error
+        }
+        
+        throw error
       })
     }
   },
@@ -44,7 +68,15 @@ export const createClient = () => createBrowserClient(supabaseUrl, supabaseKey, 
     fetch: (url, options = {}) => {
       return fetch(url, {
         ...options,
-        signal: options.signal || AbortSignal.timeout(30000), // 30s timeout
+        // Use signal only if explicitly provided, avoiding conflicts
+        ...(options.signal && { signal: options.signal })
+      }).catch((error: any) => {
+        // Silenciar AbortError no nível do fetch
+        if (error.name === 'AbortError') {
+          console.log('🚫 Request aborted:', url.slice(-50))
+          throw error // Re-throw mas com log
+        }
+        throw error
       })
     }
   },

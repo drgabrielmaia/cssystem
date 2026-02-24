@@ -126,7 +126,12 @@ export function useStableData<T = any>({
     // Cleanup
     return () => {
       if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
+        try {
+          abortControllerRef.current.abort()
+        } catch (error) {
+          // Ignorar erros de cleanup
+          console.log('🧹 Cleanup abort error ignored')
+        }
       }
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current)

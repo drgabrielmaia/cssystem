@@ -8,6 +8,7 @@ import { CloserAuthProvider } from '@/contexts/closer-auth'
 import { AppContent } from '@/components/app-content'
 import { PendingInvitesProvider } from '@/components/pending-invites-provider'
 import { ChunkErrorBoundary } from '@/components/chunk-error-boundary'
+import { GlobalErrorHandler } from '@/components/error-handlers'
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -31,6 +32,7 @@ export default function RootLayout({
     <html lang="pt-BR" className="h-full" suppressHydrationWarning={true}>
       <body className={`${inter.className} h-full bg-gray-900 text-white dark`} suppressHydrationWarning={true}>
         <ChunkErrorBoundary>
+          <GlobalErrorHandler />
           <AuthProvider>
             <CloserAuthProvider>
               <OrganizationProvider>
