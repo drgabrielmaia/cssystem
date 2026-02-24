@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useMentoradoAuth, MentoradoAuthProvider } from '@/contexts/mentorado-auth';
 import { supabase } from '@/lib/supabase';
-import MentoradoInfoWrapper from '@/components/MentoradoInfoWrapper';
 import { 
   FileText, 
   Heart, 
@@ -28,19 +27,19 @@ interface PersonaFormData {
   // Informações Gerais da Persona
   nome_ficticio: string;
   idade: number;
-  genero: string;
-  estado_civil: string;
+  genero: string[];
+  estado_civil: string[];
   profissao: string;
-  nivel_escolaridade: string;
+  nivel_escolaridade: string[];
   cidade_estado: string;
-  classe_social: string;
+  classe_social: string[];
   
   // Rotina e Estilo de Vida
   rotina_diaria: string;
-  redes_sociais_usa: string;
+  redes_sociais_usa: string[];
   marcas_admira: string;
   conteudo_consome: string;
-  mora_com: string;
+  mora_com: string[];
   tem_filhos_animais: string;
   
   // Dores e Frustrações
@@ -67,7 +66,7 @@ interface PersonaFormData {
   como_se_ver_3_meses: string;
   
   // Tom de Voz Ideal
-  tom_voz_preferido: string;
+  tom_voz_preferido: string[];
   
   // Frases que ela diria
   frases_tipicas: string;
@@ -90,14 +89,14 @@ function AreaDoAlunoPageContent() {
   const { mentorado, loading: authLoading } = useMentoradoAuth();
   const [activeStep, setActiveStep] = useState<'persona' | 'dores-desejos' | 'chat'>('persona');
   const [personaForm, setPersonaForm] = useState<PersonaFormData>({
-    nome_ficticio: '', idade: 0, genero: '', estado_civil: '', profissao: '',
-    nivel_escolaridade: '', cidade_estado: '', classe_social: '',
-    rotina_diaria: '', redes_sociais_usa: '', marcas_admira: '', conteudo_consome: '',
-    mora_com: '', tem_filhos_animais: '', principais_problemas: '', tentativas_resolucao: '',
+    nome_ficticio: '', idade: 0, genero: [], estado_civil: [], profissao: '',
+    nivel_escolaridade: [], cidade_estado: '', classe_social: [],
+    rotina_diaria: '', redes_sociais_usa: [], marcas_admira: '', conteudo_consome: '',
+    mora_com: [], tem_filhos_animais: '', principais_problemas: '', tentativas_resolucao: '',
     por_que_nao_resolveu: '', sentimento_diario: '', desejo_6_meses: '', sonhos_longo_prazo: '',
     realizacao_pessoal: '', vida_ideal: '', objecoes_compra: '', medos_tratamento: '',
     experiencias_ruins: '', acredita_solucao: '', expectativas_servico: '', transformacao_buscada: '',
-    como_se_ver_3_meses: '', tom_voz_preferido: '', frases_tipicas: '', lugares_frequenta: '',
+    como_se_ver_3_meses: '', tom_voz_preferido: [], frases_tipicas: '', lugares_frequenta: '',
     eventos_comunidades: '', influenciadores_segue: '', resumo_persona: ''
   });
   
@@ -306,32 +305,48 @@ function PersonaFormSection({ formData, setFormData, onSave, loading, completed 
               />
             </div>
             <div>
-              <label className="block text-white text-sm font-medium mb-2">Gênero:</label>
-              <select 
-                value={formData.genero}
-                onChange={(e) => setFormData({...formData, genero: e.target.value})}
-                className="w-full bg-white/10 border border-white/30 text-white rounded-md px-3 py-2"
-              >
-                <option value="">Selecione...</option>
-                <option value="feminino">Feminino</option>
-                <option value="masculino">Masculino</option>
-                <option value="outro">Outro</option>
-              </select>
+              <label className="block text-white text-sm font-medium mb-2">Gênero: (pode selecionar múltiplos)</label>
+              <div className="space-y-2">
+                {['Feminino', 'Masculino', 'Não-binário', 'Outro'].map((genero) => (
+                  <label key={genero} className="flex items-center space-x-2 text-white">
+                    <input
+                      type="checkbox"
+                      checked={formData.genero.includes(genero)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({...formData, genero: [...formData.genero, genero]})
+                        } else {
+                          setFormData({...formData, genero: formData.genero.filter(g => g !== genero)})
+                        }
+                      }}
+                      className="text-blue-500 rounded"
+                    />
+                    <span>{genero}</span>
+                  </label>
+                ))}
+              </div>
             </div>
             <div>
-              <label className="block text-white text-sm font-medium mb-2">Estado civil:</label>
-              <select 
-                value={formData.estado_civil}
-                onChange={(e) => setFormData({...formData, estado_civil: e.target.value})}
-                className="w-full bg-white/10 border border-white/30 text-white rounded-md px-3 py-2"
-              >
-                <option value="">Selecione...</option>
-                <option value="solteiro">Solteiro(a)</option>
-                <option value="casado">Casado(a)</option>
-                <option value="divorciado">Divorciado(a)</option>
-                <option value="viuvo">Viúvo(a)</option>
-                <option value="uniao_estavel">União estável</option>
-              </select>
+              <label className="block text-white text-sm font-medium mb-2">Estado civil: (pode selecionar múltiplos)</label>
+              <div className="space-y-2">
+                {['Solteiro(a)', 'Casado(a)', 'Divorciado(a)', 'Viúvo(a)', 'União estável'].map((estado) => (
+                  <label key={estado} className="flex items-center space-x-2 text-white">
+                    <input
+                      type="checkbox"
+                      checked={formData.estado_civil.includes(estado)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({...formData, estado_civil: [...formData.estado_civil, estado]})
+                        } else {
+                          setFormData({...formData, estado_civil: formData.estado_civil.filter(e => e !== estado)})
+                        }
+                      }}
+                      className="text-blue-500 rounded"
+                    />
+                    <span>{estado}</span>
+                  </label>
+                ))}
+              </div>
             </div>
             <div>
               <label className="block text-white text-sm font-medium mb-2">Profissão:</label>
@@ -343,21 +358,26 @@ function PersonaFormSection({ formData, setFormData, onSave, loading, completed 
               />
             </div>
             <div>
-              <label className="block text-white text-sm font-medium mb-2">Nível de escolaridade:</label>
-              <select 
-                value={formData.nivel_escolaridade}
-                onChange={(e) => setFormData({...formData, nivel_escolaridade: e.target.value})}
-                className="w-full bg-white/10 border border-white/30 text-white rounded-md px-3 py-2"
-              >
-                <option value="">Selecione...</option>
-                <option value="fundamental">Ensino Fundamental</option>
-                <option value="medio">Ensino Médio</option>
-                <option value="tecnico">Técnico</option>
-                <option value="superior">Ensino Superior</option>
-                <option value="pos_graduacao">Pós-graduação</option>
-                <option value="mestrado">Mestrado</option>
-                <option value="doutorado">Doutorado</option>
-              </select>
+              <label className="block text-white text-sm font-medium mb-2">Nível de escolaridade: (pode selecionar múltiplos)</label>
+              <div className="space-y-2">
+                {['Ensino Fundamental', 'Ensino Médio', 'Técnico', 'Ensino Superior', 'Pós-graduação', 'Mestrado', 'Doutorado'].map((nivel) => (
+                  <label key={nivel} className="flex items-center space-x-2 text-white">
+                    <input
+                      type="checkbox"
+                      checked={formData.nivel_escolaridade.includes(nivel)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({...formData, nivel_escolaridade: [...formData.nivel_escolaridade, nivel]})
+                        } else {
+                          setFormData({...formData, nivel_escolaridade: formData.nivel_escolaridade.filter(n => n !== nivel)})
+                        }
+                      }}
+                      className="text-blue-500 rounded"
+                    />
+                    <span>{nivel}</span>
+                  </label>
+                ))}
+              </div>
             </div>
             <div>
               <label className="block text-white text-sm font-medium mb-2">Cidade/Estado em que mora:</label>
@@ -369,18 +389,26 @@ function PersonaFormSection({ formData, setFormData, onSave, loading, completed 
               />
             </div>
             <div>
-              <label className="block text-white text-sm font-medium mb-2">Classe social:</label>
-              <select 
-                value={formData.classe_social}
-                onChange={(e) => setFormData({...formData, classe_social: e.target.value})}
-                className="w-full bg-white/10 border border-white/30 text-white rounded-md px-3 py-2"
-              >
-                <option value="">Selecione...</option>
-                <option value="A">Classe A</option>
-                <option value="B">Classe B</option>
-                <option value="C">Classe C</option>
-                <option value="D">Classe D</option>
-              </select>
+              <label className="block text-white text-sm font-medium mb-2">Classe social: (pode selecionar múltiplos)</label>
+              <div className="space-y-2">
+                {['Classe A', 'Classe B', 'Classe C', 'Classe D'].map((classe) => (
+                  <label key={classe} className="flex items-center space-x-2 text-white">
+                    <input
+                      type="checkbox"
+                      checked={formData.classe_social.includes(classe)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({...formData, classe_social: [...formData.classe_social, classe]})
+                        } else {
+                          setFormData({...formData, classe_social: formData.classe_social.filter(c => c !== classe)})
+                        }
+                      }}
+                      className="text-blue-500 rounded"
+                    />
+                    <span>{classe}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -406,13 +434,26 @@ function PersonaFormSection({ formData, setFormData, onSave, loading, completed 
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-white text-sm font-medium mb-2">Quais redes sociais ela mais usa?</label>
-              <Input 
-                value={formData.redes_sociais_usa}
-                onChange={(e) => setFormData({...formData, redes_sociais_usa: e.target.value})}
-                placeholder="Ex: Instagram, YouTube, TikTok..."
-                className="bg-white/10 border-white/30 text-white placeholder:text-white/50"
-              />
+              <label className="block text-white text-sm font-medium mb-2">Quais redes sociais ela mais usa? (pode selecionar múltiplos)</label>
+              <div className="space-y-2">
+                {['Instagram', 'Facebook', 'TikTok', 'YouTube', 'WhatsApp', 'LinkedIn', 'Twitter/X', 'Pinterest', 'Telegram'].map((rede) => (
+                  <label key={rede} className="flex items-center space-x-2 text-white">
+                    <input
+                      type="checkbox"
+                      checked={formData.redes_sociais_usa.includes(rede)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({...formData, redes_sociais_usa: [...formData.redes_sociais_usa, rede]})
+                        } else {
+                          setFormData({...formData, redes_sociais_usa: formData.redes_sociais_usa.filter(r => r !== rede)})
+                        }
+                      }}
+                      className="text-blue-500 rounded"
+                    />
+                    <span>{rede}</span>
+                  </label>
+                ))}
+              </div>
             </div>
             <div>
               <label className="block text-white text-sm font-medium mb-2">Quais marcas ela admira ou consome?</label>
@@ -435,13 +476,26 @@ function PersonaFormSection({ formData, setFormData, onSave, loading, completed 
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-white text-sm font-medium mb-2">Com quem ela mora?</label>
-              <Input 
-                value={formData.mora_com}
-                onChange={(e) => setFormData({...formData, mora_com: e.target.value})}
-                placeholder="Ex: Sozinha, com família, cônjuge..."
-                className="bg-white/10 border-white/30 text-white placeholder:text-white/50"
-              />
+              <label className="block text-white text-sm font-medium mb-2">Com quem ela mora? (pode selecionar múltiplos)</label>
+              <div className="space-y-2">
+                {['Sozinha', 'Com cônjuge/parceiro', 'Com filhos', 'Com pais', 'Com familiares', 'Com amigos/colegas', 'Com pets'].map((situacao) => (
+                  <label key={situacao} className="flex items-center space-x-2 text-white">
+                    <input
+                      type="checkbox"
+                      checked={formData.mora_com.includes(situacao)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({...formData, mora_com: [...formData.mora_com, situacao]})
+                        } else {
+                          setFormData({...formData, mora_com: formData.mora_com.filter(m => m !== situacao)})
+                        }
+                      }}
+                      className="text-blue-500 rounded"
+                    />
+                    <span>{situacao}</span>
+                  </label>
+                ))}
+              </div>
             </div>
             <div>
               <label className="block text-white text-sm font-medium mb-2">Tem filhos? Animais?</label>
@@ -648,7 +702,7 @@ function PersonaFormSection({ formData, setFormData, onSave, loading, completed 
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-white text-sm mb-4">Como você acredita que essa persona prefere ser abordada?</p>
+          <p className="text-white text-sm mb-4">Como você acredita que essa persona prefere ser abordada? (pode selecionar múltiplos)</p>
           <div className="space-y-2">
             {[
               'Formal',
@@ -660,11 +714,16 @@ function PersonaFormSection({ formData, setFormData, onSave, loading, completed 
             ].map((tom) => (
               <label key={tom} className="flex items-center space-x-2 text-white">
                 <input
-                  type="radio"
-                  value={tom}
-                  checked={formData.tom_voz_preferido === tom}
-                  onChange={(e) => setFormData({...formData, tom_voz_preferido: e.target.value})}
-                  className="text-pink-500"
+                  type="checkbox"
+                  checked={formData.tom_voz_preferido.includes(tom)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setFormData({...formData, tom_voz_preferido: [...formData.tom_voz_preferido, tom]})
+                    } else {
+                      setFormData({...formData, tom_voz_preferido: formData.tom_voz_preferido.filter(t => t !== tom)})
+                    }
+                  }}
+                  className="text-pink-500 rounded"
                 />
                 <span>{tom}</span>
               </label>
@@ -902,9 +961,7 @@ function ChatSection() {
 export default function AreaDoAlunoPage() {
   return (
     <MentoradoAuthProvider>
-      <MentoradoInfoWrapper>
-        <AreaDoAlunoPageContent />
-      </MentoradoInfoWrapper>
+      <AreaDoAlunoPageContent />
     </MentoradoAuthProvider>
   );
 }
