@@ -31,9 +31,9 @@ export async function POST(request: NextRequest) {
     // Inicializar o Google AI
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
     
-    // Usar o modelo Gemma 3 27B
+    // Usar o modelo Gemini 2.5 Flash
     const model = genAI.getGenerativeModel({ 
-      model: "gemma-3-27b-it", // Modelo Gemma 3 27B
+      model: "gemini-2.5-flash", // Modelo Gemini 2.5 Flash
       generationConfig: {
         temperature: 0.7,
         topK: 40,
@@ -93,7 +93,7 @@ Responda como um estrategista experiente e humano que domina o mercado médico.`
       return NextResponse.json({
         success: true,
         message: aiResponse,
-        model: 'gemma-3-27b-it',
+        model: 'gemini-2.5-flash',
         timestamp: new Date().toISOString()
       })
     }
