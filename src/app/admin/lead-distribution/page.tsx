@@ -105,11 +105,15 @@ export default function LeadDistributionDashboard() {
           lastPeriodEnd.setSeconds(-1)
           break
         case '30d':
-          // This month (1st to today)
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-          lastPeriodStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-          lastPeriodEnd = new Date(now.getFullYear(), now.getMonth(), 0)
-          lastPeriodEnd.setHours(23, 59, 59, 999)
+          // Últimos 30 dias (hoje até 30 dias atrás)
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - 30)
+          startDate.setHours(0, 0, 0, 0)
+          
+          lastPeriodStart = new Date(startDate)
+          lastPeriodStart.setDate(startDate.getDate() - 30)
+          lastPeriodEnd = new Date(startDate)
+          lastPeriodEnd.setSeconds(-1)
           break
         case '90d':
           startDate = new Date(now)
@@ -270,7 +274,10 @@ export default function LeadDistributionDashboard() {
           startDate.setHours(0, 0, 0, 0)
           break
         case '30d':
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+          // Últimos 30 dias (consistente com loadDistributionData)
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - 30)
+          startDate.setHours(0, 0, 0, 0)
           break
         case '90d':
           startDate = new Date(now)

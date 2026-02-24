@@ -235,8 +235,8 @@ export default function FormBuilderPage() {
       const { data, error } = await supabase
         .from('closers')
         .select('id, nome_completo, status_contrato')
-        .eq('status_contrato', 'ativo')
-        .eq('organizacao_id', organization.id)
+        .eq('ativo', true)
+        .eq('organization_id', organization.id)
 
       if (error) {
         console.error('Erro ao buscar closers:', error)

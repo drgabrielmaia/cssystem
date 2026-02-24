@@ -27,6 +27,8 @@ interface ContractForSigning {
   status: string
   expires_at: string
   created_at: string
+  signature_data?: any
+  organization_id?: string
 }
 
 export default function ContractSigningPage() {
@@ -39,6 +41,7 @@ export default function ContractSigningPage() {
   const [signing, setSigning] = useState(false)
   const [signed, setSigned] = useState(false)
   const [error, setError] = useState('')
+  const [organizationSignature, setOrganizationSignature] = useState<any>(null)
   
   // Signature state
   const [isDrawing, setIsDrawing] = useState(false)
@@ -68,7 +71,21 @@ export default function ContractSigningPage() {
       if (error) throw error
       
       if (data && data.length > 0) {
-        setContract(data[0])
+        const contractData = data[0]
+        setContract(contractData)
+        
+        // Load organization signature settings
+        if (contractData.organization_id) {
+          const { data: orgSignature } = await supabase
+            .from('organization_signature_settings')
+            .select('*')
+            .eq('organization_id', contractData.organization_id)
+            .single()
+          
+          if (orgSignature) {
+            setOrganizationSignature(orgSignature)
+          }
+        }
       } else {
         setError('Contrato não encontrado ou expirado')
       }
@@ -149,6 +166,44 @@ export default function ContractSigningPage() {
     if (!canvas) return null
     
     return canvas.toDataURL('image/png')
+  }
+
+  const getProcessedContractContent = () => {
+    if (!contract) return ''
+    
+    let content = contract.filled_content
+    
+    // Create organization signature block
+    const orgSignatureBlock = organizationSignature ? `
+    
+___________________
+${organizationSignature.signature_name}
+${organizationSignature.signature_title || ''}
+${organizationSignature.signature_document || ''}
+INSTITUTO DE MENTORIA MÉDICA GABRIEL MAIA LTDA
+CNPJ: 56.267.958/0001-60` : `
+
+___________________
+Assinatura da Contratada`
+
+    // Create client signature block
+    const clientSignatureBlock = contract.signature_data ? `
+
+___________________
+${contract.recipient_name}
+Assinatura Digital
+Assinado em: ${new Date(contract.signature_data.signed_at).toLocaleDateString('pt-BR')}` : `
+
+___________________
+${contract.recipient_name}
+Assinatura do Contratante`
+
+    // Replace signature placeholders
+    content = content.replace(/\[ASSINATURA_CONTRATADA\]/g, orgSignatureBlock)
+    content = content.replace(/\[ASSINATURA_CONTRATANTE\]/g, clientSignatureBlock)
+    content = content.replace(/\[SIGNATURE\]/g, clientSignatureBlock)
+    
+    return content
   }
 
   const handleSign = async () => {
@@ -323,7 +378,7 @@ export default function ContractSigningPage() {
               <CardContent>
                 <div className="bg-white p-6 rounded-lg text-black">
                   <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {contract.filled_content.replace('[SIGNATURE]', '___________________\nAssinatura do Contratante')}
+                    {getProcessedContractContent()}
                   </div>
                 </div>
               </CardContent>

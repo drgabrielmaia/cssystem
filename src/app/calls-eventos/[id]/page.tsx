@@ -123,18 +123,11 @@ export default function EventDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [showAddParticipantModal, setShowAddParticipantModal] = useState(false)
   const [showAddLeadModal, setShowAddLeadModal] = useState(false)
   const [showConvertModal, setShowConvertModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<EventParticipant | null>(null)
 
   // Form states
-  const [newParticipant, setNewParticipant] = useState({
-    participant_name: '',
-    participant_email: '',
-    participant_phone: ''
-  })
-
   const [selectedLead, setSelectedLead] = useState('')
   
   const [conversion, setConversion] = useState({
@@ -202,37 +195,6 @@ export default function EventDetailsPage() {
 
     if (error) throw error
     setAvailableLeads(data || [])
-  }
-
-  const handleAddParticipant = async () => {
-    if (!newParticipant.participant_name.trim()) {
-      toast.error('Nome é obrigatório')
-      return
-    }
-
-    try {
-      const { data, error } = await supabase.rpc('add_event_participant', {
-        p_event_id: eventId,
-        p_participant_name: newParticipant.participant_name,
-        p_organization_id: organizationId,
-        p_participant_email: newParticipant.participant_email || null,
-        p_participant_phone: newParticipant.participant_phone || null
-      })
-
-      if (error) throw error
-
-      if (data?.[0]?.success) {
-        toast.success('Participante adicionado com sucesso!')
-        setNewParticipant({ participant_name: '', participant_email: '', participant_phone: '' })
-        setShowAddParticipantModal(false)
-        loadParticipants()
-      } else {
-        toast.error(data?.[0]?.message || 'Erro ao adicionar participante')
-      }
-    } catch (error) {
-      console.error('Error adding participant:', error)
-      toast.error('Erro ao adicionar participante')
-    }
   }
 
   const handleAddLeadToEvent = async () => {
@@ -540,18 +502,9 @@ export default function EventDetailsPage() {
         <div className="flex items-center gap-2">
           <Dialog open={showAddLeadModal} onOpenChange={setShowAddLeadModal}>
             <DialogTrigger asChild>
-              <Button size="sm" variant="outline">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Adicionar Lead
-              </Button>
-            </DialogTrigger>
-          </Dialog>
-          
-          <Dialog open={showAddParticipantModal} onOpenChange={setShowAddParticipantModal}>
-            <DialogTrigger asChild>
               <Button size="sm">
                 <UserPlus className="h-4 w-4 mr-2" />
-                Novo Participante
+                Adicionar Lead
               </Button>
             </DialogTrigger>
           </Dialog>
@@ -677,63 +630,6 @@ export default function EventDetailsPage() {
           )}
         </div>
       </div>
-
-      {/* Add Participant Modal */}
-      <Dialog open={showAddParticipantModal} onOpenChange={setShowAddParticipantModal}>
-        <DialogContent className="sm:max-w-lg bg-gray-900 border-gray-700">
-          <DialogHeader>
-            <DialogTitle className="text-white">Adicionar Participante</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div>
-              <Label className="text-white">Nome Completo *</Label>
-              <Input
-                value={newParticipant.participant_name}
-                onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_name: e.target.value }))}
-                placeholder="Nome do participante"
-                className="bg-gray-800 border-gray-700 text-white"
-              />
-            </div>
-            <div>
-              <Label className="text-white">Email</Label>
-              <Input
-                type="email"
-                value={newParticipant.participant_email}
-                onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_email: e.target.value }))}
-                placeholder="email@exemplo.com"
-                className="bg-gray-800 border-gray-700 text-white"
-              />
-            </div>
-            <div>
-              <Label className="text-white">Telefone</Label>
-              <Input
-                value={newParticipant.participant_phone}
-                onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_phone: e.target.value }))}
-                placeholder="(11) 99999-9999"
-                className="bg-gray-800 border-gray-700 text-white"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3 mt-6">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowAddParticipantModal(false)}
-              className="flex-1 bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleAddParticipant}
-              disabled={!newParticipant.participant_name.trim()}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              Adicionar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Add Lead Modal */}
       <Dialog open={showAddLeadModal} onOpenChange={setShowAddLeadModal}>

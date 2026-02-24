@@ -136,6 +136,7 @@ function LeadsPageContent() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [showStudyMaterials, setShowStudyMaterials] = useState(false)
   const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month'>('today')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   
   // Form state
   const [formData, setFormData] = useState({
@@ -242,9 +243,9 @@ function LeadsPageContent() {
     try {
       const { data, error } = await supabase
         .from('closers')
-        .select('id, nome_completo, email, tipo_closer, status_contrato')
+        .select('id, nome_completo, email, tipo_closer, ativo')
         .eq('organization_id', closer.organization_id)
-        .eq('status_contrato', 'ativo')
+        .eq('ativo', true)
 
       if (error) {
         console.error('Error loading closers:', error)
@@ -479,10 +480,26 @@ function LeadsPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] flex">
+    <div className="min-h-screen bg-[#0F0F0F] flex flex-col lg:flex-row">
+      {/* Mobile Menu Button */}
+      <div className="lg:hidden flex items-center justify-between p-4 bg-[#1A1A1A] border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gradient-to-r from-[#4ADE80] to-[#10B981] rounded-lg flex items-center justify-center">
+            <span className="text-black font-bold text-sm">CS</span>
+          </div>
+          <span className="text-white font-semibold">CustomerSuccess</span>
+        </div>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+        >
+          {sidebarOpen ? <CloseIcon className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+      </div>
+
       {/* Sidebar Esquerda */}
-      <aside className="w-60 bg-[#0F0F0F] border-r border-white/10 flex flex-col">
-        <div className="p-6">
+      <aside className={`${sidebarOpen ? 'block' : 'hidden'} lg:block w-full lg:w-60 bg-[#0F0F0F] lg:border-r border-white/10 flex flex-col absolute lg:relative z-10 h-full lg:h-auto`}>
+        <div className="p-6 hidden lg:block">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-8 h-8 bg-gradient-to-r from-[#4ADE80] to-[#10B981] rounded-lg flex items-center justify-center">
               <span className="text-black font-bold text-sm">CS</span>
@@ -519,12 +536,12 @@ function LeadsPageContent() {
           </div>
         </div>
 
-        <div className="flex-1 px-6">
+        <div className="flex-1 px-6 pt-6 lg:pt-0">
           {/* NAVEGAÇÃO */}
           <div className="mb-8">
             <h3 className="text-[#71717A] text-xs uppercase tracking-wider font-medium mb-4">NAVEGAÇÃO</h3>
             <nav className="space-y-1">
-              <Link href="/closer" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors">
+              <Link href="/closer" className="flex items-center gap-3 px-4 py-2 rounded-lg text-[#A1A1AA] hover:bg-white/5 transition-colors" onClick={() => setSidebarOpen(false)}>
                 <CheckCircle className="h-4 w-4" />
                 <span className="text-sm">Dashboard</span>
               </Link>
@@ -550,6 +567,7 @@ function LeadsPageContent() {
           <Link
             href="/closer"
             className="w-full py-2 px-4 bg-[#1E1E1E] text-[#A1A1AA] rounded-lg hover:bg-[#2A2A2A] transition-colors text-sm text-center block"
+            onClick={() => setSidebarOpen(false)}
           >
             ← Voltar ao Dashboard
           </Link>
@@ -560,17 +578,17 @@ function LeadsPageContent() {
       <main className="flex-1 overflow-auto">
         <div className="p-8">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-8 gap-4">
             <div>
               <nav className="text-[#71717A] text-sm mb-2">
                 <span>Dashboards</span> <span className="mx-2">/</span> <span>Leads</span>
               </nav>
-              <h1 className="text-2xl font-bold text-white">Gestão de Leads</h1>
+              <h1 className="text-xl lg:text-2xl font-bold text-white">Gestão de Leads</h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setPeriodFilter('today')}
-                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                className={`px-3 lg:px-4 py-2 rounded-lg text-sm transition-colors ${
                   periodFilter === 'today' 
                     ? 'bg-[#4ADE80] text-black font-medium' 
                     : 'bg-[#1E1E1E] border border-white/10 text-[#A1A1AA] hover:bg-[#2A2A2A]'
@@ -580,7 +598,7 @@ function LeadsPageContent() {
               </button>
               <button
                 onClick={() => setPeriodFilter('week')}
-                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                className={`px-3 lg:px-4 py-2 rounded-lg text-sm transition-colors ${
                   periodFilter === 'week' 
                     ? 'bg-[#4ADE80] text-black font-medium' 
                     : 'bg-[#1E1E1E] border border-white/10 text-[#A1A1AA] hover:bg-[#2A2A2A]'
@@ -590,7 +608,7 @@ function LeadsPageContent() {
               </button>
               <button
                 onClick={() => setPeriodFilter('month')}
-                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                className={`px-3 lg:px-4 py-2 rounded-lg text-sm transition-colors ${
                   periodFilter === 'month' 
                     ? 'bg-[#4ADE80] text-black font-medium' 
                     : 'bg-[#1E1E1E] border border-white/10 text-[#A1A1AA] hover:bg-[#2A2A2A]'
@@ -602,7 +620,7 @@ function LeadsPageContent() {
           </div>
 
           {/* KPI Cards */}
-          <div className="grid grid-cols-4 gap-5 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
             <div className="bg-[#1A1A1A] rounded-2xl p-6">
               <p className="text-[#71717A] text-sm mb-2">Total Leads</p>
               <p className="text-white text-3xl font-bold mb-2">{leads.length}</p>
@@ -660,10 +678,10 @@ function LeadsPageContent() {
           </div>
 
           {/* Filtros */}
-          <div className="bg-[#1A1A1A] rounded-2xl p-6 mb-8">
-            <div className="flex flex-wrap gap-4 items-center">
+          <div className="bg-[#1A1A1A] rounded-2xl p-4 lg:p-6 mb-8">
+            <div className="flex flex-wrap gap-2 lg:gap-4 items-center">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48 bg-[#1E1E1E] border-white/10 text-white">
+                <SelectTrigger className="w-full sm:w-48 bg-[#1E1E1E] border-white/10 text-white">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent className="bg-[#1E1E1E] border-white/10">
@@ -677,7 +695,7 @@ function LeadsPageContent() {
               </Select>
 
               <Select value={closerFilter} onValueChange={setCloserFilter}>
-                <SelectTrigger className="w-48 bg-[#1E1E1E] border-white/10 text-white">
+                <SelectTrigger className="w-full sm:w-48 bg-[#1E1E1E] border-white/10 text-white">
                   <SelectValue placeholder="Closer" />
                 </SelectTrigger>
                 <SelectContent className="bg-[#1E1E1E] border-white/10">
@@ -693,36 +711,39 @@ function LeadsPageContent() {
 
               <button
                 onClick={() => setShowMyLeadsOnly(!showMyLeadsOnly)}
-                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                className={`flex items-center px-3 lg:px-4 py-2 rounded-lg text-sm transition-colors ${
                   showMyLeadsOnly 
                     ? 'bg-[#4ADE80] text-black font-medium' 
                     : 'bg-[#1E1E1E] border border-white/10 text-[#A1A1AA] hover:bg-[#2A2A2A]'
                 }`}
               >
-                <User className="h-4 w-4 mr-2 inline" />
-                {showMyLeadsOnly ? 'Todos os Leads' : 'Apenas Meus Leads'}
+                <User className="h-4 w-4 mr-1 lg:mr-2" />
+                <span className="hidden sm:inline">{showMyLeadsOnly ? 'Todos os Leads' : 'Apenas Meus Leads'}</span>
+                <span className="sm:hidden">{showMyLeadsOnly ? 'Todos' : 'Meus'}</span>
               </button>
 
               <button
                 onClick={() => setShowUnassignedOnly(!showUnassignedOnly)}
-                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                className={`flex items-center px-3 lg:px-4 py-2 rounded-lg text-sm transition-colors ${
                   showUnassignedOnly 
                     ? 'bg-[#4ADE80] text-black font-medium' 
                     : 'bg-[#1E1E1E] border border-white/10 text-[#A1A1AA] hover:bg-[#2A2A2A]'
                 }`}
               >
-                <UserX className="h-4 w-4 mr-2 inline" />
-                {showUnassignedOnly ? 'Todos os Leads' : 'Leads Sem SDR'}
+                <UserX className="h-4 w-4 mr-1 lg:mr-2" />
+                <span className="hidden sm:inline">{showUnassignedOnly ? 'Todos os Leads' : 'Leads Sem SDR'}</span>
+                <span className="sm:hidden">{showUnassignedOnly ? 'Todos' : 'S/SDR'}</span>
               </button>
 
               <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
                 <DialogTrigger asChild>
                   <button 
                     onClick={resetForm}
-                    className="px-4 py-2 bg-[#4ADE80] text-black rounded-lg hover:bg-[#10B981] transition-colors text-sm font-medium"
+                    className="flex items-center px-3 lg:px-4 py-2 bg-[#4ADE80] text-black rounded-lg hover:bg-[#10B981] transition-colors text-sm font-medium"
                   >
-                    <Plus className="h-4 w-4 mr-2 inline" />
-                    Novo Lead
+                    <Plus className="h-4 w-4 mr-1 lg:mr-2" />
+                    <span className="hidden sm:inline">Novo Lead</span>
+                    <span className="sm:hidden">Novo</span>
                   </button>
                 </DialogTrigger>
               </Dialog>
@@ -730,7 +751,7 @@ function LeadsPageContent() {
           </div>
 
           {/* Tabela de Leads */}
-          <div className="bg-[#1A1A1A] rounded-2xl p-6">
+          <div className="bg-[#1A1A1A] rounded-2xl p-4 lg:p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-white text-lg font-semibold">
                 Leads ({filteredLeads.length})
@@ -740,23 +761,23 @@ function LeadsPageContent() {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto -mx-4 lg:mx-0">
+              <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="border-b border-white/10">
-                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Nome</th>
-                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Contato</th>
-                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Status</th>
-                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Temperatura</th>
-                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Valor</th>
-                    <th className="text-left py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Closer</th>
-                    <th className="text-center py-3 px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Ações</th>
+                    <th className="text-left py-3 px-2 lg:px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Nome</th>
+                    <th className="text-left py-3 px-2 lg:px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium hidden md:table-cell">Contato</th>
+                    <th className="text-left py-3 px-2 lg:px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Status</th>
+                    <th className="text-left py-3 px-2 lg:px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium hidden lg:table-cell">Temperatura</th>
+                    <th className="text-left py-3 px-2 lg:px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium hidden lg:table-cell">Valor</th>
+                    <th className="text-left py-3 px-2 lg:px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium hidden lg:table-cell">Closer</th>
+                    <th className="text-center py-3 px-2 lg:px-4 text-[#71717A] text-xs uppercase tracking-wider font-medium">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredLeads.map((lead, index) => (
                     <tr key={lead.id} className="hover:bg-[#4ADE80]/5 transition-colors">
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-2 lg:px-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-[#1E1E1E] rounded-full flex items-center justify-center">
                             <User className="h-4 w-4 text-[#4ADE80]" />
@@ -767,12 +788,12 @@ function LeadsPageContent() {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-2 lg:px-4 hidden md:table-cell">
                         <div className="space-y-1">
                           {lead.email && (
                             <div className="flex items-center text-sm text-[#A1A1AA]">
                               <Mail className="h-3 w-3 mr-2" />
-                              {lead.email}
+                              <span className="truncate max-w-[150px]">{lead.email}</span>
                             </div>
                           )}
                           {lead.telefone && (
@@ -783,13 +804,13 @@ function LeadsPageContent() {
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-2 lg:px-4">
                         {getStatusBadge(lead.status)}
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-2 lg:px-4 hidden lg:table-cell">
                         {getTemperaturaBadge(lead.temperatura)}
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-2 lg:px-4 hidden lg:table-cell">
                         {lead.valor_potencial && (
                           <div className="flex items-center text-sm text-white">
                             <DollarSign className="h-3 w-3 mr-1 text-[#4ADE80]" />
@@ -797,12 +818,12 @@ function LeadsPageContent() {
                           </div>
                         )}
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-2 lg:px-4 hidden lg:table-cell">
                         <span className="text-[#A1A1AA] text-sm">
                           {lead.closers?.nome_completo || 'Não atribuído'}
                         </span>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-2 lg:px-4">
                         <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => openEditModal(lead)}
@@ -835,7 +856,7 @@ function LeadsPageContent() {
       </main>
 
       {/* Sidebar Direita */}
-      <aside className="w-80 bg-[#0F0F0F] border-l border-white/10 p-6 overflow-y-auto">
+      <aside className="hidden xl:block w-80 bg-[#0F0F0F] border-l border-white/10 p-6 overflow-y-auto">
         <div className="mb-8">
           <h3 className="text-white text-lg font-semibold mb-4">Estatísticas</h3>
           <div className="space-y-3">
@@ -881,13 +902,13 @@ function LeadsPageContent() {
           resetForm()
         }
       }}>
-        <DialogContent className="max-w-4xl bg-[#1A1A1A] border-white/10">
+        <DialogContent className="max-w-4xl bg-[#1A1A1A] border-white/10 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white">
               {selectedLead ? 'Editar Lead' : 'Criar Novo Lead'}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               <Label className="text-white">Nome Completo *</Label>
               <Input
@@ -951,7 +972,7 @@ function LeadsPageContent() {
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2 mt-4">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
             <button 
               onClick={() => {
                 setIsCreateModalOpen(false)
@@ -959,13 +980,13 @@ function LeadsPageContent() {
                 setSelectedLead(null)
                 resetForm()
               }}
-              className="px-4 py-2 bg-[#1E1E1E] text-[#A1A1AA] rounded-lg hover:bg-[#2A2A2A] transition-colors"
+              className="w-full sm:w-auto px-4 py-2 bg-[#1E1E1E] text-[#A1A1AA] rounded-lg hover:bg-[#2A2A2A] transition-colors"
             >
               Cancelar
             </button>
             <button 
               onClick={selectedLead ? handleUpdateLead : handleCreateLead}
-              className="px-4 py-2 bg-[#4ADE80] text-black rounded-lg hover:bg-[#10B981] transition-colors font-medium"
+              className="w-full sm:w-auto px-4 py-2 bg-[#4ADE80] text-black rounded-lg hover:bg-[#10B981] transition-colors font-medium"
             >
               {selectedLead ? 'Atualizar' : 'Criar'} Lead
             </button>

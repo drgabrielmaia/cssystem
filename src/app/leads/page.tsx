@@ -1625,7 +1625,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
           .select('id, nome_completo, email, tipo_closer')
           .eq('organization_id', currentOrganizationId)
           .eq('tipo_closer', 'sdr')
-          .eq('status_contrato', 'ativo')
+          .eq('ativo', true)
           .order('nome_completo')
 
         if (sdrsError) {
@@ -1640,7 +1640,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
           .select('id, nome_completo, email, tipo_closer')
           .eq('organization_id', currentOrganizationId)
           .eq('tipo_closer', 'closer')
-          .eq('status_contrato', 'ativo')
+          .eq('ativo', true)
           .order('nome_completo')
 
         if (closersError) {

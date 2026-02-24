@@ -410,7 +410,52 @@ export default function ContractsPage() {
       if (error) throw error
 
       if (data && data.length > 0) {
-        setContractContent(data[0].content)
+        let content = data[0].content
+        
+        // Get organization signature settings to process signatures
+        const { data: orgSignature } = await supabase
+          .from('organization_signature_settings')
+          .select('*')
+          .eq('organization_id', organizationId)
+          .single()
+
+        // Process signatures in the content
+        if (orgSignature) {
+          const orgSignatureBlock = `
+    
+___________________
+${orgSignature.signature_name}
+${orgSignature.signature_title || ''}
+${orgSignature.signature_document || ''}
+INSTITUTO DE MENTORIA MÉDICA GABRIEL MAIA LTDA
+CNPJ: 56.267.958/0001-60`
+
+          content = content.replace(/\[ASSINATURA_CONTRATADA\]/g, orgSignatureBlock)
+        }
+
+        // If contract is signed, show signature info
+        if (contract.status === 'signed') {
+          const clientSignatureBlock = `
+
+___________________
+${contract.recipient_name}
+Assinatura Digital
+Assinado em: ${contract.signed_at ? new Date(contract.signed_at).toLocaleDateString('pt-BR') : 'Data não disponível'}`
+          
+          content = content.replace(/\[ASSINATURA_CONTRATANTE\]/g, clientSignatureBlock)
+          content = content.replace(/\[SIGNATURE\]/g, clientSignatureBlock)
+        } else {
+          const clientSignatureBlock = `
+
+___________________
+${contract.recipient_name}
+Assinatura do Contratante`
+          
+          content = content.replace(/\[ASSINATURA_CONTRATANTE\]/g, clientSignatureBlock)
+          content = content.replace(/\[SIGNATURE\]/g, clientSignatureBlock)
+        }
+        
+        setContractContent(content)
         setViewingContract(contract)
         setShowViewModal(true)
       } else {
