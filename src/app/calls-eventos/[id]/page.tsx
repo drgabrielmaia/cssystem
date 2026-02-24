@@ -278,7 +278,7 @@ export default function EventDetailsPage() {
 
     try {
       const { error } = await supabase
-        .from('event_participants')
+        .from('group_event_participants')
         .delete()
         .eq('id', participantId)
 

@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
+import { useRouter } from 'next/navigation'
 
 interface GroupEvent {
   id: string
@@ -105,6 +106,7 @@ const conversionStatusColors = {
 
 export default function CallsEventosPage() {
   const { user, organizationId } = useAuth()
+  const router = useRouter()
   const [events, setEvents] = useState<GroupEvent[]>([])
   const [statistics, setStatistics] = useState<EventStatistics>({
     total_events: 0,
@@ -124,6 +126,7 @@ export default function CallsEventosPage() {
   const [showAddParticipantModal, setShowAddParticipantModal] = useState(false)
   const [showConvertModal, setShowConvertModal] = useState(false)
   const [showAnalysisModal, setShowAnalysisModal] = useState(false)
+  const [showEditEventModal, setShowEditEventModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<EventParticipant | null>(null)
   const [analysisData, setAnalysisData] = useState<any>(null)
 
@@ -136,6 +139,18 @@ export default function CallsEventosPage() {
     duration_minutes: '60',
     max_participants: '',
     meeting_link: ''
+  })
+
+  // Edit event form state
+  const [editEvent, setEditEvent] = useState({
+    name: '',
+    description: '',
+    type: 'call_group' as const,
+    date_time: '',
+    duration_minutes: '60',
+    max_participants: '',
+    meeting_link: '',
+    status: 'scheduled' as const
   })
 
   // New participant form state
@@ -265,6 +280,37 @@ export default function CallsEventosPage() {
     }
   }
 
+  const handleEditEvent = async () => {
+    if (!selectedEvent || !editEvent.name.trim() || !editEvent.date_time) return
+
+    try {
+      const { error } = await supabase
+        .from('group_events')
+        .update({
+          name: editEvent.name,
+          description: editEvent.description || null,
+          type: editEvent.type,
+          date_time: editEvent.date_time,
+          duration_minutes: parseInt(editEvent.duration_minutes) || 60,
+          max_participants: editEvent.max_participants ? parseInt(editEvent.max_participants) : null,
+          meeting_link: editEvent.meeting_link || null,
+          status: editEvent.status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedEvent.id)
+
+      if (error) throw error
+
+      await loadData()
+      setShowEditEventModal(false)
+      setSelectedEvent(null)
+      alert('Evento atualizado com sucesso!')
+    } catch (error) {
+      console.error('Error updating event:', error)
+      alert(`Erro ao atualizar evento: ${(error as any)?.message || 'Erro desconhecido'}`)
+    }
+  }
+
   const handleAddParticipant = async () => {
     if (!selectedEvent || !newParticipant.participant_name.trim()) return
 
@@ -370,16 +416,23 @@ export default function CallsEventosPage() {
   }
 
   const openEventDetailsModal = (event: GroupEvent) => {
-    setSelectedEvent(event)
-    loadEventParticipants(event.id)
-    // Implementar modal de detalhes se necessário
-    alert(`Detalhes do evento: ${event.name}\nDescrição: ${event.description || 'Sem descrição'}\nData: ${new Date(event.date_time).toLocaleString('pt-BR')}`)
+    // Redirecionar para página de administração do evento
+    router.push(`/calls-eventos/${event.id}`)
   }
 
   const openEditEventModal = (event: GroupEvent) => {
     setSelectedEvent(event)
-    // Implementar formulário de edição
-    alert(`Funcionalidade de edição em desenvolvimento para: ${event.name}`)
+    setEditEvent({
+      name: event.name,
+      description: event.description || '',
+      type: event.type,
+      date_time: event.date_time.slice(0, 16), // Format for datetime-local input
+      duration_minutes: event.duration_minutes.toString(),
+      max_participants: event.max_participants?.toString() || '',
+      meeting_link: event.meeting_link || '',
+      status: event.status
+    })
+    setShowEditEventModal(true)
   }
 
   const handleDeleteEvent = async (event: GroupEvent) => {
@@ -1092,6 +1145,126 @@ export default function CallsEventosPage() {
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Event Modal */}
+      <Dialog open={showEditEventModal} onOpenChange={setShowEditEventModal}>
+        <DialogContent className="sm:max-w-2xl bg-gray-900 border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Editar Evento</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-white">Nome do Evento *</Label>
+                <Input
+                  value={editEvent.name}
+                  onChange={(e) => setEditEvent(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Ex: Masterclass de Vendas"
+                  className="bg-gray-800 border-gray-700 text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-white">Tipo de Evento</Label>
+                <Select value={editEvent.type} onValueChange={(value: any) => setEditEvent(prev => ({ ...prev, type: value }))}>
+                  <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-gray-700">
+                    {Object.entries(eventTypes).map(([key, { label }]) => (
+                      <SelectItem key={key} value={key} className="text-white">
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-white">Descrição</Label>
+              <Textarea
+                value={editEvent.description}
+                onChange={(e) => setEditEvent(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Descrição do evento..."
+                className="bg-gray-800 border-gray-700 text-white"
+              />
+            </div>
+
+            <div className="grid grid-cols-4 gap-4">
+              <div>
+                <Label className="text-white">Data e Hora *</Label>
+                <Input
+                  type="datetime-local"
+                  value={editEvent.date_time}
+                  onChange={(e) => setEditEvent(prev => ({ ...prev, date_time: e.target.value }))}
+                  className="bg-gray-800 border-gray-700 text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-white">Duração (min)</Label>
+                <Input
+                  type="number"
+                  value={editEvent.duration_minutes}
+                  onChange={(e) => setEditEvent(prev => ({ ...prev, duration_minutes: e.target.value }))}
+                  className="bg-gray-800 border-gray-700 text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-white">Máx. Participantes</Label>
+                <Input
+                  type="number"
+                  value={editEvent.max_participants}
+                  onChange={(e) => setEditEvent(prev => ({ ...prev, max_participants: e.target.value }))}
+                  placeholder="Ilimitado"
+                  className="bg-gray-800 border-gray-700 text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-white">Status</Label>
+                <Select value={editEvent.status} onValueChange={(value: any) => setEditEvent(prev => ({ ...prev, status: value }))}>
+                  <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-gray-700">
+                    <SelectItem value="scheduled" className="text-white">Agendado</SelectItem>
+                    <SelectItem value="live" className="text-white">Ao Vivo</SelectItem>
+                    <SelectItem value="completed" className="text-white">Concluído</SelectItem>
+                    <SelectItem value="cancelled" className="text-white">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-white">Link da Reunião</Label>
+              <Input
+                value={editEvent.meeting_link}
+                onChange={(e) => setEditEvent(prev => ({ ...prev, meeting_link: e.target.value }))}
+                placeholder="https://meet.google.com/..."
+                className="bg-gray-800 border-gray-700 text-white"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowEditEventModal(false)}
+              className="flex-1 bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleEditEvent}
+              disabled={!editEvent.name.trim() || !editEvent.date_time}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Atualizar Evento
             </Button>
           </div>
         </DialogContent>
