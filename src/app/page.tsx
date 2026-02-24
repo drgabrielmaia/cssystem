@@ -214,17 +214,39 @@ export default function DashboardPage() {
         const leadsVendidos = leadsForCalls.filter(lead => lead.status === 'vendido')
         
         if (leadsVendidos.length > 0) {
-          // Verificar quais leads vendidos se tornaram mentorados que NÃO foram excluídos
-          const { data: mentoradosAtivos } = await supabase
-            .from('mentorados')
-            .select('id, lead_origem_id')
-            .in('lead_origem_id', leadsVendidos.map(l => l.id))
-            .eq('excluido', false)
-            .neq('estado_atual', 'churned')
+          // Dividir em chunks para evitar URLs muito longas (máximo 20 IDs por chunk)
+          const chunkSize = 20
+          const leadIds = leadsVendidos.map(l => l.id)
+          const chunks = []
+          
+          for (let i = 0; i < leadIds.length; i += chunkSize) {
+            chunks.push(leadIds.slice(i, i + chunkSize))
+          }
+          
+          let allMentoradosAtivos: any[] = []
+          
+          // Executar queries em paralelo para cada chunk
+          const promises = chunks.map(chunk => 
+            supabase
+              .from('mentorados')
+              .select('id, lead_origem_id')
+              .in('lead_origem_id', chunk)
+              .eq('excluido', false)
+              .neq('estado_atual', 'churned')
+          )
+          
+          const results = await Promise.all(promises)
+          
+          // Combinar todos os resultados
+          for (const result of results) {
+            if (result.data) {
+              allMentoradosAtivos.push(...result.data)
+            }
+          }
 
           // Contar apenas calls vendidas que resultaram em mentorados ainda ativos
-          if (mentoradosAtivos) {
-            const leadsComMentoradosAtivos = new Set(mentoradosAtivos.map(m => m.lead_origem_id))
+          if (allMentoradosAtivos.length > 0) {
+            const leadsComMentoradosAtivos = new Set(allMentoradosAtivos.map(m => m.lead_origem_id))
             callsVendidas = leadsVendidos.filter(lead => leadsComMentoradosAtivos.has(lead.id)).length
           }
         }
