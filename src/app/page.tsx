@@ -169,17 +169,17 @@ export default function DashboardPage() {
       // Obter range de datas baseado no período selecionado
       const dateRange = getDateRange(selectedPeriod)
 
-      let leadsQuery = supabase.from('leads').select('*')
+      let leadsQuery = supabase.from('leads').select('origem, created_at, status, valor_vendido, convertido_em')
       let mentoradosQuery = supabase.from('mentorados').select('*')
-      let vendasQuery = supabase.from('leads').select('*').eq('status', 'vendido')
+      let vendasQuery = supabase.from('leads').select('origem, created_at, status, valor_vendido, convertido_em').eq('status', 'vendido')
 
       // Aplicar filtros de data se necessário
       if (dateRange.start && dateRange.end) {
-        // Para leads TOTAIS, usar data_primeiro_contato (data do lead)
-        leadsQuery = leadsQuery.gte('data_primeiro_contato', dateRange.start).lte('data_primeiro_contato', dateRange.end)
+        // Para leads TOTAIS, usar created_at (data do lead)
+        leadsQuery = leadsQuery.gte('created_at', dateRange.start).lte('created_at', dateRange.end)
         mentoradosQuery = mentoradosQuery.gte('created_at', dateRange.start).lte('created_at', dateRange.end)
-        // Para vendas, usar data_venda (data da conversão)
-        vendasQuery = vendasQuery.gte('data_venda', dateRange.start).lte('data_venda', dateRange.end)
+        // Para vendas, usar convertido_em (data da conversão)
+        vendasQuery = vendasQuery.gte('convertido_em', dateRange.start).lte('convertido_em', dateRange.end)
       }
 
       // Executar queries
@@ -284,7 +284,7 @@ export default function DashboardPage() {
       await loadLeadDistribution(leadsPeriod || [])
 
       // Calcular valor arrecadado (aproximadamente 50% do vendido)
-      const valorArrecadado = vendasPeriod?.reduce((sum, lead) => sum + (lead.valor_arrecadado || (lead.valor_vendido || 0) * 0.5), 0) || 0
+      const valorArrecadado = vendasPeriod?.reduce((sum, lead) => sum + ((lead.valor_vendido || 0) * 0.5), 0) || 0
 
       // Calcular taxa de conversão usando calls realizadas (vendidas + não vendidas)
       const totalCallsRealizadas = callsMetrics.calls_vendidas + callsMetrics.calls_nao_vendidas

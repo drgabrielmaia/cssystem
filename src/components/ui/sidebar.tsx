@@ -96,11 +96,9 @@ export const Sidebar = () => {
       {/* User Profile */}
       <div className="px-4 py-4 border-b border-gray-100">
         <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F1F5F9]">
-          <img
-            src="/avatar.jpg"
-            alt="User"
-            className="w-10 h-10 rounded-full object-cover ring-2 ring-emerald-500 ring-offset-2"
-          />
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center ring-2 ring-emerald-500 ring-offset-2">
+            <span className="text-white font-bold text-sm">A</span>
+          </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-[#0F172A] text-sm truncate">Admin</p>
             <p className="text-xs text-[#94A3B8]">Administrador</p>

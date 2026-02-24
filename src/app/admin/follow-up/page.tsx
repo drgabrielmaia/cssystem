@@ -208,12 +208,12 @@ export default function FollowUpConfigPage() {
       .from('lead_followup_executions')
       .select(`
         sequence_id,
-        status,
-        converteu,
-        data_resposta,
-        lead_followup_sequences!inner(nome_sequencia)
+        execution_status,
+        executed_at,
+        lead_followup_sequences!inner(nome_sequencia),
+        leads!inner(organization_id)
       `)
-      .eq('organization_id', organizationId)
+      .eq('leads.organization_id', organizationId)
 
     if (error) {
       console.error('Error loading sequence stats:', error)
@@ -282,12 +282,12 @@ export default function FollowUpConfigPage() {
       .from('lead_followup_executions')
       .select(`
         *,
-        leads!inner(nome_completo, email, temperatura),
+        leads!inner(nome_completo, email, temperatura, organization_id),
         lead_followup_sequences!inner(nome_sequencia)
       `)
-      .eq('organization_id', organizationId)
-      .eq('status', 'active')
-      .order('proxima_execucao', { ascending: true })
+      .eq('leads.organization_id', organizationId)
+      .eq('execution_status', 'pending')
+      .order('scheduled_for', { ascending: true })
       .limit(50)
 
     if (error) {

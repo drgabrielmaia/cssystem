@@ -110,7 +110,7 @@ export function Header({ title, subtitle }: HeaderProps) {
               <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 to-purple-500 rounded-xl p-0.5 group-hover:scale-105 transition-transform duration-300">
                 <div className="w-full h-full bg-slate-900 rounded-xl flex items-center justify-center">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src="/avatar.jpg" alt="Avatar" />
+                    <AvatarImage src="" alt="Avatar" />
                     <AvatarFallback className="bg-gradient-to-br from-cyan-400 to-purple-500 text-white font-bold text-sm">
                       CS
                     </AvatarFallback>
