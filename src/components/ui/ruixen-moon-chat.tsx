@@ -250,7 +250,7 @@ export default function RuixenMoonChat() {
           {/* Footer Buttons */}
           <div className="flex items-center justify-between p-3">
             <div className="text-xs text-neutral-400">
-              {isLoading ? 'Pensando...' : 'Powered by Gemma 3 27B'}
+              {isLoading ? 'Pensando...' : 'Powered by Gemini Pro'}
             </div>
 
             <div className="flex items-center gap-2">

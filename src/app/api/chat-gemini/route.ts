@@ -5,7 +5,13 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'SUA_NOVA_API_KEY_AQUI'
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, userEmail } = await request.json()
+    // Timeout de 60 segundos para perguntas complexas
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout: A resposta está demorando mais que o esperado')), 60000)
+    )
+
+    const processRequest = async () => {
+      const { message, userEmail } = await request.json()
 
     // Verificar se é o usuário autorizado
     if (userEmail !== 'emersonbljr2802@gmail.com') {
@@ -25,14 +31,14 @@ export async function POST(request: NextRequest) {
     // Inicializar o Google AI
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
     
-    // Usar o modelo Gemma 3 27B
+    // Usar o modelo Gemini Pro (modelo mais robusto disponível)
     const model = genAI.getGenerativeModel({ 
-      model: "gemma-3-27b-it", // Modelo Gemma 3 27B
+      model: "gemini-1.5-pro", // Modelo correto e mais poderoso
       generationConfig: {
         temperature: 0.7,
         topK: 40,
         topP: 0.95,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 8192, // Aumentado para perguntas complexas
       },
     })
 
@@ -77,22 +83,37 @@ Responda como um estrategista experiente e humano que domina o mercado médico.`
     // Combinar o prompt do sistema com a mensagem do usuário
     const fullPrompt = `${systemPrompt}\n\nUsuário: ${message}\n\nRuixen AI:`
 
-    // Gerar resposta
-    const result = await model.generateContent(fullPrompt)
-    const response = await result.response
-    const aiResponse = response.text()
+      // Gerar resposta
+      const result = await model.generateContent(fullPrompt)
+      const response = await result.response
+      const aiResponse = response.text()
 
-    console.log('✅ Resposta do Gemini gerada com sucesso')
+      console.log('✅ Resposta do Gemini gerada com sucesso')
 
-    return NextResponse.json({
-      success: true,
-      message: aiResponse,
-      model: 'gemma-3-27b-it',
-      timestamp: new Date().toISOString()
-    })
+      return NextResponse.json({
+        success: true,
+        message: aiResponse,
+        model: 'gemini-1.5-pro',
+        timestamp: new Date().toISOString()
+      })
+    }
+
+    // Executar com timeout
+    return await Promise.race([processRequest(), timeout])
 
   } catch (error: any) {
     console.error('❌ Erro na API do Gemini:', error)
+    
+    // Retornar erro mais específico
+    if (error.message.includes('Timeout')) {
+      return NextResponse.json(
+        { 
+          error: 'A pergunta é muito complexa e está demorando para processar. Tente uma versão mais simples.',
+          details: error.message 
+        },
+        { status: 408 } // Request Timeout
+      )
+    }
     
     return NextResponse.json(
       { 
