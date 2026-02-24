@@ -146,8 +146,8 @@ export function Sidebar({ isOpen = false, setIsOpen }: SidebarProps) {
               <LayoutDashboard className="h-5 w-5 text-white" />
             </div>
             <div className="hidden sm:block">
-              <span className="text-lg font-bold text-[#0F172A]">Customer Success</span>
-              <p className="text-xs text-[#94A3B8]">Dashboard</p>
+              <span className="text-lg font-bold text-[#0F172A]">CS System</span>
+              <p className="text-xs text-[#94A3B8]">Visão Geral</p>
             </div>
           </div>
         </div>

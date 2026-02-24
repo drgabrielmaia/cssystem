@@ -1,5 +1,11 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+// Lazy loading para reduzir bundle size
+const loadPDFLibs = async () => {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable')
+  ]);
+  return { jsPDF, autoTable };
+};
 
 interface LeadStats {
   status: string
@@ -26,7 +32,8 @@ interface Lead {
   responsavel_vendas?: string | null
 }
 
-export const generateLeadsPDF = (leads: Lead[], title = 'Relatório de Leads') => {
+export const generateLeadsPDF = async (leads: Lead[], title = 'Relatório de Leads') => {
+  const { jsPDF, autoTable } = await loadPDFLibs();
   const doc = new jsPDF()
 
   // Header

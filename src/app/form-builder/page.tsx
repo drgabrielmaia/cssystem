@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/auth'
+import { useOrganization } from '@/hooks/use-organization'
 import {
   DndContext,
   closestCenter,
@@ -126,6 +128,8 @@ const colorPresets = [
 ]
 
 export default function FormBuilderPage() {
+  const { user } = useAuth()
+  const { organization } = useOrganization(user?.id || null)
   const [templates, setTemplates] = useState<FormTemplate[]>([])
   const [currentTemplate, setCurrentTemplate] = useState<FormTemplate>({
     name: '',
@@ -182,16 +186,21 @@ export default function FormBuilderPage() {
   ]
 
   useEffect(() => {
-    fetchTemplates()
-    fetchScoringConfigs()
-    fetchClosers()
-  }, [])
+    if (organization?.id) {
+      fetchTemplates()
+      fetchScoringConfigs()
+      fetchClosers()
+    }
+  }, [organization?.id])
 
   const fetchTemplates = async () => {
+    if (!organization?.id) return
+    
     try {
       const { data, error } = await supabase
         .from('form_templates')
         .select('*')
+        .eq('organization_id', organization.id)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -208,9 +217,10 @@ export default function FormBuilderPage() {
   }
 
   const fetchScoringConfigs = async () => {
+    if (!organization?.id) return
+    
     try {
-      // TODO: Get organization_id from user context
-      const response = await fetch('/api/scoring-configs?organization_id=default')
+      const response = await fetch(`/api/scoring-configs?organization_id=${organization.id}`)
       const data = await response.json()
       setScoringConfigs(data || [])
     } catch (error) {
@@ -219,11 +229,14 @@ export default function FormBuilderPage() {
   }
 
   const fetchClosers = async () => {
+    if (!organization?.id) return
+    
     try {
       const { data, error } = await supabase
         .from('closers')
         .select('id, nome_completo, status_contrato')
         .eq('status_contrato', 'ativo')
+        .eq('organizacao_id', organization.id)
 
       if (error) {
         console.error('Erro ao buscar closers:', error)
@@ -298,6 +311,11 @@ export default function FormBuilderPage() {
   }
 
   const saveTemplate = async () => {
+    if (!organization?.id) {
+      alert('Organização não identificada')
+      return
+    }
+    
     try {
       if (!currentTemplate.name.trim()) {
         alert('Nome do formulário é obrigatório')
@@ -309,6 +327,7 @@ export default function FormBuilderPage() {
       const templateData = {
         ...currentTemplate,
         slug,
+        organization_id: organization.id,
         updated_at: new Date().toISOString()
       }
 
@@ -319,6 +338,7 @@ export default function FormBuilderPage() {
           .from('form_templates')
           .update(templateData)
           .eq('id', currentTemplate.id)
+          .eq('organization_id', organization.id)
           .select()
       } else {
         // Criar novo
@@ -1030,7 +1050,7 @@ export default function FormBuilderPage() {
                             leadQualification: {
                               ...prev.leadQualification,
                               enabled: e.target.checked,
-                              threshold: prev.leadQualification?.threshold || 60,
+                              threshold: prev.leadQualification?.threshold || 70,
                               enableCalendar: prev.leadQualification?.enableCalendar || true
                             }
                           }))}
@@ -1083,7 +1103,7 @@ export default function FormBuilderPage() {
                             <div className="flex items-center gap-4">
                               <Input
                                 type="number"
-                                value={currentTemplate.leadQualification?.threshold || 60}
+                                value={currentTemplate.leadQualification?.threshold || 70}
                                 onChange={(e) => setCurrentTemplate(prev => ({
                                   ...prev,
                                   leadQualification: {
@@ -1098,15 +1118,20 @@ export default function FormBuilderPage() {
                               <span className="text-sm text-gray-600">pontos</span>
                             </div>
                             <p className="text-xs text-gray-500">
-                              Score ≥ {currentTemplate.leadQualification?.threshold || 60}: Closer Principal | 
-                              Score &lt; {currentTemplate.leadQualification?.threshold || 60}: Closer de Aquecimento
+                              Score ≥ {currentTemplate.leadQualification?.threshold || 70}: Gabriel Maia (QUENTE) | 
+                              Score &lt; {currentTemplate.leadQualification?.threshold || 70}: Paulo Guimarães (FRIO/MORNO)
                             </p>
+                            <div className="mt-2 text-xs space-y-1">
+                              <div className="text-red-600">🔥 Frio: &lt; 50 pontos</div>
+                              <div className="text-yellow-600">🔶 Morno: 50-70 pontos</div>
+                              <div className="text-green-600">🔥 Quente: 70+ pontos</div>
+                            </div>
                           </div>
 
                           {/* Closer Assignment */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-3">
-                              <Label className="text-orange-700">Closer para Score Baixo</Label>
+                              <Label className="text-orange-700">Paulo Guimarães (Frio/Morno: &lt;70)</Label>
                               <Select
                                 value={currentTemplate.leadQualification?.lowScoreCloserId || ''}
                                 onValueChange={(value) => setCurrentTemplate(prev => ({
@@ -1118,7 +1143,7 @@ export default function FormBuilderPage() {
                                 }))}
                               >
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Selecione closer para aquecimento" />
+                                  <SelectValue placeholder="Selecione Paulo Guimarães para leads frios/mornos" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {closers.map((closer) => (
@@ -1131,7 +1156,7 @@ export default function FormBuilderPage() {
                             </div>
 
                             <div className="space-y-3">
-                              <Label className="text-green-700">Closer Principal</Label>
+                              <Label className="text-green-700">Gabriel Maia (Quente: 70+)</Label>
                               <Select
                                 value={currentTemplate.leadQualification?.highScoreCloserId || ''}
                                 onValueChange={(value) => setCurrentTemplate(prev => ({
@@ -1143,7 +1168,7 @@ export default function FormBuilderPage() {
                                 }))}
                               >
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Selecione closer principal" />
+                                  <SelectValue placeholder="Selecione Gabriel Maia para leads quentes" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {closers.map((closer) => (

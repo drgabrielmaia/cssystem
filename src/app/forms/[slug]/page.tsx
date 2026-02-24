@@ -259,6 +259,15 @@ export default function FormPageSafe() {
 
     if (!validateForm()) return
 
+    // Validação especial para formulário de persona
+    if (template?.slug === 'persona-marketing-digital') {
+      const emailAcesso = formData.email_acesso
+      if (emailAcesso !== 'emersonbljr2802@gmail.com') {
+        alert('❌ Acesso negado! Este formulário é restrito.')
+        return
+      }
+    }
+
     setSubmitting(true)
 
     try {
@@ -573,7 +582,7 @@ export default function FormPageSafe() {
   const isLastStep = currentStep === steps.length - 1
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-12">
@@ -603,9 +612,9 @@ export default function FormPageSafe() {
                     className={`
                       w-12 h-12 rounded-full border-2 flex items-center justify-center mb-2 transition-all duration-300
                       ${isActive
-                        ? 'bg-blue-600 border-blue-600 text-white scale-110'
+                        ? 'bg-green-600 border-green-600 text-white scale-110'
                         : isCompleted
-                          ? 'bg-green-500 border-green-500 text-white'
+                          ? 'bg-emerald-500 border-emerald-500 text-white'
                           : 'bg-white border-gray-300 text-gray-400'
                       }
                       ${isClickable ? 'hover:scale-105' : ''}
@@ -619,7 +628,7 @@ export default function FormPageSafe() {
                   </div>
                   <span
                     className={`text-sm font-medium ${
-                      isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-400'
+                      isActive ? 'text-green-600' : isCompleted ? 'text-emerald-600' : 'text-gray-400'
                     }`}
                   >
                     {step.title}
@@ -633,7 +642,7 @@ export default function FormPageSafe() {
           <div className="relative">
             <div className="absolute top-0 left-0 w-full h-2 bg-gray-200 rounded-full"></div>
             <div
-              className="absolute top-0 left-0 h-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500 ease-out"
+              className="absolute top-0 left-0 h-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-500 ease-out"
               style={{
                 width: `${((currentStep + (completedSteps.has(currentStep) ? 1 : 0)) / steps.length) * 100}%`,
               }}
@@ -645,7 +654,7 @@ export default function FormPageSafe() {
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           {/* Step Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl mb-4">
               <currentStepData.icon className="w-8 h-8 text-white" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -672,7 +681,7 @@ export default function FormPageSafe() {
                       onChange={(e) => handleInputChange(field.name, e.target.value)}
                       placeholder={field.placeholder || `Digite ${field.label.toLowerCase()}`}
                       rows={4}
-                      className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                      className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all ${
                         errors[field.name] ? 'border-red-500 focus:ring-red-500' : 'border-gray-200'
                       }`}
                     />
@@ -680,7 +689,7 @@ export default function FormPageSafe() {
                     <select
                       value={formData[field.name] || ''}
                       onChange={(e) => handleInputChange(field.name, e.target.value)}
-                      className={`w-full h-12 px-4 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-white text-gray-900 ${
+                      className={`w-full h-12 px-4 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all bg-white text-gray-900 ${
                         errors[field.name] ? 'border-red-500 focus:ring-red-500' : 'border-gray-200'
                       }`}
                     >
@@ -696,7 +705,7 @@ export default function FormPageSafe() {
                       {field.options?.map((option, index) => (
                         <label
                           key={index}
-                          className="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50 transition-all"
+                          className="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-green-50 transition-all"
                         >
                           <input
                             type="radio"
@@ -704,7 +713,7 @@ export default function FormPageSafe() {
                             value={option}
                             checked={formData[field.name] === option}
                             onChange={(e) => handleInputChange(field.name, e.target.value)}
-                            className="w-4 h-4 text-blue-600 border-2 border-gray-300 focus:ring-2 focus:ring-blue-500"
+                            className="w-4 h-4 text-green-600 border-2 border-gray-300 focus:ring-2 focus:ring-green-500"
                           />
                           <span className="ml-3 text-gray-700">{option}</span>
                         </label>
@@ -715,7 +724,7 @@ export default function FormPageSafe() {
                       {field.options?.map((option, index) => (
                         <label
                           key={index}
-                          className="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50 transition-all"
+                          className="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-green-50 transition-all"
                         >
                           <input
                             type="checkbox"
@@ -743,7 +752,7 @@ export default function FormPageSafe() {
 
                               handleInputChange(field.name, newValue)
                             }}
-                            className="w-4 h-4 text-blue-600 border-2 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                            className="w-4 h-4 text-green-600 border-2 border-gray-300 rounded focus:ring-2 focus:ring-green-500"
                           />
                           <span className="ml-3 text-gray-700">{option}</span>
                         </label>
@@ -755,7 +764,7 @@ export default function FormPageSafe() {
                       value={formData[field.name] || ''}
                       onChange={(e) => handleInputChange(field.name, e.target.value)}
                       placeholder={field.placeholder || `Digite ${field.label.toLowerCase()}`}
-                      className={`h-12 px-4 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 bg-white ${
+                      className={`h-12 px-4 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all text-gray-900 bg-white ${
                         errors[field.name] ? 'border-red-500 focus:ring-red-500' : 'border-gray-200'
                       }`}
                     />
@@ -791,7 +800,7 @@ export default function FormPageSafe() {
               <Button
                 type="submit"
                 disabled={submitting}
-                className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                className="flex items-center px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
               >
                 {submitting ? (
                   <>

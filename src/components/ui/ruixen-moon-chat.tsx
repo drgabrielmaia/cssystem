@@ -152,6 +152,7 @@ export default function RuixenMoonChat() {
         backgroundImage:
           "url('https://pub-940ccf6255b54fa799a9b01050e6c227.r2.dev/ruixen_moon_2.png')",
         backgroundAttachment: "fixed",
+        filter: "hue-rotate(120deg) saturate(1.2)",
       }}
     >
       {/* Chat Messages Area */}
@@ -171,10 +172,17 @@ export default function RuixenMoonChat() {
                   </div>
                   <div className={`rounded-2xl px-4 py-3 ${
                     msg.isUser 
-                      ? 'bg-blue-600 text-white' 
+                      ? 'bg-green-600 text-white' 
                       : 'bg-white/10 backdrop-blur-md text-white border border-white/20'
                   }`}>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                    <div 
+                      className="text-sm leading-relaxed whitespace-pre-wrap"
+                      dangerouslySetInnerHTML={{ 
+                        __html: msg.text
+                          .replace(/\*\*([^*]+)\*\*/g, '<h2 class="text-lg font-bold mt-4 mb-2">$1</h2>')
+                          .replace(/\*([^*]+)\*/g, '<strong>$1</strong>') 
+                      }}
+                    />
                     <p className="text-xs opacity-70 mt-1">
                       {msg.timestamp.toLocaleTimeString()}
                     </p>
@@ -208,10 +216,13 @@ export default function RuixenMoonChat() {
         <div className="flex-1 w-full flex flex-col items-center justify-center">
           <div className="text-center">
             <h1 className="text-4xl font-semibold text-white drop-shadow-sm">
-              Ruixen AI
+              MDR AI
             </h1>
-            <p className="mt-2 text-neutral-200">
-              Powered by Gemma 3 27B — start typing below.
+            <p className="mt-1 text-lg text-green-300 font-medium">
+              Powered by Médicos de Resultado
+            </p>
+            <p className="mt-1 text-neutral-200 text-sm">
+              Gemma 3 27B — start typing below.
             </p>
           </div>
         </div>
@@ -252,7 +263,7 @@ export default function RuixenMoonChat() {
                 className={cn(
                   "flex items-center gap-1 px-3 py-2 rounded-lg transition-colors",
                   message.trim() && !isLoading 
-                    ? "bg-blue-600 hover:bg-blue-700 text-white" 
+                    ? "bg-green-600 hover:bg-green-700 text-white" 
                     : "bg-neutral-700 text-neutral-400 cursor-not-allowed"
                 )}
               >

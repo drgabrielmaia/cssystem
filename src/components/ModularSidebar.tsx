@@ -225,8 +225,8 @@ export function ModularSidebar({ isOpen = false, setIsOpen }: ModularSidebarProp
               <LayoutDashboard className="h-6 w-6 text-gray-900" />
             </div>
             <div className="hidden sm:block">
-              <span className="text-xl font-bold text-white">Customer Success</span>
-              <p className="text-xs text-[#D4AF37]">Sistema Modular</p>
+              <span className="text-xl font-bold text-white">CS System</span>
+              <p className="text-xs text-[#D4AF37]">Gestão Completa</p>
             </div>
           </div>
         </div>
