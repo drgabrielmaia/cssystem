@@ -27,7 +27,9 @@ import {
   Search,
   Filter,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  Edit,
+  Trash2
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
@@ -125,6 +127,7 @@ export default function EventDetailsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [showAddLeadModal, setShowAddLeadModal] = useState(false)
   const [showConvertModal, setShowConvertModal] = useState(false)
+  const [showEditParticipantModal, setShowEditParticipantModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<EventParticipant | null>(null)
 
   // Form states
@@ -265,6 +268,58 @@ export default function EventDetailsPage() {
     } catch (error) {
       console.error('Error converting participant:', error)
       toast.error('Erro ao converter participante')
+    }
+  }
+
+  const handleDeleteParticipant = async (participantId: string) => {
+    if (!confirm('Tem certeza que deseja remover este participante do evento?')) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('event_participants')
+        .delete()
+        .eq('id', participantId)
+
+      if (error) throw error
+
+      toast.success('Participante removido com sucesso!')
+      loadParticipants()
+    } catch (error) {
+      console.error('Error deleting participant:', error)
+      toast.error('Erro ao remover participante')
+    }
+  }
+
+  const handleUpdateParticipant = async () => {
+    if (!selectedParticipant) return
+
+    if (!selectedParticipant.participant_name.trim()) {
+      toast.error('Nome é obrigatório')
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('group_event_participants')
+        .update({
+          participant_name: selectedParticipant.participant_name,
+          participant_email: selectedParticipant.participant_email || null,
+          participant_phone: selectedParticipant.participant_phone || null,
+          attendance_status: selectedParticipant.attendance_status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedParticipant.id)
+
+      if (error) throw error
+
+      toast.success('Participante atualizado com sucesso!')
+      setShowEditParticipantModal(false)
+      loadParticipants()
+    } catch (error) {
+      console.error('Error updating participant:', error)
+      toast.error('Erro ao atualizar participante')
     }
   }
 
@@ -610,10 +665,32 @@ export default function EventDetailsPage() {
                             setShowConvertModal(true)
                           }}
                           className="text-green-400 hover:text-green-300 hover:bg-green-900/20"
+                          title="Converter participante"
                         >
                           <Target className="h-4 w-4" />
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedParticipant(participant)
+                          setShowEditParticipantModal(true)
+                        }}
+                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/20"
+                        title="Editar participante"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteParticipant(participant.id)}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                        title="Remover participante"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -754,6 +831,93 @@ export default function EventDetailsPage() {
               className="flex-1 bg-green-600 hover:bg-green-700 text-white"
             >
               Converter
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Participant Modal */}
+      <Dialog open={showEditParticipantModal} onOpenChange={setShowEditParticipantModal}>
+        <DialogContent className="sm:max-w-lg bg-gray-900 border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Editar Participante</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label className="text-white">Nome *</Label>
+              <Input
+                type="text"
+                value={selectedParticipant?.participant_name || ''}
+                onChange={(e) => setSelectedParticipant(prev => 
+                  prev ? { ...prev, participant_name: e.target.value } : null
+                )}
+                className="bg-gray-800 border-gray-700 text-white"
+                placeholder="Nome do participante"
+              />
+            </div>
+
+            <div>
+              <Label className="text-white">Email</Label>
+              <Input
+                type="email"
+                value={selectedParticipant?.participant_email || ''}
+                onChange={(e) => setSelectedParticipant(prev => 
+                  prev ? { ...prev, participant_email: e.target.value } : null
+                )}
+                className="bg-gray-800 border-gray-700 text-white"
+                placeholder="email@exemplo.com"
+              />
+            </div>
+
+            <div>
+              <Label className="text-white">Telefone</Label>
+              <Input
+                type="tel"
+                value={selectedParticipant?.participant_phone || ''}
+                onChange={(e) => setSelectedParticipant(prev => 
+                  prev ? { ...prev, participant_phone: e.target.value } : null
+                )}
+                className="bg-gray-800 border-gray-700 text-white"
+                placeholder="(11) 99999-9999"
+              />
+            </div>
+
+            <div>
+              <Label className="text-white">Status de Presença</Label>
+              <Select
+                value={selectedParticipant?.attendance_status || 'registered'}
+                onValueChange={(value) => setSelectedParticipant(prev => 
+                  prev ? { ...prev, attendance_status: value as any } : null
+                )}
+              >
+                <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 border-gray-700">
+                  <SelectItem value="registered" className="text-white">Registrado</SelectItem>
+                  <SelectItem value="confirmed" className="text-white">Confirmado</SelectItem>
+                  <SelectItem value="attended" className="text-white">Presente</SelectItem>
+                  <SelectItem value="no_show" className="text-white">Faltou</SelectItem>
+                  <SelectItem value="cancelled" className="text-white">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setShowEditParticipantModal(false)}
+              className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleUpdateParticipant}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Salvar Alterações
             </Button>
           </div>
         </DialogContent>
