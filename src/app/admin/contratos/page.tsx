@@ -65,6 +65,15 @@ interface Mentorado {
   telefone?: string
 }
 
+interface SignatureSettings {
+  id: string
+  organization_id: string
+  signature_name: string
+  signature_title: string
+  signature_document: string
+  signature_image_url?: string
+}
+
 export default function ContractsPage() {
   const { organizationId, user } = useAuth()
   const [templates, setTemplates] = useState<ContractTemplate[]>([])
@@ -100,6 +109,14 @@ export default function ContractsPage() {
   const [showViewModal, setShowViewModal] = useState(false)
   const [viewingContract, setViewingContract] = useState<Contract | null>(null)
   const [contractContent, setContractContent] = useState('')
+
+  // Signature settings
+  const [signatureSettings, setSignatureSettings] = useState<SignatureSettings | null>(null)
+  const [signatureForm, setSignatureForm] = useState({
+    signature_name: '',
+    signature_title: '',
+    signature_document: ''
+  })
 
   useEffect(() => {
     if (organizationId) {
@@ -141,6 +158,22 @@ export default function ContractsPage() {
 
       if (mentoradosError) throw mentoradosError
       setMentorados(mentoradosData || [])
+
+      // Load signature settings
+      const { data: signatureData, error: signatureError } = await supabase
+        .from('organization_signature_settings')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .single()
+
+      if (!signatureError && signatureData) {
+        setSignatureSettings(signatureData)
+        setSignatureForm({
+          signature_name: signatureData.signature_name,
+          signature_title: signatureData.signature_title || '',
+          signature_document: signatureData.signature_document || ''
+        })
+      }
 
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
@@ -409,6 +442,46 @@ export default function ContractsPage() {
     }
   }
 
+  const handleSaveSignatureSettings = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!organizationId) return
+
+    try {
+      const signatureData = {
+        organization_id: organizationId,
+        signature_name: signatureForm.signature_name,
+        signature_title: signatureForm.signature_title,
+        signature_document: signatureForm.signature_document
+      }
+
+      if (signatureSettings) {
+        // Update existing settings
+        const { error } = await supabase
+          .from('organization_signature_settings')
+          .update(signatureData)
+          .eq('id', signatureSettings.id)
+
+        if (error) throw error
+      } else {
+        // Create new settings
+        const { data, error } = await supabase
+          .from('organization_signature_settings')
+          .insert([signatureData])
+          .select()
+          .single()
+
+        if (error) throw error
+        setSignatureSettings(data)
+      }
+
+      alert('Configurações de assinatura salvas com sucesso!')
+      loadData()
+    } catch (error) {
+      console.error('Erro ao salvar configurações:', error)
+      alert('Erro ao salvar configurações')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -491,6 +564,9 @@ export default function ContractsPage() {
           </TabsTrigger>
           <TabsTrigger value="templates" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-black">
             Templates
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-black">
+            Configurações
           </TabsTrigger>
         </TabsList>
 
@@ -836,6 +912,80 @@ export default function ContractsPage() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Settings Tab */}
+        <TabsContent value="settings" className="space-y-4">
+          <Card className="bg-gray-800 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-white">Configurações de Assinatura</CardTitle>
+              <p className="text-gray-400">Configure os dados que aparecerão na assinatura dos contratos</p>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSaveSignatureSettings} className="space-y-4">
+                <div>
+                  <Label className="text-white">Nome do Responsável *</Label>
+                  <Input
+                    value={signatureForm.signature_name}
+                    onChange={(e) => setSignatureForm(prev => ({ ...prev, signature_name: e.target.value }))}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    placeholder="Ex: Gabriel Maia"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-white">Cargo/Título</Label>
+                  <Input
+                    value={signatureForm.signature_title}
+                    onChange={(e) => setSignatureForm(prev => ({ ...prev, signature_title: e.target.value }))}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    placeholder="Ex: Diretor Executivo"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-white">Documento (CPF/CNPJ)</Label>
+                  <Input
+                    value={signatureForm.signature_document}
+                    onChange={(e) => setSignatureForm(prev => ({ ...prev, signature_document: e.target.value }))}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    placeholder="Ex: CPF: XXX.XXX.XXX-XX"
+                  />
+                </div>
+
+                <Button type="submit" className="bg-[#D4AF37] hover:bg-[#B8860B]">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Salvar Configurações
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Preview da Assinatura */}
+          <Card className="bg-gray-800 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-white">Prévia da Assinatura</CardTitle>
+              <p className="text-gray-400">Como aparecerá nos contratos:</p>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-white p-6 rounded-lg">
+                <div className="text-center space-y-2">
+                  <div className="border-b border-gray-300 pb-2 mb-4">
+                    <p className="text-gray-900 font-semibold">{signatureForm.signature_name || '[Nome do Responsável]'}</p>
+                  </div>
+                  {signatureForm.signature_title && (
+                    <p className="text-gray-700 text-sm">{signatureForm.signature_title}</p>
+                  )}
+                  {signatureForm.signature_document && (
+                    <p className="text-gray-700 text-sm">{signatureForm.signature_document}</p>
+                  )}
+                  <p className="text-gray-700 text-sm">INSTITUTO DE MENTORIA MÉDICA GABRIEL MAIA LTDA</p>
+                  <p className="text-gray-700 text-xs">CNPJ: 56.267.958/0001-60</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

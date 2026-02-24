@@ -99,7 +99,7 @@ export default function KanbanPage() {
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
-    assigned_to_email: '',
+    assigned_to_email: 'none',
     priority: 'medium' as const,
     due_date: '',
     estimated_hours: '',
@@ -274,7 +274,7 @@ export default function KanbanPage() {
           column_id: newTaskColumnId,
           title: newTask.title,
           description: newTask.description || null,
-          assigned_to_email: newTask.assigned_to_email || null,
+          assigned_to_email: (newTask.assigned_to_email && newTask.assigned_to_email !== 'none') ? newTask.assigned_to_email : null,
           created_by_email: user?.email,
           priority: newTask.priority,
           due_date: newTask.due_date || null,
@@ -686,7 +686,7 @@ export default function KanbanPage() {
                     <SelectValue placeholder="Selecione um responsável" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700">
-                    <SelectItem value="" className="text-white">
+                    <SelectItem value="none" className="text-white">
                       Sem responsável
                     </SelectItem>
                     {organizationMembers.map(member => (

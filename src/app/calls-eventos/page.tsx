@@ -178,8 +178,7 @@ export default function CallsEventosPage() {
         .select(`
           *,
           participants:group_event_participants(count),
-          attendees:group_event_participants!inner(count, attendance_status.eq.attended),
-          conversions:group_event_participants!inner(count, conversion_status.eq.converted, conversion_value)
+          attendees:group_event_participants!left(count)
         `)
         .eq('organization_id', organizationId)
         .order('date_time', { ascending: false })

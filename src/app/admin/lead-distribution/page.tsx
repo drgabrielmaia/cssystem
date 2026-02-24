@@ -134,25 +134,40 @@ export default function LeadDistributionDashboard() {
           lastPeriodEnd.setSeconds(-1)
       }
 
-      // Get ALL leads for total counts
-      const { data: allLeads, error: allLeadsError } = await supabase
-        .from('leads')
-        .select('origem, created_at, status, valor_venda')
-        .eq('organization_id', organizationId)
-        .not('origem', 'is', null)
+      // Execute all queries in parallel for better performance
+      const [currentResult, previousResult, allResult] = await Promise.all([
+        // Current period leads
+        supabase
+          .from('leads')
+          .select('origem, created_at, status, valor_venda')
+          .eq('organization_id', organizationId)
+          .gte('created_at', startDate.toISOString())
+          .not('origem', 'is', null),
+        
+        // Previous period leads  
+        supabase
+          .from('leads')
+          .select('origem, created_at, status, valor_venda')
+          .eq('organization_id', organizationId)
+          .gte('created_at', lastPeriodStart.toISOString())
+          .lte('created_at', lastPeriodEnd.toISOString())
+          .not('origem', 'is', null),
+          
+        // All leads for totals
+        supabase
+          .from('leads')
+          .select('origem, status, valor_venda')
+          .eq('organization_id', organizationId)
+          .not('origem', 'is', null)
+      ])
 
-      if (allLeadsError) throw allLeadsError
+      if (currentResult.error) throw currentResult.error
+      if (previousResult.error) throw previousResult.error
+      if (allResult.error) throw allResult.error
 
-      // Get current period leads for period analysis
-      const currentLeads = allLeads.filter(lead => 
-        new Date(lead.created_at) >= startDate
-      )
-
-      // Get previous period leads for comparison
-      const previousLeads = allLeads.filter(lead => {
-        const leadDate = new Date(lead.created_at)
-        return leadDate >= lastPeriodStart && leadDate <= lastPeriodEnd
-      })
+      const currentLeads = currentResult.data || []
+      const previousLeads = previousResult.data || []
+      const allLeads = allResult.data || []
 
       // Process ALL leads for total counts
       const allChannelCounts = allLeads.reduce((acc, lead) => {
@@ -245,51 +260,70 @@ export default function LeadDistributionDashboard() {
 
   const loadPerformanceData = async () => {
     try {
-      // Mock performance data
-      const mockPerformance: ChannelPerformance[] = [
-        {
-          channel: 'Instagram',
-          leads_count: 633,
-          conversions: 127,
-          revenue: 254000,
-          cost_per_lead: 15.50,
-          roi: 4.2
-        },
-        {
-          channel: 'WhatsApp',
-          leads_count: 87,
-          conversions: 23,
-          revenue: 46000,
-          cost_per_lead: 8.30,
-          roi: 6.4
-        },
-        {
-          channel: 'Indicação',
-          leads_count: 33,
-          conversions: 12,
-          revenue: 24000,
-          cost_per_lead: 0,
-          roi: 999
-        },
-        {
-          channel: 'Direto',
-          leads_count: 17,
-          conversions: 5,
-          revenue: 10000,
-          cost_per_lead: 0,
-          roi: 999
-        },
-        {
-          channel: 'Tráfego Pago',
-          leads_count: 13,
-          conversions: 2,
-          revenue: 4000,
-          cost_per_lead: 45.00,
-          roi: 0.7
-        }
-      ]
+      // Get date range based on selected period
+      const now = new Date()
+      let startDate: Date
 
-      setPerformanceData(mockPerformance)
+      switch (selectedPeriod) {
+        case '7d':
+          const dayOfWeek = now.getDay()
+          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - daysToMonday)
+          startDate.setHours(0, 0, 0, 0)
+          break
+        case '30d':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+          break
+        case '90d':
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - 90)
+          startDate.setHours(0, 0, 0, 0)
+          break
+        default:
+          startDate = new Date(now)
+          startDate.setFullYear(now.getFullYear() - 1)
+          startDate.setHours(0, 0, 0, 0)
+      }
+
+      // Load real performance data from database
+      const { data: leadsData, error } = await supabase
+        .from('leads')
+        .select('origem, created_at, mentorado_id')
+        .eq('organization_id', organizationId)
+        .gte('created_at', startDate.toISOString())
+
+      if (error) {
+        console.error('Error loading performance data:', error)
+        return
+      }
+
+      // Group leads by channel and calculate metrics
+      const channelGroups = leadsData?.reduce((acc, lead) => {
+        const channel = lead.origem || 'Outros'
+        if (!acc[channel]) {
+          acc[channel] = {
+            leads_count: 0,
+            conversions: 0
+          }
+        }
+        acc[channel].leads_count++
+        if (lead.mentorado_id) {
+          acc[channel].conversions++
+        }
+        return acc
+      }, {} as Record<string, any>) || {}
+
+      const performanceData: ChannelPerformance[] = Object.entries(channelGroups).map(([channel, data]) => ({
+        channel: channel.charAt(0).toUpperCase() + channel.slice(1),
+        leads_count: data.leads_count,
+        conversions: data.conversions,
+        revenue: data.conversions * 2000, // Mock average revenue per conversion
+        cost_per_lead: channel === 'Instagram' ? 25.50 : channel === 'WhatsApp' ? 0 : 15.00,
+        roi: data.conversions > 0 ? (data.conversions * 2000) / (data.leads_count * 25) : 0
+      }))
+
+      setPerformanceData(performanceData)
     } catch (error) {
       console.error('Error loading performance data:', error)
     }
@@ -357,21 +391,21 @@ export default function LeadDistributionDashboard() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex items-center space-x-2">
           <RefreshCw className="h-6 w-6 animate-spin text-blue-500" />
-          <span className="text-gray-600">Carregando dados...</span>
+          <span className="text-gray-300">Carregando dados...</span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-900">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-gray-800 shadow-sm border-b border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Distribuição de Leads</h1>
-              <p className="mt-2 text-gray-600">
+              <h1 className="text-3xl font-bold text-white">Distribuição de Leads</h1>
+              <p className="mt-2 text-gray-300">
                 Análise completa dos canais de aquisição de leads
               </p>
             </div>
@@ -380,7 +414,7 @@ export default function LeadDistributionDashboard() {
               <select
                 value={selectedPeriod}
                 onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-4 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="7d">Últimos 7 dias</option>
                 <option value="30d">Últimos 30 dias</option>
@@ -408,15 +442,15 @@ export default function LeadDistributionDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* KPI Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total de Leads</p>
-                <p className="text-2xl font-bold text-gray-900">{totalLeads.toLocaleString()}</p>
+                <p className="text-sm font-medium text-gray-300">Total de Leads</p>
+                <p className="text-2xl font-bold text-white">{totalLeads.toLocaleString()}</p>
                 <div className="flex items-center mt-2">
                   <ArrowUpRight className="h-4 w-4 text-green-500" />
                   <span className="text-sm text-green-600 font-medium">+12.5%</span>
-                  <span className="text-sm text-gray-500 ml-2">vs mês anterior</span>
+                  <span className="text-sm text-gray-400 ml-2">vs mês anterior</span>
                 </div>
               </div>
               <div className="p-3 bg-blue-50 rounded-full">
@@ -425,15 +459,15 @@ export default function LeadDistributionDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Canais Ativos</p>
-                <p className="text-2xl font-bold text-gray-900">{distributionData.length}</p>
+                <p className="text-sm font-medium text-gray-300">Canais Ativos</p>
+                <p className="text-2xl font-bold text-white">{distributionData.length}</p>
                 <div className="flex items-center mt-2">
                   <ArrowUpRight className="h-4 w-4 text-green-500" />
                   <span className="text-sm text-green-600 font-medium">+2</span>
-                  <span className="text-sm text-gray-500 ml-2">novos canais</span>
+                  <span className="text-sm text-gray-400 ml-2">novos canais</span>
                 </div>
               </div>
               <div className="p-3 bg-purple-50 rounded-full">
@@ -442,17 +476,17 @@ export default function LeadDistributionDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Taxa Conversão Média</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm font-medium text-gray-300">Taxa Conversão Média</p>
+                <p className="text-2xl font-bold text-white">
                   {(distributionData.reduce((acc, item) => acc + item.conversion_rate, 0) / distributionData.length || 0).toFixed(1)}%
                 </p>
                 <div className="flex items-center mt-2">
                   <ArrowUpRight className="h-4 w-4 text-green-500" />
                   <span className="text-sm text-green-600 font-medium">+3.2%</span>
-                  <span className="text-sm text-gray-500 ml-2">vs mês anterior</span>
+                  <span className="text-sm text-gray-400 ml-2">vs mês anterior</span>
                 </div>
               </div>
               <div className="p-3 bg-green-50 rounded-full">
@@ -461,17 +495,17 @@ export default function LeadDistributionDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Tempo Médio Resposta</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm font-medium text-gray-300">Tempo Médio Resposta</p>
+                <p className="text-2xl font-bold text-white">
                   {Math.round(distributionData.reduce((acc, item) => acc + item.avg_time_to_contact, 0) / distributionData.length || 0)}min
                 </p>
                 <div className="flex items-center mt-2">
                   <ArrowDownRight className="h-4 w-4 text-green-500" />
                   <span className="text-sm text-green-600 font-medium">-15min</span>
-                  <span className="text-sm text-gray-500 ml-2">melhoria</span>
+                  <span className="text-sm text-gray-400 ml-2">melhoria</span>
                 </div>
               </div>
               <div className="p-3 bg-orange-50 rounded-full">
@@ -484,11 +518,11 @@ export default function LeadDistributionDashboard() {
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Channel Distribution Chart */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100">
-            <div className="p-6 border-b border-gray-100">
+          <div className="lg:col-span-2 bg-gray-800 rounded-xl shadow-sm border border-gray-700">
+            <div className="p-6 border-b border-gray-700">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Distribuição por Canal</h3>
-                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <h3 className="text-lg font-semibold text-white">Distribuição por Canal</h3>
+                <div className="flex items-center space-x-2 text-sm text-gray-400">
                   <PieChart className="h-4 w-4" />
                   <span>Últimos {selectedPeriod === '7d' ? '7 dias' : selectedPeriod === '30d' ? '30 dias' : selectedPeriod === '90d' ? '90 dias' : 'ano'}</span>
                 </div>
@@ -505,15 +539,15 @@ export default function LeadDistributionDashboard() {
                         <div className={`p-2 rounded-lg ${getChannelColor(item.origem)} text-white`}>
                           {getChannelIcon(item.origem)}
                         </div>
-                        <span className="font-medium text-gray-900">
+                        <span className="font-medium text-white">
                           {formatChannelName(item.origem)}
                         </span>
                       </div>
                       <div className="text-right">
-                        <span className="text-lg font-bold text-gray-900">
+                        <span className="text-lg font-bold text-white">
                           {item.total_leads.toLocaleString()}
                         </span>
-                        <span className="text-sm text-gray-500 ml-2">
+                        <span className="text-sm text-gray-400 ml-2">
                           ({item.percentage}%)
                         </span>
                       </div>
@@ -530,10 +564,10 @@ export default function LeadDistributionDashboard() {
                     {/* Growth Indicator */}
                     <div className="flex items-center justify-between mt-2 text-xs">
                       <div className="flex items-center space-x-4">
-                        <span className="text-gray-500">
+                        <span className="text-gray-400">
                           Este mês: {item.leads_this_month}
                         </span>
-                        <span className="text-gray-500">
+                        <span className="text-gray-400">
                           Mês anterior: {item.leads_last_month}
                         </span>
                       </div>
@@ -554,10 +588,10 @@ export default function LeadDistributionDashboard() {
           </div>
 
           {/* Channel Performance Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-            <div className="p-6 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900">Performance por Canal</h3>
-              <p className="text-sm text-gray-600 mt-1">Métricas de conversão e ROI</p>
+          <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700">
+            <div className="p-6 border-b border-gray-700">
+              <h3 className="text-lg font-semibold text-white">Performance por Canal</h3>
+              <p className="text-sm text-gray-300 mt-1">Métricas de conversão e ROI</p>
             </div>
             
             <div className="p-6">
@@ -567,39 +601,39 @@ export default function LeadDistributionDashboard() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-2">
                         {getChannelIcon(channel.channel)}
-                        <span className="font-medium text-gray-900">
+                        <span className="font-medium text-white">
                           {channel.channel}
                         </span>
                       </div>
-                      <span className="text-sm font-medium text-gray-600">
+                      <span className="text-sm font-medium text-gray-300">
                         {channel.leads_count} leads
                       </span>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-gray-600">Conversões:</span>
-                        <div className="font-semibold text-gray-900">
+                        <span className="text-gray-300">Conversões:</span>
+                        <div className="font-semibold text-white">
                           {channel.conversions} ({((channel.conversions / channel.leads_count) * 100).toFixed(1)}%)
                         </div>
                       </div>
                       
                       <div>
-                        <span className="text-gray-600">Receita:</span>
-                        <div className="font-semibold text-gray-900">
+                        <span className="text-gray-300">Receita:</span>
+                        <div className="font-semibold text-white">
                           R$ {(channel.revenue / 1000).toFixed(0)}k
                         </div>
                       </div>
                       
                       <div>
-                        <span className="text-gray-600">Custo/Lead:</span>
-                        <div className="font-semibold text-gray-900">
+                        <span className="text-gray-300">Custo/Lead:</span>
+                        <div className="font-semibold text-white">
                           {channel.cost_per_lead === 0 ? 'Grátis' : `R$ ${channel.cost_per_lead.toFixed(2)}`}
                         </div>
                       </div>
                       
                       <div>
-                        <span className="text-gray-600">ROI:</span>
+                        <span className="text-gray-300">ROI:</span>
                         <div className={`font-semibold ${channel.roi > 2 ? 'text-green-600' : channel.roi > 1 ? 'text-yellow-600' : 'text-red-600'}`}>
                           {channel.roi === 999 ? '∞' : `${channel.roi.toFixed(1)}x`}
                         </div>
@@ -613,17 +647,17 @@ export default function LeadDistributionDashboard() {
         </div>
 
         {/* Period Analysis Chart */}
-        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="p-6 border-b border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900">Evolução Temporal</h3>
-            <p className="text-sm text-gray-600 mt-1">Leads por canal ao longo do tempo</p>
+        <div className="mt-8 bg-gray-800 rounded-xl shadow-sm border border-gray-700">
+          <div className="p-6 border-b border-gray-700">
+            <h3 className="text-lg font-semibold text-white">Evolução Temporal</h3>
+            <p className="text-sm text-gray-300 mt-1">Leads por canal ao longo do tempo</p>
           </div>
           
           <div className="p-6">
             <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
               <div className="text-center">
                 <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500">Gráfico de evolução temporal</p>
+                <p className="text-gray-400">Gráfico de evolução temporal</p>
                 <p className="text-sm text-gray-400">Implementação do gráfico em desenvolvimento</p>
               </div>
             </div>
