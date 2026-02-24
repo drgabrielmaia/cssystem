@@ -102,6 +102,13 @@ export function VideoPlayerWithNotes({
     if (!newNote.trim()) return
 
     setLoading(true)
+    
+    // Timeout para evitar loading infinito
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      alert('Tempo limite excedido ao salvar anotação. Tente novamente.')
+    }, 10000) // 10 segundos
+
     try {
       await anotacoesService.salvarAnotacao({
         mentorado_id: mentoradoId,
@@ -111,10 +118,17 @@ export function VideoPlayerWithNotes({
         tipo: noteType
       })
 
+      clearTimeout(timeout)
       setNewNote('')
       await loadNotes()
+      
+      // Feedback visual de sucesso
+      console.log('✅ Anotação salva com sucesso!')
+      
     } catch (error) {
-      console.error('Erro ao salvar anotação:', error)
+      clearTimeout(timeout)
+      console.error('❌ Erro ao salvar anotação:', error)
+      alert('Erro ao salvar anotação. Verifique sua conexão e tente novamente.')
     } finally {
       setLoading(false)
     }

@@ -57,9 +57,22 @@ export interface ConquistaAluno {
 
 export const formularioService = {
   // Salvar resposta de formulário pós-aula
-  async salvarFormularioAula(dados: Omit<FormularioAula, 'id' | 'created_at'>) {
+  async salvarFormularioAula(dados: Omit<FormularioAula, 'id' | 'created_at'>, organizationId?: string) {
+    // Buscar organization_id do mentorado se não foi fornecido
+    let orgId = organizationId
+    if (!orgId) {
+      const { data: mentorado } = await supabase
+        .from('mentorados')
+        .select('organization_id')
+        .eq('id', dados.mentorado_id)
+        .single()
+      
+      orgId = mentorado?.organization_id
+    }
+
     const resposta = {
       mentorado_id: dados.mentorado_id,
+      organization_id: orgId,
       formulario: dados.tipo,
       resposta_json: {
         lesson_id: dados.lesson_id,
@@ -77,7 +90,10 @@ export const formularioService = {
       .insert([resposta])
       .select()
 
-    if (error) throw error
+    if (error) {
+      console.error('Erro ao salvar formulário:', error)
+      throw error
+    }
     return data[0]
   },
 
@@ -186,9 +202,22 @@ export const metasService = {
 
 export const anotacoesService = {
   // Salvar anotação durante a aula
-  async salvarAnotacao(anotacao: Omit<AnotacaoAula, 'id' | 'created_at'>) {
+  async salvarAnotacao(anotacao: Omit<AnotacaoAula, 'id' | 'created_at'>, organizationId?: string) {
+    // Buscar organization_id do mentorado se não foi fornecido
+    let orgId = organizationId
+    if (!orgId) {
+      const { data: mentorado } = await supabase
+        .from('mentorados')
+        .select('organization_id')
+        .eq('id', anotacao.mentorado_id)
+        .single()
+      
+      orgId = mentorado?.organization_id
+    }
+
     const anotacaoData = {
       mentorado_id: anotacao.mentorado_id,
+      organization_id: orgId,
       formulario: 'anotacao',
       resposta_json: {
         lesson_id: anotacao.lesson_id,
@@ -204,7 +233,10 @@ export const anotacoesService = {
       .insert([anotacaoData])
       .select()
 
-    if (error) throw error
+    if (error) {
+      console.error('Erro ao salvar anotação:', error)
+      throw error
+    }
     return data[0]
   },
 
