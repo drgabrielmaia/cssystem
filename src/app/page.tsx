@@ -187,80 +187,66 @@ export default function DashboardPage() {
       const { data: mentoradosPeriod } = await mentoradosQuery
       const { data: vendasPeriod } = await vendasQuery
 
-      // Buscar dados de calls da tabela leads (igual ao social-seller)
-      // Calls realizadas = vendidos + perdidos (não vendidos)
-      let leadsForCallsQuery = supabase
-        .from('leads')
-        .select('id, status, convertido_em, status_updated_at, data_primeiro_contato')
+      // Buscar dados de calls realizadas da tabela appointments
+      let appointmentsQuery = supabase
+        .from('appointments')
+        .select(`
+          id, 
+          status, 
+          outcome,
+          appointment_date,
+          actual_start_time,
+          actual_end_time,
+          lead_id,
+          created_at
+        `)
 
-      // Aplicar filtro de data apenas se for um período específico
+      // Aplicar filtro de data se necessário
       if (dateRange.start && dateRange.end && selectedPeriod !== 'all') {
-        // Para leads vendidos, usar convertido_em; para outros usar status_updated_at ou data_primeiro_contato
-        leadsForCallsQuery = leadsForCallsQuery.or(
-          `and(status.eq.vendido,convertido_em.gte.${dateRange.start},convertido_em.lte.${dateRange.end}),` +
-          `and(status.neq.vendido,status_updated_at.gte.${dateRange.start},status_updated_at.lte.${dateRange.end}),` +
-          `and(status_updated_at.is.null,data_primeiro_contato.gte.${dateRange.start},data_primeiro_contato.lte.${dateRange.end})`
-        )
+        appointmentsQuery = appointmentsQuery
+          .gte('appointment_date', dateRange.start.split('T')[0]) // Usar apenas a data
+          .lte('appointment_date', dateRange.end.split('T')[0])
       }
 
-      const { data: leadsForCalls } = await leadsForCallsQuery
+      const { data: appointments } = await appointmentsQuery
 
-      // Para calls vendidas, verificar se o mentorado resultante não foi excluído/churned
+      // Buscar vendas realizadas no período
+      let vendasRealizadasQuery = supabase
+        .from('vendas')
+        .select('id, mentorado_id, data_venda, valor, status')
+        .eq('status', 'confirmada')
+
+      // Aplicar filtro de data se necessário  
+      if (dateRange.start && dateRange.end && selectedPeriod !== 'all') {
+        vendasRealizadasQuery = vendasRealizadasQuery
+          .gte('data_venda', dateRange.start.split('T')[0])
+          .lte('data_venda', dateRange.end.split('T')[0])
+      }
+
+      const { data: vendasRealizadas } = await vendasRealizadasQuery
+
+      // Calcular métricas de calls
+      let callsRealizadas = 0
       let callsVendidas = 0
-      let callsNaoVendidas = 0
 
-      if (leadsForCalls) {
-        // Buscar todos os leads vendidos que podem ter se tornado mentorados
-        const leadsVendidos = leadsForCalls.filter(lead => lead.status === 'vendido')
-        
-        if (leadsVendidos.length > 0) {
-          // Dividir em chunks para evitar URLs muito longas (máximo 20 IDs por chunk)
-          const chunkSize = 20
-          const leadIds = leadsVendidos.map(l => l.id)
-          const chunks = []
-          
-          for (let i = 0; i < leadIds.length; i += chunkSize) {
-            chunks.push(leadIds.slice(i, i + chunkSize))
-          }
-          
-          let allMentoradosAtivos: any[] = []
-          
-          // Executar queries em paralelo para cada chunk
-          const promises = chunks.map(chunk => 
-            supabase
-              .from('mentorados')
-              .select('id, lead_origem_id')
-              .in('lead_origem_id', chunk)
-              .eq('excluido', false)
-              .neq('estado_atual', 'churned')
-          )
-          
-          const results = await Promise.all(promises)
-          
-          // Combinar todos os resultados
-          for (const result of results) {
-            if (result.data) {
-              allMentoradosAtivos.push(...result.data)
-            }
-          }
-
-          // Contar apenas calls vendidas que resultaram em mentorados ainda ativos
-          if (allMentoradosAtivos.length > 0) {
-            const leadsComMentoradosAtivos = new Set(allMentoradosAtivos.map(m => m.lead_origem_id))
-            callsVendidas = leadsVendidos.filter(lead => leadsComMentoradosAtivos.has(lead.id)).length
-          }
-        }
-
-        // Calls não vendidas (perdidos) permanecem iguais
-        callsNaoVendidas = leadsForCalls.filter(lead => lead.status === 'perdido').length
+      if (appointments) {
+        // Calls realizadas = appointments que realmente aconteceram (status completed ou com outcome)
+        callsRealizadas = appointments.filter(app => 
+          app.status === 'completed' || 
+          app.actual_start_time || 
+          (app.outcome && app.outcome !== 'no_show')
+        ).length
       }
 
-      // Vazado não conta nas calls realizadas
+      if (vendasRealizadas) {
+        // Calls vendidas = número de vendas confirmadas no período
+        callsVendidas = vendasRealizadas.length
+      }
 
       const callsMetrics = {
         calls_vendidas: callsVendidas,
-        total_calls: callsVendidas + callsNaoVendidas, // Total de calls realizadas
-        calls_nao_vendidas: callsNaoVendidas
+        total_calls: callsRealizadas, // Total de calls realizadas
+        calls_nao_vendidas: Math.max(0, callsRealizadas - callsVendidas)
       }
 
       console.log('🔍 Debug calls metrics:', {

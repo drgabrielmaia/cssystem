@@ -94,22 +94,26 @@ export default function LeadDistributionDashboard() {
 
       switch (selectedPeriod) {
         case '7d':
-          // Últimos 7 dias - dos últimos 7 dias corridos até hoje (incluindo hoje)
-          startDate = new Date(now.getTime() - (6 * 24 * 60 * 60 * 1000)) // 6 dias atrás + hoje = 7 dias
+          // Semana atual: segunda a domingo da semana atual (incluindo hoje)
+          const currentDayOfWeek = now.getDay() === 0 ? 7 : now.getDay() // Domingo = 7, Segunda = 1
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - (currentDayOfWeek - 1)) // Voltar para a segunda-feira
           startDate.setHours(0, 0, 0, 0)
           
-          // Período anterior: 7 dias antes do período atual
-          lastPeriodStart = new Date(startDate.getTime() - (7 * 24 * 60 * 60 * 1000))
-          lastPeriodEnd = new Date(startDate.getTime() - 1) // 1 milissegundo antes do início do período atual
+          // Período anterior: semana passada (segunda a domingo)
+          lastPeriodStart = new Date(startDate)
+          lastPeriodStart.setDate(startDate.getDate() - 7)
+          lastPeriodEnd = new Date(startDate)
+          lastPeriodEnd.setTime(lastPeriodEnd.getTime() - 1) // 1 milissegundo antes do início da semana atual
           break
         case '30d':
-          // Últimos 30 dias - dos últimos 30 dias corridos até hoje (incluindo hoje)
-          startDate = new Date(now.getTime() - (29 * 24 * 60 * 60 * 1000)) // 29 dias atrás + hoje = 30 dias
+          // Do dia 1 do mês vigente até hoje
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
           startDate.setHours(0, 0, 0, 0)
           
-          // Para período anterior, usar 30 dias anteriores
-          lastPeriodStart = new Date(startDate.getTime() - (30 * 24 * 60 * 60 * 1000))
-          lastPeriodEnd = new Date(startDate.getTime() - 1) // 1 milissegundo antes do início do período atual
+          // Para período anterior, usar mesmo período do mês passado
+          lastPeriodStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+          lastPeriodEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
           break
         case '90d':
           // Últimos 90 dias - dos últimos 90 dias corridos até hoje (incluindo hoje)
@@ -271,13 +275,15 @@ export default function LeadDistributionDashboard() {
 
       switch (selectedPeriod) {
         case '7d':
-          // Últimos 7 dias - dos últimos 7 dias corridos até hoje (incluindo hoje)
-          startDate = new Date(now.getTime() - (6 * 24 * 60 * 60 * 1000)) // 6 dias atrás + hoje = 7 dias
+          // Semana atual: segunda a domingo da semana atual (incluindo hoje)
+          const currentDayOfWeek = now.getDay() === 0 ? 7 : now.getDay() // Domingo = 7, Segunda = 1
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - (currentDayOfWeek - 1)) // Voltar para a segunda-feira
           startDate.setHours(0, 0, 0, 0)
           break
         case '30d':
-          // Últimos 30 dias - dos últimos 30 dias corridos até hoje (incluindo hoje)
-          startDate = new Date(now.getTime() - (29 * 24 * 60 * 60 * 1000)) // 29 dias atrás + hoje = 30 dias
+          // Do dia 1 do mês vigente até hoje
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
           startDate.setHours(0, 0, 0, 0)
           break
         case '90d':
@@ -447,9 +453,9 @@ export default function LeadDistributionDashboard() {
                 onChange={(e) => setSelectedPeriod(e.target.value)}
                 className="px-4 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="7d">Últimos 7 dias (incluindo hoje)</option>
-                <option value="30d">Últimos 30 dias (incluindo hoje)</option>
-                <option value="90d">Últimos 90 dias (incluindo hoje)</option>
+                <option value="7d">Esta semana (segunda a domingo)</option>
+                <option value="30d">Este mês (do dia 1 até hoje)</option>
+                <option value="90d">Últimos 90 dias</option>
                 <option value="1y">Este ano (desde 1° janeiro)</option>
               </select>
               
