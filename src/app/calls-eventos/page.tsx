@@ -369,6 +369,41 @@ export default function CallsEventosPage() {
     setShowAnalysisModal(true)
   }
 
+  const openEventDetailsModal = (event: GroupEvent) => {
+    setSelectedEvent(event)
+    loadEventParticipants(event.id)
+    // Implementar modal de detalhes se necessário
+    alert(`Detalhes do evento: ${event.name}\nDescrição: ${event.description || 'Sem descrição'}\nData: ${new Date(event.date_time).toLocaleString('pt-BR')}`)
+  }
+
+  const openEditEventModal = (event: GroupEvent) => {
+    setSelectedEvent(event)
+    // Implementar formulário de edição
+    alert(`Funcionalidade de edição em desenvolvimento para: ${event.name}`)
+  }
+
+  const handleDeleteEvent = async (event: GroupEvent) => {
+    if (!confirm(`Tem certeza que deseja excluir o evento "${event.name}"? Esta ação não pode ser desfeita.`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('group_events')
+        .delete()
+        .eq('id', event.id)
+
+      if (error) throw error
+
+      // Recarregar eventos
+      loadEvents()
+      alert('Evento excluído com sucesso!')
+    } catch (error) {
+      console.error('Erro ao excluir evento:', error)
+      alert('Erro ao excluir evento. Tente novamente.')
+    }
+  }
+
   if (loading) {
     return (
       <PageLayout title="Calls em Grupo e Eventos">
@@ -529,8 +564,27 @@ export default function CallsEventosPage() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => openParticipantsModal(event)}
+                        onClick={() => openEventDetailsModal(event)}
+                        className="text-gray-400 hover:text-gray-300 hover:bg-gray-700/50"
+                        title="Ver detalhes"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openEditEventModal(event)}
                         className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/20"
+                        title="Editar evento"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openParticipantsModal(event)}
+                        className="text-green-400 hover:text-green-300 hover:bg-green-900/20"
+                        title="Ver participantes"
                       >
                         <Users className="h-4 w-4" />
                       </Button>
@@ -539,11 +593,21 @@ export default function CallsEventosPage() {
                           size="sm"
                           variant="ghost"
                           onClick={() => window.open(event.meeting_link, '_blank')}
-                          className="text-green-400 hover:text-green-300 hover:bg-green-900/20"
+                          className="text-purple-400 hover:text-purple-300 hover:bg-purple-900/20"
+                          title="Acessar reunião"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteEvent(event)}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                        title="Excluir evento"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </td>
                 </tr>

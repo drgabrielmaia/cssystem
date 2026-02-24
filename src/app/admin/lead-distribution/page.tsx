@@ -94,17 +94,12 @@ export default function LeadDistributionDashboard() {
 
       switch (selectedPeriod) {
         case '7d':
-          // Últimos 7 dias de segunda a domingo
-          const today = new Date()
-          const dayOfWeek = today.getDay() // 0 = Sunday, 1 = Monday, etc.
-          const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // Adjust so Monday = 0
-          
-          startDate = new Date(today)
-          startDate.setDate(today.getDate() - daysToSubtract - 7) // Go to Monday of last week
+          // Últimos 7 dias - dos últimos 7 dias corridos até hoje
+          startDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000))
           startDate.setHours(0, 0, 0, 0)
           
-          lastPeriodStart = new Date(startDate)
-          lastPeriodStart.setDate(startDate.getDate() - 7)
+          // Período anterior: 7 dias antes do período atual
+          lastPeriodStart = new Date(startDate.getTime() - (7 * 24 * 60 * 60 * 1000))
           lastPeriodEnd = new Date(startDate)
           lastPeriodEnd.setSeconds(-1)
           break
@@ -118,12 +113,11 @@ export default function LeadDistributionDashboard() {
           lastPeriodEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
           break
         case '90d':
-          startDate = new Date(now)
-          startDate.setDate(now.getDate() - 90)
+          // Últimos 90 dias - usar setTime para evitar problemas com meses
+          startDate = new Date(now.getTime() - (90 * 24 * 60 * 60 * 1000))
           startDate.setHours(0, 0, 0, 0)
           
-          lastPeriodStart = new Date(startDate)
-          lastPeriodStart.setDate(startDate.getDate() - 90)
+          lastPeriodStart = new Date(startDate.getTime() - (90 * 24 * 60 * 60 * 1000))
           lastPeriodEnd = new Date(startDate)
           lastPeriodEnd.setSeconds(-1)
           break
@@ -279,13 +273,8 @@ export default function LeadDistributionDashboard() {
 
       switch (selectedPeriod) {
         case '7d':
-          // Últimos 7 dias de segunda a domingo (consistente com loadDistributionData)
-          const today = new Date()
-          const dayOfWeek = today.getDay()
-          const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-          
-          startDate = new Date(today)
-          startDate.setDate(today.getDate() - daysToSubtract - 7)
+          // Últimos 7 dias - dos últimos 7 dias corridos até hoje (consistente com loadDistributionData)
+          startDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000))
           startDate.setHours(0, 0, 0, 0)
           break
         case '30d':
@@ -294,8 +283,8 @@ export default function LeadDistributionDashboard() {
           startDate.setHours(0, 0, 0, 0)
           break
         case '90d':
-          startDate = new Date(now)
-          startDate.setDate(now.getDate() - 90)
+          // Últimos 90 dias - usar setTime para evitar problemas com meses (consistente com loadDistributionData)
+          startDate = new Date(now.getTime() - (90 * 24 * 60 * 60 * 1000))
           startDate.setHours(0, 0, 0, 0)
           break
         case '1y':

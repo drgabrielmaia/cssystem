@@ -164,7 +164,11 @@ export default function PendenciasPage() {
     try {
       const { data, error } = await supabase
         .from('comissoes')
-        .select('*')
+        .select(`
+          *,
+          leads:lead_id(nome_completo, email),
+          mentorados:mentorado_id(nome_completo, email)
+        `)
         .eq('organization_id', organizationId)
         .eq('status_pagamento', 'pendente')
       

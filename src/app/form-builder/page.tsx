@@ -578,6 +578,85 @@ export default function FormBuilderPage() {
           </div>
         )}
 
+        {/* Scoring Configuration */}
+        <div className="border-t pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <Label className="text-sm font-medium">Sistema de Pontuação</Label>
+            <input
+              type="checkbox"
+              checked={field.scoring?.enabled || false}
+              onChange={(e) => updateField(field.id, { 
+                scoring: { 
+                  enabled: e.target.checked,
+                  points: field.scoring?.points || 10,
+                  optionScores: field.scoring?.optionScores || {}
+                }
+              })}
+              className="w-4 h-4"
+            />
+          </div>
+          
+          {field.scoring?.enabled && (
+            <div className="space-y-3 bg-blue-50 p-3 rounded-lg">
+              {/* Points for simple fields */}
+              {!['select', 'radio', 'checkbox'].includes(field.type) && (
+                <div>
+                  <Label className="text-sm">Pontos por resposta</Label>
+                  <Input
+                    type="number"
+                    value={field.scoring?.points || 10}
+                    onChange={(e) => updateField(field.id, { 
+                      scoring: { 
+                        ...field.scoring, 
+                        points: Number(e.target.value)
+                      }
+                    })}
+                    className="w-20"
+                    min="0"
+                    max="100"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Pontos ganhos quando o campo é preenchido</p>
+                </div>
+              )}
+              
+              {/* Option-specific scoring for select/radio/checkbox */}
+              {['select', 'radio', 'checkbox'].includes(field.type) && (
+                <div>
+                  <Label className="text-sm">Pontuação por opção</Label>
+                  <div className="space-y-2 mt-2">
+                    {field.options?.map((option, optIndex) => (
+                      <div key={optIndex} className="flex items-center gap-2">
+                        <span className="text-sm min-w-0 flex-1 truncate">{option}</span>
+                        <Input
+                          type="number"
+                          value={field.scoring?.optionScores?.[option] || 0}
+                          onChange={(e) => {
+                            const newOptionScores = { 
+                              ...field.scoring?.optionScores,
+                              [option]: Number(e.target.value)
+                            }
+                            updateField(field.id, { 
+                              scoring: { 
+                                ...field.scoring, 
+                                optionScores: newOptionScores
+                              }
+                            })
+                          }}
+                          className="w-16"
+                          min="0"
+                          max="100"
+                        />
+                        <span className="text-xs text-gray-500">pts</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Pontos ganhos por cada opção selecionada</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center space-x-2">
           <input
             type="checkbox"
@@ -631,6 +710,15 @@ export default function FormBuilderPage() {
                 <label className="block text-sm font-medium mb-2">
                   {field.label}
                   {field.required && <span className="text-red-500 ml-1">*</span>}
+                  {field.scoring?.enabled && (
+                    <span className="ml-2 inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
+                      🏆 
+                      {field.scoring.points ? 
+                        `${field.scoring.points} pts` : 
+                        'Pontuado'
+                      }
+                    </span>
+                  )}
                 </label>
 
                 {/* Renderizar campo baseado no tipo */}

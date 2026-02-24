@@ -146,9 +146,11 @@ export default function AdvancedPerformanceLeadsPage() {
     `,
     filters: selectedCloser !== 'all' ? { 
       closer_id: selectedCloser,
-      created_at: `gte.${dateFilter}`
+      created_at: `gte.${dateFilter}`,
+      status: `not.in.(churn,excluido,vazado,perdido)`
     } : {
-      created_at: `gte.${dateFilter}`
+      created_at: `gte.${dateFilter}`,
+      status: `not.in.(churn,excluido,vazado,perdido)`
     },
     dependencies: [dateFilter, selectedCloser],
     autoLoad: true,
@@ -163,10 +165,12 @@ export default function AdvancedPerformanceLeadsPage() {
     tableName: 'closers',
     select: `
       id, nome_completo, tipo_closer,
-      leads:leads(id, status, valor_potencial, created_at),
+      leads:leads!inner(id, status, valor_potencial, created_at),
       interactions:lead_interactions(id, data_interacao)
     `,
-    filters: { status_contrato: 'ativo' },
+    filters: { 
+      status_contrato: 'ativo'
+    },
     dependencies: [],
     autoLoad: true,
     debounceMs: 300
@@ -213,11 +217,11 @@ export default function AdvancedPerformanceLeadsPage() {
     if (!rawClosers?.length) return []
 
     return rawClosers.map(closer => {
-      const leads = closer.leads || []
+      const leads = (closer.leads || []).filter((l: any) => !['churn', 'excluido', 'vazado', 'perdido'].includes(l.status))
       const interactions = closer.interactions || []
       
       const leadsAtivos = leads.filter((l: any) => 
-        !['fechado_ganho', 'fechado_perdido', 'cancelado'].includes(l.status)
+        !['fechado_ganho', 'fechado_perdido', 'cancelado', 'churn', 'excluido', 'vazado', 'perdido'].includes(l.status)
       ).length
       
       const conversoesMes = leads.filter((l: any) => {
@@ -229,7 +233,7 @@ export default function AdvancedPerformanceLeadsPage() {
         (leads.filter((l: any) => l.status === 'fechado_ganho').length / leads.length) * 100 : 0
       
       const valorPipeline = leads
-        .filter((l: any) => !['fechado_ganho', 'fechado_perdido', 'cancelado'].includes(l.status))
+        .filter((l: any) => !['fechado_ganho', 'fechado_perdido', 'cancelado', 'churn', 'excluido', 'vazado', 'perdido'].includes(l.status))
         .reduce((sum: number, l: any) => sum + (l.valor_potencial || 0), 0)
       
       const interacoesUltimos7Dias = interactions.filter((i: any) => {
