@@ -106,6 +106,8 @@ export function useOptimizedMentorados(organizationId: string | null, filters: M
           .from('mentorados')
           .select('*', { count: 'exact' })
           .eq('organization_id', organizationId)
+          .eq('excluido', false)
+          .neq('estado_atual', 'churned')
           .order('created_at', { ascending: false })
           .range((page - 1) * pageSize, page * pageSize - 1)
 
@@ -122,6 +124,8 @@ export function useOptimizedMentorados(organizationId: string | null, filters: M
         .from('mentorados')
         .select('estado_atual, created_at, pontuacao')
         .eq('organization_id', organizationId)
+        .eq('excluido', false)
+        .neq('estado_atual', 'churned')
     ])
 
     // Process results

@@ -94,11 +94,9 @@ export default function LeadDistributionDashboard() {
 
       switch (selectedPeriod) {
         case '7d':
-          // Monday to Sunday of this week
-          const dayOfWeek = now.getDay()
-          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+          // Últimos 7 dias (hoje até 7 dias atrás)
           startDate = new Date(now)
-          startDate.setDate(now.getDate() - daysToMonday)
+          startDate.setDate(now.getDate() - 7)
           startDate.setHours(0, 0, 0, 0)
           
           lastPeriodStart = new Date(startDate)
@@ -266,10 +264,9 @@ export default function LeadDistributionDashboard() {
 
       switch (selectedPeriod) {
         case '7d':
-          const dayOfWeek = now.getDay()
-          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+          // Últimos 7 dias (consistente com loadDistributionData)
           startDate = new Date(now)
-          startDate.setDate(now.getDate() - daysToMonday)
+          startDate.setDate(now.getDate() - 7)
           startDate.setHours(0, 0, 0, 0)
           break
         case '30d':
@@ -289,39 +286,60 @@ export default function LeadDistributionDashboard() {
       // Load real performance data from database
       const { data: leadsData, error } = await supabase
         .from('leads')
-        .select('origem, created_at, mentorado_id')
+        .select('origem, created_at, mentorado_id, valor_venda, status')
         .eq('organization_id', organizationId)
         .gte('created_at', startDate.toISOString())
+        .not('origem', 'is', null)
 
       if (error) {
         console.error('Error loading performance data:', error)
         return
       }
 
-      // Group leads by channel and calculate metrics
+      // Group leads by channel and calculate real metrics
       const channelGroups = leadsData?.reduce((acc, lead) => {
-        const channel = lead.origem || 'Outros'
+        const channel = lead.origem || 'outros'
         if (!acc[channel]) {
           acc[channel] = {
             leads_count: 0,
-            conversions: 0
+            conversions: 0,
+            total_revenue: 0
           }
         }
         acc[channel].leads_count++
         if (lead.mentorado_id) {
           acc[channel].conversions++
+          // Use real revenue when available
+          const revenue = lead.valor_venda || 0
+          acc[channel].total_revenue += revenue
         }
         return acc
       }, {} as Record<string, any>) || {}
 
-      const performanceData: ChannelPerformance[] = Object.entries(channelGroups).map(([channel, data]) => ({
-        channel: channel.charAt(0).toUpperCase() + channel.slice(1),
-        leads_count: data.leads_count,
-        conversions: data.conversions,
-        revenue: data.conversions * 2000, // Mock average revenue per conversion
-        cost_per_lead: channel === 'Instagram' ? 25.50 : channel === 'WhatsApp' ? 0 : 15.00,
-        roi: data.conversions > 0 ? (data.conversions * 2000) / (data.leads_count * 25) : 0
-      }))
+      const performanceData: ChannelPerformance[] = Object.entries(channelGroups).map(([channel, data]) => {
+        // Define cost per lead based on channel
+        const costPerLead = {
+          'instagram': 25.50,
+          'whatsapp': 0,
+          'indicacao': 0,
+          'direct': 0,
+          'direto': 0,
+          'trafego': 35.00,
+          'outros': 15.00
+        }[channel.toLowerCase()] || 15.00
+
+        const totalCost = data.leads_count * costPerLead
+        const roi = totalCost > 0 ? (data.total_revenue / totalCost) : 0
+
+        return {
+          channel: channel.charAt(0).toUpperCase() + channel.slice(1),
+          leads_count: data.leads_count,
+          conversions: data.conversions,
+          revenue: data.total_revenue,
+          cost_per_lead: costPerLead,
+          roi: roi
+        }
+      })
 
       setPerformanceData(performanceData)
     } catch (error) {

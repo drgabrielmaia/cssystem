@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
 import { AlertCircle, CheckCircle } from 'lucide-react'
 
@@ -36,6 +37,7 @@ interface Lead {
   updated_at: string
   mentorado_indicador_id?: string | null
   fonte_referencia?: string | null
+  closer_email?: string | null
 }
 
 interface EditLeadModalProps {
@@ -58,10 +60,12 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
     valor_vendido: '',
     data_venda: '',
     desistiu: false,
-    indicado_por: ''
+    indicado_por: '',
+    closer_email: ''
   })
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [closers, setClosers] = useState<{email: string; role: string}[]>([])
 
   useEffect(() => {
     if (lead && isOpen) {
@@ -77,11 +81,28 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
         valor_vendido: lead.valor_vendido?.toString() || '',
         data_venda: lead.data_venda ? new Date(lead.data_venda).toISOString().split('T')[0] : '',
         desistiu: lead.desistiu || false,
-        indicado_por: (lead as any).indicado_por || ''
+        indicado_por: (lead as any).indicado_por || '',
+        closer_email: lead.closer_email || ''
       })
       setMessage(null)
+      loadClosers()
     }
   }, [lead, isOpen])
+
+  const loadClosers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('organization_users')
+        .select('email, role')
+        .in('role', ['closer', 'admin', 'owner'])
+        .order('email')
+
+      if (error) throw error
+      setClosers(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar closers:', error)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -107,6 +128,7 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
         data_venda: formData.data_venda || null,
         desistiu: formData.desistiu,
         indicado_por: formData.indicado_por || null,
+        closer_email: formData.closer_email || null,
         updated_at: new Date().toISOString()
       }
 
@@ -298,6 +320,25 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
               </div>
 
               <div>
+                <Label htmlFor="closer_email">Closer Responsável</Label>
+                <Select value={formData.closer_email} onValueChange={(value) => setFormData({ ...formData, closer_email: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um closer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Não atribuído</SelectItem>
+                    {closers.map((closer) => (
+                      <SelectItem key={closer.email} value={closer.email}>
+                        {closer.email} ({closer.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <Label htmlFor="valor_vendido">Valor Vendido (R$)</Label>
                 <Input
                   id="valor_vendido"
@@ -308,6 +349,7 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
                   placeholder="0,00"
                 />
               </div>
+              <div></div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

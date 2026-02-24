@@ -54,15 +54,16 @@ interface Contract {
   created_at: string
   signed_at?: string
   expires_at: string
-  mentorado_id?: string
+  lead_id?: string
   whatsapp_sent_at?: string
 }
 
-interface Mentorado {
+interface Lead {
   id: string
   nome_completo: string
   email: string
   telefone?: string
+  status_qualificacao?: string
 }
 
 interface SignatureSettings {
@@ -78,7 +79,7 @@ export default function ContractsPage() {
   const { organizationId, user } = useAuth()
   const [templates, setTemplates] = useState<ContractTemplate[]>([])
   const [contracts, setContracts] = useState<Contract[]>([])
-  const [mentorados, setMentorados] = useState<Mentorado[]>([])
+  const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('contracts')
   
@@ -95,8 +96,8 @@ export default function ContractsPage() {
 
   const [contractForm, setContractForm] = useState({
     template_id: '',
-    recipient_type: 'mentorado', // 'mentorado' or 'custom'
-    mentorado_id: '',
+    recipient_type: 'lead', // 'lead' or 'custom'
+    lead_id: '',
     custom_name: '',
     custom_email: '',
     custom_phone: '',
@@ -148,16 +149,16 @@ export default function ContractsPage() {
       if (contractsError) throw contractsError
       setContracts(contractsData || [])
 
-      // Load mentorados for contract creation
-      const { data: mentoradosData, error: mentoradosError } = await supabase
-        .from('mentorados')
-        .select('id, nome_completo, email, telefone')
+      // Load leads for contract creation
+      const { data: leadsData, error: leadsError } = await supabase
+        .from('leads')
+        .select('id, nome_completo, email, telefone, status_qualificacao')
         .eq('organization_id', organizationId)
-        .eq('excluido', false)
+        .neq('status_qualificacao', 'convertido')
         .order('nome_completo')
 
-      if (mentoradosError) throw mentoradosError
-      setMentorados(mentoradosData || [])
+      if (leadsError) throw leadsError
+      setLeads(leadsData || [])
 
       // Load signature settings
       const { data: signatureData, error: signatureError } = await supabase
@@ -241,23 +242,23 @@ export default function ContractsPage() {
     if (!organizationId || !user?.email) return
 
     try {
-      let recipientName, recipientEmail, recipientPhone, mentoradoId
+      let recipientName, recipientEmail, recipientPhone, leadId
 
-      if (contractForm.recipient_type === 'mentorado') {
-        const selectedMentorado = mentorados.find(m => m.id === contractForm.mentorado_id)
-        if (!selectedMentorado) {
-          alert('Selecione um mentorado')
+      if (contractForm.recipient_type === 'lead') {
+        const selectedLead = leads.find(l => l.id === contractForm.lead_id)
+        if (!selectedLead) {
+          alert('Selecione um lead')
           return
         }
-        recipientName = selectedMentorado.nome_completo
-        recipientEmail = selectedMentorado.email
-        recipientPhone = selectedMentorado.telefone
-        mentoradoId = selectedMentorado.id
+        recipientName = selectedLead.nome_completo
+        recipientEmail = selectedLead.email
+        recipientPhone = selectedLead.telefone
+        leadId = selectedLead.id
       } else {
         recipientName = contractForm.custom_name
         recipientEmail = contractForm.custom_email
         recipientPhone = contractForm.custom_phone
-        mentoradoId = null
+        leadId = null
       }
 
       const { data, error } = await supabase.rpc('create_contract_from_template', {
@@ -267,7 +268,7 @@ export default function ContractsPage() {
         p_recipient_phone: recipientPhone,
         p_organization_id: organizationId,
         p_created_by_email: user.email,
-        p_mentorado_id: mentoradoId,
+        p_lead_id: leadId,
         p_placeholders: contractForm.placeholders
       })
 
@@ -330,8 +331,8 @@ export default function ContractsPage() {
   const resetContractForm = () => {
     setContractForm({
       template_id: '',
-      recipient_type: 'mentorado',
-      mentorado_id: '',
+      recipient_type: 'lead',
+      lead_id: '',
       custom_name: '',
       custom_email: '',
       custom_phone: '',
@@ -629,27 +630,27 @@ export default function ContractsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-gray-800 border-gray-700">
-                        <SelectItem value="mentorado" className="text-white">Mentorado Existente</SelectItem>
+                        <SelectItem value="lead" className="text-white">Lead Existente</SelectItem>
                         <SelectItem value="custom" className="text-white">Pessoa Externa</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {contractForm.recipient_type === 'mentorado' ? (
+                  {contractForm.recipient_type === 'lead' ? (
                     <div>
-                      <Label className="text-white">Mentorado *</Label>
+                      <Label className="text-white">Lead *</Label>
                       <Select
-                        value={contractForm.mentorado_id}
-                        onValueChange={(value) => setContractForm(prev => ({ ...prev, mentorado_id: value }))}
+                        value={contractForm.lead_id}
+                        onValueChange={(value) => setContractForm(prev => ({ ...prev, lead_id: value }))}
                         required
                       >
                         <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                          <SelectValue placeholder="Selecione um mentorado" />
+                          <SelectValue placeholder="Selecione um lead" />
                         </SelectTrigger>
                         <SelectContent className="bg-gray-800 border-gray-700">
-                          {mentorados.map((mentorado) => (
-                            <SelectItem key={mentorado.id} value={mentorado.id} className="text-white">
-                              {mentorado.nome_completo} ({mentorado.email})
+                          {leads.map((lead) => (
+                            <SelectItem key={lead.id} value={lead.id} className="text-white">
+                              {lead.nome_completo} ({lead.email})
                             </SelectItem>
                           ))}
                         </SelectContent>

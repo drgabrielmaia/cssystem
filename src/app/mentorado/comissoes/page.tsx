@@ -35,7 +35,10 @@ import {
   CreditCard,
   Timer,
   AlertCircle,
-  Check
+  Check,
+  FileText,
+  Heart,
+  Brain
 } from 'lucide-react'
 import type { 
   Commission, 
@@ -103,6 +106,7 @@ function MentoradoComissoesPageContent() {
     select: `
       id,
       lead_id,
+      mentorado_id,
       valor_comissao,
       percentual_comissao,
       status_pagamento,
@@ -260,9 +264,16 @@ function MentoradoComissoesPageContent() {
     console.log('🔄 Processando comissões split para mentorado:', mentorado?.id)
     console.log('📊 Dados brutos recebidos:', rawComissoesSplit?.length || 0, 'comissões')
     
-    if (!rawComissoesSplit?.length) return []
+    if (!rawComissoesSplit?.length || !mentorado?.id) return []
     
-    return rawComissoesSplit.map(comissao => {
+    // Filtrar apenas as comissões do mentorado logado
+    const comissoesMentorado = rawComissoesSplit.filter(comissao => 
+      comissao.mentorado_id === mentorado.id
+    )
+    
+    console.log('✅ Comissões filtradas para este mentorado:', comissoesMentorado.length)
+    
+    return comissoesMentorado.map(comissao => {
       const valorTotal = comissao.valor_comissao || 0
       const primeiraParte = valorTotal * 0.5  // 50%
       const segundaParte = valorTotal * 0.5   // 50%
@@ -1304,6 +1315,7 @@ function MentoradoComissoesPageContent() {
             )}
           </section>
         )}
+
 
         {/* Botão para mostrar ranking quando escondido */}
         {!showRanking && (

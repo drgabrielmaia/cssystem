@@ -94,6 +94,9 @@ export default function KanbanPage() {
   const [showNewTaskModal, setShowNewTaskModal] = useState(false)
   const [showNewBoardModal, setShowNewBoardModal] = useState(false)
   const [newTaskColumnId, setNewTaskColumnId] = useState<string>('')
+  const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null)
+  const [showTaskModal, setShowTaskModal] = useState(false)
+  const [showTaskMenu, setShowTaskMenu] = useState<string | null>(null)
 
   // New task form state
   const [newTask, setNewTask] = useState({
@@ -123,6 +126,18 @@ export default function KanbanPage() {
       loadOrganizationMembers()
     }
   }, [organizationId])
+
+  // Close task menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!(event.target as Element).closest('[data-task-menu]')) {
+        setShowTaskMenu(null)
+      }
+    }
+
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [])
 
   const loadOrganizationMembers = async () => {
     try {
@@ -349,6 +364,30 @@ export default function KanbanPage() {
     }
   }
 
+  const handleTaskClick = (task: KanbanTask) => {
+    setSelectedTask(task)
+    setShowTaskModal(true)
+  }
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta tarefa?')) return
+    
+    try {
+      const { error } = await supabase
+        .from('kanban_tasks')
+        .delete()
+        .eq('id', taskId)
+
+      if (error) throw error
+
+      setTasks(prev => prev.filter(task => task.id !== taskId))
+      setShowTaskMenu(null)
+    } catch (error) {
+      console.error('Erro ao deletar tarefa:', error)
+      alert('Erro ao deletar tarefa')
+    }
+  }
+
   const getTasksByColumn = (columnId: string) => {
     return tasks
       .filter(task => task.column_id === columnId)
@@ -374,8 +413,8 @@ export default function KanbanPage() {
   return (
     <PageLayout title="Kanban de Atividades">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
           <Select 
             value={currentBoard?.id || ''} 
             onValueChange={(value) => {
@@ -383,7 +422,7 @@ export default function KanbanPage() {
               if (board) setCurrentBoard(board)
             }}
           >
-            <SelectTrigger className="w-64 bg-gray-800 border-gray-700 text-white">
+            <SelectTrigger className="w-full sm:w-64 bg-gray-800 border-gray-700 text-white">
               <SelectValue placeholder="Selecione um board" />
             </SelectTrigger>
             <SelectContent className="bg-gray-800 border-gray-700">
@@ -398,13 +437,13 @@ export default function KanbanPage() {
             </SelectContent>
           </Select>
 
-          <div className="relative">
+          <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Buscar tarefas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-64 bg-gray-800 border-gray-700 text-white"
+              className="pl-10 w-full bg-gray-800 border-gray-700 text-white"
             />
           </div>
         </div>
@@ -480,17 +519,59 @@ export default function KanbanPage() {
                                 className={`mb-3 p-3 bg-gray-900 rounded-lg border border-gray-600 cursor-move hover:border-gray-500 transition-colors ${
                                   snapshot.isDragging ? 'transform rotate-2 shadow-xl' : ''
                                 }`}
+                                onClick={(e) => {
+                                  // Only open task if not clicking on menu button
+                                  if (!(e.target as Element).closest('[data-task-menu]')) {
+                                    handleTaskClick(task)
+                                  }
+                                }}
                               >
                                 {/* Task Header */}
                                 <div className="flex items-start justify-between mb-2">
-                                  <h4 className="font-medium text-white text-sm leading-tight flex-1">
+                                  <h4 className="font-medium text-white text-sm leading-tight flex-1 cursor-pointer">
                                     {task.title}
                                   </h4>
                                   <div className="flex items-center gap-1 ml-2">
                                     <div className={`w-2 h-2 rounded-full ${priorityColors[task.priority]}`} />
-                                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-gray-400">
-                                      <MoreVertical className="h-3 w-3" />
-                                    </Button>
+                                    <div className="relative">
+                                      <Button 
+                                        size="sm" 
+                                        variant="ghost" 
+                                        className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+                                        data-task-menu
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setShowTaskMenu(showTaskMenu === task.id ? null : task.id)
+                                        }}
+                                      >
+                                        <MoreVertical className="h-3 w-3" />
+                                      </Button>
+                                      {showTaskMenu === task.id && (
+                                        <div className="absolute right-0 top-6 z-50 bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-1 min-w-[120px]">
+                                          <button
+                                            className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleTaskClick(task)
+                                              setShowTaskMenu(null)
+                                            }}
+                                          >
+                                            <Edit className="h-3 w-3" />
+                                            Editar
+                                          </button>
+                                          <button
+                                            className="w-full px-3 py-1.5 text-left text-sm text-red-400 hover:bg-gray-700 flex items-center gap-2"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleDeleteTask(task.id)
+                                            }}
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                            Excluir
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
 
@@ -675,7 +756,7 @@ export default function KanbanPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label className="text-white">Responsável</Label>
                 <Select
@@ -727,7 +808,7 @@ export default function KanbanPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label className="text-white">Data de Entrega</Label>
                 <Input
@@ -767,6 +848,118 @@ export default function KanbanPage() {
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
             >
               Criar Tarefa
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Task Details Modal */}
+      <Dialog open={showTaskModal} onOpenChange={setShowTaskModal}>
+        <DialogContent className="sm:max-w-2xl bg-gray-900 border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <div className={`w-3 h-3 rounded-full ${selectedTask ? priorityColors[selectedTask.priority] : ''}`} />
+              {selectedTask?.title || 'Visualizar Tarefa'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedTask && (
+            <div className="space-y-4">
+              {/* Task Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-400 text-sm">Responsável</Label>
+                  <p className="text-white">
+                    {selectedTask.assigned_to_email && selectedTask.assigned_to_email !== 'none' 
+                      ? selectedTask.assigned_to_email 
+                      : 'Não atribuído'
+                    }
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-gray-400 text-sm">Prioridade</Label>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${priorityColors[selectedTask.priority]}`} />
+                    <span className="text-white capitalize">{selectedTask.priority}</span>
+                  </div>
+                </div>
+              </div>
+
+              {selectedTask.due_date && (
+                <div>
+                  <Label className="text-gray-400 text-sm">Data de Entrega</Label>
+                  <p className="text-white">
+                    {new Date(selectedTask.due_date).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+              )}
+
+              {selectedTask.description && (
+                <div>
+                  <Label className="text-gray-400 text-sm">Descrição</Label>
+                  <div className="bg-gray-800 border border-gray-700 rounded p-3">
+                    <p className="text-white text-sm whitespace-pre-wrap">
+                      {selectedTask.description}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {selectedTask.tags.length > 0 && (
+                <div>
+                  <Label className="text-gray-400 text-sm">Tags</Label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {selectedTask.tags.map(tag => (
+                      <Badge key={tag} variant="outline" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedTask.estimated_hours && (
+                <div>
+                  <Label className="text-gray-400 text-sm">Estimativa</Label>
+                  <p className="text-white">{selectedTask.estimated_hours}h</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <Label className="text-gray-400 text-sm">Criado em</Label>
+                  <p className="text-white">
+                    {new Date(selectedTask.created_at).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-gray-400 text-sm">Atualizado em</Label>
+                  <p className="text-white">
+                    {new Date(selectedTask.updated_at).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 mt-6">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowTaskModal(false)}
+              className="flex-1 bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
+            >
+              Fechar
+            </Button>
+            <Button 
+              onClick={() => {
+                handleDeleteTask(selectedTask?.id || '')
+                setShowTaskModal(false)
+              }}
+              disabled={!selectedTask}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Excluir
             </Button>
           </div>
         </DialogContent>

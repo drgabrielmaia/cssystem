@@ -535,7 +535,26 @@ export default function LeadsPage() {
       return
     }
 
-    if (!confirm(`Converter "${lead.nome_completo}" em mentorado?`)) {
+    // Verificar se existe contrato assinado para este lead
+    const { data: signedContract, error: contractError } = await supabase
+      .from('contracts')
+      .select('id, status, signed_at')
+      .eq('lead_id', lead.id)
+      .eq('status', 'signed')
+      .single()
+
+    if (contractError && contractError.code !== 'PGRST116') {
+      console.error('Erro ao verificar contrato:', contractError)
+      alert('Erro ao verificar contrato do lead.')
+      return
+    }
+
+    if (!signedContract) {
+      alert(`❌ Não é possível converter "${lead.nome_completo}" em mentorado.\n\nMotivo: Nenhum contrato assinado encontrado.\n\nPara converter um lead em mentorado, é necessário que ele tenha assinado um contrato primeiro.\n\n📋 Vá para Admin > Contratos e crie um contrato para este lead.`)
+      return
+    }
+
+    if (!confirm(`✅ Contrato assinado encontrado!\n\nConverter "${lead.nome_completo}" em mentorado?\n\nContrato ID: ${signedContract.id}\nAssinado em: ${new Date(signedContract.signed_at).toLocaleDateString('pt-BR')}`)) {
       return
     }
 

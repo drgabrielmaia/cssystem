@@ -538,26 +538,24 @@ function CloserPageContent() {
                 </div>
 
                 <div className="ml-8 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-[#4ADE80]"></div>
-                    <span className="text-[#A1A1AA] text-sm">João Silva</span>
-                    <span className="text-white text-sm ml-auto">R$ 155.600</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-[#166534]"></div>
-                    <span className="text-[#A1A1AA] text-sm">Maria Santos</span>
-                    <span className="text-white text-sm ml-auto">R$ 123.400</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-[#FACC15]"></div>
-                    <span className="text-[#A1A1AA] text-sm">Pedro Lima</span>
-                    <span className="text-white text-sm ml-auto">R$ 111.840</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-[#3F3F46]"></div>
-                    <span className="text-[#A1A1AA] text-sm">Ana Costa</span>
-                    <span className="text-white text-sm ml-auto">R$ 96.480</span>
-                  </div>
+                  {teamMembers
+                    .sort((a, b) => b.receita_gerada - a.receita_gerada)
+                    .slice(0, 4)
+                    .map((member, index) => {
+                      const colors = ['#4ADE80', '#166534', '#FACC15', '#3F3F46'];
+                      return (
+                        <div key={member.id} className="flex items-center gap-3">
+                          <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: colors[index] }}></div>
+                          <span className="text-[#A1A1AA] text-sm">{member.nome_completo}</span>
+                          <span className="text-white text-sm ml-auto">R$ {member.receita_gerada.toLocaleString('pt-BR')}</span>
+                        </div>
+                      );
+                    })}
+                  {teamMembers.length === 0 && (
+                    <div className="text-[#A1A1AA] text-sm text-center py-4">
+                      Nenhum dado de receita disponível
+                    </div>
+                  )}
                 </div>
               </div>
               

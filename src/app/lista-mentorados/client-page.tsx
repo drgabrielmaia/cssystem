@@ -96,6 +96,8 @@ export default function MentoradosClientPage() {
         .from('mentorados')
         .select('*')
         .eq('organization_id', organizationId)
+        .eq('excluido', false)
+        .neq('estado_atual', 'churned')
         .order('created_at', { ascending: false })
 
       if (error) {

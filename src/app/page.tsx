@@ -205,8 +205,34 @@ export default function DashboardPage() {
 
       const { data: leadsForCalls } = await leadsForCallsQuery
 
-      const callsVendidas = leadsForCalls?.filter(lead => lead.status === 'vendido').length || 0
-      const callsNaoVendidas = leadsForCalls?.filter(lead => lead.status === 'perdido').length || 0
+      // Para calls vendidas, verificar se o mentorado resultante não foi excluído/churned
+      let callsVendidas = 0
+      let callsNaoVendidas = 0
+
+      if (leadsForCalls) {
+        // Buscar todos os leads vendidos que podem ter se tornado mentorados
+        const leadsVendidos = leadsForCalls.filter(lead => lead.status === 'vendido')
+        
+        if (leadsVendidos.length > 0) {
+          // Verificar quais leads vendidos se tornaram mentorados que NÃO foram excluídos
+          const { data: mentoradosAtivos } = await supabase
+            .from('mentorados')
+            .select('id, lead_origem_id')
+            .in('lead_origem_id', leadsVendidos.map(l => l.id))
+            .eq('excluido', false)
+            .neq('estado_atual', 'churned')
+
+          // Contar apenas calls vendidas que resultaram em mentorados ainda ativos
+          if (mentoradosAtivos) {
+            const leadsComMentoradosAtivos = new Set(mentoradosAtivos.map(m => m.lead_origem_id))
+            callsVendidas = leadsVendidos.filter(lead => leadsComMentoradosAtivos.has(lead.id)).length
+          }
+        }
+
+        // Calls não vendidas (perdidos) permanecem iguais
+        callsNaoVendidas = leadsForCalls.filter(lead => lead.status === 'perdido').length
+      }
+
       // Vazado não conta nas calls realizadas
 
       const callsMetrics = {

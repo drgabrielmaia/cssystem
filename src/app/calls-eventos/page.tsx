@@ -123,7 +123,9 @@ export default function CallsEventosPage() {
   const [showParticipantsModal, setShowParticipantsModal] = useState(false)
   const [showAddParticipantModal, setShowAddParticipantModal] = useState(false)
   const [showConvertModal, setShowConvertModal] = useState(false)
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<EventParticipant | null>(null)
+  const [analysisData, setAnalysisData] = useState<any>(null)
 
   // New event form state
   const [newEvent, setNewEvent] = useState({
@@ -272,7 +274,8 @@ export default function CallsEventosPage() {
         p_participant_name: newParticipant.participant_name,
         p_organization_id: organizationId,
         p_participant_email: newParticipant.participant_email || null,
-        p_participant_phone: newParticipant.participant_phone || null
+        p_participant_phone: newParticipant.participant_phone || null,
+        p_lead_id: null // Para participantes manuais, não temos lead_id
       })
 
       if (error) throw error
@@ -281,12 +284,13 @@ export default function CallsEventosPage() {
         await loadEventParticipants(selectedEvent.id)
         setNewParticipant({ participant_name: '', participant_email: '', participant_phone: '' })
         setShowAddParticipantModal(false)
+        alert('Participante adicionado com sucesso!')
       } else {
         alert(data?.[0]?.message || 'Erro ao adicionar participante')
       }
     } catch (error) {
       console.error('Error adding participant:', error)
-      alert('Erro ao adicionar participante')
+      alert(`Erro ao adicionar participante: ${(error as any)?.message || 'Erro desconhecido'}`)
     }
   }
 
@@ -346,6 +350,25 @@ export default function CallsEventosPage() {
     setShowParticipantsModal(true)
   }
 
+  const loadEventAnalysis = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_detailed_event_analysis', {
+        p_organization_id: organizationId
+      })
+
+      if (error) throw error
+
+      setAnalysisData(data)
+    } catch (error) {
+      console.error('Error loading analysis:', error)
+    }
+  }
+
+  const openAnalysisModal = () => {
+    loadEventAnalysis()
+    setShowAnalysisModal(true)
+  }
+
   if (loading) {
     return (
       <PageLayout title="Calls em Grupo e Eventos">
@@ -369,6 +392,10 @@ export default function CallsEventosPage() {
           <Button onClick={loadData} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Atualizar
+          </Button>
+          <Button onClick={openAnalysisModal} variant="outline" size="sm">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Análise Detalhada
           </Button>
           <Button onClick={() => setShowNewEventModal(true)} size="sm">
             <Plus className="h-4 w-4 mr-2" />
@@ -871,6 +898,136 @@ export default function CallsEventosPage() {
               className="flex-1 bg-green-600 hover:bg-green-700 text-white"
             >
               Converter
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Analysis Modal */}
+      <Dialog open={showAnalysisModal} onOpenChange={setShowAnalysisModal}>
+        <DialogContent className="sm:max-w-6xl bg-gray-900 border-gray-700 max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white">Análise Detalhada de Eventos</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Performance por Tipo de Evento */}
+            <div className="bg-gray-800 rounded-lg p-4">
+              <h4 className="text-lg font-semibold text-white mb-4">Performance por Tipo de Evento</h4>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {Object.entries(eventTypes).map(([type, { label, color }]) => {
+                  const typeEvents = events.filter(e => e.type === type)
+                  const totalParticipants = typeEvents.reduce((sum, e) => sum + (e.participant_count || 0), 0)
+                  const totalAttendees = typeEvents.reduce((sum, e) => sum + (e.attendee_count || 0), 0)
+                  const totalConversions = typeEvents.reduce((sum, e) => sum + (e.conversion_count || 0), 0)
+                  const totalRevenue = typeEvents.reduce((sum, e) => sum + (e.conversion_value || 0), 0)
+                  const attendanceRate = totalParticipants > 0 ? (totalAttendees / totalParticipants * 100) : 0
+                  const conversionRate = totalAttendees > 0 ? (totalConversions / totalAttendees * 100) : 0
+                  
+                  return (
+                    <div key={type} className="bg-gray-700 rounded p-3">
+                      <div className={`w-4 h-4 ${color} rounded mb-2`}></div>
+                      <h5 className="text-white font-medium text-sm mb-2">{label}</h5>
+                      <div className="space-y-1 text-xs">
+                        <p className="text-gray-300">{typeEvents.length} eventos</p>
+                        <p className="text-gray-300">{totalParticipants} participantes</p>
+                        <p className="text-green-400">{attendanceRate.toFixed(1)}% presença</p>
+                        <p className="text-blue-400">{conversionRate.toFixed(1)}% conversão</p>
+                        <p className="text-yellow-400">R$ {totalRevenue.toLocaleString('pt-BR')}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Eventos Mais Performáticos */}
+            <div className="bg-gray-800 rounded-lg p-4">
+              <h4 className="text-lg font-semibold text-white mb-4">Top 5 Eventos por Conversão</h4>
+              <div className="space-y-3">
+                {events
+                  .sort((a, b) => (b.conversion_count || 0) - (a.conversion_count || 0))
+                  .slice(0, 5)
+                  .map((event, index) => {
+                    const attendanceRate = event.participant_count > 0 ? ((event.attendee_count || 0) / event.participant_count * 100) : 0
+                    const conversionRate = event.attendee_count > 0 ? ((event.conversion_count || 0) / event.attendee_count * 100) : 0
+                    
+                    return (
+                      <div key={event.id} className="flex items-center justify-between bg-gray-700 rounded p-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="bg-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-white text-xs font-bold">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="text-white font-medium">{event.name}</p>
+                            <p className="text-gray-400 text-sm">{new Date(event.date_time).toLocaleDateString('pt-BR')}</p>
+                          </div>
+                        </div>
+                        <div className="text-right space-y-1">
+                          <p className="text-green-400 font-medium">{event.conversion_count || 0} conversões</p>
+                          <p className="text-gray-400 text-sm">{attendanceRate.toFixed(1)}% presença | {conversionRate.toFixed(1)}% conversão</p>
+                          <p className="text-yellow-400 text-sm">R$ {(event.conversion_value || 0).toLocaleString('pt-BR')}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+
+            {/* Timeline de Eventos */}
+            <div className="bg-gray-800 rounded-lg p-4">
+              <h4 className="text-lg font-semibold text-white mb-4">Timeline dos Últimos Eventos</h4>
+              <div className="space-y-4 max-h-64 overflow-y-auto">
+                {events.slice(0, 10).map((event) => (
+                  <div key={event.id} className="flex items-start space-x-3">
+                    <div className={`w-3 h-3 ${eventTypes[event.type].color} rounded-full mt-1`}></div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-white font-medium">{event.name}</p>
+                        <p className="text-gray-400 text-sm">{new Date(event.date_time).toLocaleDateString('pt-BR')}</p>
+                      </div>
+                      <p className="text-gray-400 text-sm">{eventTypes[event.type].label}</p>
+                      <div className="flex items-center space-x-4 mt-1 text-xs">
+                        <span className="text-blue-400">{event.participant_count || 0} participantes</span>
+                        <span className="text-green-400">{event.attendee_count || 0} presentes</span>
+                        <span className="text-yellow-400">{event.conversion_count || 0} conversões</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Resumo de Performance */}
+            <div className="bg-gray-800 rounded-lg p-4">
+              <h4 className="text-lg font-semibold text-white mb-4">Resumo de Performance</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-400">{statistics.total_events}</p>
+                  <p className="text-gray-400 text-sm">Total de Eventos</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-400">{statistics.attendance_rate.toFixed(1)}%</p>
+                  <p className="text-gray-400 text-sm">Taxa de Presença</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-yellow-400">{statistics.conversion_rate.toFixed(1)}%</p>
+                  <p className="text-gray-400 text-sm">Taxa de Conversão</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-400">R$ {statistics.avg_conversion_value.toLocaleString('pt-BR')}</p>
+                  <p className="text-gray-400 text-sm">Ticket Médio</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end mt-6">
+            <Button 
+              onClick={() => setShowAnalysisModal(false)}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Fechar
             </Button>
           </div>
         </DialogContent>
