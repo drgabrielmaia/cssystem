@@ -147,10 +147,10 @@ export default function AdvancedPerformanceLeadsPage() {
     filters: selectedCloser !== 'all' ? { 
       closer_id: selectedCloser,
       created_at: `gte.${dateFilter}`,
-      status: `not.in.(churn,excluido,vazado,perdido)`
+      status: `not.in.(excluido,vazado)`
     } : {
       created_at: `gte.${dateFilter}`,
-      status: `not.in.(churn,excluido,vazado,perdido)`
+      status: `not.in.(excluido,vazado)`
     },
     dependencies: [dateFilter, selectedCloser],
     autoLoad: true,
@@ -217,23 +217,23 @@ export default function AdvancedPerformanceLeadsPage() {
     if (!rawClosers?.length) return []
 
     return rawClosers.map(closer => {
-      const leads = (closer.leads || []).filter((l: any) => !['churn', 'excluido', 'vazado', 'perdido'].includes(l.status))
+      const leads = (closer.leads || []).filter((l: any) => !['excluido', 'vazado'].includes(l.status))
       const interactions = closer.interactions || []
       
       const leadsAtivos = leads.filter((l: any) => 
-        !['fechado_ganho', 'fechado_perdido', 'cancelado', 'churn', 'excluido', 'vazado', 'perdido'].includes(l.status)
+        !['vendido', 'perdido', 'churn', 'cancelado', 'excluido', 'vazado'].includes(l.status)
       ).length
       
       const conversoesMes = leads.filter((l: any) => {
         const createdThisMonth = new Date(l.created_at) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-        return l.status === 'fechado_ganho' && createdThisMonth
+        return l.status === 'vendido' && createdThisMonth
       }).length
       
       const taxaConversao = leads.length > 0 ? 
-        (leads.filter((l: any) => l.status === 'fechado_ganho').length / leads.length) * 100 : 0
+        (leads.filter((l: any) => l.status === 'vendido').length / leads.length) * 100 : 0
       
       const valorPipeline = leads
-        .filter((l: any) => !['fechado_ganho', 'fechado_perdido', 'cancelado', 'churn', 'excluido', 'vazado', 'perdido'].includes(l.status))
+        .filter((l: any) => !['vendido', 'perdido', 'churn', 'cancelado', 'excluido', 'vazado'].includes(l.status))
         .reduce((sum: number, l: any) => sum + (l.valor_potencial || 0), 0)
       
       const interacoesUltimos7Dias = interactions.filter((i: any) => {
@@ -267,16 +267,16 @@ export default function AdvancedPerformanceLeadsPage() {
   const stats = useMemo(() => {
     const totalLeads = leads.length
     const leadsQualificados = leads.filter(l => l.score_bant && l.score_bant > 50).length
-    const leadsConvertidos = leads.filter(l => l.status === 'fechado_ganho').length
+    const leadsConvertidos = leads.filter(l => l.status === 'vendido').length
     const taxaQualificacao = totalLeads > 0 ? (leadsQualificados / totalLeads) * 100 : 0
     const taxaConversao = totalLeads > 0 ? (leadsConvertidos / totalLeads) * 100 : 0
     const valorPipeline = leads.reduce((sum, l) => sum + (l.valor_potencial || 0), 0)
     const valorFechado = leads
-      .filter(l => l.status === 'fechado_ganho')
+      .filter(l => l.status === 'vendido')
       .reduce((sum, l) => sum + (l.valor_potencial || 0), 0)
     const ticketMedio = leadsConvertidos > 0 ? valorFechado / leadsConvertidos : 0
     const cicloVendasMedio = leads
-      .filter(l => l.status === 'fechado_ganho')
+      .filter(l => l.status === 'vendido')
       .reduce((sum, l) => sum + l.dias_no_pipeline, 0) / (leadsConvertidos || 1)
 
     return {
@@ -357,8 +357,9 @@ export default function AdvancedPerformanceLeadsPage() {
 
   const getStatusColor = useCallback((status: string) => {
     switch (status) {
-      case 'fechado_ganho': return 'bg-green-500 text-white'
-      case 'fechado_perdido': return 'bg-red-500 text-white'
+      case 'vendido': return 'bg-green-500 text-white'
+      case 'perdido': return 'bg-red-500 text-white'
+      case 'churn': return 'bg-gray-500 text-white'
       case 'negociacao': return 'bg-purple-500 text-white'
       case 'proposta_enviada': return 'bg-orange-500 text-white'
       default: return 'bg-blue-500 text-white'
@@ -756,7 +757,7 @@ export default function AdvancedPerformanceLeadsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {['novo', 'contatado', 'qualificado', 'proposta_enviada', 'fechado_ganho'].map((stage, index) => {
+                  {['novo', 'contatado', 'qualificado', 'proposta_enviada', 'vendido'].map((stage, index) => {
                     const stageLeads = leads.filter(l => l.status === stage).length
                     const percentage = leads.length > 0 ? (stageLeads / leads.length) * 100 : 0
                     
@@ -786,7 +787,7 @@ export default function AdvancedPerformanceLeadsPage() {
                     .map(fonte => {
                       const fonteLeads = leads.filter(l => (l.origem || 'Não especificado') === fonte)
                       const percentage = leads.length > 0 ? (fonteLeads.length / leads.length) * 100 : 0
-                      const conversoes = fonteLeads.filter(l => l.status === 'fechado_ganho').length
+                      const conversoes = fonteLeads.filter(l => l.status === 'vendido').length
                       const taxaConversao = fonteLeads.length > 0 ? (conversoes / fonteLeads.length) * 100 : 0
                       
                       return (
