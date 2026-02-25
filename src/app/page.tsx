@@ -209,15 +209,15 @@ export default function DashboardPage() {
         vendasPeriod = allLeads?.filter(lead => lead.status === 'vendido') || []
       }
 
-      // Calcular calls realizadas: vendido + perdido (status reais do banco)
+      // Calcular calls realizadas: vendido + perdido + churn (incluindo churns)
       let callsRealizadasPeriod = []
       
       if (dateRange.start && dateRange.end && allLeads) {
-        // Calls realizadas = vendido + perdido no período
+        // Calls realizadas = vendido + perdido + churn no período
         callsRealizadasPeriod = allLeads.filter(lead => {
-          if (!['vendido', 'perdido'].includes(lead.status)) return false
+          if (!['vendido', 'perdido', 'churn'].includes(lead.status)) return false
           
-          // Para vendidos: usar data_venda, para perdidos: usar created_at ou status_updated_at
+          // Para vendidos: usar data_venda, para outros: usar created_at ou status_updated_at
           let dataReferencia = lead.created_at
           if (lead.status === 'vendido' && (lead.data_venda || lead.convertido_em)) {
             dataReferencia = lead.data_venda || lead.convertido_em
@@ -229,16 +229,16 @@ export default function DashboardPage() {
           return dataRef >= startDate && dataRef <= endDate
         })
       } else {
-        // Se não há filtro, pegar todos vendidos e perdidos
+        // Se não há filtro, pegar todos vendidos, perdidos e churns
         callsRealizadasPeriod = allLeads?.filter(lead => 
-          ['vendido', 'perdido'].includes(lead.status)
+          ['vendido', 'perdido', 'churn'].includes(lead.status)
         ) || []
       }
 
       const callsMetrics = {
         calls_vendidas: vendasPeriod.length, // Vendas no período
-        calls_nao_vendidas: callsRealizadasPeriod.filter(l => l.status === 'perdido').length, // Apenas perdidos no período
-        total_calls: callsRealizadasPeriod.length // Total de calls realizadas (vendidas + perdidas)
+        calls_nao_vendidas: callsRealizadasPeriod.filter(l => ['perdido', 'churn'].includes(l.status)).length, // Perdidos + churns no período
+        total_calls: callsRealizadasPeriod.length // Total de calls realizadas (vendidas + perdidas + churns)
       }
 
       console.log('🔍 Debug calls metrics:', {
