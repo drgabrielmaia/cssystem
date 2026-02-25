@@ -264,6 +264,40 @@ export default function DashboardPage() {
 
       const { data: eventosAgendados } = await eventosQuery
 
+      // Carregar pendências (dividas + comissões pendentes) por organização
+      const { data: session } = await supabase.auth.getSession()
+      let pendenciasCount = 0
+      
+      if (session?.user) {
+        // Buscar organização do usuário
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('id', session.user.id)
+          .single()
+          
+        if (profile?.organization_id) {
+          // Contar mentorados com dívidas pendentes
+          const { data: dividasPendentes } = await supabase
+            .from('dividas')
+            .select('mentorado_id')
+            .eq('organization_id', profile.organization_id)
+            .eq('status', 'pendente')
+            
+          // Contar comissões pendentes
+          const { data: comissoesPendentes } = await supabase
+            .from('comissoes')
+            .select('id')
+            .eq('organization_id', profile.organization_id)
+            .eq('status_pagamento', 'pendente')
+            
+          const mentoradosComDividas = dividasPendentes ? new Set(dividasPendentes.map(d => d.mentorado_id)).size : 0
+          const comissoesPendentesCount = comissoesPendentes?.length || 0
+          
+          pendenciasCount = mentoradosComDividas + comissoesPendentesCount
+        }
+      }
+
       const totalVendasPeriod = vendasPeriod.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
 
       // Carregar evolução do faturamento baseado no período do gráfico
@@ -290,7 +324,7 @@ export default function DashboardPage() {
         leads_vendidos: callsMetrics.calls_vendidas, // Calls vendidas
         total_mentorados: mentoradosPeriod?.length || 0,
         checkins_agendados: eventosAgendados?.length || 0,
-        pendencias: 16, // TODO: calcular baseado no período
+        pendencias: pendenciasCount, // Pessoas com dívidas pendentes + comissões pendentes
         taxa_conversao: taxaConversao
       }
 
@@ -301,7 +335,7 @@ export default function DashboardPage() {
         calculatePercentageChange(totalVendasPeriod, 'leads', 'valor_vendido'),
         calculatePercentageChange(newKpiData.total_mentorados, 'mentorados'),
         calculatePercentageChange(newKpiData.checkins_agendados, 'calendar_events'), // corrigido para calendar_events
-        calculatePercentageChange(newKpiData.pendencias, 'calendar_events'), // corrigido para calendar_events - não há tabela pendencias
+        calculatePercentageChange(newKpiData.pendencias, 'dividas'), // pendencias baseadas em dividas
         calculatePercentageChange(newKpiData.total_leads, 'calendar_events')
       ]).then(([vendasChange, mentoradosChange, checkinsChange, pendenciasChange, leadsChange]) => {
         setPercentageChanges({
