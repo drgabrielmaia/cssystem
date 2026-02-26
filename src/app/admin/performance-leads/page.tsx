@@ -95,7 +95,7 @@ export default function AdvancedPerformanceLeadsPage() {
   const [selectedCloser, setSelectedCloser] = useState<string>('all')
   const [selectedTemperatura, setSelectedTemperatura] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
-  const [dateRange, setDateRange] = useState<string>('30_days')
+  const [dateRange, setDateRange] = useState<string>('month')
   
   // Modal states
   const [selectedLead, setSelectedLead] = useState<LeadDetailed | null>(null)
@@ -105,19 +105,38 @@ export default function AdvancedPerformanceLeadsPage() {
 
   // Calculate date filter for stable hooks
   const dateFilter = useMemo(() => {
-    const date = new Date()
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth()
+    
     switch (dateRange) {
       case '7_days':
+        const date = new Date()
         date.setDate(date.getDate() - 7)
-        break
+        return date.toISOString()
       case '30_days':
-        date.setDate(date.getDate() - 30)
-        break
+        const date30 = new Date()
+        date30.setDate(date30.getDate() - 30)
+        return date30.toISOString()
       case '90_days':
-        date.setDate(date.getDate() - 90)
-        break
+        const date90 = new Date()
+        date90.setDate(date90.getDate() - 90)
+        return date90.toISOString()
+      case 'month':
+        return new Date(year, month, 1).toISOString()
+      case 'quarter':
+        const quarterStart = Math.floor(month / 3) * 3
+        return new Date(year, quarterStart, 1).toISOString()
+      case 'semester':
+        const semesterStart = month >= 6 ? 6 : 0
+        return new Date(year, semesterStart, 1).toISOString()
+      case 'year':
+        return new Date(year, 0, 1).toISOString()
+      case 'ytd':
+        return new Date(year, 0, 1).toISOString()
+      default:
+        return new Date().toISOString()
     }
-    return date.toISOString()
   }, [dateRange])
 
   // Stable hooks for data loading
@@ -154,7 +173,7 @@ export default function AdvancedPerformanceLeadsPage() {
     },
     dependencies: [dateFilter, selectedCloser],
     autoLoad: true,
-    debounceMs: 500
+    debounceMs: 100
   })
 
   const {
@@ -509,6 +528,11 @@ export default function AdvancedPerformanceLeadsPage() {
                 <SelectItem value="7_days">Últimos 7 dias</SelectItem>
                 <SelectItem value="30_days">Últimos 30 dias</SelectItem>
                 <SelectItem value="90_days">Últimos 90 dias</SelectItem>
+                <SelectItem value="month">Mês Atual</SelectItem>
+                <SelectItem value="quarter">Trimestre Atual</SelectItem>
+                <SelectItem value="semester">Semestre Atual</SelectItem>
+                <SelectItem value="ytd">Ano até hoje</SelectItem>
+                <SelectItem value="year">Ano Atual</SelectItem>
               </SelectContent>
             </Select>
 

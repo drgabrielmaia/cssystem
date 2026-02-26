@@ -279,9 +279,14 @@ export default function MetasPage() {
               onChange={(e) => setAnoSelecionado(parseInt(e.target.value))}
               className="px-4 py-2 border border-[#E5E7EB] rounded-lg bg-white text-[#111827] focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]"
             >
-              <option value={2024}>2024</option>
-              <option value={2025}>2025</option>
-              <option value={2026}>2026</option>
+              {Array.from({ length: 10 }, (_, i) => {
+                const year = new Date().getFullYear() - 2 + i // 2 years back to 7 years forward
+                return (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                )
+              })}
             </select>
             <Button
               onClick={loadDashboardData}

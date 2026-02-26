@@ -36,7 +36,6 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
-import { useRouter } from 'next/navigation'
 
 interface GroupEvent {
   id: string
@@ -106,7 +105,6 @@ const conversionStatusColors = {
 
 export default function CallsEventosPage() {
   const { user, organizationId } = useAuth()
-  const router = useRouter()
   const [events, setEvents] = useState<GroupEvent[]>([])
   const [statistics, setStatistics] = useState<EventStatistics>({
     total_events: 0,
@@ -125,10 +123,7 @@ export default function CallsEventosPage() {
   const [showParticipantsModal, setShowParticipantsModal] = useState(false)
   const [showAddParticipantModal, setShowAddParticipantModal] = useState(false)
   const [showConvertModal, setShowConvertModal] = useState(false)
-  const [showAnalysisModal, setShowAnalysisModal] = useState(false)
-  const [showEditEventModal, setShowEditEventModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<EventParticipant | null>(null)
-  const [analysisData, setAnalysisData] = useState<any>(null)
 
   // New event form state
   const [newEvent, setNewEvent] = useState({
@@ -139,18 +134,6 @@ export default function CallsEventosPage() {
     duration_minutes: '60',
     max_participants: '',
     meeting_link: ''
-  })
-
-  // Edit event form state
-  const [editEvent, setEditEvent] = useState({
-    name: '',
-    description: '',
-    type: 'call_group' as const,
-    date_time: '',
-    duration_minutes: '60',
-    max_participants: '',
-    meeting_link: '',
-    status: 'scheduled' as const
   })
 
   // New participant form state
@@ -195,7 +178,8 @@ export default function CallsEventosPage() {
         .select(`
           *,
           participants:group_event_participants(count),
-          attendees:group_event_participants!left(count)
+          attendees:group_event_participants!inner(count, attendance_status.eq.attended),
+          conversions:group_event_participants!inner(count, conversion_status.eq.converted, conversion_value)
         `)
         .eq('organization_id', organizationId)
         .order('date_time', { ascending: false })
@@ -280,37 +264,6 @@ export default function CallsEventosPage() {
     }
   }
 
-  const handleEditEvent = async () => {
-    if (!selectedEvent || !editEvent.name.trim() || !editEvent.date_time) return
-
-    try {
-      const { error } = await supabase
-        .from('group_events')
-        .update({
-          name: editEvent.name,
-          description: editEvent.description || null,
-          type: editEvent.type,
-          date_time: editEvent.date_time,
-          duration_minutes: parseInt(editEvent.duration_minutes) || 60,
-          max_participants: editEvent.max_participants ? parseInt(editEvent.max_participants) : null,
-          meeting_link: editEvent.meeting_link || null,
-          status: editEvent.status,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedEvent.id)
-
-      if (error) throw error
-
-      await loadData()
-      setShowEditEventModal(false)
-      setSelectedEvent(null)
-      alert('Evento atualizado com sucesso!')
-    } catch (error) {
-      console.error('Error updating event:', error)
-      alert(`Erro ao atualizar evento: ${(error as any)?.message || 'Erro desconhecido'}`)
-    }
-  }
-
   const handleAddParticipant = async () => {
     if (!selectedEvent || !newParticipant.participant_name.trim()) return
 
@@ -320,8 +273,7 @@ export default function CallsEventosPage() {
         p_participant_name: newParticipant.participant_name,
         p_organization_id: organizationId,
         p_participant_email: newParticipant.participant_email || null,
-        p_participant_phone: newParticipant.participant_phone || null,
-        p_lead_id: null // Para participantes manuais, não temos lead_id
+        p_participant_phone: newParticipant.participant_phone || null
       })
 
       if (error) throw error
@@ -330,13 +282,12 @@ export default function CallsEventosPage() {
         await loadEventParticipants(selectedEvent.id)
         setNewParticipant({ participant_name: '', participant_email: '', participant_phone: '' })
         setShowAddParticipantModal(false)
-        alert('Participante adicionado com sucesso!')
       } else {
         alert(data?.[0]?.message || 'Erro ao adicionar participante')
       }
     } catch (error) {
       console.error('Error adding participant:', error)
-      alert(`Erro ao adicionar participante: ${(error as any)?.message || 'Erro desconhecido'}`)
+      alert('Erro ao adicionar participante')
     }
   }
 
@@ -396,67 +347,6 @@ export default function CallsEventosPage() {
     setShowParticipantsModal(true)
   }
 
-  const loadEventAnalysis = async () => {
-    try {
-      const { data, error } = await supabase.rpc('get_detailed_event_analysis', {
-        p_organization_id: organizationId
-      })
-
-      if (error) throw error
-
-      setAnalysisData(data)
-    } catch (error) {
-      console.error('Error loading analysis:', error)
-    }
-  }
-
-  const openAnalysisModal = () => {
-    loadEventAnalysis()
-    setShowAnalysisModal(true)
-  }
-
-  const openEventDetailsModal = (event: GroupEvent) => {
-    // Redirecionar para página de administração do evento
-    router.push(`/calls-eventos/${event.id}`)
-  }
-
-  const openEditEventModal = (event: GroupEvent) => {
-    setSelectedEvent(event)
-    setEditEvent({
-      name: event.name,
-      description: event.description || '',
-      type: event.type,
-      date_time: event.date_time.slice(0, 16), // Format for datetime-local input
-      duration_minutes: event.duration_minutes.toString(),
-      max_participants: event.max_participants?.toString() || '',
-      meeting_link: event.meeting_link || '',
-      status: event.status
-    })
-    setShowEditEventModal(true)
-  }
-
-  const handleDeleteEvent = async (event: GroupEvent) => {
-    if (!confirm(`Tem certeza que deseja excluir o evento "${event.name}"? Esta ação não pode ser desfeita.`)) {
-      return
-    }
-
-    try {
-      const { error } = await supabase
-        .from('group_events')
-        .delete()
-        .eq('id', event.id)
-
-      if (error) throw error
-
-      // Recarregar eventos
-      loadEvents()
-      alert('Evento excluído com sucesso!')
-    } catch (error) {
-      console.error('Erro ao excluir evento:', error)
-      alert('Erro ao excluir evento. Tente novamente.')
-    }
-  }
-
   if (loading) {
     return (
       <PageLayout title="Calls em Grupo e Eventos">
@@ -480,10 +370,6 @@ export default function CallsEventosPage() {
           <Button onClick={loadData} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Atualizar
-          </Button>
-          <Button onClick={openAnalysisModal} variant="outline" size="sm">
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Análise Detalhada
           </Button>
           <Button onClick={() => setShowNewEventModal(true)} size="sm">
             <Plus className="h-4 w-4 mr-2" />
@@ -617,27 +503,8 @@ export default function CallsEventosPage() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => openEventDetailsModal(event)}
-                        className="text-gray-400 hover:text-gray-300 hover:bg-gray-700/50"
-                        title="Ver detalhes"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openEditEventModal(event)}
-                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/20"
-                        title="Editar evento"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
                         onClick={() => openParticipantsModal(event)}
-                        className="text-green-400 hover:text-green-300 hover:bg-green-900/20"
-                        title="Ver participantes"
+                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/20"
                       >
                         <Users className="h-4 w-4" />
                       </Button>
@@ -646,21 +513,11 @@ export default function CallsEventosPage() {
                           size="sm"
                           variant="ghost"
                           onClick={() => window.open(event.meeting_link, '_blank')}
-                          className="text-purple-400 hover:text-purple-300 hover:bg-purple-900/20"
-                          title="Acessar reunião"
+                          className="text-green-400 hover:text-green-300 hover:bg-green-900/20"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDeleteEvent(event)}
-                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                        title="Excluir evento"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -1015,256 +872,6 @@ export default function CallsEventosPage() {
               className="flex-1 bg-green-600 hover:bg-green-700 text-white"
             >
               Converter
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Analysis Modal */}
-      <Dialog open={showAnalysisModal} onOpenChange={setShowAnalysisModal}>
-        <DialogContent className="sm:max-w-6xl bg-gray-900 border-gray-700 max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-white">Análise Detalhada de Eventos</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-6">
-            {/* Performance por Tipo de Evento */}
-            <div className="bg-gray-800 rounded-lg p-4">
-              <h4 className="text-lg font-semibold text-white mb-4">Performance por Tipo de Evento</h4>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                {Object.entries(eventTypes).map(([type, { label, color }]) => {
-                  const typeEvents = events.filter(e => e.type === type)
-                  const totalParticipants = typeEvents.reduce((sum, e) => sum + (e.participant_count || 0), 0)
-                  const totalAttendees = typeEvents.reduce((sum, e) => sum + (e.attendee_count || 0), 0)
-                  const totalConversions = typeEvents.reduce((sum, e) => sum + (e.conversion_count || 0), 0)
-                  const totalRevenue = typeEvents.reduce((sum, e) => sum + (e.conversion_value || 0), 0)
-                  const attendanceRate = totalParticipants > 0 ? (totalAttendees / totalParticipants * 100) : 0
-                  const conversionRate = totalAttendees > 0 ? (totalConversions / totalAttendees * 100) : 0
-                  
-                  return (
-                    <div key={type} className="bg-gray-700 rounded p-3">
-                      <div className={`w-4 h-4 ${color} rounded mb-2`}></div>
-                      <h5 className="text-white font-medium text-sm mb-2">{label}</h5>
-                      <div className="space-y-1 text-xs">
-                        <p className="text-gray-300">{typeEvents.length} eventos</p>
-                        <p className="text-gray-300">{totalParticipants} participantes</p>
-                        <p className="text-green-400">{attendanceRate.toFixed(1)}% presença</p>
-                        <p className="text-blue-400">{conversionRate.toFixed(1)}% conversão</p>
-                        <p className="text-yellow-400">R$ {totalRevenue.toLocaleString('pt-BR')}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Eventos Mais Performáticos */}
-            <div className="bg-gray-800 rounded-lg p-4">
-              <h4 className="text-lg font-semibold text-white mb-4">Top 5 Eventos por Conversão</h4>
-              <div className="space-y-3">
-                {events
-                  .sort((a, b) => (b.conversion_count || 0) - (a.conversion_count || 0))
-                  .slice(0, 5)
-                  .map((event, index) => {
-                    const attendanceRate = event.participant_count > 0 ? ((event.attendee_count || 0) / event.participant_count * 100) : 0
-                    const conversionRate = event.attendee_count > 0 ? ((event.conversion_count || 0) / event.attendee_count * 100) : 0
-                    
-                    return (
-                      <div key={event.id} className="flex items-center justify-between bg-gray-700 rounded p-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="bg-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-white text-xs font-bold">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <p className="text-white font-medium">{event.name}</p>
-                            <p className="text-gray-400 text-sm">{new Date(event.date_time).toLocaleDateString('pt-BR')}</p>
-                          </div>
-                        </div>
-                        <div className="text-right space-y-1">
-                          <p className="text-green-400 font-medium">{event.conversion_count || 0} conversões</p>
-                          <p className="text-gray-400 text-sm">{attendanceRate.toFixed(1)}% presença | {conversionRate.toFixed(1)}% conversão</p>
-                          <p className="text-yellow-400 text-sm">R$ {(event.conversion_value || 0).toLocaleString('pt-BR')}</p>
-                        </div>
-                      </div>
-                    )
-                  })}
-              </div>
-            </div>
-
-            {/* Timeline de Eventos */}
-            <div className="bg-gray-800 rounded-lg p-4">
-              <h4 className="text-lg font-semibold text-white mb-4">Timeline dos Últimos Eventos</h4>
-              <div className="space-y-4 max-h-64 overflow-y-auto">
-                {events.slice(0, 10).map((event) => (
-                  <div key={event.id} className="flex items-start space-x-3">
-                    <div className={`w-3 h-3 ${eventTypes[event.type].color} rounded-full mt-1`}></div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-white font-medium">{event.name}</p>
-                        <p className="text-gray-400 text-sm">{new Date(event.date_time).toLocaleDateString('pt-BR')}</p>
-                      </div>
-                      <p className="text-gray-400 text-sm">{eventTypes[event.type].label}</p>
-                      <div className="flex items-center space-x-4 mt-1 text-xs">
-                        <span className="text-blue-400">{event.participant_count || 0} participantes</span>
-                        <span className="text-green-400">{event.attendee_count || 0} presentes</span>
-                        <span className="text-yellow-400">{event.conversion_count || 0} conversões</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Resumo de Performance */}
-            <div className="bg-gray-800 rounded-lg p-4">
-              <h4 className="text-lg font-semibold text-white mb-4">Resumo de Performance</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-400">{statistics.total_events}</p>
-                  <p className="text-gray-400 text-sm">Total de Eventos</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-green-400">{statistics.attendance_rate.toFixed(1)}%</p>
-                  <p className="text-gray-400 text-sm">Taxa de Presença</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-yellow-400">{statistics.conversion_rate.toFixed(1)}%</p>
-                  <p className="text-gray-400 text-sm">Taxa de Conversão</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-purple-400">R$ {statistics.avg_conversion_value.toLocaleString('pt-BR')}</p>
-                  <p className="text-gray-400 text-sm">Ticket Médio</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end mt-6">
-            <Button 
-              onClick={() => setShowAnalysisModal(false)}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              Fechar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Event Modal */}
-      <Dialog open={showEditEventModal} onOpenChange={setShowEditEventModal}>
-        <DialogContent className="sm:max-w-2xl bg-gray-900 border-gray-700">
-          <DialogHeader>
-            <DialogTitle className="text-white">Editar Evento</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-white">Nome do Evento *</Label>
-                <Input
-                  value={editEvent.name}
-                  onChange={(e) => setEditEvent(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Ex: Masterclass de Vendas"
-                  className="bg-gray-800 border-gray-700 text-white"
-                />
-              </div>
-              <div>
-                <Label className="text-white">Tipo de Evento</Label>
-                <Select value={editEvent.type} onValueChange={(value: any) => setEditEvent(prev => ({ ...prev, type: value }))}>
-                  <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-gray-700">
-                    {Object.entries(eventTypes).map(([key, { label }]) => (
-                      <SelectItem key={key} value={key} className="text-white">
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-white">Descrição</Label>
-              <Textarea
-                value={editEvent.description}
-                onChange={(e) => setEditEvent(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Descrição do evento..."
-                className="bg-gray-800 border-gray-700 text-white"
-              />
-            </div>
-
-            <div className="grid grid-cols-4 gap-4">
-              <div>
-                <Label className="text-white">Data e Hora *</Label>
-                <Input
-                  type="datetime-local"
-                  value={editEvent.date_time}
-                  onChange={(e) => setEditEvent(prev => ({ ...prev, date_time: e.target.value }))}
-                  className="bg-gray-800 border-gray-700 text-white"
-                />
-              </div>
-              <div>
-                <Label className="text-white">Duração (min)</Label>
-                <Input
-                  type="number"
-                  value={editEvent.duration_minutes}
-                  onChange={(e) => setEditEvent(prev => ({ ...prev, duration_minutes: e.target.value }))}
-                  className="bg-gray-800 border-gray-700 text-white"
-                />
-              </div>
-              <div>
-                <Label className="text-white">Máx. Participantes</Label>
-                <Input
-                  type="number"
-                  value={editEvent.max_participants}
-                  onChange={(e) => setEditEvent(prev => ({ ...prev, max_participants: e.target.value }))}
-                  placeholder="Ilimitado"
-                  className="bg-gray-800 border-gray-700 text-white"
-                />
-              </div>
-              <div>
-                <Label className="text-white">Status</Label>
-                <Select value={editEvent.status} onValueChange={(value: any) => setEditEvent(prev => ({ ...prev, status: value }))}>
-                  <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-gray-700">
-                    <SelectItem value="scheduled" className="text-white">Agendado</SelectItem>
-                    <SelectItem value="live" className="text-white">Ao Vivo</SelectItem>
-                    <SelectItem value="completed" className="text-white">Concluído</SelectItem>
-                    <SelectItem value="cancelled" className="text-white">Cancelado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-white">Link da Reunião</Label>
-              <Input
-                value={editEvent.meeting_link}
-                onChange={(e) => setEditEvent(prev => ({ ...prev, meeting_link: e.target.value }))}
-                placeholder="https://meet.google.com/..."
-                className="bg-gray-800 border-gray-700 text-white"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3 mt-6">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowEditEventModal(false)}
-              className="flex-1 bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleEditEvent}
-              disabled={!editEvent.name.trim() || !editEvent.date_time}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              Atualizar Evento
             </Button>
           </div>
         </DialogContent>

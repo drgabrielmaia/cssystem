@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const [isAuthChecked, setIsAuthChecked] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState('month')
+  const [customDateRange, setCustomDateRange] = useState<{start: string, end: string} | null>(null)
   const [chartPeriod, setChartPeriod] = useState('monthly') // Estado para o filtro do gráfico
   const [chartSubtitle, setChartSubtitle] = useState('Últimos 6 meses') // Subtítulo dinâmico do gráfico
   const [kpiData, setKpiData] = useState<KPIData>({
@@ -59,6 +60,10 @@ export default function DashboardPage() {
       ...prev,
       [key]: !prev[key]
     }))
+  }
+
+  const handleDateRangeChange = (startDate: string, endDate: string) => {
+    setCustomDateRange({ start: startDate, end: endDate })
   }
 
   // Função para obter range de datas baseado no período selecionado
@@ -102,11 +107,47 @@ export default function DashboardPage() {
           end: new Date(year, month + 1, 0, 23, 59, 59).toISOString(),
           label: 'Mês atual'
         }
+      case 'quarter':
+        // Trimestre atual
+        const quarterStart = Math.floor(month / 3) * 3
+        return {
+          start: new Date(year, quarterStart, 1).toISOString(),
+          end: new Date(year, quarterStart + 3, 0, 23, 59, 59).toISOString(),
+          label: 'Trimestre atual'
+        }
+      case 'semester':
+        // Semestre atual (baseado no que já passou do ano)
+        const semesterStart = month >= 6 ? 6 : 0
+        return {
+          start: new Date(year, semesterStart, 1).toISOString(),
+          end: new Date(year, semesterStart + 6, 0, 23, 59, 59).toISOString(),
+          label: semesterStart === 0 ? '1º Semestre' : '2º Semestre'
+        }
       case 'year':
         return {
           start: new Date(year, 0, 1).toISOString(),
           end: new Date(year, 11, 31, 23, 59, 59).toISOString(),
           label: 'Ano atual'
+        }
+      case 'ytd':
+        // Year to date - do início do ano até hoje
+        return {
+          start: new Date(year, 0, 1).toISOString(),
+          end: now.toISOString(),
+          label: 'Ano até hoje'
+        }
+      case 'custom':
+        if (customDateRange) {
+          return {
+            start: new Date(customDateRange.start).toISOString(),
+            end: new Date(customDateRange.end + 'T23:59:59.999Z').toISOString(),
+            label: 'Período personalizado'
+          }
+        }
+        return {
+          start: null,
+          end: null,
+          label: 'Período personalizado'
         }
       case 'all':
       default:
@@ -162,7 +203,7 @@ export default function DashboardPage() {
     if (!loading && isAuthChecked) {
       loadDashboardData()
     }
-  }, [selectedPeriod, isAuthChecked])
+  }, [selectedPeriod, customDateRange, isAuthChecked])
 
   const loadDashboardData = async () => {
     try {
@@ -726,7 +767,11 @@ export default function DashboardPage() {
       <PageLayout title="Dashboard" subtitle="Visão geral do Customer Success">
       {/* Filtros de Período */}
       <div className="mb-8">
-        <PeriodFilter selected={selectedPeriod} onChange={setSelectedPeriod} />
+        <PeriodFilter 
+          selected={selectedPeriod} 
+          onChange={setSelectedPeriod} 
+          onDateRangeChange={handleDateRangeChange}
+        />
       </div>
 
       {/* KPI Cards Principais - Grid responsivo */}

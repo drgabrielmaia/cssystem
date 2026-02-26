@@ -47,7 +47,6 @@ import {
   FollowupStep, 
   LeadFollowupExecution
 } from '@/types/commission'
-import { useAuth } from '@/contexts/auth'
 
 interface SequenceFormData {
   nome_sequencia: string;
@@ -139,7 +138,6 @@ const STEP_TEMPLATES = {
 }
 
 export default function FollowUpConfigPage() {
-  const { organizationId, isAdmin } = useAuth()
   const [sequences, setSequences] = useState<LeadFollowupSequence[]>([])
   const [sequenceStats, setSequenceStats] = useState<SequenceStats[]>([])
   const [executions, setExecutions] = useState<LeadFollowupExecution[]>([])
@@ -162,10 +160,8 @@ export default function FollowUpConfigPage() {
   })
 
   useEffect(() => {
-    if (organizationId) {
-      loadData()
-    }
-  }, [organizationId])
+    loadData()
+  }, [])
 
   const loadData = async () => {
     setLoading(true)
@@ -184,12 +180,9 @@ export default function FollowUpConfigPage() {
   }
 
   const loadSequences = async () => {
-    if (!organizationId) return
-    
     const { data, error } = await supabase
       .from('lead_followup_sequences')
       .select('*')
-      .eq('organization_id', organizationId)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -201,19 +194,16 @@ export default function FollowUpConfigPage() {
   }
 
   const loadSequenceStats = async () => {
-    if (!organizationId) return
-    
     // Esta query seria otimizada numa view materializada em produção
     const { data: execData, error } = await supabase
       .from('lead_followup_executions')
       .select(`
         sequence_id,
-        execution_status,
-        executed_at,
-        lead_followup_sequences!inner(nome_sequencia),
-        leads!inner(organization_id)
+        status,
+        converteu,
+        data_resposta,
+        lead_followup_sequences!inner(nome_sequencia)
       `)
-      .eq('leads.organization_id', organizationId)
 
     if (error) {
       console.error('Error loading sequence stats:', error)
@@ -276,18 +266,15 @@ export default function FollowUpConfigPage() {
   }
 
   const loadExecutions = async () => {
-    if (!organizationId) return
-    
     const { data, error } = await supabase
       .from('lead_followup_executions')
       .select(`
         *,
-        leads!inner(nome_completo, email, temperatura, organization_id),
+        leads!inner(nome_completo, email, temperatura),
         lead_followup_sequences!inner(nome_sequencia)
       `)
-      .eq('leads.organization_id', organizationId)
-      .eq('execution_status', 'pending')
-      .order('scheduled_for', { ascending: true })
+      .eq('status', 'active')
+      .order('proxima_execucao', { ascending: true })
       .limit(50)
 
     if (error) {
@@ -307,7 +294,7 @@ export default function FollowUpConfigPage() {
     try {
       const sequenceData = {
         ...formData,
-        organization_id: organizationId,
+        organization_id: '1', // Substituir pela organização atual
         criterios_ativacao: JSON.stringify(formData.criterios_ativacao),
         steps: JSON.stringify(formData.steps)
       }

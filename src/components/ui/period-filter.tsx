@@ -1,18 +1,26 @@
 'use client'
 
+import { useState } from 'react'
 import { Calendar, Filter } from 'lucide-react'
 
 interface PeriodFilterProps {
   selected: string
   onChange: (period: string) => void
+  onDateRangeChange?: (startDate: string, endDate: string) => void
 }
 
-export const PeriodFilter = ({ selected, onChange }: PeriodFilterProps) => {
+export const PeriodFilter = ({ selected, onChange, onDateRangeChange }: PeriodFilterProps) => {
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  
   const periods = [
     { id: 'all', label: 'Todos' },
     { id: 'week', label: 'Semana Atual' },
     { id: 'lastWeek', label: 'Última Semana' },
     { id: 'month', label: 'Mês Atual' },
+    { id: 'quarter', label: 'Trimestre Atual' },
+    { id: 'semester', label: 'Semestre Atual' },
+    { id: 'ytd', label: 'Ano até hoje' },
     { id: 'year', label: 'Ano Atual' },
   ]
 
@@ -47,6 +55,15 @@ export const PeriodFilter = ({ selected, onChange }: PeriodFilterProps) => {
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
             <input
               type="date"
+              value={startDate}
+              max="2030-12-31"
+              onChange={(e) => {
+                setStartDate(e.target.value)
+                if (endDate && onDateRangeChange) {
+                  onDateRangeChange(e.target.value, endDate)
+                  onChange('custom')
+                }
+              }}
               className="pl-10 pr-4 py-2 bg-[#F1F5F9] border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669]"
             />
           </div>
@@ -55,6 +72,15 @@ export const PeriodFilter = ({ selected, onChange }: PeriodFilterProps) => {
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
             <input
               type="date"
+              value={endDate}
+              max="2030-12-31"
+              onChange={(e) => {
+                setEndDate(e.target.value)
+                if (startDate && onDateRangeChange) {
+                  onDateRangeChange(startDate, e.target.value)
+                  onChange('custom')
+                }
+              }}
               className="pl-10 pr-4 py-2 bg-[#F1F5F9] border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669]"
             />
           </div>
