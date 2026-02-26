@@ -211,16 +211,11 @@ export default function PendenciasPage() {
     debounceMs: 100
   })
 
-  const deleteDivida = useStableMutation('dividas', 'delete', {
-    onSuccess: () => {
-      refetchDividas()
-    },
-    debounceMs: 0
-  })
+  // Hook deleteDivida removido - agora usando implementação direta
 
   // Estados derivados otimizados
   const loading = dividasLoading || mentoradosLoading || comissoesLoading
-  const isLoadingOperations = createDivida.isLoading || updateDivida.isLoading || deleteDivida.isLoading || isRefetchingDividas
+  const isLoadingOperations = createDivida.isLoading || updateDivida.isLoading || isRefetchingDividas
 
   // Processamento otimizado de dados com memoização
   const mentorados = useMemo(() => {
@@ -306,8 +301,32 @@ export default function PendenciasPage() {
 
   const removerDivida = useCallback(async (dividaId: string) => {
     if (!confirm('Tem certeza que deseja remover esta dívida?')) return
-    await deleteDivida.mutate(dividaId)
-  }, [deleteDivida])
+    
+    try {
+      console.log('🗑️ Tentando excluir dívida:', dividaId)
+      
+      // Excluir diretamente via Supabase em vez do hook
+      const { error } = await supabase
+        .from('dividas')
+        .delete()
+        .eq('id', dividaId)
+      
+      if (error) {
+        console.error('❌ Erro ao excluir dívida:', error)
+        alert('Erro ao excluir dívida: ' + error.message)
+        return
+      }
+      
+      console.log('✅ Dívida excluída com sucesso')
+      alert('Dívida excluída com sucesso!')
+      
+      // Recarregar dados
+      refetchDividas()
+    } catch (error) {
+      console.error('❌ Erro geral ao excluir:', error)
+      alert('Erro ao excluir dívida')
+    }
+  }, [refetchDividas])
 
 
 
