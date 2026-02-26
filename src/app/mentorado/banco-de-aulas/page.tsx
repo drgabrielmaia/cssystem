@@ -113,7 +113,7 @@ export default function BancoDeAulasPage() {
         .in('module_id', accessibleModuleIds)
         .eq('is_active', true)
         .order('module_id', { ascending: true })
-        .order('is_current', { ascending: false }) // Aulas atuais primeiro
+        .order('is_current', { ascending: true }) // Aulas arquivadas primeiro, atuais depois
         .order('order_index', { ascending: true })
         .order('created_at', { ascending: false }) // Versões mais recentes primeiro
 
