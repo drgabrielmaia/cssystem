@@ -92,25 +92,38 @@ export default function NetflixStyleVideosPage() {
     try {
       console.log('🎥 Carregando dados de vídeo para:', mentoradoData.id)
 
-      // Step 1: Verificar acesso aos módulos
-      const { data: accessData, error: accessError } = await supabase
-        .from('video_access_control')
-        .select('module_id')
-        .eq('mentorado_id', mentoradoData.id)
-        .eq('has_access', true)
+      // Step 1: Calcular dias desde entrada
+      const dataEntrada = new Date(mentoradoData.data_entrada)
+      const hoje = new Date()
+      const diasDesdeEntrada = Math.floor((hoje.getTime() - dataEntrada.getTime()) / (1000 * 60 * 60 * 24))
+      
+      console.log(`⏰ Mentorado ${mentoradoData.nome_completo} entrou há ${diasDesdeEntrada} dias`)
 
       let accessibleModuleIds: string[] = []
 
-      if (accessError) {
-        console.log('🔧 Erro de acesso, usando fallback para módulos:', accessError.message)
-        // Fallback: carregar todos os módulos
+      if (diasDesdeEntrada < 7) {
+        // Menos de 7 dias: apenas módulo de onboarding
+        console.log('🆕 Mentorado novato - acesso apenas ao onboarding')
+        const { data: onboardingModule } = await supabase
+          .from('video_modules')
+          .select('id')
+          .eq('title', 'Onboarding')
+          .eq('organization_id', mentoradoData.organization_id)
+          .eq('is_active', true)
+          .single()
+        
+        if (onboardingModule) {
+          accessibleModuleIds = [onboardingModule.id]
+        }
+      } else {
+        // 7+ dias: acesso a todos os módulos da organização
+        console.log('🎓 Mentorado experiente - acesso a todos os módulos')
         const { data: allModulesData } = await supabase
           .from('video_modules')
           .select('id')
+          .eq('organization_id', mentoradoData.organization_id)
           .eq('is_active', true)
         accessibleModuleIds = allModulesData?.map(m => m.id) || []
-      } else {
-        accessibleModuleIds = accessData?.map(a => a.module_id) || []
       }
 
       console.log('🔓 Módulos acessíveis:', accessibleModuleIds.length)
