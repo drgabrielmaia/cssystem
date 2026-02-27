@@ -53,11 +53,7 @@ export default function ContractSigningPage() {
   // Form data for additional info
   const [formData, setFormData] = useState({
     cpf: '',
-    endereco: '',
-    telefone: '',
-    rg: '',
-    profissao: '',
-    data_nascimento: ''
+    endereco: ''
   })
 
   useEffect(() => {
@@ -192,11 +188,14 @@ export default function ContractSigningPage() {
     content = content.replace(/\[NOME\]/g, contract.recipient_name)
     content = content.replace(/\[EMAIL\]/g, contract.recipient_email)
     content = content.replace(/\[CPF\]/g, formData.cpf || '[CPF]')
-    content = content.replace(/\[RG\]/g, formData.rg || '[RG]')
+    content = content.replace(/\[ENDERECO_COMPLETO\]/g, formData.endereco || '[ENDERECO_COMPLETO]')
     content = content.replace(/\[ENDERECO\]/g, formData.endereco || '[ENDEREÇO]')
-    content = content.replace(/\[TELEFONE\]/g, formData.telefone || '[TELEFONE]')
-    content = content.replace(/\[PROFISSAO\]/g, formData.profissao || '[PROFISSÃO]')
-    content = content.replace(/\[DATA_NASCIMENTO\]/g, formData.data_nascimento ? new Date(formData.data_nascimento).toLocaleDateString('pt-BR') : '[DATA DE NASCIMENTO]')
+    
+    // Remove unused placeholders
+    content = content.replace(/\[RG\]/g, '')
+    content = content.replace(/\[TELEFONE\]/g, '')
+    content = content.replace(/\[PROFISSAO\]/g, '')
+    content = content.replace(/\[DATA_NASCIMENTO\]/g, '')
     
     // Create organization signature block
     const orgSignatureBlock = organizationSignature ? `
@@ -295,7 +294,7 @@ Assinatura do Contratante`
 
   // Form validation functions
   const validateStep1 = () => {
-    return formData.cpf && formData.endereco && formData.telefone && formData.rg && formData.profissao && formData.data_nascimento
+    return formData.cpf && formData.endereco
   }
 
   const goToNextStep = () => {
@@ -528,6 +527,10 @@ Assinatura do Contratante`
                       className="bg-gray-700 border-gray-600 text-gray-300"
                     />
                   </div>
+                </div>
+                
+                {/* Required Fields */}
+                <div className="space-y-4">
                   <div>
                     <Label className="text-white">CPF *</Label>
                     <Input
@@ -539,61 +542,16 @@ Assinatura do Contratante`
                     />
                   </div>
                   <div>
-                    <Label className="text-white">RG *</Label>
+                    <Label className="text-white">Endereço Completo *</Label>
                     <Input
-                      value={formData.rg}
-                      onChange={(e) => setFormData(prev => ({ ...prev, rg: e.target.value }))}
-                      placeholder="00.000.000-0"
+                      value={formData.endereco}
+                      onChange={(e) => setFormData(prev => ({ ...prev, endereco: e.target.value }))}
+                      placeholder="Rua, número, bairro, cidade, estado, CEP"
                       className="bg-gray-700 border-gray-600 text-white"
                       required
                     />
                   </div>
                 </div>
-                
-                {/* Contact & Personal */}
-                <div className="space-y-4">
-                  <div>
-                    <Label className="text-white">Telefone *</Label>
-                    <Input
-                      value={formData.telefone}
-                      onChange={(e) => setFormData(prev => ({ ...prev, telefone: e.target.value }))}
-                      placeholder="(11) 99999-9999"
-                      className="bg-gray-700 border-gray-600 text-white"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-white">Profissão *</Label>
-                    <Input
-                      value={formData.profissao}
-                      onChange={(e) => setFormData(prev => ({ ...prev, profissao: e.target.value }))}
-                      placeholder="Sua profissão"
-                      className="bg-gray-700 border-gray-600 text-white"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-white">Data de Nascimento *</Label>
-                    <Input
-                      type="date"
-                      value={formData.data_nascimento}
-                      onChange={(e) => setFormData(prev => ({ ...prev, data_nascimento: e.target.value }))}
-                      className="bg-gray-700 border-gray-600 text-white"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div>
-                <Label className="text-white">Endereço Completo *</Label>
-                <Input
-                  value={formData.endereco}
-                  onChange={(e) => setFormData(prev => ({ ...prev, endereco: e.target.value }))}
-                  placeholder="Rua, número, bairro, cidade, estado, CEP"
-                  className="bg-gray-700 border-gray-600 text-white"
-                  required
-                />
               </div>
 
               <div className="flex justify-end pt-4">
@@ -711,11 +669,8 @@ Assinatura do Contratante`
                   <h3 className="text-white font-semibold text-lg">Resumo dos Dados</h3>
                   <div className="space-y-2 text-sm">
                     <div><span className="text-gray-400">Nome:</span> <span className="text-white">{contract.recipient_name}</span></div>
+                    <div><span className="text-gray-400">Email:</span> <span className="text-white">{contract.recipient_email}</span></div>
                     <div><span className="text-gray-400">CPF:</span> <span className="text-white">{formData.cpf}</span></div>
-                    <div><span className="text-gray-400">RG:</span> <span className="text-white">{formData.rg}</span></div>
-                    <div><span className="text-gray-400">Telefone:</span> <span className="text-white">{formData.telefone}</span></div>
-                    <div><span className="text-gray-400">Profissão:</span> <span className="text-white">{formData.profissao}</span></div>
-                    <div><span className="text-gray-400">Data Nasc:</span> <span className="text-white">{new Date(formData.data_nascimento).toLocaleDateString('pt-BR')}</span></div>
                     <div><span className="text-gray-400">Endereço:</span> <span className="text-white">{formData.endereco}</span></div>
                   </div>
                 </div>
