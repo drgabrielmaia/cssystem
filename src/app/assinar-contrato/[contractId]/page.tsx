@@ -312,6 +312,60 @@ Assinatura do Contratante`
     }
   }
 
+  const downloadContractPDF = () => {
+    if (!contract) return
+
+    // Create a new window with the contract content for printing
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+
+    const contractContent = getProcessedContractContent()
+      .replace(/\[ASSINATURA_IMAGEM\]/g, 
+        contract.signature_data?.signature ? 
+          `<img src="${contract.signature_data.signature}" alt="Assinatura" style="max-width: 200px; height: 60px; margin: 10px 0;" />` 
+          : ''
+      )
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Contrato - ${contract.recipient_name}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              padding: 20px; 
+              line-height: 1.6;
+              max-width: 800px;
+              margin: 0 auto;
+            }
+            .signature-img {
+              max-width: 200px;
+              height: 60px;
+              margin: 10px 0;
+            }
+            @media print {
+              body { margin: 0; padding: 15px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div style="white-space: pre-wrap; font-size: 14px;">
+            ${contractContent}
+          </div>
+        </body>
+      </html>
+    `)
+    
+    printWindow.document.close()
+    printWindow.focus()
+    
+    // Wait for images to load, then print
+    setTimeout(() => {
+      printWindow.print()
+    }, 500)
+  }
+
   useEffect(() => {
     if (signatureCanvasRef.current) {
       setupCanvas()
@@ -731,6 +785,14 @@ Assinatura do Contratante`
                     <strong>Assinado em:</strong> {contract.signature_data?.signed_at ? new Date(contract.signature_data.signed_at).toLocaleString('pt-BR') : 'Agora'}
                   </p>
                 </div>
+                
+                <Button
+                  onClick={downloadContractPDF}
+                  className="bg-[#D4AF37] hover:bg-[#B8860B] text-black font-semibold px-8"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Baixar Contrato em PDF
+                </Button>
               </CardContent>
             </Card>
 
