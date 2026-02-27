@@ -81,6 +81,14 @@ export default function ContractSigningPage() {
         const contractData = data[0]
         setContract(contractData)
         
+        // Define o step inicial baseado no status do contrato
+        if (contractData.status === 'signed') {
+          setCurrentStep(4) // Contrato já assinado, mostrar resultado final
+          setSigned(true)
+        } else {
+          setCurrentStep(1) // Contrato pendente, começar do step 1
+        }
+        
         // Load organization signature settings
         if (contractData.organization_id) {
           const { data: orgSignature } = await supabase
