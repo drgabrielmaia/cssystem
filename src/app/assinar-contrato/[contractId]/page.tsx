@@ -211,9 +211,10 @@ CNPJ: 56.267.958/0001-60` : `
 ___________________
 Assinatura da Contratada`
 
-    // Create client signature block
+    // Create client signature block with actual signature image
     const clientSignatureBlock = contract.signature_data ? `
 
+[ASSINATURA_IMAGEM]
 ___________________
 ${contract.recipient_name}
 CPF: ${formData.cpf || contract.signature_data.additional_data?.cpf || '[CPF]'}
@@ -573,9 +574,17 @@ Assinatura do Contratante`
               </CardHeader>
               <CardContent>
                 <div className="bg-white p-6 rounded-lg text-black max-h-96 overflow-y-auto">
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {getProcessedContractContent()}
-                  </div>
+                  <div 
+                    className="whitespace-pre-wrap text-sm leading-relaxed"
+                    dangerouslySetInnerHTML={{
+                      __html: getProcessedContractContent()
+                        .replace(/\[ASSINATURA_IMAGEM\]/g, 
+                          contract.signature_data?.signature ? 
+                            `<img src="${contract.signature_data.signature}" alt="Assinatura" style="max-width: 200px; height: 60px; margin: 10px 0;" />` 
+                            : ''
+                        )
+                    }}
+                  />
                 </div>
                 
                 <div className="flex justify-between pt-6">
@@ -733,9 +742,17 @@ Assinatura do Contratante`
               </CardHeader>
               <CardContent>
                 <div className="bg-white p-6 rounded-lg text-black">
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {getProcessedContractContent()}
-                  </div>
+                  <div 
+                    className="whitespace-pre-wrap text-sm leading-relaxed"
+                    dangerouslySetInnerHTML={{
+                      __html: getProcessedContractContent()
+                        .replace(/\[ASSINATURA_IMAGEM\]/g, 
+                          contract.signature_data?.signature ? 
+                            `<img src="${contract.signature_data.signature}" alt="Assinatura" style="max-width: 200px; height: 60px; margin: 10px 0;" />` 
+                            : ''
+                        )
+                    }}
+                  />
                 </div>
               </CardContent>
             </Card>
