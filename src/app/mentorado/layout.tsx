@@ -320,6 +320,7 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
           })}
         </div>
       </div>
+
     </div>
   )
 }

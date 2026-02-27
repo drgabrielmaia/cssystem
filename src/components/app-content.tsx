@@ -79,7 +79,6 @@ export function AppContent({ children }: { children: React.ReactNode }) {
     return (
       <>
         {children}
-        <ChatBot />
       </>
     )
   }

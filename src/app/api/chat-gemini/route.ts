@@ -5,6 +5,17 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'SUA_NOVA_API_KEY_AQUI'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🚀 Iniciando request para chat-gemini')
+    
+    // Verificar se a API key está configurada
+    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'SUA_NOVA_API_KEY_AQUI') {
+      console.error('❌ GEMINI_API_KEY não está configurada')
+      return NextResponse.json(
+        { error: 'API key do Gemini não está configurada' },
+        { status: 500 }
+      )
+    }
+
     // Timeout de 60 segundos para perguntas complexas
     const timeout = new Promise((_, reject) => 
       setTimeout(() => reject(new Error('Timeout: A resposta está demorando mais que o esperado')), 60000)
@@ -12,6 +23,7 @@ export async function POST(request: NextRequest) {
 
     const processRequest = async () => {
       const { message, userEmail, context } = await request.json()
+      console.log('📝 Dados recebidos:', { userEmail, messageLength: message?.length })
 
     // Verificar se é o usuário autorizado
     if (userEmail !== 'emersonbljr2802@gmail.com') {
@@ -29,16 +41,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Inicializar o Google AI
+    console.log('🔧 Inicializando Google AI')
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
     
-    // Usar o modelo Gemini 2.5 Flash
+    // Usar o modelo Gemini 1.5 Flash (modelo estável)
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash", // Modelo Gemini 2.5 Flash
+      model: "gemini-1.5-flash", // Modelo Gemini 1.5 Flash (mais estável)
       generationConfig: {
         temperature: 0.7,
         topK: 40,
         topP: 0.95,
-        maxOutputTokens: 2048, // Limite de tokens mantido
+        maxOutputTokens: 2048,
       },
     })
 
@@ -98,16 +111,17 @@ Responda como um estrategista experiente e humano que domina o mercado médico.`
     const fullPrompt = `${systemPrompt}${contextPrompt}\n\nUsuário: ${message}\n\nRuixen AI:`
 
       // Gerar resposta
+      console.log('💭 Gerando resposta com Gemini...')
       const result = await model.generateContent(fullPrompt)
       const response = result.response
       const aiResponse = response.text()
 
-      console.log('✅ Resposta do Gemini gerada com sucesso')
+      console.log('✅ Resposta do Gemini gerada com sucesso, comprimento:', aiResponse?.length)
 
       return NextResponse.json({
         success: true,
         message: aiResponse,
-        model: 'gemini-2.5-flash',
+        model: 'gemini-1.5-flash',
         timestamp: new Date().toISOString()
       })
     }

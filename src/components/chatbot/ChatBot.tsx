@@ -283,7 +283,7 @@ export default function ChatBot() {
       {/* Botão flutuante */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg transition-all duration-300 z-50 flex items-center justify-center ${
+        className={`fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg transition-all duration-300 z-[9999] flex items-center justify-center ${
           isOpen 
             ? 'bg-red-500 hover:bg-red-600' 
             : 'bg-blue-500 hover:bg-blue-600'
@@ -298,7 +298,7 @@ export default function ChatBot() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed z-40 flex flex-col bg-white shadow-2xl 
+        <div className="fixed z-[9998] flex flex-col bg-white shadow-2xl 
                         lg:bottom-24 lg:right-6 lg:w-80 lg:h-96 lg:rounded-lg
                         md:bottom-24 md:right-6 md:w-80 md:h-96 md:rounded-lg
                         sm:bottom-0 sm:left-0 sm:right-0 sm:w-full sm:h-[70vh] sm:rounded-t-2xl sm:rounded-b-none">
