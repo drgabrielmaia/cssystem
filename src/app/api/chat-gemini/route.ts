@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     
     // Usar o modelo Gemini 1.5 Flash (modelo estável)
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash", // Modelo Gemini 1.5 Flash (mais estável)
+      model: "gemini-pro", // Modelo Gemini Pro (mais estável)
       generationConfig: {
         temperature: 0.7,
         topK: 40,

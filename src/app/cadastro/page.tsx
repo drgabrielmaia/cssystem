@@ -21,6 +21,9 @@ interface MentoradoCadastro {
   password: string
   confirmPassword: string
   porcentagem_comissao: number
+  data_nascimento?: string
+  data_inicio_mentoria?: string
+  data_entrada?: string
 }
 
 export default function CadastroPage() {
@@ -39,7 +42,10 @@ export default function CadastroPage() {
     observacoes: '',
     password: 'mentoradoindica', // Senha padrão
     confirmPassword: 'mentoradoindica', // Senha padrão
-    porcentagem_comissao: 5 // 5% padrão
+    porcentagem_comissao: 5, // 5% padrão
+    data_nascimento: '',
+    data_inicio_mentoria: '',
+    data_entrada: new Date().toISOString().split('T')[0] // Data atual por padrão
   })
 
   // Carregar mentorados existentes
@@ -79,12 +85,16 @@ export default function CadastroPage() {
         nome_completo: formData.nome_completo,
         email: formData.email,
         telefone: formData.telefone,
-        cpf: formData.cpf,
-        endereco: formData.endereco,
-        observacoes: formData.observacoes,
+        cpf: formData.cpf || null,
+        endereco: formData.endereco || null,
+        observacoes: formData.observacoes || null,
         password_hash: btoa(formData.password), // Simples encoding por enquanto
         porcentagem_comissao: formData.porcentagem_comissao,
-        status_login: 'ativo'
+        status_login: 'ativo',
+        data_nascimento: formData.data_nascimento || null,
+        data_inicio_mentoria: formData.data_inicio_mentoria || formData.data_entrada,
+        data_entrada: formData.data_entrada,
+        organization_id: '1689ece2-a066-4bca-9262-c3bf66a15d43'
       }
 
       if (editingId) {

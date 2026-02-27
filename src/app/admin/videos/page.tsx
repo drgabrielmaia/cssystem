@@ -339,10 +339,33 @@ export default function AdminVideosPage() {
         if (error) throw error
         alert('Módulo atualizado com sucesso!')
       } else {
-        // Criando novo módulo
+        // Criando novo módulo - buscar organization_id do usuário logado
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          alert('Usuário não autenticado')
+          return
+        }
+
+        // Buscar dados do admin para pegar organization_id
+        const { data: adminData } = await supabase
+          .from('admins')
+          .select('organization_id')
+          .eq('email', user.email)
+          .single()
+
+        if (!adminData?.organization_id) {
+          alert('Organization ID não encontrado para o usuário')
+          return
+        }
+
+        const moduleDataWithOrg = {
+          ...moduleForm,
+          organization_id: adminData.organization_id
+        }
+
         const { error } = await supabase
           .from('video_modules')
-          .insert([moduleForm])
+          .insert([moduleDataWithOrg])
 
         if (error) throw error
         alert('Módulo criado com sucesso!')

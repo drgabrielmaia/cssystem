@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { PostPreview } from "../posts/PostPreview";
 import { ExportButton } from "../posts/ExportButton";
+import ClaudeChatInput from "./claude-style-chat-input";
 import type { PostData } from "../../types";
 import { useMentoradoAuth } from "@/contexts/mentorado-auth";
 import {
@@ -166,44 +167,54 @@ export default function EnhancedAIChat() {
     scrollToBottom();
   }, [messages]);
 
-  const sendMessage = async () => {
-    if (!message.trim() || isLoading) return;
+  const handleChatMessage = async (data: {
+    message: string;
+    files: any[];
+    pastedContent: any[];
+    model: string;
+    isThinkingEnabled: boolean;
+  }) => {
+    if (!data.message.trim() || isLoading) return;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      text: message,
+      text: data.message,
       isUser: true,
       timestamp: new Date(),
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setMessage("");
     setIsLoading(true);
-    adjustHeight(true);
 
     try {
+      // Check if it's a post generation request based on model
+      const isPostGeneration = ['motivacional', 'educativo', 'promocional', 'stories', 'carrossel'].includes(data.model);
+      
       const response = await fetch('/api/chat-gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          message: userMessage.text,
+          message: isPostGeneration ? `Gere um post para Instagram do tipo ${data.model}. Contexto: ${data.message}` : data.message,
           userEmail: userProfile.email,
           context: {
             persona: userProfile.persona,
-            doresDesejos: userProfile.doresDesejos
+            doresDesejos: userProfile.doresDesejos,
+            tipoPost: isPostGeneration ? data.model : undefined
           }
         }),
       });
 
       if (!response.ok) throw new Error('Erro na API');
 
-      const data = await response.json();
+      const responseData = await response.json();
       
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        text: data.message,
+        text: isPostGeneration ? `📱 **Post ${data.model} gerado:**\n\n${responseData.message}` : responseData.message,
         isUser: false,
         timestamp: new Date(),
+        canSave: isPostGeneration,
+        postType: isPostGeneration ? data.model as 'motivacional' | 'educativo' | 'pessoal' : undefined
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -827,31 +838,9 @@ export default function EnhancedAIChat() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Area */}
-            <div className="border-t border-gray-700 p-6">
-              <div className="flex items-end space-x-3">
-                <div className="flex-1 relative">
-                  <Textarea
-                    ref={textareaRef}
-                    value={message}
-                    onChange={(e) => {
-                      setMessage(e.target.value);
-                      adjustHeight();
-                    }}
-                    onKeyDown={handleKeyPress}
-                    placeholder="Digite sua mensagem..."
-                    className="bg-gray-800 border-gray-600 text-white resize-none pr-12"
-                    disabled={isLoading}
-                  />
-                </div>
-                <Button
-                  onClick={sendMessage}
-                  disabled={!message.trim() || isLoading}
-                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2"
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
-              </div>
+            {/* Claude-style Input Area */}
+            <div className="border-t border-gray-700 p-4">
+              <ClaudeChatInput onSendMessage={handleChatMessage} />
             </div>
           </>
         )}

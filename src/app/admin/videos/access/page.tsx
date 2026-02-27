@@ -89,18 +89,32 @@ export default function VideoAccessControlPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      // Buscar mentorados ativos
+      // Buscar organization_id do admin logado
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: adminData } = await supabase
+        .from('admins')
+        .select('organization_id')
+        .eq('email', user.email)
+        .single()
+
+      if (!adminData?.organization_id) return
+
+      // Buscar mentorados ativos da organização
       const { data: mentoradosData } = await supabase
         .from('mentorados')
         .select('id, nome_completo, email, turma, status_login')
         .eq('status_login', 'ativo')
+        .eq('organization_id', adminData.organization_id)
         .order('nome_completo')
 
-      // Buscar módulos de vídeo
+      // Buscar módulos de vídeo da organização
       const { data: modulesData } = await supabase
         .from('video_modules')
         .select('*')
         .eq('is_active', true)
+        .eq('organization_id', adminData.organization_id)
         .order('order_index')
 
       // Buscar controles de acesso existentes
@@ -171,22 +185,30 @@ export default function VideoAccessControlPage() {
     try {
       setIsLoadingData(true)
       if (hasAccess) {
-        // Remover acesso
+        // Remover acesso - usar update ao invés de delete para manter histórico
         await supabase
           .from('video_access_control')
-          .delete()
+          .update({
+            has_access: false,
+            revoked_at: new Date().toISOString(),
+            revoked_by: 'admin'
+          })
           .eq('mentorado_id', mentoradoId)
           .eq('module_id', moduleId)
       } else {
-        // Conceder acesso
+        // Conceder acesso - usar upsert para evitar conflitos
         await supabase
           .from('video_access_control')
-          .insert({
+          .upsert({
             mentorado_id: mentoradoId,
             module_id: moduleId,
             has_access: true,
             granted_at: new Date().toISOString(),
-            granted_by: 'admin'
+            granted_by: 'admin',
+            revoked_at: null,
+            revoked_by: null
+          }, {
+            onConflict: 'mentorado_id, module_id'
           })
       }
 
