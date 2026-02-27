@@ -103,3 +103,18 @@ export interface DespesaMensal {
   created_at: string
   updated_at: string
 }
+
+// ============================================================
+// SISTEMA DE POSTS - Canvas/HTML to Image
+// ============================================================
+
+export interface PostData {
+  template: 'dark' | 'light';
+  text: string;
+  fontSize?: number;
+  highlightWord?: string;
+  author?: string;
+  profileName?: string;
+  profileHandle?: string;
+  avatarUrl?: string;
+}

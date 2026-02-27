@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     )
 
     const processRequest = async () => {
-      const { message, userEmail } = await request.json()
+      const { message, userEmail, context } = await request.json()
 
     // Verificar se é o usuário autorizado
     if (userEmail !== 'emersonbljr2802@gmail.com') {
@@ -80,12 +80,26 @@ FORMATAÇÃO:
 
 Responda como um estrategista experiente e humano que domina o mercado médico.`
 
+    // Construir contexto do usuário de forma segura
+    let contextPrompt = ''
+    if (context) {
+      if (context.persona) {
+        contextPrompt += `\nPersona do usuário: ${context.persona}`
+      }
+      if (context.doresDesejos && Array.isArray(context.doresDesejos)) {
+        contextPrompt += `\nDores e Desejos do usuário: ${context.doresDesejos.join(', ')}`
+      }
+      if (context.tipoPost) {
+        contextPrompt += `\nTipo de post solicitado: ${context.tipoPost}`
+      }
+    }
+
     // Combinar o prompt do sistema com a mensagem do usuário
-    const fullPrompt = `${systemPrompt}\n\nUsuário: ${message}\n\nRuixen AI:`
+    const fullPrompt = `${systemPrompt}${contextPrompt}\n\nUsuário: ${message}\n\nRuixen AI:`
 
       // Gerar resposta
       const result = await model.generateContent(fullPrompt)
-      const response = await result.response
+      const response = result.response
       const aiResponse = response.text()
 
       console.log('✅ Resposta do Gemini gerada com sucesso')
