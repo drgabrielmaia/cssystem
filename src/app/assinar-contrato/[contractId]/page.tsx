@@ -53,7 +53,12 @@ export default function ContractSigningPage() {
   // Form data for additional info
   const [formData, setFormData] = useState({
     cpf: '',
-    endereco: ''
+    rua: '',
+    numero: '',
+    bairro: '',
+    cidade: '',
+    estado: '',
+    cep: ''
   })
 
   useEffect(() => {
@@ -185,11 +190,13 @@ export default function ContractSigningPage() {
     let content = contract.filled_content
     
     // Replace user data placeholders
+    const enderecoCompleto = `${formData.rua}${formData.numero ? ', ' + formData.numero : ''}${formData.bairro ? ', ' + formData.bairro : ''}, ${formData.cidade}, ${formData.estado}, CEP: ${formData.cep}`
+    
     content = content.replace(/\[NOME\]/g, contract.recipient_name)
     content = content.replace(/\[EMAIL\]/g, contract.recipient_email)
     content = content.replace(/\[CPF\]/g, formData.cpf || '[CPF]')
-    content = content.replace(/\[ENDERECO_COMPLETO\]/g, formData.endereco || '[ENDERECO_COMPLETO]')
-    content = content.replace(/\[ENDERECO\]/g, formData.endereco || '[ENDEREÇO]')
+    content = content.replace(/\[ENDERECO_COMPLETO\]/g, enderecoCompleto || '[ENDERECO_COMPLETO]')
+    content = content.replace(/\[ENDERECO\]/g, enderecoCompleto || '[ENDEREÇO]')
     
     // Remove unused placeholders
     content = content.replace(/\[RG\]/g, '')
@@ -216,7 +223,7 @@ Assinatura da Contratada`
 [ASSINATURA_IMAGEM]
 ___________________
 ${contract.recipient_name}
-CPF: ${formData.cpf || contract.signature_data.additional_data?.cpf || '[CPF]'}
+CPF: ${contract.signature_data.additional_data?.cpf || formData.cpf || '[CPF]'}
 Assinatura Digital
 Assinado em: ${new Date(contract.signature_data.signed_at).toLocaleDateString('pt-BR')}` : `
 
@@ -241,22 +248,44 @@ Assinatura do Contratante`
 
     try {
       const signatureBase64 = getSignatureData()
+      const enderecoCompleto = `${formData.rua}${formData.numero ? ', ' + formData.numero : ''}${formData.bairro ? ', ' + formData.bairro : ''}, ${formData.cidade}, ${formData.estado}, CEP: ${formData.cep}`
+      
       const signatureData = {
         signature: signatureBase64,
         signer_name: contract.recipient_name,
         signer_email: contract.recipient_email,
-        additional_data: formData,
+        additional_data: {
+          ...formData,
+          endereco_completo: enderecoCompleto
+        },
         signed_at: new Date().toISOString()
       }
 
-      const { data, error } = await supabase.rpc('sign_contract', {
+      console.log('Enviando dados para assinatura:', { contractId, signatureData })
+
+      // Tentar primeiro com a função simplificada
+      let { data, error } = await supabase.rpc('sign_contract_simple', {
         p_contract_id: contractId,
-        p_signature_data: signatureData,
-        p_ip_address: null, // Will be set by the database function if needed
-        p_user_agent: navigator.userAgent
+        p_signature_data: signatureData
       })
 
-      if (error) throw error
+      // Se der erro, tentar com a função original
+      if (error) {
+        console.log('Tentando função original:', error.message)
+        const result = await supabase.rpc('sign_contract', {
+          p_contract_id: contractId,
+          p_signature_data: signatureData,
+          p_ip_address: null,
+          p_user_agent: navigator.userAgent
+        })
+        data = result.data
+        error = result.error
+      }
+
+      if (error) {
+        console.error('Erro detalhado da função SQL:', error)
+        throw new Error(error.message || 'Erro ao executar função de assinatura')
+      }
 
       // Update contract state with signature data
       setContract(prev => prev ? {
@@ -294,7 +323,7 @@ Assinatura do Contratante`
 
   // Form validation functions
   const validateStep1 = () => {
-    return formData.cpf && formData.endereco
+    return formData.cpf && formData.rua && formData.cidade && formData.estado && formData.cep
   }
 
   const goToNextStep = () => {
@@ -541,12 +570,67 @@ Assinatura do Contratante`
                       required
                     />
                   </div>
-                  <div>
-                    <Label className="text-white">Endereço Completo *</Label>
+                </div>
+              </div>
+
+              {/* Address Section */}
+              <div className="space-y-4">
+                <h3 className="text-white text-lg font-semibold">Endereço</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="md:col-span-2">
+                    <Label className="text-white">Rua/Avenida *</Label>
                     <Input
-                      value={formData.endereco}
-                      onChange={(e) => setFormData(prev => ({ ...prev, endereco: e.target.value }))}
-                      placeholder="Rua, número, bairro, cidade, estado, CEP"
+                      value={formData.rua}
+                      onChange={(e) => setFormData(prev => ({ ...prev, rua: e.target.value }))}
+                      placeholder="Nome da rua ou avenida"
+                      className="bg-gray-700 border-gray-600 text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-white">Número</Label>
+                    <Input
+                      value={formData.numero}
+                      onChange={(e) => setFormData(prev => ({ ...prev, numero: e.target.value }))}
+                      placeholder="123"
+                      className="bg-gray-700 border-gray-600 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-white">Bairro</Label>
+                    <Input
+                      value={formData.bairro}
+                      onChange={(e) => setFormData(prev => ({ ...prev, bairro: e.target.value }))}
+                      placeholder="Nome do bairro"
+                      className="bg-gray-700 border-gray-600 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-white">Cidade *</Label>
+                    <Input
+                      value={formData.cidade}
+                      onChange={(e) => setFormData(prev => ({ ...prev, cidade: e.target.value }))}
+                      placeholder="Nome da cidade"
+                      className="bg-gray-700 border-gray-600 text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-white">Estado *</Label>
+                    <Input
+                      value={formData.estado}
+                      onChange={(e) => setFormData(prev => ({ ...prev, estado: e.target.value }))}
+                      placeholder="SP"
+                      className="bg-gray-700 border-gray-600 text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-white">CEP *</Label>
+                    <Input
+                      value={formData.cep}
+                      onChange={(e) => setFormData(prev => ({ ...prev, cep: e.target.value }))}
+                      placeholder="00000-000"
                       className="bg-gray-700 border-gray-600 text-white"
                       required
                     />
@@ -671,7 +755,7 @@ Assinatura do Contratante`
                     <div><span className="text-gray-400">Nome:</span> <span className="text-white">{contract.recipient_name}</span></div>
                     <div><span className="text-gray-400">Email:</span> <span className="text-white">{contract.recipient_email}</span></div>
                     <div><span className="text-gray-400">CPF:</span> <span className="text-white">{formData.cpf}</span></div>
-                    <div><span className="text-gray-400">Endereço:</span> <span className="text-white">{formData.endereco}</span></div>
+                    <div><span className="text-gray-400">Endereço:</span> <span className="text-white">{`${formData.rua}${formData.numero ? ', ' + formData.numero : ''}${formData.bairro ? ', ' + formData.bairro : ''}, ${formData.cidade}, ${formData.estado}, CEP: ${formData.cep}`}</span></div>
                   </div>
                 </div>
               </div>
