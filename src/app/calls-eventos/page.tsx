@@ -173,20 +173,50 @@ export default function CallsEventosPage() {
 
   const loadEvents = async () => {
     try {
-      const { data, error } = await supabase
+      // Load events
+      const { data: eventsData, error: eventsError } = await supabase
         .from('group_events')
-        .select(`
-          *,
-          participants:group_event_participants(count),
-          attendees:group_event_participants!inner(count, attendance_status.eq.attended),
-          conversions:group_event_participants!inner(count, conversion_status.eq.converted, conversion_value)
-        `)
+        .select('*')
         .eq('organization_id', organizationId)
         .order('date_time', { ascending: false })
 
-      if (error) throw error
+      if (eventsError) throw eventsError
 
-      setEvents((data as any) || [])
+      if (!eventsData || eventsData.length === 0) {
+        setEvents([])
+        return
+      }
+
+      // Load participant counts per event
+      const eventIds = eventsData.map(e => e.id)
+      const { data: participantsData } = await supabase
+        .from('group_event_participants')
+        .select('event_id, attendance_status, conversion_status, conversion_value')
+        .in('event_id', eventIds)
+
+      // Aggregate counts per event
+      const countsMap: Record<string, { participants: number; attendees: number; conversions: number; conversionValue: number }> = {}
+      for (const p of participantsData || []) {
+        if (!countsMap[p.event_id]) {
+          countsMap[p.event_id] = { participants: 0, attendees: 0, conversions: 0, conversionValue: 0 }
+        }
+        countsMap[p.event_id].participants++
+        if (p.attendance_status === 'attended') countsMap[p.event_id].attendees++
+        if (p.conversion_status === 'converted') {
+          countsMap[p.event_id].conversions++
+          countsMap[p.event_id].conversionValue += Number(p.conversion_value) || 0
+        }
+      }
+
+      const enrichedEvents = eventsData.map(e => ({
+        ...e,
+        participant_count: countsMap[e.id]?.participants || 0,
+        attendee_count: countsMap[e.id]?.attendees || 0,
+        conversion_count: countsMap[e.id]?.conversions || 0,
+        conversion_value: countsMap[e.id]?.conversionValue || 0,
+      }))
+
+      setEvents(enrichedEvents)
     } catch (error) {
       console.error('Error loading events:', error)
     }
