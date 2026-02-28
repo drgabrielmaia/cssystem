@@ -56,6 +56,10 @@ interface Comissao {
   payment_id: string | null
   paid_at: string | null
   is_referral: boolean | null
+  payment_rule: string | null
+  valor_liberado: number | null
+  tranche_1_paid: boolean | null
+  tranche_2_paid: boolean | null
   mentorados?: {
     nome_completo: string
     email: string
@@ -66,6 +70,8 @@ interface Comissao {
     nome_completo: string
     empresa: string
     valor_vendido: number
+    valor_arrecadado: number | null
+    valor_venda: number | null
     status: string
   } | null
 }
@@ -183,6 +189,7 @@ export default function ComissoesPage() {
   const [newObservacoes, setNewObservacoes] = useState('')
   const [newRecipientName, setNewRecipientName] = useState('')
   const [newRecipientPix, setNewRecipientPix] = useState('')
+  const [newPaymentRule, setNewPaymentRule] = useState<'standard' | 'closer_split'>('standard')
 
   // Edit commission form
   const [editValorComissao, setEditValorComissao] = useState('')
@@ -213,7 +220,7 @@ export default function ComissoesPage() {
     isRefetching,
   } = useStableData<Comissao>({
     tableName: 'comissoes',
-    select: `*, mentorados:mentorado_id(nome_completo, email, pix_chave, pix_tipo), leads:lead_id(nome_completo, empresa, valor_vendido, status)`,
+    select: `*, mentorados:mentorado_id(nome_completo, email, pix_chave, pix_tipo), leads:lead_id(nome_completo, empresa, valor_vendido, valor_arrecadado, valor_venda, status)`,
     filters: organizationId ? { organization_id: organizationId } : {},
     dependencies: [organizationId],
     autoLoad: true,
@@ -344,6 +351,10 @@ export default function ComissoesPage() {
           recipient_name: mentorado?.nome_completo || null,
           recipient_pix_key: mentorado?.pix_chave || null,
           commission_type: 'lead',
+          payment_rule: newPaymentRule,
+          valor_liberado: newPaymentRule === 'closer_split' ? 0 : comVal,
+          tranche_1_paid: false,
+          tranche_2_paid: false,
         })
       } else {
         // Terceiro
@@ -387,6 +398,7 @@ export default function ComissoesPage() {
       setNewObservacoes('')
       setNewRecipientName('')
       setNewRecipientPix('')
+      setNewPaymentRule('standard')
       setShowNewCommission(false)
       refetch()
     } catch (err: any) {
@@ -398,7 +410,7 @@ export default function ComissoesPage() {
   }, [
     organizationId, user, newCommissionType, newMentoradoId, newLeadId,
     newPercentual, newValorComissao, newValorVenda, newObservacoes,
-    newRecipientName, newRecipientPix, mentorados, leads, refetch,
+    newRecipientName, newRecipientPix, newPaymentRule, mentorados, leads, refetch,
   ])
 
   // -- Edit commission --
@@ -442,20 +454,60 @@ export default function ComissoesPage() {
     }
   }, [selectedCommission, newStatus, updateMutation])
 
+  // -- Pay tranche (closer_split) --
+  const handlePayTranche = useCallback(async (comissao: Comissao, tranche: 1 | 2) => {
+    try {
+      const halfValue = (comissao.valor_comissao || 0) / 2
+      const currentLiberado = comissao.valor_liberado || 0
+
+      if (tranche === 1) {
+        await updateMutation.mutate({
+          id: comissao.id,
+          tranche_1_paid: true,
+          valor_liberado: currentLiberado + halfValue,
+          updated_at: new Date().toISOString(),
+        })
+      } else {
+        // Tranche 2 - pay remaining and mark as fully paid
+        await updateMutation.mutate({
+          id: comissao.id,
+          tranche_2_paid: true,
+          valor_liberado: comissao.valor_comissao || 0,
+          status_pagamento: 'pago',
+          paid_at: new Date().toISOString(),
+          data_pagamento: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+      }
+    } catch (err: any) {
+      console.error('Erro ao pagar parcela:', err)
+    }
+  }, [updateMutation])
+
   // -- Mark as paid shortcut --
   const handleMarkPaid = useCallback(async (comissao: Comissao) => {
     try {
+      // For closer_split, guide user to use tranche payments
+      if (comissao.payment_rule === 'closer_split') {
+        if (!comissao.tranche_1_paid) {
+          await handlePayTranche(comissao, 1)
+        } else if (!comissao.tranche_2_paid) {
+          await handlePayTranche(comissao, 2)
+        }
+        return
+      }
       await updateMutation.mutate({
         id: comissao.id,
         status_pagamento: 'pago',
         paid_at: new Date().toISOString(),
         data_pagamento: new Date().toISOString(),
+        valor_liberado: comissao.valor_comissao || 0,
         updated_at: new Date().toISOString(),
       })
     } catch (err: any) {
       console.error('Erro ao marcar como pago:', err)
     }
-  }, [updateMutation])
+  }, [updateMutation, handlePayTranche])
 
   // -- Save PIX for mentorado --
   const handleSavePix = useCallback(async () => {
@@ -860,8 +912,23 @@ export default function ComissoesPage() {
                         <TableCell className="text-right text-white/60">
                           {formatCurrency(comissao.valor_venda)}
                         </TableCell>
-                        <TableCell className="text-right font-semibold text-white">
-                          {formatCurrency(comissao.valor_comissao)}
+                        <TableCell className="text-right">
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="font-semibold text-white">
+                              {formatCurrency(comissao.valor_comissao)}
+                            </span>
+                            {comissao.payment_rule === 'closer_split' && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-white/30">
+                                  Liberado: {formatCurrency(comissao.valor_liberado)}
+                                </span>
+                                <div className="flex gap-0.5">
+                                  <div className={`h-1.5 w-3 rounded-full ${comissao.tranche_1_paid ? 'bg-emerald-500' : 'bg-white/10'}`} title="1a parcela (50%)" />
+                                  <div className={`h-1.5 w-3 rounded-full ${comissao.tranche_2_paid ? 'bg-emerald-500' : 'bg-white/10'}`} title="2a parcela (50%)" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>{getStatusBadge(comissao.status_pagamento)}</TableCell>
                         <TableCell className="text-white/40 text-sm">
@@ -897,15 +964,42 @@ export default function ComissoesPage() {
                               <AlertCircle className="w-4 h-4" />
                             </Button>
                             {(comissao.status_pagamento === 'pendente' || !comissao.status_pagamento) && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleMarkPaid(comissao)}
-                                className="text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 h-8 w-8 p-0"
-                                title="Marcar como pago"
-                              >
-                                <Check className="w-4 h-4" />
-                              </Button>
+                              comissao.payment_rule === 'closer_split' ? (
+                                <>
+                                  {!comissao.tranche_1_paid && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handlePayTranche(comissao, 1)}
+                                      className="text-amber-400/60 hover:text-amber-400 hover:bg-amber-500/10 h-8 px-2 text-[10px] font-medium"
+                                      title="Pagar 1a parcela (50%)"
+                                    >
+                                      50%
+                                    </Button>
+                                  )}
+                                  {comissao.tranche_1_paid && !comissao.tranche_2_paid && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handlePayTranche(comissao, 2)}
+                                      className="text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 h-8 px-2 text-[10px] font-medium"
+                                      title="Pagar 2a parcela (50%) e finalizar"
+                                    >
+                                      100%
+                                    </Button>
+                                  )}
+                                </>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleMarkPaid(comissao)}
+                                  className="text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 h-8 w-8 p-0"
+                                  title="Marcar como pago"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                              )
                             )}
                           </div>
                         </TableCell>
@@ -1061,6 +1155,40 @@ export default function ComissoesPage() {
                       placeholder="0,00"
                       className="bg-[#0a0a0c] border-white/[0.06] text-white placeholder:text-white/20"
                     />
+                  </div>
+
+                  {/* Payment Rule */}
+                  <div className="space-y-2">
+                    <Label className="text-white/60 text-sm">Regra de Pagamento</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setNewPaymentRule('standard')}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                          newPaymentRule === 'standard'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-[#0a0a0c] text-white/40 border border-white/[0.06] hover:text-white/60'
+                        }`}
+                      >
+                        Padrao (integral)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewPaymentRule('closer_split')}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                          newPaymentRule === 'closer_split'
+                            ? 'bg-amber-600 text-white'
+                            : 'bg-[#0a0a0c] text-white/40 border border-white/[0.06] hover:text-white/60'
+                        }`}
+                      >
+                        Closer/SDR (50/50)
+                      </button>
+                    </div>
+                    {newPaymentRule === 'closer_split' && (
+                      <p className="text-[10px] text-amber-400/60 bg-amber-500/5 rounded px-2 py-1.5 border border-amber-500/10">
+                        50% da comissao liberado quando cliente pagar &ge; 50% da venda. Restante quando pagar 100%.
+                      </p>
+                    )}
                   </div>
                 </>
               ) : (
@@ -1227,6 +1355,72 @@ export default function ComissoesPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Closer Split Details */}
+                {selectedCommission.payment_rule === 'closer_split' && (
+                  <div className="bg-[#0a0a0c] rounded-lg p-4 border border-white/[0.06] space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/20 text-xs">
+                        Regra Closer/SDR
+                      </Badge>
+                      <span className="text-white/30 text-xs">Pagamento em 2 parcelas</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className={`rounded-lg p-3 border ${selectedCommission.tranche_1_paid ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/[0.06]'}`}>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">1a Parcela (50%)</p>
+                        <p className={`text-sm font-bold mt-1 ${selectedCommission.tranche_1_paid ? 'text-emerald-400' : 'text-white/40'}`}>
+                          {formatCurrency((selectedCommission.valor_comissao || 0) / 2)}
+                        </p>
+                        <p className={`text-[10px] mt-1 ${selectedCommission.tranche_1_paid ? 'text-emerald-400/60' : 'text-white/20'}`}>
+                          {selectedCommission.tranche_1_paid ? 'Pago' : 'Aguardando cliente pagar >= 50%'}
+                        </p>
+                      </div>
+                      <div className={`rounded-lg p-3 border ${selectedCommission.tranche_2_paid ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/[0.06]'}`}>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">2a Parcela (50%)</p>
+                        <p className={`text-sm font-bold mt-1 ${selectedCommission.tranche_2_paid ? 'text-emerald-400' : 'text-white/40'}`}>
+                          {formatCurrency((selectedCommission.valor_comissao || 0) / 2)}
+                        </p>
+                        <p className={`text-[10px] mt-1 ${selectedCommission.tranche_2_paid ? 'text-emerald-400/60' : 'text-white/20'}`}>
+                          {selectedCommission.tranche_2_paid ? 'Pago' : 'Aguardando cliente pagar 100%'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Client payment progress */}
+                    {selectedCommission.leads && (
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Pagamento do Cliente</p>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-sky-500 rounded-full transition-all"
+                              style={{
+                                width: `${Math.min(100, ((selectedCommission.leads.valor_arrecadado || 0) / (selectedCommission.leads.valor_venda || 1)) * 100)}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="text-xs text-white/50">
+                            {Math.round(((selectedCommission.leads.valor_arrecadado || 0) / (selectedCommission.leads.valor_venda || 1)) * 100)}%
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-white/30 mt-1">
+                          {formatCurrency(selectedCommission.leads.valor_arrecadado)} de {formatCurrency(selectedCommission.leads.valor_venda)}
+                        </p>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-[10px] text-white/40 uppercase tracking-wider">Total Liberado</p>
+                      <p className="text-lg font-bold text-emerald-400">
+                        {formatCurrency(selectedCommission.valor_liberado)}
+                        <span className="text-white/30 text-xs font-normal ml-2">
+                          de {formatCurrency(selectedCommission.valor_comissao)}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {selectedCommission.observacoes && (
                   <div>
