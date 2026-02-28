@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Header } from '@/components/header'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -11,26 +11,15 @@ import { CalendarBooking } from '@/components/calendar-booking'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
 import {
-  FileText,
-  Eye,
-  Search,
-  Filter,
-  Calendar,
-  User,
-  ExternalLink,
-  Download,
-  BarChart3,
-  Clock,
-  CalendarDays,
-  MessageSquare,
-  Phone,
-  Mail,
-  Star,
-  CheckCircle2,
-  AlertCircle,
-  Timer,
-  Sparkles
+  FileText, Eye, Search, Calendar, User, ExternalLink, Download,
+  BarChart3, Clock, CalendarDays, MessageSquare, Phone, Mail, Star,
+  CheckCircle2, AlertCircle, Timer, Sparkles, ChevronDown, Filter,
+  Inbox, ArrowUpRight, Hash
 } from 'lucide-react'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface FormSubmission {
   id: string
@@ -54,9 +43,12 @@ interface FormSubmission {
   mentorado: {
     nome_completo: string
     email: string
-    // turma: string  // Campo não existe na tabela
   } | null
 }
+
+// ---------------------------------------------------------------------------
+// Page Component
+// ---------------------------------------------------------------------------
 
 export default function FormResponsesPage() {
   const { user } = useAuth()
@@ -68,19 +60,13 @@ export default function FormResponsesPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<string>('all')
   const [selectedSubmission, setSelectedSubmission] = useState<FormSubmission | null>(null)
   const [bookingSubmission, setBookingSubmission] = useState<FormSubmission | null>(null)
-  const [abandonedSubmissions, setAbandonedSubmissions] = useState<FormSubmission[]>([])
 
-  useEffect(() => {
-    fetchSubmissions()
-  }, [])
+  // -------------------------------------------------------------------------
+  // Data fetching  (FIX: depends on user)
+  // -------------------------------------------------------------------------
 
-  useEffect(() => {
-    filterSubmissions()
-  }, [submissions, searchTerm, selectedTemplate])
-
-  const fetchSubmissions = async () => {
+  const fetchSubmissions = useCallback(async () => {
     try {
-      console.log('🔍 Buscando respostas de formulários...')
       setLoading(true)
 
       if (!user?.organizationId) {
@@ -90,8 +76,7 @@ export default function FormResponsesPage() {
         return
       }
 
-      // Use uma única query otimizada com joins e filtro por organização
-      const { data: submissions, error } = await supabase
+      const { data: rawSubmissions, error } = await supabase
         .from('form_submissions')
         .select(`
           id,
@@ -122,8 +107,7 @@ export default function FormResponsesPage() {
         .limit(100)
 
       if (error) {
-        console.error('❌ Erro ao buscar form submissions:', error)
-        // If table doesn't exist, create empty state
+        console.error('Erro ao buscar form submissions:', error)
         if (error.code === '42P01') {
           setSubmissions([])
           setTemplates([])
@@ -133,10 +117,7 @@ export default function FormResponsesPage() {
         throw error
       }
 
-      console.log('✅ Encontrados', submissions?.length || 0, 'form submissions')
-
-      // Transform data to match interface
-      const transformedSubmissions: FormSubmission[] = (submissions || []).map(submission => ({
+      const transformedSubmissions: FormSubmission[] = (rawSubmissions || []).map(submission => ({
         id: submission.id,
         template_id: submission.template_id,
         template_slug: submission.template_slug,
@@ -163,30 +144,52 @@ export default function FormResponsesPage() {
 
       setSubmissions(transformedSubmissions)
 
-      // Extract unique template slugs for filter (using slugs instead of names for consistency)
       const templateSlugs = transformedSubmissions
         .map(s => s.template_slug)
         .filter(Boolean) as string[]
-      
       const uniqueTemplates = Array.from(new Set(templateSlugs))
-      
       setTemplates(uniqueTemplates)
-
     } catch (error) {
-      console.error('❌ Erro geral:', error)
+      console.error('Erro geral:', error)
       setSubmissions([])
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.organizationId])
+
+  // FIX: depend on user?.organizationId via the memoised callback
+  useEffect(() => {
+    if (user?.organizationId) {
+      fetchSubmissions()
+    }
+  }, [user?.organizationId, fetchSubmissions])
+
+  // Retry mechanism: if user loads slowly, retry after a short delay
+  useEffect(() => {
+    if (!user?.organizationId && loading) {
+      const timer = setTimeout(() => {
+        if (user?.organizationId) {
+          fetchSubmissions()
+        }
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [user, loading, fetchSubmissions])
+
+  // -------------------------------------------------------------------------
+  // Filtering
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    filterSubmissions()
+  }, [submissions, searchTerm, selectedTemplate])
 
   const filterSubmissions = () => {
     let filtered = [...submissions]
 
-    // Filtrar por termo de busca
     if (searchTerm) {
       filtered = filtered.filter(submission => {
-        const searchLower = searchTerm.toLowerCase()
+        const s = searchTerm.toLowerCase()
         const templateName = submission.template?.name?.toLowerCase() || ''
         const leadName = submission.lead?.nome_completo?.toLowerCase() || ''
         const leadEmail = submission.lead?.email?.toLowerCase() || ''
@@ -194,22 +197,25 @@ export default function FormResponsesPage() {
         const mentoradoEmail = submission.mentorado?.email?.toLowerCase() || ''
         const source = submission.source_url?.toLowerCase() || ''
 
-        return templateName.includes(searchLower) ||
-               leadName.includes(searchLower) ||
-               leadEmail.includes(searchLower) ||
-               mentoradoName.includes(searchLower) ||
-               mentoradoEmail.includes(searchLower) ||
-               source.includes(searchLower)
+        return templateName.includes(s) ||
+               leadName.includes(s) ||
+               leadEmail.includes(s) ||
+               mentoradoName.includes(s) ||
+               mentoradoEmail.includes(s) ||
+               source.includes(s)
       })
     }
 
-    // Filtrar por template
     if (selectedTemplate !== 'all') {
       filtered = filtered.filter(submission => submission.template_slug === selectedTemplate)
     }
 
     setFilteredSubmissions(filtered)
   }
+
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('pt-BR', {
@@ -221,24 +227,46 @@ export default function FormResponsesPage() {
     })
   }
 
-  const getSourceColor = (source: string | null) => {
-    if (!source) return 'bg-gray-100 text-gray-800'
+  const formatRelativeDate = (dateString: string) => {
+    const now = new Date()
+    const date = new Date(dateString)
+    const diffMs = now.getTime() - date.getTime()
+    const diffMin = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
 
-    if (source.includes('instagram')) return 'bg-pink-100 text-pink-800'
-    if (source.includes('facebook')) return 'bg-blue-100 text-blue-800'
-    if (source.includes('google')) return 'bg-green-100 text-green-800'
-    if (source.includes('bio')) return 'bg-purple-100 text-purple-800'
-    if (source.includes('ads')) return 'bg-orange-100 text-orange-800'
+    if (diffMin < 1) return 'agora'
+    if (diffMin < 60) return `${diffMin}min atras`
+    if (diffHours < 24) return `${diffHours}h atras`
+    if (diffDays < 7) return `${diffDays}d atras`
+    return formatDate(dateString)
+  }
 
-    return 'bg-gray-100 text-gray-800'
+  const getSourceLabel = (source: string | null): string => {
+    if (!source) return 'Direto'
+    if (source.includes('instagram')) return 'Instagram'
+    if (source.includes('facebook')) return 'Facebook'
+    if (source.includes('google')) return 'Google'
+    if (source.includes('bio')) return 'Link Bio'
+    if (source.includes('ads')) return 'Ads'
+    return source.length > 24 ? source.slice(0, 22) + '...' : source
+  }
+
+  const getSourceStyles = (source: string | null): string => {
+    if (!source) return 'bg-white/[0.04] text-white/50 border-white/[0.06]'
+    if (source.includes('instagram')) return 'bg-pink-500/10 text-pink-400 border-pink-500/20'
+    if (source.includes('facebook')) return 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+    if (source.includes('google')) return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+    if (source.includes('bio')) return 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+    if (source.includes('ads')) return 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+    return 'bg-white/[0.04] text-white/50 border-white/[0.06]'
   }
 
   const exportSubmissions = () => {
     const csv = [
-      // Cabeçalho
       [
         'Data',
-        'Formulário',
+        'Formulario',
         'Nome',
         'Email',
         'Telefone',
@@ -246,14 +274,13 @@ export default function FormResponsesPage() {
         'Origem',
         'Dados'
       ].join(','),
-      // Dados
       ...filteredSubmissions.map(submission => [
         formatDate(submission.created_at),
         submission.template?.name || submission.template_slug,
         submission.lead?.nome_completo || submission.mentorado?.nome_completo || '',
         submission.lead?.email || submission.mentorado?.email || '',
         submission.lead?.telefone || '',
-        '',  // Campo turma não existe
+        '',
         submission.source_url || '',
         `"${JSON.stringify(submission.submission_data).replace(/"/g, '""')}"`
       ].join(','))
@@ -270,77 +297,119 @@ export default function FormResponsesPage() {
     document.body.removeChild(link)
   }
 
+  // -------------------------------------------------------------------------
+  // Computed KPIs
+  // -------------------------------------------------------------------------
+
+  const totalResponses = submissions.length
+  const leadsConverted = submissions.filter(s => s.lead_id).length
+  const conversionRate = totalResponses > 0 ? Math.round((leadsConverted / totalResponses) * 100) : 0
+  const thisWeek = submissions.filter(s => new Date(s.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length
+  const today = submissions.filter(s => new Date(s.created_at).toDateString() === new Date().toDateString()).length
+  const uniqueChannels = new Set(submissions.map(s => s.source_url).filter(Boolean)).size
+
+  // -------------------------------------------------------------------------
+  // Sub-components
+  // -------------------------------------------------------------------------
+
   const SubmissionDetail = ({ submission }: { submission: FormSubmission }) => (
     <div className="space-y-6">
       {/* Header */}
-      <div className="border-b border-gray-600 pb-4">
-        <h3 className="text-xl font-semibold text-white mb-2">
-          {submission.template?.name || submission.template_slug}
-        </h3>
+      <div className="border-b border-white/[0.06] pb-5">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/[0.06] flex items-center justify-center">
+            <FileText className="h-5 w-5 text-blue-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-white">
+              {submission.template?.name || submission.template_slug}
+            </h3>
+            <p className="text-sm text-white/40">{formatDate(submission.created_at)}</p>
+          </div>
+        </div>
         <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary" className="flex items-center space-x-1 bg-gray-700 text-white">
-            <Clock className="h-3 w-3" />
-            <span>{formatDate(submission.created_at)}</span>
-          </Badge>
           {submission.source_url && (
-            <Badge className="bg-blue-600 text-white hover:bg-blue-700">
-              {submission.source_url}
-            </Badge>
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${getSourceStyles(submission.source_url)}`}>
+              <ExternalLink className="h-3 w-3" />
+              {getSourceLabel(submission.source_url)}
+            </span>
           )}
           {submission.lead && (
-            <Badge variant="outline" className="flex items-center space-x-1 text-blue-400 border-blue-400">
-              <User className="h-3 w-3" />
-              <span>Lead criado</span>
-            </Badge>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <CheckCircle2 className="h-3 w-3" />
+              Lead criado
+            </span>
           )}
           {submission.mentorado && (
-            <Badge variant="outline" className="flex items-center space-x-1 text-green-400 border-green-400">
-              <User className="h-3 w-3" />
-              <span>Mentorado</span>
-            </Badge>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <Star className="h-3 w-3" />
+              Mentorado
+            </span>
           )}
         </div>
       </div>
 
       {/* Lead Info */}
       {submission.lead && (
-        <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
-          <h4 className="font-semibold text-blue-300 mb-2">Informações do Lead:</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
-            <div><strong className="text-white">Nome:</strong> {submission.lead.nome_completo}</div>
-            <div><strong className="text-white">Email:</strong> {submission.lead.email}</div>
-            <div><strong className="text-white">Telefone:</strong> {submission.lead.telefone}</div>
+        <div className="rounded-xl bg-blue-500/[0.06] border border-blue-500/10 p-4">
+          <h4 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
+            <User className="h-4 w-4" />
+            Informacoes do Lead
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-white/30 mb-1">Nome</p>
+              <p className="text-sm text-white font-medium">{submission.lead.nome_completo}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-white/30 mb-1">Email</p>
+              <p className="text-sm text-white/70">{submission.lead.email}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-white/30 mb-1">Telefone</p>
+              <p className="text-sm text-white/70">{submission.lead.telefone}</p>
+            </div>
           </div>
         </div>
       )}
 
       {/* Mentorado Info */}
       {submission.mentorado && (
-        <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
-          <h4 className="font-semibold text-green-300 mb-2">Informações do Mentorado:</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
-            <div><strong className="text-white">Nome:</strong> {submission.mentorado.nome_completo}</div>
-            <div><strong className="text-white">Email:</strong> {submission.mentorado.email}</div>
-            {/* <div><strong>Turma:</strong> Campo turma não existe</div> */}
+        <div className="rounded-xl bg-emerald-500/[0.06] border border-emerald-500/10 p-4">
+          <h4 className="text-sm font-semibold text-emerald-400 mb-3 flex items-center gap-2">
+            <Star className="h-4 w-4" />
+            Informacoes do Mentorado
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-white/30 mb-1">Nome</p>
+              <p className="text-sm text-white font-medium">{submission.mentorado.nome_completo}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-white/30 mb-1">Email</p>
+              <p className="text-sm text-white/70">{submission.mentorado.email}</p>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Form Data */}
+      {/* Form Answers */}
       <div>
-        <h4 className="font-semibold text-white mb-4">Respostas do Formulário:</h4>
-        <div className="space-y-4">
+        <h4 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-white/40" />
+          Respostas do Formulario
+        </h4>
+        <div className="space-y-3">
           {Object.entries(submission.submission_data).map(([key, value]) => {
-            // Tentar encontrar o label do campo no template
             const field = submission.template?.fields?.find((f: any) => f.name === key)
             const label = field?.label || key
 
             return (
-              <div key={key} className="border border-gray-600 rounded-lg p-4 bg-gray-800/50">
-                <div className="font-medium text-gray-300 mb-2">{label}</div>
-                <div className="text-white">
+              <div key={key} className="rounded-xl bg-[#111113] border border-white/[0.06] p-4">
+                <p className="text-xs text-white/40 mb-1.5 font-medium">{label}</p>
+                <p className="text-sm text-white leading-relaxed">
                   {Array.isArray(value) ? value.join(', ') : String(value)}
-                </div>
+                </p>
               </div>
             )
           })}
@@ -349,275 +418,277 @@ export default function FormResponsesPage() {
     </div>
   )
 
+  // -------------------------------------------------------------------------
+  // Loading skeleton
+  // -------------------------------------------------------------------------
+
   if (loading) {
     return (
-      <div className="flex-1 overflow-y-auto">
-        <Header
-          title="📋 Respostas dos Formulários"
-          subtitle="Carregando respostas..."
-        />
-        <div className="flex items-center justify-center h-96">
-          <div className="text-gray-500">Carregando respostas...</div>
+      <div className="flex-1 overflow-y-auto bg-[#0a0a0c]">
+        <Header title="Respostas dos Formularios" subtitle="Carregando..." />
+        <div className="p-6 space-y-4">
+          {/* Skeleton KPI cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-28 bg-[#1a1a1e] rounded-2xl animate-pulse border border-white/[0.06]" />
+            ))}
+          </div>
+          {/* Skeleton rows */}
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="h-20 bg-[#1a1a1e] rounded-2xl animate-pulse border border-white/[0.06]" />
+          ))}
         </div>
       </div>
     )
   }
 
+  // -------------------------------------------------------------------------
+  // Main render
+  // -------------------------------------------------------------------------
+
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto bg-[#0a0a0c]">
       <Header
-        title="📋 Respostas dos Formulários"
+        title="Respostas dos Formularios"
         subtitle={`${filteredSubmissions.length} respostas encontradas`}
       />
 
-      <main className="flex-1 p-6 space-y-6">
-        {/* Controles */}
-        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1">
-            {/* Busca */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                placeholder="Buscar por nome, email, formulário..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
+      <main className="p-6 space-y-6">
+        {/* ----------------------------------------------------------------- */}
+        {/* Sticky toolbar                                                     */}
+        {/* ----------------------------------------------------------------- */}
+        <div className="sticky top-0 z-20 -mx-6 px-6 py-4 bg-[#0a0a0c]/80 backdrop-blur-xl border-b border-white/[0.04]">
+          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+            <div className="flex flex-col sm:flex-row gap-3 flex-1">
+              {/* Search */}
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+                <Input
+                  placeholder="Buscar por nome, email, formulario..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 bg-[#111113] border-white/[0.08] text-white placeholder:text-white/30 focus:border-white/20 focus:ring-white/10 rounded-xl h-10"
+                />
+              </div>
+
+              {/* Template filter */}
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30 pointer-events-none z-10" />
+                <select
+                  value={selectedTemplate}
+                  onChange={(e) => setSelectedTemplate(e.target.value)}
+                  className="appearance-none pl-9 pr-9 py-2 h-10 bg-[#111113] border border-white/[0.08] text-white text-sm rounded-xl focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/10 cursor-pointer"
+                >
+                  <option value="all">Todos os formularios</option>
+                  {templates.map(templateSlug => {
+                    const sub = submissions.find(s => s.template_slug === templateSlug)
+                    const displayName = sub?.template?.name || templateSlug.replace(/[-_]/g, ' ')
+                    return (
+                      <option key={templateSlug} value={templateSlug}>
+                        {displayName}
+                      </option>
+                    )
+                  })}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30 pointer-events-none" />
+              </div>
             </div>
 
-            {/* Filtro por template */}
-            <select
-              value={selectedTemplate}
-              onChange={(e) => setSelectedTemplate(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            {/* Export */}
+            <Button
+              onClick={exportSubmissions}
+              variant="outline"
+              className="bg-[#111113] border-white/[0.08] text-white/70 hover:text-white hover:bg-white/[0.06] hover:border-white/[0.12] rounded-xl h-10"
             >
-              <option value="all">Todos os formulários</option>
-              {templates.map(templateSlug => {
-                // Encontrar o nome do formulário baseado no slug
-                const submission = submissions.find(s => s.template_slug === templateSlug)
-                const displayName = submission?.template?.name || templateSlug.replace(/-/g, ' ').replace(/_/g, ' ')
-                
-                return (
-                  <option key={templateSlug} value={templateSlug}>
-                    {displayName}
-                  </option>
-                )
-              })}
-            </select>
-          </div>
-
-          {/* Botões de ação */}
-          <div className="flex gap-2">
-            <Button onClick={exportSubmissions} variant="outline" className="flex items-center space-x-2">
-              <Download className="h-4 w-4" />
-              <span>Exportar CSV</span>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar CSV
             </Button>
           </div>
         </div>
 
-        {/* Estatísticas Melhoradas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Total Respostas</p>
-                  <p className="text-3xl font-bold text-blue-600">{submissions.length}</p>
-                  <p className="text-xs text-gray-500 mt-1">+{submissions.filter(s => new Date(s.created_at) > new Date(Date.now() - 7*24*60*60*1000)).length} esta semana</p>
-                </div>
-                <div className="p-3 bg-blue-50 rounded-full">
-                  <FileText className="h-8 w-8 text-blue-600" />
-                </div>
+        {/* ----------------------------------------------------------------- */}
+        {/* KPI Cards                                                          */}
+        {/* ----------------------------------------------------------------- */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Total */}
+          <div className="group relative bg-[#1a1a1e] rounded-2xl border border-white/[0.06] p-5 hover:border-white/[0.1] transition-all duration-300">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2">Total Respostas</p>
+                <p className="text-3xl font-bold text-white tabular-nums">{totalResponses}</p>
+                <p className="text-xs text-white/30 mt-1.5">+{thisWeek} esta semana</p>
               </div>
-            </CardContent>
-          </Card>
+              <div className="relative">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                <div className="absolute inset-0 w-2 h-2 rounded-full bg-blue-500 animate-ping opacity-30" />
+              </div>
+            </div>
+          </div>
 
-          <Card className="border-l-4 border-l-emerald-500 hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Leads Convertidos</p>
-                  <p className="text-3xl font-bold text-emerald-600">{submissions.filter(s => s.lead_id).length}</p>
-                  <p className="text-xs text-gray-500 mt-1">{Math.round((submissions.filter(s => s.lead_id).length / submissions.length) * 100)}% taxa conversão</p>
-                </div>
-                <div className="p-3 bg-emerald-50 rounded-full">
-                  <CheckCircle2 className="h-8 w-8 text-emerald-600" />
-                </div>
+          {/* Leads */}
+          <div className="group relative bg-[#1a1a1e] rounded-2xl border border-white/[0.06] p-5 hover:border-white/[0.1] transition-all duration-300">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2">Leads Convertidos</p>
+                <p className="text-3xl font-bold text-white tabular-nums">{leadsConverted}</p>
+                <p className="text-xs text-white/30 mt-1.5">{conversionRate}% taxa conversao</p>
               </div>
-            </CardContent>
-          </Card>
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+            </div>
+          </div>
 
-          <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Formulários Ativos</p>
-                  <p className="text-3xl font-bold text-purple-600">{templates.length}</p>
-                  <p className="text-xs text-gray-500 mt-1">Em {new Set(submissions.map(s => s.source_url)).size} canais</p>
-                </div>
-                <div className="p-3 bg-purple-50 rounded-full">
-                  <BarChart3 className="h-8 w-8 text-purple-600" />
-                </div>
+          {/* Templates */}
+          <div className="group relative bg-[#1a1a1e] rounded-2xl border border-white/[0.06] p-5 hover:border-white/[0.1] transition-all duration-300">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2">Formularios Ativos</p>
+                <p className="text-3xl font-bold text-white tabular-nums">{templates.length}</p>
+                <p className="text-xs text-white/30 mt-1.5">Em {uniqueChannels} {uniqueChannels === 1 ? 'canal' : 'canais'}</p>
               </div>
-            </CardContent>
-          </Card>
+              <div className="w-2 h-2 rounded-full bg-purple-500" />
+            </div>
+          </div>
 
-          <Card className="border-l-4 border-l-orange-500 hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Hoje</p>
-                  <p className="text-3xl font-bold text-orange-600">
-                    {submissions.filter(s => new Date(s.created_at).toDateString() === new Date().toDateString()).length}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Respostas recebidas</p>
-                </div>
-                <div className="p-3 bg-orange-50 rounded-full">
-                  <Timer className="h-8 w-8 text-orange-600" />
-                </div>
+          {/* Today */}
+          <div className="group relative bg-[#1a1a1e] rounded-2xl border border-white/[0.06] p-5 hover:border-white/[0.1] transition-all duration-300">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2">Hoje</p>
+                <p className="text-3xl font-bold text-white tabular-nums">{today}</p>
+                <p className="text-xs text-white/30 mt-1.5">Respostas recebidas</p>
               </div>
-            </CardContent>
-          </Card>
+              <div className="w-2 h-2 rounded-full bg-amber-500" />
+            </div>
+          </div>
         </div>
 
-        {/* Lista de respostas */}
-        <div className="grid gap-4">
-          {filteredSubmissions.length === 0 ? (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Nenhuma resposta encontrada
-                </h3>
-                <p className="text-gray-500">
-                  {searchTerm || selectedTemplate !== 'all'
-                    ? 'Tente ajustar os filtros de busca.'
-                    : 'Ainda não há respostas de formulários.'}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredSubmissions.map((submission) => (
-              <Card key={submission.id} className="hover:shadow-lg transition-all duration-300 hover:border-blue-200 group">
-                <CardContent className="p-6 relative overflow-hidden">
-                  {/* Gradient Background */}
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500"></div>
+        {/* ----------------------------------------------------------------- */}
+        {/* Table header                                                       */}
+        {/* ----------------------------------------------------------------- */}
+        <div className="hidden lg:grid grid-cols-[1fr_1.2fr_140px_120px_180px] gap-4 px-5 py-2">
+          <p className="text-[11px] font-medium text-white/25 uppercase tracking-wider">Formulario</p>
+          <p className="text-[11px] font-medium text-white/25 uppercase tracking-wider">Contato</p>
+          <p className="text-[11px] font-medium text-white/25 uppercase tracking-wider">Origem</p>
+          <p className="text-[11px] font-medium text-white/25 uppercase tracking-wider">Data</p>
+          <p className="text-[11px] font-medium text-white/25 uppercase tracking-wider text-right">Acoes</p>
+        </div>
 
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-4">
-                        <div className="p-2 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg">
-                          <Sparkles className="h-5 w-5 text-blue-600" />
+        {/* ----------------------------------------------------------------- */}
+        {/* Submissions list                                                   */}
+        {/* ----------------------------------------------------------------- */}
+        <div className="space-y-2">
+          {filteredSubmissions.length === 0 ? (
+            /* Empty state */
+            <div className="flex flex-col items-center justify-center py-24">
+              <div className="w-20 h-20 rounded-3xl bg-[#1a1a1e] border border-white/[0.06] flex items-center justify-center mb-6">
+                <Inbox className="h-9 w-9 text-white/20" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">
+                Nenhuma resposta encontrada
+              </h3>
+              <p className="text-sm text-white/40 max-w-sm text-center">
+                {searchTerm || selectedTemplate !== 'all'
+                  ? 'Tente ajustar os filtros de busca para encontrar resultados.'
+                  : 'Quando seus formularios receberem respostas, elas aparecerão aqui.'}
+              </p>
+              {(searchTerm || selectedTemplate !== 'all') && (
+                <Button
+                  variant="outline"
+                  className="mt-4 bg-transparent border-white/[0.08] text-white/60 hover:text-white hover:border-white/[0.15] rounded-xl"
+                  onClick={() => { setSearchTerm(''); setSelectedTemplate('all') }}
+                >
+                  Limpar filtros
+                </Button>
+              )}
+            </div>
+          ) : (
+            filteredSubmissions.map((submission) => {
+              const personName = submission.lead?.nome_completo || submission.mentorado?.nome_completo || ''
+              const personEmail = submission.lead?.email || submission.mentorado?.email || ''
+              const personPhone = submission.lead?.telefone || ''
+              const fieldsCount = Object.keys(submission.submission_data).length
+
+              return (
+                <div
+                  key={submission.id}
+                  className="group bg-[#1a1a1e] rounded-2xl border border-white/[0.06] hover:border-white/[0.12] transition-all duration-200 hover:bg-[#1e1e22]"
+                >
+                  <div className="p-5">
+                    {/* Desktop layout */}
+                    <div className="hidden lg:grid grid-cols-[1fr_1.2fr_140px_120px_180px] gap-4 items-center">
+                      {/* Template info */}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-white/[0.06] flex items-center justify-center flex-shrink-0">
+                          <FileText className="h-4 w-4 text-blue-400" />
                         </div>
-                        <div className="flex-1">
-                          <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-white truncate">
                             {submission.template?.name || submission.template_slug}
-                          </h3>
-                          <div className="flex items-center space-x-2 mt-1">
-                            {submission.source_url && (
-                              <Badge className={getSourceColor(submission.source_url)}>
-                                {submission.source_url}
-                              </Badge>
-                            )}
+                          </p>
+                          <p className="text-xs text-white/30 mt-0.5">
+                            <Hash className="h-3 w-3 inline mr-0.5 -mt-px" />
+                            {fieldsCount} campos
                             {submission.lead_id && (
-                              <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Lead criado
-                              </Badge>
+                              <span className="ml-2 text-blue-400/60">Lead</span>
                             )}
                             {submission.mentorado_id && (
-                              <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200">
-                                <Star className="h-3 w-3 mr-1" />
-                                Mentorado
-                              </Badge>
+                              <span className="ml-2 text-emerald-400/60">Mentorado</span>
                             )}
-                          </div>
+                          </p>
                         </div>
                       </div>
 
-                      {/* Informações da Pessoa */}
-                      {(submission.lead || submission.mentorado) && (
-                        <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg p-4 mb-4">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="flex items-center space-x-3">
-                              <div className="p-2 bg-blue-100 rounded-full">
-                                <User className="h-4 w-4 text-blue-600" />
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 uppercase tracking-wide">Nome</p>
-                                <p className="font-semibold text-gray-900">
-                                  {submission.lead?.nome_completo || submission.mentorado?.nome_completo}
-                                </p>
-                              </div>
+                      {/* Person info */}
+                      <div className="min-w-0">
+                        {personName ? (
+                          <div>
+                            <p className="text-sm text-white truncate">{personName}</p>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              {personEmail && (
+                                <span className="text-xs text-white/30 truncate">{personEmail}</span>
+                              )}
+                              {personPhone && (
+                                <span className="text-xs text-white/30 flex items-center gap-1">
+                                  <Phone className="h-3 w-3" />
+                                  {personPhone}
+                                </span>
+                              )}
                             </div>
-                            <div className="flex items-center space-x-3">
-                              <div className="p-2 bg-emerald-100 rounded-full">
-                                <Mail className="h-4 w-4 text-emerald-600" />
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 uppercase tracking-wide">Email</p>
-                                <p className="font-medium text-gray-700">
-                                  {submission.lead?.email || submission.mentorado?.email}
-                                </p>
-                              </div>
-                            </div>
-                            {submission.lead?.telefone && (
-                              <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-orange-100 rounded-full">
-                                  <Phone className="h-4 w-4 text-orange-600" />
-                                </div>
-                                <div>
-                                  <p className="text-xs text-gray-500 uppercase tracking-wide">Telefone</p>
-                                  <p className="font-medium text-gray-700">{submission.lead.telefone}</p>
-                                </div>
-                              </div>
-                            )}
                           </div>
-                        </div>
-                      )}
-
-                      {/* Metadados */}
-                      <div className="flex items-center justify-between text-sm text-gray-500">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex items-center space-x-2">
-                            <Clock className="h-4 w-4" />
-                            <span>{formatDate(submission.created_at)}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <FileText className="h-4 w-4" />
-                            <span>{Object.keys(submission.submission_data).length} campos preenchidos</span>
-                          </div>
-                        </div>
+                        ) : (
+                          <p className="text-xs text-white/20 italic">Sem contato vinculado</p>
+                        )}
                       </div>
-                    </div>
 
-                    <div className="flex flex-col space-y-2 ml-4">
-                      {/* Botão Agendar Call */}
-                      <Button
-                        className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-                        size="sm"
-                        onClick={() => setBookingSubmission(submission)}
-                      >
-                        <CalendarDays className="h-4 w-4 mr-2" />
-                        Agendar Call
-                      </Button>
+                      {/* Source badge */}
+                      <div>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-medium border ${getSourceStyles(submission.source_url)}`}>
+                          {getSourceLabel(submission.source_url)}
+                        </span>
+                      </div>
 
-                      <div className="flex space-x-2">
+                      {/* Date */}
+                      <div>
+                        <p className="text-xs text-white/50">{formatRelativeDate(submission.created_at)}</p>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                         <Dialog>
                           <DialogTrigger asChild>
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
-                              className="hover:bg-blue-50 hover:border-blue-300"
+                              className="h-8 px-2.5 text-white/50 hover:text-white hover:bg-white/[0.06] rounded-lg"
                               onClick={() => setSelectedSubmission(submission)}
                             >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Detalhes
+                              <Eye className="h-3.5 w-3.5 mr-1.5" />
+                              <span className="text-xs">Ver</span>
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-[#141416] border-white/[0.08] text-white">
                             <DialogHeader>
-                              <DialogTitle>Detalhes da Resposta</DialogTitle>
+                              <DialogTitle className="text-white text-lg">Detalhes da Resposta</DialogTitle>
                             </DialogHeader>
                             {selectedSubmission && (
                               <SubmissionDetail submission={selectedSubmission} />
@@ -625,37 +696,166 @@ export default function FormResponsesPage() {
                           </DialogContent>
                         </Dialog>
 
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2.5 text-emerald-400/70 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg"
+                          onClick={() => setBookingSubmission(submission)}
+                        >
+                          <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
+                          <span className="text-xs">Agendar</span>
+                        </Button>
+
                         {submission.lead_id && (
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            className="hover:bg-green-50 hover:border-green-300"
+                            className="h-8 px-2.5 text-blue-400/70 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg"
                             onClick={() => window.open(`/leads/${submission.lead_id}`, '_blank')}
                           >
-                            <ExternalLink className="h-4 w-4 mr-1" />
-                            Lead
+                            <ArrowUpRight className="h-3.5 w-3.5" />
                           </Button>
                         )}
 
+                        {personPhone && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2.5 text-green-400/70 hover:text-green-400 hover:bg-green-500/10 rounded-lg"
+                            onClick={() => {
+                              const cleanPhone = personPhone.replace(/\D/g, '')
+                              window.open(`https://wa.me/55${cleanPhone}`, '_blank')
+                            }}
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Mobile layout */}
+                    <div className="lg:hidden space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-white/[0.06] flex items-center justify-center flex-shrink-0">
+                            <FileText className="h-4 w-4 text-blue-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-white truncate">
+                              {submission.template?.name || submission.template_slug}
+                            </p>
+                            <p className="text-xs text-white/30 mt-0.5">{formatRelativeDate(submission.created_at)}</p>
+                          </div>
+                        </div>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium border ${getSourceStyles(submission.source_url)}`}>
+                          {getSourceLabel(submission.source_url)}
+                        </span>
+                      </div>
+
+                      {personName && (
+                        <div className="bg-[#111113] rounded-xl p-3 border border-white/[0.04]">
+                          <p className="text-sm text-white">{personName}</p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                            {personEmail && <span className="text-xs text-white/30">{personEmail}</span>}
+                            {personPhone && (
+                              <span className="text-xs text-white/30 flex items-center gap-1">
+                                <Phone className="h-3 w-3" />{personPhone}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {submission.lead_id && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            <CheckCircle2 className="h-3 w-3" />Lead
+                          </span>
+                        )}
+                        {submission.mentorado_id && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <Star className="h-3 w-3" />Mentorado
+                          </span>
+                        )}
+                        <span className="text-[10px] text-white/20">{fieldsCount} campos</span>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1 border-t border-white/[0.04]">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-3 text-white/50 hover:text-white hover:bg-white/[0.06] rounded-lg flex-1"
+                              onClick={() => setSelectedSubmission(submission)}
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1.5" />
+                              <span className="text-xs">Detalhes</span>
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-[#141416] border-white/[0.08] text-white">
+                            <DialogHeader>
+                              <DialogTitle className="text-white text-lg">Detalhes da Resposta</DialogTitle>
+                            </DialogHeader>
+                            {selectedSubmission && (
+                              <SubmissionDetail submission={selectedSubmission} />
+                            )}
+                          </DialogContent>
+                        </Dialog>
+
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="hover:bg-purple-50 hover:border-purple-300"
-                          onClick={() => {/* TODO: Implementar WhatsApp */}}
+                          className="h-8 px-3 text-emerald-400/70 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg flex-1"
+                          onClick={() => setBookingSubmission(submission)}
                         >
-                          <MessageSquare className="h-4 w-4 mr-1" />
-                          WhatsApp
+                          <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
+                          <span className="text-xs">Agendar</span>
                         </Button>
+
+                        {personPhone && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-3 text-green-400/70 hover:text-green-400 hover:bg-green-500/10 rounded-lg"
+                            onClick={() => {
+                              const cleanPhone = personPhone.replace(/\D/g, '')
+                              window.open(`https://wa.me/55${cleanPhone}`, '_blank')
+                            }}
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+
+                        {submission.lead_id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-3 text-blue-400/70 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg"
+                            onClick={() => window.open(`/leads/${submission.lead_id}`, '_blank')}
+                          >
+                            <ArrowUpRight className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))
+                </div>
+              )
+            })
           )}
         </div>
 
-        {/* Componente de Agendamento de Calendário */}
+        {/* Results count footer */}
+        {filteredSubmissions.length > 0 && (
+          <div className="text-center py-4">
+            <p className="text-xs text-white/20">
+              Mostrando {filteredSubmissions.length} de {submissions.length} respostas
+            </p>
+          </div>
+        )}
+
+        {/* Calendar booking integration */}
         {bookingSubmission && (
           <CalendarBooking
             submission={bookingSubmission}

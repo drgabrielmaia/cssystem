@@ -1,891 +1,1551 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useStableData } from '@/hooks/use-stable-data'
 import { useStableMutation } from '@/hooks/use-stable-mutation'
+import { useAuth } from '@/contexts/auth'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import {
   Search, DollarSign, Check, X, Edit, Eye, Calendar,
-  User, TrendingUp, AlertCircle, Clock
+  User, TrendingUp, AlertCircle, Clock, Plus,
+  Download, FileText, CreditCard, Users, Key, Loader2
 } from 'lucide-react'
+import { generateCommissionsPDF, generateCommissionPaymentList, generateAllCommissionsPaymentPDF } from '@/lib/pdf-utils'
+
+// =======================
+// Types
+// =======================
 
 interface Comissao {
   id: string
-  mentorado_id: string
-  lead_id: string
+  mentorado_id: string | null
+  lead_id: string | null
   valor_comissao: number
-  percentual_comissao?: number
+  percentual_comissao: number | null
   valor_venda: number
   data_venda: string
-  observacoes: string
-  status_pagamento?: string  // Mudança: era status, mas na DB é status_pagamento
+  data_vencimento: string | null
+  data_pagamento: string | null
+  observacoes: string | null
+  status_pagamento: string
   created_at: string
   updated_at: string
-
-  // Joins
+  created_by: string | null
+  organization_id: string
+  third_party_user_id: string | null
+  recipient_type: string | null
+  recipient_name: string | null
+  recipient_pix_key: string | null
+  commission_type: string | null
+  payment_id: string | null
+  paid_at: string | null
+  is_referral: boolean | null
   mentorados?: {
     nome_completo: string
     email: string
-  }
+    pix_chave: string | null
+    pix_tipo: string | null
+  } | null
   leads?: {
     nome_completo: string
-    empresa: string | null
-    valor_vendido?: number
-    valor_arrecadado?: number
-    status?: string
-  }
-  mentorado_nome?: string
-  mentorado_email?: string
-  lead_nome?: string
-  lead_empresa?: string
+    empresa: string
+    valor_vendido: number
+    status: string
+  } | null
 }
 
-export default function AdminComissoesPage() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus, setFilterStatus] = useState<'todos' | 'pendente' | 'pago' | 'recusado' | 'cancelado'>('todos')
-  const [selectedComissao, setSelectedComissao] = useState<Comissao | null>(null)
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [showViewModal, setShowViewModal] = useState(false)
-  const [editForm, setEditForm] = useState({
-    valor_comissao: 0,
-    percentual_comissao: 5,
-    observacoes: ''
-  })
-  const [showGlobalConfigModal, setShowGlobalConfigModal] = useState(false)
+interface Mentorado {
+  id: string
+  nome_completo: string
+  email: string
+  pix_chave: string | null
+  pix_tipo: string | null
+}
 
-  // Use stable hook for commissions data
-  const {
-    data: rawComissoes,
-    loading: comissoesLoading,
-    error: comissoesError,
-    refetch: refetchComissoes
-  } = useStableData<any>({
-    tableName: 'comissoes',
-    select: `
-      *,
-      mentorados:mentorado_id (
-        nome_completo,
-        email
-      ),
-      leads:lead_id (
-        nome_completo,
-        empresa,
-        valor_vendido,
-        valor_arrecadado,
-        status
+interface Lead {
+  id: string
+  nome_completo: string
+  valor_venda: number | null
+  status: string
+}
+
+// =======================
+// Helpers
+// =======================
+
+function formatCurrency(value: number | null | undefined): string {
+  if (value == null) return 'R$ 0,00'
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value)
+}
+
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleDateString('pt-BR')
+}
+
+function getStatusBadge(status: string | null | undefined) {
+  switch (status) {
+    case 'pago':
+      return (
+        <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20">
+          <Check className="w-3 h-3 mr-1" /> Pago
+        </Badge>
       )
-    `,
-    dependencies: [],
+    case 'cancelado':
+      return (
+        <Badge className="bg-red-500/15 text-red-400 border-red-500/20 hover:bg-red-500/20">
+          <X className="w-3 h-3 mr-1" /> Cancelado
+        </Badge>
+      )
+    default:
+      return (
+        <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/20 hover:bg-amber-500/20">
+          <Clock className="w-3 h-3 mr-1" /> Pendente
+        </Badge>
+      )
+  }
+}
+
+function getRecipientTypeBadge(type: string | null | undefined) {
+  if (type === 'terceiro') {
+    return (
+      <Badge variant="outline" className="border-purple-500/30 text-purple-400 bg-purple-500/10 text-xs">
+        Terceiro
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="outline" className="border-sky-500/30 text-sky-400 bg-sky-500/10 text-xs">
+      Mentorado
+    </Badge>
+  )
+}
+
+function getRecipientName(comissao: Comissao): string {
+  if (comissao.recipient_type === 'terceiro') {
+    return comissao.recipient_name || 'Terceiro'
+  }
+  return comissao.mentorados?.nome_completo || comissao.recipient_name || 'N/A'
+}
+
+function getLeadName(comissao: Comissao): string {
+  return comissao.leads?.nome_completo || '-'
+}
+
+// =======================
+// Main Component
+// =======================
+
+export default function ComissoesPage() {
+  const { organizationId, user } = useAuth()
+
+  // -- State --
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('todos')
+  const [typeFilter, setTypeFilter] = useState<string>('todos')
+
+  // Modal states
+  const [showNewCommission, setShowNewCommission] = useState(false)
+  const [showEditCommission, setShowEditCommission] = useState(false)
+  const [showViewCommission, setShowViewCommission] = useState(false)
+  const [showPixManagement, setShowPixManagement] = useState(false)
+  const [showStatusUpdate, setShowStatusUpdate] = useState(false)
+
+  // Selected commission for editing/viewing
+  const [selectedCommission, setSelectedCommission] = useState<Comissao | null>(null)
+
+  // New commission form
+  const [newCommissionType, setNewCommissionType] = useState<'mentorado' | 'terceiro'>('mentorado')
+  const [newMentoradoId, setNewMentoradoId] = useState('')
+  const [newLeadId, setNewLeadId] = useState('')
+  const [newPercentual, setNewPercentual] = useState('')
+  const [newValorComissao, setNewValorComissao] = useState('')
+  const [newValorVenda, setNewValorVenda] = useState('')
+  const [newObservacoes, setNewObservacoes] = useState('')
+  const [newRecipientName, setNewRecipientName] = useState('')
+  const [newRecipientPix, setNewRecipientPix] = useState('')
+
+  // Edit commission form
+  const [editValorComissao, setEditValorComissao] = useState('')
+  const [editPercentual, setEditPercentual] = useState('')
+  const [editObservacoes, setEditObservacoes] = useState('')
+
+  // Status update form
+  const [newStatus, setNewStatus] = useState('')
+
+  // PIX management form
+  const [pixMentoradoId, setPixMentoradoId] = useState('')
+  const [pixChave, setPixChave] = useState('')
+  const [pixTipo, setPixTipo] = useState('')
+
+  // Loaded resources
+  const [mentorados, setMentorados] = useState<Mentorado[]>([])
+  const [leads, setLeads] = useState<Lead[]>([])
+  const [loadingResources, setLoadingResources] = useState(false)
+  const [savingCommission, setSavingCommission] = useState(false)
+  const [savingPix, setSavingPix] = useState(false)
+
+  // -- Data fetching --
+  const {
+    data: comissoes,
+    loading,
+    error,
+    refetch,
+    isRefetching,
+  } = useStableData<Comissao>({
+    tableName: 'comissoes',
+    select: `*, mentorados:mentorado_id(nome_completo, email, pix_chave, pix_tipo), leads:lead_id(nome_completo, empresa, valor_vendido, status)`,
+    filters: organizationId ? { organization_id: organizationId } : {},
+    dependencies: [organizationId],
     autoLoad: true,
-    debounceMs: 300
+    debounceMs: 300,
   })
 
-  // Memoized commissions transformation
-  const comissoes = useMemo(() => {
-    if (!rawComissoes?.length) return []
-    
-    return rawComissoes.map(comissao => ({
-      ...comissao,
-      mentorado_nome: comissao.mentorados?.nome_completo,
-      mentorado_email: comissao.mentorados?.email,
-      lead_nome: comissao.leads?.nome_completo,
-      lead_empresa: comissao.leads?.empresa,
-    })) as Comissao[]
-  }, [rawComissoes])
+  // -- Mutations --
+  const updateMutation = useStableMutation('comissoes', 'update', {
+    onSuccess: () => refetch(),
+    debounceMs: 0,
+  })
 
-  // Stable mutations for commission operations
-  const { mutate: mutateUpdateComissao, isLoading: isUpdatingComissao, error: updateError } = useStableMutation(
-    'comissoes',
-    'update',
-    {
-      onSuccess: async () => {
-        await refetchComissoes()
-      },
-      debounceMs: 150
-    }
-  )
-
-  const aprovarComissao = useCallback(async (id: string) => {
+  // -- Load mentorados and leads for modal dropdowns --
+  const loadResources = useCallback(async () => {
+    if (!organizationId) return
+    setLoadingResources(true)
     try {
-      await mutateUpdateComissao({
-        id,
-        status_pagamento: 'pago',
-        updated_at: new Date().toISOString()
-      })
-      
-      console.log('✅ Comissão aprovada com sucesso')
-      alert('Comissão aprovada e marcada como paga!')
-    } catch (error) {
-      console.error('❌ Erro ao aprovar comissão:', error)
-      alert('Erro ao aprovar comissão')
+      const [mentoradosRes, leadsRes] = await Promise.all([
+        supabase
+          .from('mentorados')
+          .select('id, nome_completo, email, pix_chave, pix_tipo')
+          .eq('organization_id', organizationId),
+        supabase
+          .from('leads')
+          .select('id, nome_completo, valor_venda, status')
+          .eq('organization_id', organizationId)
+          .in('status', ['fechado_ganho']),
+      ])
+      setMentorados(mentoradosRes.data || [])
+      setLeads(leadsRes.data || [])
+    } catch (err) {
+      console.error('Erro ao carregar recursos:', err)
+    } finally {
+      setLoadingResources(false)
     }
-  }, [mutateUpdateComissao])
+  }, [organizationId])
 
-  const recusarComissao = useCallback(async (id: string) => {
-    try {
-      const motivo = prompt('Motivo da recusa (opcional):')
-      const comissao = comissoes.find(c => c.id === id)
-
-      await mutateUpdateComissao({
-        id,
-        status_pagamento: 'recusado',
-        observacoes: (comissao?.observacoes || '') + (motivo ? ` | RECUSADA: ${motivo}` : ' | RECUSADA'),
-        updated_at: new Date().toISOString()
-      })
-
-      console.log('✅ Comissão recusada com sucesso')
-      alert('Comissão recusada!')
-    } catch (error) {
-      console.error('❌ Erro ao recusar comissão:', error)
-      alert('Erro ao recusar comissão')
+  useEffect(() => {
+    if (organizationId) {
+      loadResources()
     }
-  }, [mutateUpdateComissao, comissoes])
+  }, [organizationId, loadResources])
 
-  const abrirModalEditar = useCallback((comissao: Comissao) => {
-    console.log('✏️ Abrindo modal de edição para comissão:', comissao.id)
-    setSelectedComissao(comissao)
-    setEditForm({
-      valor_comissao: comissao.valor_comissao || 0,
-      percentual_comissao: comissao.percentual_comissao || 5,
-      observacoes: comissao.observacoes || ''
+  // -- Filtered commissions --
+  const filteredComissoes = useMemo(() => {
+    return comissoes.filter((c) => {
+      // Search
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase()
+        const recipientName = getRecipientName(c).toLowerCase()
+        const leadName = getLeadName(c).toLowerCase()
+        const obs = (c.observacoes || '').toLowerCase()
+        if (
+          !recipientName.includes(term) &&
+          !leadName.includes(term) &&
+          !obs.includes(term)
+        ) {
+          return false
+        }
+      }
+      // Status filter
+      if (statusFilter !== 'todos' && c.status_pagamento !== statusFilter) {
+        return false
+      }
+      // Type filter
+      if (typeFilter !== 'todos') {
+        const effectiveType = c.recipient_type || 'mentorado'
+        if (effectiveType !== typeFilter) return false
+      }
+      return true
     })
-    setShowEditModal(true)
-  }, [])
+  }, [comissoes, searchTerm, statusFilter, typeFilter])
 
-  const calcularValorPorPercentual = useCallback((percentual: number, valorVenda: number) => {
-    return (valorVenda * percentual) / 100
-  }, [])
+  // -- KPI calculations --
+  const kpis = useMemo(() => {
+    const total = comissoes.reduce((sum, c) => sum + (c.valor_comissao || 0), 0)
+    const pago = comissoes
+      .filter((c) => c.status_pagamento === 'pago')
+      .reduce((sum, c) => sum + (c.valor_comissao || 0), 0)
+    const pendente = comissoes
+      .filter((c) => c.status_pagamento === 'pendente' || !c.status_pagamento)
+      .reduce((sum, c) => sum + (c.valor_comissao || 0), 0)
+    const media = comissoes.length > 0 ? total / comissoes.length : 0
+    return { total, pago, pendente, media, count: comissoes.length }
+  }, [comissoes])
 
-  const salvarEdicaoComissao = useCallback(async () => {
-    if (!selectedComissao) return
-    
-    console.log('🔄 Iniciando edição de comissão...')
-    
+  // =======================
+  // Handlers
+  // =======================
+
+  // -- Create commission --
+  const handleCreateCommission = useCallback(async () => {
+    if (!organizationId || !user) return
+    setSavingCommission(true)
     try {
-      await mutateUpdateComissao({
-        id: selectedComissao.id,
-        valor_comissao: editForm.valor_comissao,
-        percentual_comissao: editForm.percentual_comissao,
-        observacoes: editForm.observacoes,
-        updated_at: new Date().toISOString()
-      })
+      const baseData: Record<string, any> = {
+        organization_id: organizationId,
+        created_by: user.id,
+        status_pagamento: 'pendente',
+        data_venda: new Date().toISOString(),
+        observacoes: newObservacoes || null,
+      }
 
-      console.log('✅ Comissão editada com sucesso')
-      alert('Comissão editada com sucesso!')
-      setShowEditModal(false)
-    } catch (error) {
-      console.error('❌ Erro ao editar comissão:', error)
-      alert('Erro ao editar comissão')
-    }
-  }, [selectedComissao, editForm, mutateUpdateComissao])
+      if (newCommissionType === 'mentorado') {
+        if (!newMentoradoId) {
+          alert('Selecione um mentorado.')
+          setSavingCommission(false)
+          return
+        }
+        const selectedLead = leads.find((l) => l.id === newLeadId)
+        const saleValue = newValorVenda
+          ? parseFloat(newValorVenda)
+          : selectedLead?.valor_venda || 0
+        const pct = parseFloat(newPercentual) || 0
+        const comVal = newValorComissao
+          ? parseFloat(newValorComissao)
+          : (saleValue * pct) / 100
 
-  const definirTodosCom5Porcento = useCallback(async () => {
-    if (!confirm('Isso irá definir TODAS as comissões pendentes para 5%. Continuar?')) {
-      return
-    }
+        const mentorado = mentorados.find((m) => m.id === newMentoradoId)
 
-    try {
-      // Buscar apenas comissões pendentes dos dados já carregados
-      const comissoesPendentes = comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente')
-      
-      // Atualizar cada comissão com 5% do valor de venda
-      for (const comissao of comissoesPendentes) {
-        const novoValor = calcularValorPorPercentual(5, comissao.valor_venda)
-        
-        await mutateUpdateComissao({
-          id: comissao.id,
-          valor_comissao: novoValor,
-          percentual_comissao: 5,
-          updated_at: new Date().toISOString()
+        Object.assign(baseData, {
+          mentorado_id: newMentoradoId,
+          lead_id: newLeadId || null,
+          valor_venda: saleValue,
+          percentual_comissao: pct || null,
+          valor_comissao: comVal,
+          recipient_type: 'mentorado',
+          recipient_name: mentorado?.nome_completo || null,
+          recipient_pix_key: mentorado?.pix_chave || null,
+          commission_type: 'lead',
+        })
+      } else {
+        // Terceiro
+        if (!newRecipientName) {
+          alert('Informe o nome do terceiro.')
+          setSavingCommission(false)
+          return
+        }
+        const comVal = parseFloat(newValorComissao) || 0
+        if (comVal <= 0) {
+          alert('Informe o valor da comissao.')
+          setSavingCommission(false)
+          return
+        }
+        Object.assign(baseData, {
+          mentorado_id: null,
+          lead_id: null,
+          valor_venda: parseFloat(newValorVenda) || comVal,
+          percentual_comissao: null,
+          valor_comissao: comVal,
+          recipient_type: 'terceiro',
+          recipient_name: newRecipientName,
+          recipient_pix_key: newRecipientPix || null,
+          commission_type: 'third_party',
         })
       }
 
-      alert(`✅ ${comissoesPendentes.length} comissões atualizadas para 5%!`)
-      setShowGlobalConfigModal(false)
+      const { error: insertError } = await supabase
+        .from('comissoes')
+        .insert(baseData)
 
-    } catch (error) {
-      console.error('❌ Erro ao atualizar comissões:', error)
-      alert('Erro ao atualizar comissões')
+      if (insertError) throw insertError
+
+      // Reset form
+      setNewCommissionType('mentorado')
+      setNewMentoradoId('')
+      setNewLeadId('')
+      setNewPercentual('')
+      setNewValorComissao('')
+      setNewValorVenda('')
+      setNewObservacoes('')
+      setNewRecipientName('')
+      setNewRecipientPix('')
+      setShowNewCommission(false)
+      refetch()
+    } catch (err: any) {
+      console.error('Erro ao criar comissao:', err)
+      alert('Erro ao criar comissao: ' + (err.message || 'Erro desconhecido'))
+    } finally {
+      setSavingCommission(false)
     }
-  }, [comissoes, calcularValorPorPercentual, mutateUpdateComissao])
+  }, [
+    organizationId, user, newCommissionType, newMentoradoId, newLeadId,
+    newPercentual, newValorComissao, newValorVenda, newObservacoes,
+    newRecipientName, newRecipientPix, mentorados, leads, refetch,
+  ])
 
-  const corrigirComissoesZeradas = useCallback(async () => {
-    const comissoesZeradas = comissoes.filter(c => 
-      (c.status_pagamento || 'pendente') === 'pendente' && 
-      (c.valor_comissao || 0) === 0
-    ).length
+  // -- Edit commission --
+  const handleEditCommission = useCallback(async () => {
+    if (!selectedCommission) return
+    try {
+      await updateMutation.mutate({
+        id: selectedCommission.id,
+        valor_comissao: parseFloat(editValorComissao) || selectedCommission.valor_comissao,
+        percentual_comissao: editPercentual ? parseFloat(editPercentual) : selectedCommission.percentual_comissao,
+        observacoes: editObservacoes,
+        updated_at: new Date().toISOString(),
+      })
+      setShowEditCommission(false)
+      setSelectedCommission(null)
+    } catch (err: any) {
+      console.error('Erro ao editar comissao:', err)
+      alert('Erro ao editar comissao.')
+    }
+  }, [selectedCommission, editValorComissao, editPercentual, editObservacoes, updateMutation])
 
-    if (!confirm(`Padronizar TODAS as comissões para R$ 2.000,00 fixo (remove percentual)?\n\n⚠️ Isso afetará TODAS as comissões, não só as zeradas.`)) {
+  // -- Update payment status --
+  const handleUpdateStatus = useCallback(async () => {
+    if (!selectedCommission || !newStatus) return
+    try {
+      const updateData: Record<string, any> = {
+        id: selectedCommission.id,
+        status_pagamento: newStatus,
+        updated_at: new Date().toISOString(),
+      }
+      if (newStatus === 'pago') {
+        updateData.paid_at = new Date().toISOString()
+        updateData.data_pagamento = new Date().toISOString()
+      }
+      await updateMutation.mutate(updateData)
+      setShowStatusUpdate(false)
+      setSelectedCommission(null)
+      setNewStatus('')
+    } catch (err: any) {
+      console.error('Erro ao atualizar status:', err)
+    }
+  }, [selectedCommission, newStatus, updateMutation])
+
+  // -- Mark as paid shortcut --
+  const handleMarkPaid = useCallback(async (comissao: Comissao) => {
+    try {
+      await updateMutation.mutate({
+        id: comissao.id,
+        status_pagamento: 'pago',
+        paid_at: new Date().toISOString(),
+        data_pagamento: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+    } catch (err: any) {
+      console.error('Erro ao marcar como pago:', err)
+    }
+  }, [updateMutation])
+
+  // -- Save PIX for mentorado --
+  const handleSavePix = useCallback(async () => {
+    if (!pixMentoradoId || !pixChave || !pixTipo) {
+      alert('Preencha todos os campos.')
       return
     }
-
+    setSavingPix(true)
     try {
-      const response = await fetch('/api/admin/fix-commissions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
+      const { error: updateError } = await supabase
+        .from('mentorados')
+        .update({ pix_chave: pixChave, pix_tipo: pixTipo })
+        .eq('id', pixMentoradoId)
 
-      const result = await response.json()
+      if (updateError) throw updateError
 
-      if (response.ok) {
-        alert(`✅ ${result.corrigidas || 0} comissões padronizadas para R$ 2.000,00!\n\n${result.observacao || 'Todas agora são comissões fixas.'}`)
-        await refetchComissoes() // Use stable refetch instead
-      } else {
-        throw new Error(result.error || 'Erro na padronização')
-      }
-
-    } catch (error: any) {
-      console.error('❌ Erro ao corrigir comissões:', error)
-      alert(`❌ Erro: ${error.message}`)
+      // Refresh mentorados list
+      await loadResources()
+      setPixMentoradoId('')
+      setPixChave('')
+      setPixTipo('')
+      setShowPixManagement(false)
+      refetch()
+    } catch (err: any) {
+      console.error('Erro ao salvar PIX:', err)
+      alert('Erro ao salvar chave PIX: ' + (err.message || 'Erro desconhecido'))
+    } finally {
+      setSavingPix(false)
     }
-  }, [comissoes, refetchComissoes])
+  }, [pixMentoradoId, pixChave, pixTipo, loadResources, refetch])
 
-  const getStatusBadge = (status?: string) => {
-    switch (status) {
-      case 'pago':
-        return <Badge className="bg-green-500 hover:bg-green-600">Pago</Badge>
-      case 'recusado':
-        return <Badge className="bg-red-500 hover:bg-red-600">Recusado</Badge>
-      case 'cancelado':
-        return <Badge className="bg-gray-500 hover:bg-gray-600">Cancelado</Badge>
-      case 'pendente':
-      default:
-        return <Badge className="bg-yellow-500 hover:bg-yellow-600">Pendente</Badge>
-    }
-  }
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value)
-  }
-
-  const formatDate = useCallback((dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    })
+  // -- Open edit modal --
+  const openEditModal = useCallback((comissao: Comissao) => {
+    setSelectedCommission(comissao)
+    setEditValorComissao(String(comissao.valor_comissao || ''))
+    setEditPercentual(String(comissao.percentual_comissao || ''))
+    setEditObservacoes(comissao.observacoes || '')
+    setShowEditCommission(true)
   }, [])
 
-  // Memoized filtered commissions
-  const filteredComissoes = useMemo(() => {
-    return comissoes.filter(comissao => {
-      const matchesSearch = searchTerm.length === 0 || 
-        comissao.mentorado_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        comissao.lead_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        comissao.observacoes?.toLowerCase().includes(searchTerm.toLowerCase())
+  // -- Open view modal --
+  const openViewModal = useCallback((comissao: Comissao) => {
+    setSelectedCommission(comissao)
+    setShowViewCommission(true)
+  }, [])
 
-      const matchesStatus = filterStatus === 'todos' || (comissao.status_pagamento || 'pendente') === filterStatus
+  // -- Open status modal --
+  const openStatusModal = useCallback((comissao: Comissao) => {
+    setSelectedCommission(comissao)
+    setNewStatus(comissao.status_pagamento || 'pendente')
+    setShowStatusUpdate(true)
+  }, [])
 
-      return matchesSearch && matchesStatus
-    })
-  }, [comissoes, searchTerm, filterStatus])
+  // -- Open PIX modal with mentorado preselected --
+  const openPixModal = useCallback((mentorado?: Mentorado) => {
+    if (mentorado) {
+      setPixMentoradoId(mentorado.id)
+      setPixChave(mentorado.pix_chave || '')
+      setPixTipo(mentorado.pix_tipo || '')
+    } else {
+      setPixMentoradoId('')
+      setPixChave('')
+      setPixTipo('')
+    }
+    setShowPixManagement(true)
+  }, [])
 
-  // Memoized statistics calculation
-  const stats = useMemo(() => ({
-    total: comissoes.length,
-    pendentes: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente').length,
-    pagas: comissoes.filter(c => c.status_pagamento === 'pago').length,
-    recusadas: comissoes.filter(c => c.status_pagamento === 'recusado').length,
-    canceladas: comissoes.filter(c => c.status_pagamento === 'cancelado').length,
-    totalValor: comissoes.reduce((acc, c) => acc + (c.valor_comissao || 0), 0),
-    valorPendente: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente').reduce((acc, c) => acc + (c.valor_comissao || 0), 0),
-    comissoesZeradas: comissoes.filter(c => (c.status_pagamento || 'pendente') === 'pendente' && (c.valor_comissao || 0) === 0).length
-  }), [comissoes])
+  // -- When lead is selected, auto-fill sale value --
+  useEffect(() => {
+    if (newLeadId) {
+      const lead = leads.find((l) => l.id === newLeadId)
+      if (lead?.valor_venda) {
+        setNewValorVenda(String(lead.valor_venda))
+      }
+    }
+  }, [newLeadId, leads])
 
-  // Combined loading state
-  const loading = comissoesLoading || isUpdatingComissao
+  // -- Auto-calculate commission value when percentage or sale value changes --
+  useEffect(() => {
+    if (newCommissionType === 'mentorado' && newPercentual && newValorVenda) {
+      const pct = parseFloat(newPercentual)
+      const venda = parseFloat(newValorVenda)
+      if (!isNaN(pct) && !isNaN(venda) && pct > 0 && venda > 0) {
+        setNewValorComissao(((venda * pct) / 100).toFixed(2))
+      }
+    }
+  }, [newPercentual, newValorVenda, newCommissionType])
+
+  // =======================
+  // PDF Export Handlers
+  // =======================
+
+  const handleExportPDF = useCallback(() => {
+    const pdfData = filteredComissoes.map((c) => ({
+      user_name: getRecipientName(c),
+      user_pix_key: c.recipient_pix_key || c.mentorados?.pix_chave || '-',
+      amount: c.valor_comissao || 0,
+      description: c.observacoes || '',
+      status: c.status_pagamento === 'pago' ? 'paid' : c.status_pagamento === 'cancelado' ? 'cancelled' : 'pending',
+      created_at: c.created_at,
+      paid_at: c.paid_at || undefined,
+    }))
+    generateCommissionsPDF(pdfData, { status: statusFilter === 'todos' ? 'all' : statusFilter })
+  }, [filteredComissoes, statusFilter])
+
+  const handleExportPaymentList = useCallback(() => {
+    const pdfData = filteredComissoes
+      .filter((c) => c.status_pagamento === 'pendente' || !c.status_pagamento)
+      .map((c) => ({
+        user_name: getRecipientName(c),
+        user_pix_key: c.recipient_pix_key || c.mentorados?.pix_chave || '-',
+        amount: c.valor_comissao || 0,
+        description: c.observacoes || '',
+        status: 'pending' as const,
+        created_at: c.created_at,
+      }))
+    generateCommissionPaymentList(pdfData)
+  }, [filteredComissoes])
+
+  const handleExportAllPaymentsPDF = useCallback(() => {
+    const items = filteredComissoes
+      .filter((c) => c.status_pagamento === 'pendente' || !c.status_pagamento)
+      .map((c) => ({
+        nome: getRecipientName(c),
+        pix_key: c.recipient_pix_key || c.mentorados?.pix_chave || '',
+        valor: c.valor_comissao || 0,
+        tipo: (c.recipient_type === 'terceiro' ? 'terceiro' : 'mentorado') as 'mentorado' | 'terceiro',
+        descricao: c.observacoes || undefined,
+      }))
+    generateAllCommissionsPaymentPDF(items)
+  }, [filteredComissoes])
+
+  // =======================
+  // Render
+  // =======================
+
+  if (!organizationId) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center">
+        <div className="text-white/40 text-lg">Carregando organizacao...</div>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#0a0a0c] text-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+        {/* ======================= */}
         {/* Header */}
-        <div className="flex flex-col space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Gestão de Comissões</h1>
-              <p className="text-gray-600 mt-1">Gerencie aprovações, recusas e edições de comissões</p>
-            </div>
+        {/* ======================= */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Comissoes</h1>
+            <p className="text-white/40 text-sm mt-1">
+              Gerencie comissoes de mentorados e terceiros
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
-              onClick={() => setShowGlobalConfigModal(true)}
-              className="bg-blue-500 hover:bg-blue-600"
+              onClick={() => openPixModal()}
+              variant="outline"
+              className="border-white/[0.06] bg-[#1a1a1e] text-white/70 hover:bg-white/[0.06] hover:text-white"
             >
-              Configurar Comissões
+              <Key className="w-4 h-4 mr-2" />
+              PIX Mentorados
+            </Button>
+            <Button
+              onClick={() => setShowNewCommission(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Comissao
             </Button>
           </div>
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <DollarSign className="w-5 h-5 text-blue-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">Total Comissões</p>
-                    <p className="text-2xl font-bold">{stats.total}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <Clock className="w-5 h-5 text-yellow-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">Pendentes</p>
-                    <p className="text-2xl font-bold">{stats.pendentes}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">Pagas</p>
-                    <p className="text-2xl font-bold">{stats.pagas}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <X className="w-5 h-5 text-gray-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">Canceladas</p>
-                    <p className="text-2xl font-bold">{stats.canceladas}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="w-5 h-5 text-blue-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">Valor Pendente</p>
-                    <p className="text-lg font-bold">{formatCurrency(stats.valorPendente)}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Alerta para comissões zeradas */}
-          {stats.comissoesZeradas > 0 && (
-            <Card className="border-red-200 bg-red-50">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <AlertCircle className="w-6 h-6 text-red-500" />
-                    <div>
-                      <p className="font-semibold text-red-700">
-                        ⚠️ {stats.comissoesZeradas} comissões com valor zerado encontradas
-                      </p>
-                      <p className="text-sm text-red-600">
-                        Estas comissões deveriam ter R$ 2.000,00 cada. Total perdido: R$ {(stats.comissoesZeradas * 2000).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    onClick={corrigirComissoesZeradas}
-                    className="bg-red-500 hover:bg-red-600 text-white"
-                    disabled={loading}
-                  >
-                    {loading ? 'Corrigindo...' : 'Corrigir Agora'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
 
-        {/* Filters */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Buscar por mentorado, lead ou observações..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
+        {/* ======================= */}
+        {/* KPI Cards */}
+        {/* ======================= */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="bg-[#1a1a1e] border-white/[0.06]">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-white/40 uppercase tracking-wider">
+                    Total Comissoes
+                  </p>
+                  <p className="text-2xl font-bold text-white mt-1">
+                    {formatCurrency(kpis.total)}
+                  </p>
+                  <p className="text-xs text-white/30 mt-1">{kpis.count} comissoes</p>
+                </div>
+                <div className="p-3 rounded-xl bg-sky-500/10">
+                  <DollarSign className="w-5 h-5 text-sky-400" />
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="todos">Todos os status</option>
-                <option value="pendente">Pendente</option>
-                <option value="pago">Pago</option>
-                <option value="recusado">Recusado</option>
-                <option value="cancelado">Cancelado</option>
-              </select>
+          <Card className="bg-[#1a1a1e] border-white/[0.06]">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-white/40 uppercase tracking-wider">
+                    Total Pago
+                  </p>
+                  <p className="text-2xl font-bold text-emerald-400 mt-1">
+                    {formatCurrency(kpis.pago)}
+                  </p>
+                  <p className="text-xs text-white/30 mt-1">
+                    {comissoes.filter((c) => c.status_pagamento === 'pago').length} pagas
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-500/10">
+                  <Check className="w-5 h-5 text-emerald-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-[#1a1a1e] border-white/[0.06]">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-white/40 uppercase tracking-wider">
+                    Total Pendente
+                  </p>
+                  <p className="text-2xl font-bold text-amber-400 mt-1">
+                    {formatCurrency(kpis.pendente)}
+                  </p>
+                  <p className="text-xs text-white/30 mt-1">
+                    {comissoes.filter((c) => c.status_pagamento === 'pendente' || !c.status_pagamento).length} pendentes
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-amber-500/10">
+                  <Clock className="w-5 h-5 text-amber-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-[#1a1a1e] border-white/[0.06]">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-white/40 uppercase tracking-wider">
+                    Media por Comissao
+                  </p>
+                  <p className="text-2xl font-bold text-purple-400 mt-1">
+                    {formatCurrency(kpis.media)}
+                  </p>
+                  <p className="text-xs text-white/30 mt-1">valor medio</p>
+                </div>
+                <div className="p-3 rounded-xl bg-purple-500/10">
+                  <TrendingUp className="w-5 h-5 text-purple-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ======================= */}
+        {/* Filters & Search */}
+        {/* ======================= */}
+        <Card className="bg-[#1a1a1e] border-white/[0.06]">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              {/* Search */}
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                <Input
+                  placeholder="Buscar por nome, lead, observacao..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-[#0a0a0c] border-white/[0.06] text-white placeholder:text-white/30 focus-visible:ring-white/20"
+                />
+              </div>
+
+              {/* Status filter */}
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[160px] bg-[#0a0a0c] border-white/[0.06] text-white">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1e] border-white/[0.06]">
+                  <SelectItem value="todos" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Todos</SelectItem>
+                  <SelectItem value="pendente" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Pendente</SelectItem>
+                  <SelectItem value="pago" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Pago</SelectItem>
+                  <SelectItem value="cancelado" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Type filter */}
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-full sm:w-[160px] bg-[#0a0a0c] border-white/[0.06] text-white">
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1e] border-white/[0.06]">
+                  <SelectItem value="todos" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Todos</SelectItem>
+                  <SelectItem value="mentorado" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Mentorado</SelectItem>
+                  <SelectItem value="terceiro" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Terceiro</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* PDF Exports */}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportPDF}
+                  className="border-white/[0.06] bg-[#0a0a0c] text-white/60 hover:bg-white/[0.06] hover:text-white"
+                  title="Exportar relatorio PDF"
+                >
+                  <FileText className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportPaymentList}
+                  className="border-white/[0.06] bg-[#0a0a0c] text-white/60 hover:bg-white/[0.06] hover:text-white"
+                  title="Lista de pagamentos pendentes"
+                >
+                  <CreditCard className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportAllPaymentsPDF}
+                  className="border-white/[0.06] bg-[#0a0a0c] text-white/60 hover:bg-white/[0.06] hover:text-white"
+                  title="PDF geral de pagamentos"
+                >
+                  <Download className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Comissões Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Comissões ({filteredComissoes.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        {/* ======================= */}
+        {/* Commission Table */}
+        {/* ======================= */}
+        <Card className="bg-[#1a1a1e] border-white/[0.06] overflow-hidden">
+          <CardContent className="p-0">
             {loading ? (
-              <div className="text-center py-8">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                <p className="mt-2 text-gray-600">Carregando comissões...</p>
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-6 h-6 text-white/30 animate-spin" />
+                <span className="ml-3 text-white/40">Carregando comissoes...</span>
+              </div>
+            ) : error ? (
+              <div className="flex items-center justify-center py-20 text-red-400">
+                <AlertCircle className="w-5 h-5 mr-2" />
+                <span>Erro ao carregar: {error}</span>
               </div>
             ) : filteredComissoes.length === 0 ? (
-              <div className="text-center py-8">
-                <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">Nenhuma comissão encontrada</p>
+              <div className="flex flex-col items-center justify-center py-20 text-white/30">
+                <DollarSign className="w-10 h-10 mb-3 text-white/20" />
+                <p className="text-base">Nenhuma comissao encontrada</p>
+                <p className="text-sm mt-1">Crie uma nova comissao para comecar.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Mentorado</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Lead</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Valor Comissão</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Percentual</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Valor Venda</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Data Venda</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-white/[0.06] hover:bg-transparent">
+                      <TableHead className="text-white/40 font-medium text-xs uppercase tracking-wider">
+                        Beneficiario
+                      </TableHead>
+                      <TableHead className="text-white/40 font-medium text-xs uppercase tracking-wider">
+                        Tipo
+                      </TableHead>
+                      <TableHead className="text-white/40 font-medium text-xs uppercase tracking-wider">
+                        Lead
+                      </TableHead>
+                      <TableHead className="text-white/40 font-medium text-xs uppercase tracking-wider text-right">
+                        Valor Venda
+                      </TableHead>
+                      <TableHead className="text-white/40 font-medium text-xs uppercase tracking-wider text-right">
+                        Comissao
+                      </TableHead>
+                      <TableHead className="text-white/40 font-medium text-xs uppercase tracking-wider">
+                        Status
+                      </TableHead>
+                      <TableHead className="text-white/40 font-medium text-xs uppercase tracking-wider">
+                        Data
+                      </TableHead>
+                      <TableHead className="text-white/40 font-medium text-xs uppercase tracking-wider text-right">
+                        Acoes
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {filteredComissoes.map((comissao) => (
-                      <tr
+                      <TableRow
                         key={comissao.id}
-                        className={`border-b transition-colors ${
-                          (comissao.valor_comissao || 0) === 0 && (comissao.status_pagamento || 'pendente') === 'pendente'
-                            ? 'bg-red-50 hover:bg-red-100 border-red-200'
-                            : 'hover:bg-gray-50'
-                        }`}
+                        className="border-white/[0.06] hover:bg-white/[0.02] transition-colors"
                       >
-                        <td className="py-3 px-4">
-                          <div>
-                            <p className="font-medium text-gray-900">{comissao.mentorado_nome}</p>
-                            <p className="text-sm text-gray-500">{comissao.mentorado_email}</p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div>
-                            <p className="font-medium text-gray-900">{comissao.lead_nome}</p>
-                            <p className="text-sm text-gray-500">{comissao.lead_empresa}</p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center space-x-2">
-                            <p className={`font-bold ${
-                              (comissao.valor_comissao || 0) === 0 && (comissao.status_pagamento || 'pendente') === 'pendente'
-                                ? 'text-red-600'
-                                : 'text-green-600'
-                            }`}>
-                              {formatCurrency(comissao.valor_comissao || 0)}
-                            </p>
-                            {(comissao.valor_comissao || 0) === 0 && (comissao.status_pagamento || 'pendente') === 'pendente' && (
-                              <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
-                                ZERADA
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <p className="font-medium text-blue-600">
-                            {(comissao.percentual_comissao || 5)}%
-                          </p>
-                        </td>
-                        <td className="py-3 px-4">
-                          <p className="text-gray-900">
-                            {formatCurrency(comissao.valor_venda || 0)}
-                          </p>
-                        </td>
-                        <td className="py-3 px-4">
-                          <p className="text-gray-900">
-                            {formatDate(comissao.data_venda)}
-                          </p>
-                        </td>
-                        <td className="py-3 px-4">
-                          {getStatusBadge(comissao.status_pagamento)}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex space-x-2">
+                        <TableCell className="text-white font-medium">
+                          {getRecipientName(comissao)}
+                        </TableCell>
+                        <TableCell>{getRecipientTypeBadge(comissao.recipient_type)}</TableCell>
+                        <TableCell className="text-white/60">{getLeadName(comissao)}</TableCell>
+                        <TableCell className="text-right text-white/60">
+                          {formatCurrency(comissao.valor_venda)}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-white">
+                          {formatCurrency(comissao.valor_comissao)}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(comissao.status_pagamento)}</TableCell>
+                        <TableCell className="text-white/40 text-sm">
+                          {formatDate(comissao.data_venda)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
                             <Button
+                              variant="ghost"
                               size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                console.log('👁️ Clicou no olhinho para comissão:', comissao.id)
-                                setSelectedComissao(comissao)
-                                setShowViewModal(true)
-                                console.log('👁️ Modal de visualização aberto')
-                              }}
+                              onClick={() => openViewModal(comissao)}
+                              className="text-white/40 hover:text-white hover:bg-white/[0.06] h-8 w-8 p-0"
+                              title="Ver detalhes"
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
-
                             <Button
+                              variant="ghost"
                               size="sm"
-                              variant="outline"
-                              onClick={() => abrirModalEditar(comissao)}
+                              onClick={() => openEditModal(comissao)}
+                              className="text-white/40 hover:text-white hover:bg-white/[0.06] h-8 w-8 p-0"
+                              title="Editar"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
-
-                            {(comissao.status_pagamento || 'pendente') === 'pendente' && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  className="bg-green-500 hover:bg-green-600"
-                                  onClick={() => aprovarComissao(comissao.id)}
-                                >
-                                  <Check className="w-4 h-4" />
-                                </Button>
-
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => recusarComissao(comissao.id)}
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openStatusModal(comissao)}
+                              className="text-white/40 hover:text-white hover:bg-white/[0.06] h-8 w-8 p-0"
+                              title="Alterar status"
+                            >
+                              <AlertCircle className="w-4 h-4" />
+                            </Button>
+                            {(comissao.status_pagamento === 'pendente' || !comissao.status_pagamento) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleMarkPaid(comissao)}
+                                className="text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 h-8 w-8 p-0"
+                                title="Marcar como pago"
+                              >
+                                <Check className="w-4 h-4" />
+                              </Button>
                             )}
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
+
+          {/* Table footer with count */}
+          {!loading && filteredComissoes.length > 0 && (
+            <div className="px-4 py-3 border-t border-white/[0.06] flex items-center justify-between">
+              <p className="text-xs text-white/30">
+                Mostrando {filteredComissoes.length} de {comissoes.length} comissoes
+              </p>
+              {isRefetching && (
+                <div className="flex items-center gap-2 text-xs text-white/30">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Atualizando...
+                </div>
+              )}
+            </div>
+          )}
         </Card>
 
-        {/* Modal de Visualização */}
-        {showViewModal && selectedComissao && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full m-4 max-h-[80vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Detalhes da Comissão</h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowViewModal(false)}
-                >
-                  ✕
-                </Button>
+        {/* ======================= */}
+        {/* NEW COMMISSION MODAL */}
+        {/* ======================= */}
+        <Dialog open={showNewCommission} onOpenChange={setShowNewCommission}>
+          <DialogContent className="bg-[#1a1a1e] border-white/[0.06] text-white max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-white">
+                Nova Comissao
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 mt-2">
+              {/* Type toggle */}
+              <div className="space-y-2">
+                <Label className="text-white/60 text-sm">Tipo de Comissao</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewCommissionType('mentorado')}
+                    className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                      newCommissionType === 'mentorado'
+                        ? 'bg-sky-600 text-white'
+                        : 'bg-[#0a0a0c] text-white/40 border border-white/[0.06] hover:text-white/60'
+                    }`}
+                  >
+                    <User className="w-4 h-4 inline mr-2" />
+                    De Lead (Mentorado)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewCommissionType('terceiro')}
+                    className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                      newCommissionType === 'terceiro'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-[#0a0a0c] text-white/40 border border-white/[0.06] hover:text-white/60'
+                    }`}
+                  >
+                    <Users className="w-4 h-4 inline mr-2" />
+                    Terceiro
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-4">
+              {newCommissionType === 'mentorado' ? (
+                <>
+                  {/* Mentorado selection */}
+                  <div className="space-y-2">
+                    <Label className="text-white/60 text-sm">Mentorado *</Label>
+                    <Select value={newMentoradoId} onValueChange={setNewMentoradoId}>
+                      <SelectTrigger className="bg-[#0a0a0c] border-white/[0.06] text-white">
+                        <SelectValue placeholder="Selecione o mentorado" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#1a1a1e] border-white/[0.06] max-h-60">
+                        {mentorados.map((m) => (
+                          <SelectItem
+                            key={m.id}
+                            value={m.id}
+                            className="text-white/70 focus:bg-white/[0.06] focus:text-white"
+                          >
+                            {m.nome_completo}
+                            {m.pix_chave ? ' (PIX configurado)' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Lead selection */}
+                  <div className="space-y-2">
+                    <Label className="text-white/60 text-sm">Lead (Venda)</Label>
+                    <Select value={newLeadId} onValueChange={setNewLeadId}>
+                      <SelectTrigger className="bg-[#0a0a0c] border-white/[0.06] text-white">
+                        <SelectValue placeholder="Selecione o lead (opcional)" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#1a1a1e] border-white/[0.06] max-h-60">
+                        {leads.map((l) => (
+                          <SelectItem
+                            key={l.id}
+                            value={l.id}
+                            className="text-white/70 focus:bg-white/[0.06] focus:text-white"
+                          >
+                            {l.nome_completo} {l.valor_venda ? `- ${formatCurrency(l.valor_venda)}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Sale value and percentage */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-white/60 text-sm">Valor da Venda (R$)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={newValorVenda}
+                        onChange={(e) => setNewValorVenda(e.target.value)}
+                        placeholder="0,00"
+                        className="bg-[#0a0a0c] border-white/[0.06] text-white placeholder:text-white/20"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-white/60 text-sm">Percentual (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={newPercentual}
+                        onChange={(e) => setNewPercentual(e.target.value)}
+                        placeholder="10"
+                        className="bg-[#0a0a0c] border-white/[0.06] text-white placeholder:text-white/20"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Commission value */}
+                  <div className="space-y-2">
+                    <Label className="text-white/60 text-sm">
+                      Valor da Comissao (R$)
+                      <span className="text-white/20 ml-2">auto-calculado ou manual</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={newValorComissao}
+                      onChange={(e) => setNewValorComissao(e.target.value)}
+                      placeholder="0,00"
+                      className="bg-[#0a0a0c] border-white/[0.06] text-white placeholder:text-white/20"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Third-party name */}
+                  <div className="space-y-2">
+                    <Label className="text-white/60 text-sm">Nome do Terceiro *</Label>
+                    <Input
+                      value={newRecipientName}
+                      onChange={(e) => setNewRecipientName(e.target.value)}
+                      placeholder="Nome completo"
+                      className="bg-[#0a0a0c] border-white/[0.06] text-white placeholder:text-white/20"
+                    />
+                  </div>
+
+                  {/* PIX key */}
+                  <div className="space-y-2">
+                    <Label className="text-white/60 text-sm">Chave PIX</Label>
+                    <Input
+                      value={newRecipientPix}
+                      onChange={(e) => setNewRecipientPix(e.target.value)}
+                      placeholder="CPF, email, telefone ou chave aleatoria"
+                      className="bg-[#0a0a0c] border-white/[0.06] text-white placeholder:text-white/20"
+                    />
+                  </div>
+
+                  {/* Value */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-white/60 text-sm">Valor da Venda (R$)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={newValorVenda}
+                        onChange={(e) => setNewValorVenda(e.target.value)}
+                        placeholder="0,00"
+                        className="bg-[#0a0a0c] border-white/[0.06] text-white placeholder:text-white/20"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-white/60 text-sm">Valor da Comissao (R$) *</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={newValorComissao}
+                        onChange={(e) => setNewValorComissao(e.target.value)}
+                        placeholder="0,00"
+                        className="bg-[#0a0a0c] border-white/[0.06] text-white placeholder:text-white/20"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Observations (both types) */}
+              <div className="space-y-2">
+                <Label className="text-white/60 text-sm">Observacoes</Label>
+                <Textarea
+                  value={newObservacoes}
+                  onChange={(e) => setNewObservacoes(e.target.value)}
+                  placeholder="Observacoes sobre a comissao..."
+                  rows={3}
+                  className="bg-[#0a0a0c] border-white/[0.06] text-white placeholder:text-white/20 resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowNewCommission(false)}
+                  className="border-white/[0.06] text-white/60 hover:bg-white/[0.06] hover:text-white"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleCreateCommission}
+                  disabled={savingCommission}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {savingCommission ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Criar Comissao
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* ======================= */}
+        {/* VIEW COMMISSION MODAL */}
+        {/* ======================= */}
+        <Dialog open={showViewCommission} onOpenChange={setShowViewCommission}>
+          <DialogContent className="bg-[#1a1a1e] border-white/[0.06] text-white max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-white">
+                Detalhes da Comissao
+              </DialogTitle>
+            </DialogHeader>
+
+            {selectedCommission && (
+              <div className="space-y-4 mt-2">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mentorado</label>
-                    <p className="text-gray-900">{selectedComissao.mentorado_nome}</p>
-                    <p className="text-sm text-gray-500">{selectedComissao.mentorado_email}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Lead</label>
-                    <p className="text-gray-900">{selectedComissao.lead_nome}</p>
-                    <p className="text-sm text-gray-500">{selectedComissao.lead_empresa}</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Valor da Comissão</label>
-                    <p className="text-lg font-bold text-green-600">
-                      {formatCurrency(selectedComissao.valor_comissao || 0)}
+                    <p className="text-xs text-white/40 uppercase tracking-wider">Beneficiario</p>
+                    <p className="text-white font-medium mt-1">
+                      {getRecipientName(selectedCommission)}
                     </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Percentual</label>
-                    <p className="text-lg font-bold text-blue-600">
-                      {(selectedComissao.percentual_comissao || 5)}%
+                    <p className="text-xs text-white/40 uppercase tracking-wider">Tipo</p>
+                    <div className="mt-1">{getRecipientTypeBadge(selectedCommission.recipient_type)}</div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-white/40 uppercase tracking-wider">Lead</p>
+                    <p className="text-white/70 mt-1">{getLeadName(selectedCommission)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-white/40 uppercase tracking-wider">Status</p>
+                    <div className="mt-1">{getStatusBadge(selectedCommission.status_pagamento)}</div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-white/40 uppercase tracking-wider">Valor da Venda</p>
+                    <p className="text-white/70 mt-1">{formatCurrency(selectedCommission.valor_venda)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-white/40 uppercase tracking-wider">Percentual</p>
+                    <p className="text-white/70 mt-1">
+                      {selectedCommission.percentual_comissao
+                        ? `${selectedCommission.percentual_comissao}%`
+                        : '-'}
                     </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Valor da Venda</label>
-                    <p className="text-lg font-bold">
-                      {formatCurrency(selectedComissao.valor_venda || 0)}
+                    <p className="text-xs text-white/40 uppercase tracking-wider">Valor Comissao</p>
+                    <p className="text-lg font-bold text-emerald-400 mt-1">
+                      {formatCurrency(selectedCommission.valor_comissao)}
                     </p>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Data da Venda</label>
-                    <p className="text-gray-900">{formatDate(selectedComissao.data_venda)}</p>
+                    <p className="text-xs text-white/40 uppercase tracking-wider">Data da Venda</p>
+                    <p className="text-white/70 mt-1">{formatDate(selectedCommission.data_venda)}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    {getStatusBadge(selectedComissao.status_pagamento)}
+                    <p className="text-xs text-white/40 uppercase tracking-wider">Chave PIX</p>
+                    <p className="text-white/70 mt-1 break-all">
+                      {selectedCommission.recipient_pix_key ||
+                        selectedCommission.mentorados?.pix_chave ||
+                        'Nao informada'}
+                    </p>
                   </div>
+                  {selectedCommission.paid_at && (
+                    <div>
+                      <p className="text-xs text-white/40 uppercase tracking-wider">Pago em</p>
+                      <p className="text-emerald-400/70 mt-1">{formatDate(selectedCommission.paid_at)}</p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Progresso do Cliente */}
-                {selectedComissao.leads && (
-                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-                    <label className="block text-sm font-medium text-blue-700 mb-3">Status do Pagamento do Cliente</label>
-                    
-                    {(() => {
-                      const valorVendido = selectedComissao.leads.valor_vendido || 0
-                      const valorArrecadado = selectedComissao.leads.valor_arrecadado || 0
-                      const progresso = valorVendido > 0 ? Math.min((valorArrecadado / valorVendido) * 100, 100) : 0
-                      const clienteQuitou = progresso >= 100
-                      
-                      return (
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-700">Progresso:</span>
-                            <span className="text-xl font-bold text-blue-600">{progresso.toFixed(1)}%</span>
-                          </div>
-                          
-                          <div className="w-full bg-gray-200 rounded-full h-3">
-                            <div 
-                              className={`h-3 rounded-full transition-all duration-300 ${
-                                clienteQuitou ? 'bg-gradient-to-r from-green-500 to-green-400' : 'bg-gradient-to-r from-blue-600 to-blue-400'
-                              }`}
-                              style={{ width: `${progresso}%` }}
-                            />
-                          </div>
-                          
-                          <div className="grid grid-cols-3 gap-3 text-sm">
-                            <div>
-                              <span className="text-gray-600">Já recebido:</span>
-                              <div className="font-medium text-green-600">
-                                {formatCurrency(valorArrecadado)}
-                              </div>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Total vendido:</span>
-                              <div className="font-medium">
-                                {formatCurrency(valorVendido)}
-                              </div>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Falta receber:</span>
-                              <div className="font-medium text-orange-600">
-                                {formatCurrency(valorVendido - valorArrecadado)}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className={`text-center text-sm p-2 rounded ${
-                            clienteQuitou 
-                              ? 'bg-green-100 text-green-700 border border-green-200' 
-                              : 'bg-orange-100 text-orange-700 border border-orange-200'
-                          }`}>
-                            {clienteQuitou 
-                              ? '🎉 Cliente quitou! Comissão pode ser liberada' 
-                              : '⏳ Aguardando cliente quitar para liberar 2ª parte'
-                            }
-                          </div>
-                        </div>
-                      )
-                    })()}
+                {selectedCommission.observacoes && (
+                  <div>
+                    <p className="text-xs text-white/40 uppercase tracking-wider">Observacoes</p>
+                    <p className="text-white/60 mt-1 text-sm bg-[#0a0a0c] rounded-lg p-3 border border-white/[0.06]">
+                      {selectedCommission.observacoes}
+                    </p>
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
-                  <p className="text-gray-900 bg-gray-50 p-3 rounded">
-                    {selectedComissao.observacoes || 'Nenhuma observação'}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 text-sm text-gray-500">
-                  <div>
-                    <span className="font-medium">Criado em:</span> {formatDate(selectedComissao.created_at)}
-                  </div>
-                  <div>
-                    <span className="font-medium">Atualizado em:</span> {formatDate(selectedComissao.updated_at)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Modal de Edição */}
-        {showEditModal && selectedComissao && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full m-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Editar Comissão</h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowEditModal(false)}
-                >
-                  ✕
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mentorado: {selectedComissao.mentorado_nome}
-                  </label>
-                  <label className="block text-sm text-gray-500 mb-3">
-                    Valor da venda: {formatCurrency(selectedComissao.valor_venda || 0)}
-                  </label>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Percentual de Comissão
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    value={editForm.percentual_comissao}
-                    onChange={(e) => {
-                      const percentual = parseFloat(e.target.value) || 0
-                      const novoValor = calcularValorPorPercentual(percentual, selectedComissao.valor_venda || 0)
-                      setEditForm({
-                        ...editForm,
-                        percentual_comissao: percentual,
-                        valor_comissao: novoValor
-                      })
-                    }}
-                    className="mb-2"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Valor calculado: {formatCurrency(editForm.valor_comissao)}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valor da Comissão (R$)
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={editForm.valor_comissao}
-                    onChange={(e) => {
-                      const valor = parseFloat(e.target.value) || 0
-                      const percentual = selectedComissao.valor_venda ? (valor / selectedComissao.valor_venda) * 100 : 0
-                      setEditForm({
-                        ...editForm,
-                        valor_comissao: valor,
-                        percentual_comissao: Math.round(percentual * 100) / 100
-                      })
-                    }}
-                    className="mb-2"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Percentual calculado: {editForm.percentual_comissao.toFixed(2)}%
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Observações
-                  </label>
-                  <Input
-                    value={editForm.observacoes}
-                    onChange={(e) => setEditForm({ ...editForm, observacoes: e.target.value })}
-                    placeholder="Observações adicionais..."
-                  />
-                </div>
-
-                <div className="flex space-x-3 pt-4">
+                <div className="flex justify-end gap-2 pt-2">
                   <Button
-                    onClick={salvarEdicaoComissao}
-                    className="flex-1 bg-green-500 hover:bg-green-600"
+                    variant="outline"
+                    onClick={() => setShowViewCommission(false)}
+                    className="border-white/[0.06] text-white/60 hover:bg-white/[0.06] hover:text-white"
                   >
-                    Salvar
+                    Fechar
                   </Button>
                   <Button
-                    onClick={() => setShowEditModal(false)}
+                    onClick={() => {
+                      setShowViewCommission(false)
+                      openEditModal(selectedCommission)
+                    }}
                     variant="outline"
-                    className="flex-1"
+                    className="border-white/[0.06] text-white/60 hover:bg-white/[0.06] hover:text-white"
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Editar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* ======================= */}
+        {/* EDIT COMMISSION MODAL */}
+        {/* ======================= */}
+        <Dialog open={showEditCommission} onOpenChange={setShowEditCommission}>
+          <DialogContent className="bg-[#1a1a1e] border-white/[0.06] text-white max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-white">
+                Editar Comissao
+              </DialogTitle>
+            </DialogHeader>
+
+            {selectedCommission && (
+              <div className="space-y-4 mt-2">
+                <div className="bg-[#0a0a0c] rounded-lg p-3 border border-white/[0.06]">
+                  <p className="text-xs text-white/40">Beneficiario</p>
+                  <p className="text-white font-medium">{getRecipientName(selectedCommission)}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-white/60 text-sm">Valor da Comissao (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editValorComissao}
+                      onChange={(e) => setEditValorComissao(e.target.value)}
+                      className="bg-[#0a0a0c] border-white/[0.06] text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-white/60 text-sm">Percentual (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={editPercentual}
+                      onChange={(e) => setEditPercentual(e.target.value)}
+                      className="bg-[#0a0a0c] border-white/[0.06] text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/60 text-sm">Observacoes</Label>
+                  <Textarea
+                    value={editObservacoes}
+                    onChange={(e) => setEditObservacoes(e.target.value)}
+                    rows={3}
+                    className="bg-[#0a0a0c] border-white/[0.06] text-white resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowEditCommission(false)}
+                    className="border-white/[0.06] text-white/60 hover:bg-white/[0.06] hover:text-white"
                   >
                     Cancelar
                   </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Modal de Configuração Global */}
-        {showGlobalConfigModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full m-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Configurar Comissões</h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowGlobalConfigModal(false)}
-                >
-                  ✕
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h3 className="font-medium text-blue-900 mb-2">Definir Padrão Global</h3>
-                  <p className="text-sm text-blue-700 mb-3">
-                    Esta ação irá configurar todas as comissões pendentes para 5% do valor de venda.
-                  </p>
-                  <div className="text-sm text-gray-600">
-                    <p>• Comissões pendentes: <strong>{stats.pendentes}</strong></p>
-                    <p>• Comissões zeradas: <strong>{stats.comissoesZeradas}</strong></p>
-                  </div>
-                </div>
-
-                <div className="flex space-x-3">
                   <Button
-                    onClick={definirTodosCom5Porcento}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600"
-                    disabled={loading}
+                    onClick={handleEditCommission}
+                    disabled={updateMutation.isLoading}
+                    className="bg-sky-600 hover:bg-sky-700 text-white"
                   >
-                    {loading ? 'Processando...' : 'Definir Todos com 5%'}
+                    {updateMutation.isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      'Salvar Alteracoes'
+                    )}
                   </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* ======================= */}
+        {/* UPDATE STATUS MODAL */}
+        {/* ======================= */}
+        <Dialog open={showStatusUpdate} onOpenChange={setShowStatusUpdate}>
+          <DialogContent className="bg-[#1a1a1e] border-white/[0.06] text-white max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-white">
+                Atualizar Status
+              </DialogTitle>
+            </DialogHeader>
+
+            {selectedCommission && (
+              <div className="space-y-4 mt-2">
+                <div className="bg-[#0a0a0c] rounded-lg p-3 border border-white/[0.06]">
+                  <p className="text-xs text-white/40">Beneficiario</p>
+                  <p className="text-white font-medium">{getRecipientName(selectedCommission)}</p>
+                  <p className="text-white/40 text-sm mt-1">
+                    {formatCurrency(selectedCommission.valor_comissao)}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/60 text-sm">Novo Status</Label>
+                  <Select value={newStatus} onValueChange={setNewStatus}>
+                    <SelectTrigger className="bg-[#0a0a0c] border-white/[0.06] text-white">
+                      <SelectValue placeholder="Selecione o status" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a1a1e] border-white/[0.06]">
+                      <SelectItem value="pendente" className="text-white/70 focus:bg-white/[0.06] focus:text-white">
+                        Pendente
+                      </SelectItem>
+                      <SelectItem value="pago" className="text-white/70 focus:bg-white/[0.06] focus:text-white">
+                        Pago
+                      </SelectItem>
+                      <SelectItem value="cancelado" className="text-white/70 focus:bg-white/[0.06] focus:text-white">
+                        Cancelado
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
                   <Button
-                    onClick={() => setShowGlobalConfigModal(false)}
                     variant="outline"
-                    className="flex-1"
+                    onClick={() => setShowStatusUpdate(false)}
+                    className="border-white/[0.06] text-white/60 hover:bg-white/[0.06] hover:text-white"
                   >
                     Cancelar
                   </Button>
+                  <Button
+                    onClick={handleUpdateStatus}
+                    disabled={updateMutation.isLoading}
+                    className="bg-sky-600 hover:bg-sky-700 text-white"
+                  >
+                    {updateMutation.isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Atualizando...
+                      </>
+                    ) : (
+                      'Atualizar Status'
+                    )}
+                  </Button>
                 </div>
               </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* ======================= */}
+        {/* PIX MANAGEMENT MODAL */}
+        {/* ======================= */}
+        <Dialog open={showPixManagement} onOpenChange={setShowPixManagement}>
+          <DialogContent className="bg-[#1a1a1e] border-white/[0.06] text-white max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-white flex items-center gap-2">
+                <Key className="w-5 h-5 text-amber-400" />
+                Gerenciar PIX de Mentorados
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 mt-2">
+              {/* Mentorado list with PIX status */}
+              <div className="bg-[#0a0a0c] rounded-lg border border-white/[0.06] max-h-48 overflow-y-auto">
+                {mentorados.length === 0 ? (
+                  <div className="p-4 text-center text-white/30 text-sm">
+                    Nenhum mentorado cadastrado
+                  </div>
+                ) : (
+                  <div className="divide-y divide-white/[0.06]">
+                    {mentorados.map((m) => (
+                      <div
+                        key={m.id}
+                        className="flex items-center justify-between p-3 hover:bg-white/[0.02] transition-colors cursor-pointer"
+                        onClick={() => {
+                          setPixMentoradoId(m.id)
+                          setPixChave(m.pix_chave || '')
+                          setPixTipo(m.pix_tipo || '')
+                        }}
+                      >
+                        <div>
+                          <p className="text-white text-sm font-medium">{m.nome_completo}</p>
+                          <p className="text-white/30 text-xs">{m.email}</p>
+                        </div>
+                        {m.pix_chave ? (
+                          <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/20 text-xs">
+                            PIX: {m.pix_tipo}
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-white/5 text-white/30 border-white/[0.06] text-xs">
+                            Sem PIX
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* PIX form */}
+              <div className="space-y-3 border-t border-white/[0.06] pt-4">
+                <div className="space-y-2">
+                  <Label className="text-white/60 text-sm">Mentorado</Label>
+                  <Select value={pixMentoradoId} onValueChange={(val) => {
+                    setPixMentoradoId(val)
+                    const m = mentorados.find((x) => x.id === val)
+                    if (m) {
+                      setPixChave(m.pix_chave || '')
+                      setPixTipo(m.pix_tipo || '')
+                    }
+                  }}>
+                    <SelectTrigger className="bg-[#0a0a0c] border-white/[0.06] text-white">
+                      <SelectValue placeholder="Selecione o mentorado" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a1a1e] border-white/[0.06] max-h-60">
+                      {mentorados.map((m) => (
+                        <SelectItem
+                          key={m.id}
+                          value={m.id}
+                          className="text-white/70 focus:bg-white/[0.06] focus:text-white"
+                        >
+                          {m.nome_completo}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/60 text-sm">Tipo de Chave PIX</Label>
+                  <Select value={pixTipo} onValueChange={setPixTipo}>
+                    <SelectTrigger className="bg-[#0a0a0c] border-white/[0.06] text-white">
+                      <SelectValue placeholder="Tipo da chave" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a1a1e] border-white/[0.06]">
+                      <SelectItem value="CPF" className="text-white/70 focus:bg-white/[0.06] focus:text-white">CPF</SelectItem>
+                      <SelectItem value="CNPJ" className="text-white/70 focus:bg-white/[0.06] focus:text-white">CNPJ</SelectItem>
+                      <SelectItem value="Email" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Email</SelectItem>
+                      <SelectItem value="Telefone" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Telefone</SelectItem>
+                      <SelectItem value="Aleatoria" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Aleatoria</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/60 text-sm">Chave PIX</Label>
+                  <Input
+                    value={pixChave}
+                    onChange={(e) => setPixChave(e.target.value)}
+                    placeholder="Informe a chave PIX"
+                    className="bg-[#0a0a0c] border-white/[0.06] text-white placeholder:text-white/20"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPixManagement(false)}
+                  className="border-white/[0.06] text-white/60 hover:bg-white/[0.06] hover:text-white"
+                >
+                  Fechar
+                </Button>
+                <Button
+                  onClick={handleSavePix}
+                  disabled={savingPix || !pixMentoradoId || !pixChave || !pixTipo}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  {savingPix ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Key className="w-4 h-4 mr-2" />
+                      Salvar PIX
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
+          </DialogContent>
+        </Dialog>
+
       </div>
     </div>
   )
