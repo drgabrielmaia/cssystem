@@ -11,6 +11,8 @@ interface SalesMetrics {
   taxa_conversao: number
   total_leads: number
   total_vendas: number
+  total_churn: number
+  total_churnzinho: number
 }
 
 interface CallsMetrics {
@@ -231,7 +233,9 @@ export function useOptimizedDashboard(
       valor_arrecadado: 0,
       taxa_conversao: 0,
       total_leads: 0,
-      total_vendas: 0
+      total_vendas: 0,
+      total_churn: 0,
+      total_churnzinho: 0
     }
 
     let allSalesData: any[] = []
@@ -259,6 +263,10 @@ export function useOptimizedDashboard(
       salesMetrics.valor_vendido = rangeSales.reduce((sum, sale) => sum + (parseFloat(sale.valor_vendido) || 0), 0)
       salesMetrics.valor_arrecadado = rangeSales.reduce((sum, sale) => sum + (parseFloat(sale.valor_arrecadado) || 0), 0)
       salesMetrics.taxa_conversao = rangeLeads.length > 0 ? (rangeSales.length / rangeLeads.length) * 100 : 0
+
+      // Count churn and churnzinho leads in the date range
+      salesMetrics.total_churn = rangeLeads.filter(lead => lead.status === 'churn').length
+      salesMetrics.total_churnzinho = rangeLeads.filter(lead => lead.status === 'churnzinho').length
     }
 
     // Process calls data

@@ -5,7 +5,7 @@ import { Navbar } from '@/components/dashboard/Navbar'
 import { Sidebar } from '@/components/dashboard/Sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Building2, Crown, Shield, User2, Loader2, DollarSign, Target, RefreshCw, AlertCircle, Eye, EyeOff, Calendar } from 'lucide-react'
+import { Building2, Crown, Shield, User2, Loader2, DollarSign, Target, RefreshCw, AlertCircle, Eye, EyeOff, Calendar, UserX, UserMinus } from 'lucide-react'
 import { useOrganizationFilter } from '@/hooks/use-organization-filter'
 import { useOptimizedDashboard, DateFilter } from '@/hooks/use-optimized-dashboard'
 import { OptimizedLoadingCard } from '@/components/dashboard/OptimizedLoadingCard'
@@ -58,7 +58,9 @@ export default function DashboardPage() {
     valor_arrecadado: 0,
     taxa_conversao: 0,
     total_leads: 0,
-    total_vendas: 0
+    total_vendas: 0,
+    total_churn: 0,
+    total_churnzinho: 0
   }
 
   const callsMetrics = metrics?.calls || {
@@ -481,6 +483,53 @@ export default function DashboardPage() {
                       </>
                     </CardContent>
                   </Card>
+                )}
+
+                {/* Churn & Churnzinho Cards */}
+                {!metricsLoading && !metricsError && (salesMetrics.total_churn > 0 || salesMetrics.total_churnzinho > 0) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Churn Card */}
+                    <Card className="relative overflow-hidden bg-gradient-to-br from-red-500 via-red-600 to-red-700 border-red-400 shadow-lg">
+                      <CardContent className="pt-6 relative z-10">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-red-100">Churn (Leads)</p>
+                            <p className="text-3xl font-black text-white mt-1">{salesMetrics.total_churn}</p>
+                            <p className="text-xs text-red-200 mt-1">
+                              {salesMetrics.total_leads > 0
+                                ? `${((salesMetrics.total_churn / salesMetrics.total_leads) * 100).toFixed(1)}% dos leads`
+                                : '0% dos leads'
+                              }
+                            </p>
+                          </div>
+                          <div className="bg-white/20 p-3 rounded-full">
+                            <UserX className="w-7 h-7 text-white" />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Churnzinho Card */}
+                    <Card className="relative overflow-hidden bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600 border-pink-300 shadow-lg">
+                      <CardContent className="pt-6 relative z-10">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-pink-100">Churnzinho (Leads)</p>
+                            <p className="text-3xl font-black text-white mt-1">{salesMetrics.total_churnzinho}</p>
+                            <p className="text-xs text-pink-200 mt-1">
+                              {salesMetrics.total_leads > 0
+                                ? `${((salesMetrics.total_churnzinho / salesMetrics.total_leads) * 100).toFixed(1)}% dos leads`
+                                : '0% dos leads'
+                              }
+                            </p>
+                          </div>
+                          <div className="bg-white/20 p-3 rounded-full">
+                            <UserMinus className="w-7 h-7 text-white" />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 )}
 
                 {/* Evolução do Dashboard Chart */}

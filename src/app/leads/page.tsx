@@ -247,7 +247,9 @@ export default function LeadsPage() {
     quente: 'hot',
     vendido: 'converted',
     perdido: 'lost',
-    vazado: 'leaked'
+    vazado: 'leaked',
+    churn: 'churned',
+    churnzinho: 'mini_churned'
   }
 
   const origemColors = {
@@ -1864,6 +1866,8 @@ function EditLeadForm({ lead, onSave, onCancel }: {
             <option value="proposta_enviada">Proposta Enviada</option>
             <option value="perdido">Perdido</option>
             <option value="vazado">Vazado</option>
+            <option value="churn">Churn</option>
+            <option value="churnzinho">Churnzinho</option>
           </select>
         </div>
 

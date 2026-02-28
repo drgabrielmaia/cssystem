@@ -100,10 +100,11 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   fechado_ganho:   { label: 'Fechado (Ganho)',  color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', gradient: 'from-emerald-500 to-emerald-600' },
   fechado_perdido: { label: 'Fechado (Perdido)',color: 'text-red-400',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     gradient: 'from-red-500 to-red-600' },
   churn:           { label: 'Churn',            color: 'text-rose-400',    bg: 'bg-rose-500/10',    border: 'border-rose-500/20',    gradient: 'from-rose-500 to-rose-600' },
+  churnzinho:      { label: 'Churnzinho',       color: 'text-pink-400',    bg: 'bg-pink-500/10',    border: 'border-pink-500/20',    gradient: 'from-pink-500 to-pink-600' },
   desistiu:        { label: 'Desistiu',         color: 'text-gray-400',    bg: 'bg-gray-500/10',    border: 'border-gray-500/20',    gradient: 'from-gray-500 to-gray-600' },
 }
 
-const STATUS_ORDER = ['novo', 'contactado', 'qualificado', 'proposta', 'negociacao', 'fechado_ganho', 'fechado_perdido', 'churn', 'desistiu']
+const STATUS_ORDER = ['novo', 'contactado', 'qualificado', 'proposta', 'negociacao', 'fechado_ganho', 'fechado_perdido', 'churn', 'churnzinho', 'desistiu']
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
