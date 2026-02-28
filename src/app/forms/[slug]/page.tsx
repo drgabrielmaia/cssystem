@@ -17,6 +17,11 @@ interface FormField {
   placeholder?: string
   mapToLead?: string
   step?: number
+  scoring?: {
+    enabled: boolean
+    points?: number
+    optionScores?: { [key: string]: number }
+  }
 }
 
 interface FormTemplate {
@@ -29,10 +34,11 @@ interface FormTemplate {
   organization_id?: string
   leadQualification?: {
     enabled: boolean
-    scoringConfigId?: string
-    lowScoreCloserId?: string
-    highScoreCloserId?: string
-    threshold?: number
+    frioCloserId?: string
+    mornoCloserId?: string
+    quenteCloserId?: string
+    thresholdMorno?: number
+    thresholdQuente?: number
     enableCalendar?: boolean
   }
 }
@@ -119,11 +125,14 @@ export default function FormPageSafe() {
           .single()
 
         if (error) {
-          console.error('❌ Erro ao buscar template:', error)
+          console.error('Erro ao buscar template:', error)
           setTemplate(null)
         } else if (data) {
-          console.log('✅ Template carregado:', data.name)
-          setTemplate(data)
+          const mapped = {
+            ...data,
+            leadQualification: data.lead_qualification || undefined
+          }
+          setTemplate(mapped)
           createSteps(data.fields)
         } else {
           setTemplate(null)
@@ -208,22 +217,62 @@ export default function FormPageSafe() {
     }
   }
 
-  const createBookingLink = async (leadId: string) => {
+  // Calcular score baseado nos campos respondidos
+  const calculateScore = (): { score: number, temperatura: string, closerId: string | null } => {
+    if (!template?.fields || !template?.leadQualification?.enabled) {
+      return { score: 0, temperatura: 'frio', closerId: null }
+    }
+
+    let totalScore = 0
+
+    template.fields.forEach((field) => {
+      if (!field.scoring?.enabled) return
+      const value = formData[field.name]
+      if (!value) return
+
+      if (['select', 'radio'].includes(field.type) && field.scoring?.optionScores) {
+        totalScore += field.scoring.optionScores[value] || 0
+      } else if (field.type === 'checkbox' && field.scoring?.optionScores) {
+        const selected = Array.isArray(value) ? value : [value]
+        selected.forEach((opt: string) => {
+          totalScore += field.scoring?.optionScores?.[opt] || 0
+        })
+      } else if (value) {
+        totalScore += field.scoring?.points || 0
+      }
+    })
+
+    const qual = template.leadQualification!
+    const thresholdMorno = qual.thresholdMorno || 40
+    const thresholdQuente = qual.thresholdQuente || 70
+
+    let temperatura = 'frio'
+    let closerId: string | null = qual.frioCloserId || null
+
+    if (totalScore >= thresholdQuente) {
+      temperatura = 'quente'
+      closerId = qual.quenteCloserId || null
+    } else if (totalScore >= thresholdMorno) {
+      temperatura = 'morno'
+      closerId = qual.mornoCloserId || null
+    }
+
+    return { score: totalScore, temperatura, closerId }
+  }
+
+  const createBookingLink = async (leadId: string, closerId?: string | null) => {
     try {
-      console.log('📅 Criando link de agendamento para lead:', leadId)
-
-      // Gerar token único
       const token = Math.random().toString(36).substr(2) + Date.now().toString(36)
+      const nomeCompleto = formData.nome_completo || formData.nome || 'Usuario'
 
-      // Pegar nome do lead dos dados do formulário
-      const nomeCompleto = formData.nome_completo || formData.nome || 'Usuário'
-
-      const linkData = {
+      const linkData: any = {
         token_link: token,
         lead_id: leadId,
+        closer_id: closerId || null,
+        organization_id: template?.organization_id || null,
         tipo_call_permitido: 'vendas',
         titulo_personalizado: `Agendamento de Call - ${nomeCompleto}`,
-        descricao_personalizada: `Olá ${nomeCompleto}! Aqui você pode agendar nossa call comercial. Escolha o melhor horário para você.`,
+        descricao_personalizada: `Ola ${nomeCompleto}! Escolha o melhor horario para sua call.`,
         cor_tema: '#3b82f6',
         ativo: true,
         uso_unico: true,
@@ -238,19 +287,17 @@ export default function FormPageSafe() {
         .single()
 
       if (linkError) {
-        console.error('❌ Erro ao criar link de agendamento:', linkError)
-        setSubmitted(true) // Fallback para tela de sucesso normal
+        console.error('Erro ao criar link de agendamento:', linkError)
+        setSubmitted(true)
       } else {
-        console.log('✅ Link de agendamento criado:', linkCreated)
         setBookingToken(token)
-        // Redirecionar para página de agendamento após 2s
         setTimeout(() => {
           window.location.href = `/agenda/agendar/${token}`
         }, 2000)
       }
     } catch (error) {
-      console.error('💥 Erro ao criar link de agendamento:', error)
-      setSubmitted(true) // Fallback
+      console.error('Erro ao criar link de agendamento:', error)
+      setSubmitted(true)
     }
   }
 
@@ -273,90 +320,61 @@ export default function FormPageSafe() {
     try {
       console.log('📤 Enviando formulário:', formData)
 
-      // Verificar se o formulário tem qualificação de leads habilitada
+      // Verificar se o formulário tem qualificação de leads habilitada (scoring por campo)
       if (template?.leadQualification?.enabled) {
-        console.log('🎯 Formulário com qualificação habilitada')
-        
-        // Mapear dados do formulário para o formato esperado pela API de qualificação
-        const qualificationData = {
-          nome_completo: formData.nome || formData.nome_completo || formData.name || '',
-          email: formData.email || '',
-          telefone: formData.telefone || formData.phone || formData.whatsapp || '',
-          empresa: formData.empresa || formData.company || '',
-          cargo: formData.cargo || formData.position || formData.funcao || '',
-          
-          // Mapear campos de qualificação baseado no tipo de resposta
-          temperatura: formData.temperatura || 
-                      (formData.urgencia === 'Muito urgente' ? 'quente' : 
-                       formData.urgencia === 'Urgente' ? 'morno' : 
-                       formData.interesse === 'Muito interessado' ? 'quente' : 'morno'),
-          
-          nivel_interesse: formData.nivel_interesse || 
-                          (formData.interesse === 'Muito interessado' ? 3 : 
-                           formData.interesse === 'Interessado' ? 2 : 1),
-          
-          orcamento_disponivel: parseInt(formData.orcamento || formData.investimento || '0'),
-          
-          decisor_principal: formData.decisor === 'Sim' || 
-                           formData.decisor_principal === true ||
-                           formData.responsavel === 'Sim',
-          
-          dor_principal: formData.dor || formData.problema || formData.desafio || formData.observacoes || '',
-          
-          preferred_datetime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          organization_id: template.organization_id || '00000000-0000-0000-0000-000000000001'
+        const { score, temperatura, closerId } = calculateScore()
+
+        // Criar lead com score e temperatura
+        const leadData: any = {
+          origem: 'formulario',
+          status: 'novo',
+          temperatura,
+          score,
+          closer_id: closerId,
+          organization_id: template.organization_id || null,
+          data_primeiro_contato: new Date().toISOString()
         }
 
-        console.log('🧮 Dados para qualificação:', qualificationData)
-
-        // Chamar API de qualificação v2 que funciona sem problemas de schema
-        const qualificationResponse = await fetch('/api/leads/qualification-form-v2', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(qualificationData)
+        template.fields.forEach(field => {
+          const value = formData[field.name]
+          if (value && field.mapToLead && ['nome_completo', 'email', 'telefone', 'empresa', 'cargo'].includes(field.mapToLead)) {
+            leadData[field.mapToLead] = value
+          }
         })
 
-        const qualificationResult = await qualificationResponse.json()
+        const { data: lead, error: leadError } = await supabase
+          .from('leads')
+          .insert([leadData])
+          .select('id')
+          .single()
 
-        if (qualificationResult.success) {
-          console.log('✅ Qualificação processada:', qualificationResult)
-          
-          setQualificationResult(qualificationResult)
-          setLeadScore(qualificationResult.score_result)
-          setAssignedCloser(qualificationResult.assignment_result)
-
-          // Se tem agendamento automático e foi bem sucedido
-          if (qualificationResult.appointment_result?.appointment_scheduled) {
-            const token = qualificationResult.appointment_result.appointment_token
-            console.log('📅 Agendamento automático criado:', token)
-            
-            setBookingToken(token)
-            setSubmitted(true)
-            
-            // Redirecionar para agendamento após 3s
-            setTimeout(() => {
-              window.location.href = `/agenda/agendar/${token}`
-            }, 3000)
-            
-            return
-          }
-
-          // Se tem closer atribuído mas sem agendamento automático
-          if (qualificationResult.assignment_result?.closer_id && template.leadQualification.enableCalendar) {
-            // Criar link de agendamento manual
-            await createBookingLink(qualificationResult.lead_id)
-            return
-          }
-
-          // Sucesso mas sem agendamento
-          setSubmitted(true)
-          return
-        } else {
-          console.error('❌ Erro na qualificação:', qualificationResult.error)
-          // Continuar com fluxo normal como fallback
+        if (leadError) {
+          console.error('Erro ao criar lead:', leadError)
         }
+
+        const leadId = lead?.id
+
+        // Salvar submissão com score
+        await supabase.from('form_submissions').insert([{
+          template_id: template.id,
+          template_slug: slug,
+          organization_id: template.organization_id || null,
+          lead_id: leadId,
+          submission_data: formData,
+          score,
+          temperatura,
+          closer_id: closerId,
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+        }])
+
+        // Se tem agendamento habilitado e closer definido
+        if (template.leadQualification.enableCalendar && closerId && leadId) {
+          await createBookingLink(leadId, closerId)
+          return
+        }
+
+        setSubmitted(true)
+        return
       }
 
       // Para o formulário médico específico, usar o sistema antigo
@@ -493,7 +511,7 @@ export default function FormPageSafe() {
 
       // Criar link de agendamento se for formulário de lead
       if (template?.form_type === 'lead' && leadId) {
-        await createBookingLink(leadId)
+        await createBookingLink(leadId, null)
       } else {
         setSubmitted(true)
       }

@@ -47,6 +47,13 @@ interface CloserMetrics {
   leadsAtendidos: number
 }
 
+interface SalesMetrics {
+  valorVendido: number
+  valorArrecadado: number
+  comissaoTotal: number
+  totalVendas: number
+}
+
 interface DashboardMetrics {
   total_leads: number
   leads_atendidos: number
@@ -89,6 +96,7 @@ function CloserPageContent() {
   const [loading, setLoading] = useState(false)
   const [metrics, setMetrics] = useState<CloserMetrics | null>(null)
   const [dashboardMetrics, setDashboardMetrics] = useState<DashboardMetrics | null>(null)
+  const [salesMetrics, setSalesMetrics] = useState<SalesMetrics>({ valorVendido: 0, valorArrecadado: 0, comissaoTotal: 0, totalVendas: 0 })
   const [recentActivities, setRecentActivities] = useState<CloserActivity[]>([])
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [showStudyMaterials, setShowStudyMaterials] = useState(false)
@@ -100,6 +108,7 @@ function CloserPageContent() {
       loadDashboardMetrics()
       loadRecentActivities()
       loadTeamMembers()
+      loadSalesMetrics()
     }
   }, [closer, periodFilter])
 
@@ -144,6 +153,27 @@ function CloserPageContent() {
         taxaConversao: 0,
         leadsAtendidos: 0
       })
+    }
+  }
+
+  const loadSalesMetrics = async () => {
+    if (!closer) return
+    try {
+      const { data, error } = await supabase
+        .from('closers_vendas')
+        .select('valor_venda, valor_comissao, status_pagamento')
+        .eq('closer_id', closer.id)
+
+      if (!error && data) {
+        const valorVendido = data.reduce((sum: number, v: any) => sum + (Number(v.valor_venda) || 0), 0)
+        const valorArrecadado = data
+          .filter((v: any) => v.status_pagamento === 'pago')
+          .reduce((sum: number, v: any) => sum + (Number(v.valor_venda) || 0), 0)
+        const comissaoTotal = data.reduce((sum: number, v: any) => sum + (Number(v.valor_comissao) || 0), 0)
+        setSalesMetrics({ valorVendido, valorArrecadado, comissaoTotal, totalVendas: data.length })
+      }
+    } catch (error) {
+      console.error('Error loading sales metrics:', error)
     }
   }
 
@@ -461,7 +491,7 @@ function CloserPageContent() {
           </div>
 
           {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-5">
             {/* Leads Contatados */}
             <div className="bg-[#1A1A1A] rounded-2xl p-6">
               <p className="text-[#71717A] text-sm mb-2">Leads Contatados</p>
@@ -469,7 +499,7 @@ function CloserPageContent() {
               <div className="flex items-center gap-1 text-sm">
                 <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
                 <span className="text-[#4ADE80]">
-                  {dashboardMetrics?.total_leads ? 
+                  {dashboardMetrics?.total_leads ?
                     ((dashboardMetrics.leads_atendidos / dashboardMetrics.total_leads) * 100).toFixed(1) : '0.0'
                   }%
                 </span>
@@ -477,9 +507,9 @@ function CloserPageContent() {
               </div>
             </div>
 
-            {/* Taxa de Conversão */}
+            {/* Taxa de Conversao */}
             <div className="bg-[#1A1A1A] rounded-2xl p-6">
-              <p className="text-[#71717A] text-sm mb-2">Taxa de Conversão</p>
+              <p className="text-[#71717A] text-sm mb-2">Taxa de Conversao</p>
               <p className="text-white text-3xl font-bold mb-2">{dashboardMetrics?.taxa_conversao?.toFixed(1) || '0.0'}%</p>
               <div className="flex items-center gap-1 text-sm">
                 <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
@@ -490,9 +520,9 @@ function CloserPageContent() {
               </div>
             </div>
 
-            {/* Reuniões Agendadas */}
+            {/* Reunioes Agendadas */}
             <div className="bg-[#1A1A1A] rounded-2xl p-6">
-              <p className="text-[#71717A] text-sm mb-2">Reuniões Agendadas</p>
+              <p className="text-[#71717A] text-sm mb-2">Reunioes Agendadas</p>
               <p className="text-white text-3xl font-bold mb-2">{dashboardMetrics?.reunioes_agendadas || 0}</p>
               <div className="flex items-center gap-1 text-sm">
                 <ArrowUp className="h-4 w-4 text-[#4ADE80]" />
@@ -515,6 +545,62 @@ function CloserPageContent() {
                   R$ {dashboardMetrics?.valor_potencial_total?.toLocaleString('pt-BR') || '0'}
                 </span>
                 <span className="text-[#71717A]">potencial</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Sales KPI Cards - Valor Vendido, Arrecadado, Comissao */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+            {/* Valor Vendido */}
+            <div className="bg-[#1A1A1A] rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="h-4 w-4 text-[#4ADE80]" />
+                <p className="text-[#71717A] text-sm">Valor Vendido</p>
+              </div>
+              <p className="text-white text-3xl font-bold mb-2">
+                R$ {salesMetrics.valorVendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+              <div className="flex items-center gap-1 text-sm">
+                <span className="text-[#4ADE80]">{salesMetrics.totalVendas} vendas</span>
+                <span className="text-[#71717A]">realizadas</span>
+              </div>
+            </div>
+
+            {/* Valor Arrecadado */}
+            <div className="bg-[#1A1A1A] rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="h-4 w-4 text-[#4ADE80]" />
+                <p className="text-[#71717A] text-sm">Valor Arrecadado</p>
+              </div>
+              <p className="text-white text-3xl font-bold mb-2">
+                R$ {salesMetrics.valorArrecadado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+              <div className="flex items-center gap-1 text-sm">
+                <span className="text-[#4ADE80]">
+                  {salesMetrics.valorVendido > 0
+                    ? ((salesMetrics.valorArrecadado / salesMetrics.valorVendido) * 100).toFixed(0)
+                    : '0'}%
+                </span>
+                <span className="text-[#71717A]">do valor vendido</span>
+              </div>
+            </div>
+
+            {/* Comissao */}
+            <div className="bg-[#1A1A1A] rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Award className="h-4 w-4 text-[#FACC15]" />
+                <p className="text-[#71717A] text-sm">Comissao</p>
+              </div>
+              <p className="text-[#FACC15] text-3xl font-bold mb-2">
+                R$ {salesMetrics.comissaoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+              <div className="flex items-center gap-1 text-sm">
+                <span className="text-[#FACC15]">
+                  {salesMetrics.valorVendido > 0
+                    ? ((salesMetrics.comissaoTotal / salesMetrics.valorVendido) * 100).toFixed(1)
+                    : '0'}%
+                </span>
+                <span className="text-[#71717A]">do valor vendido</span>
               </div>
             </div>
           </div>

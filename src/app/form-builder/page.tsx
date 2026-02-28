@@ -95,13 +95,13 @@ interface FormTemplate {
   slug: string
   form_type: 'lead' | 'nps' | 'survey' | 'feedback' | 'other'
   fields: FormField[]
-  // Lead qualification settings
   leadQualification?: {
     enabled: boolean
-    scoringConfigId?: string
-    lowScoreCloserId?: string
-    highScoreCloserId?: string
-    threshold?: number
+    frioCloserId?: string
+    mornoCloserId?: string
+    quenteCloserId?: string
+    thresholdMorno?: number
+    thresholdQuente?: number
     enableCalendar?: boolean
   }
   style?: FormStyle
@@ -142,9 +142,7 @@ export default function FormBuilderPage() {
   const [showEditor, setShowEditor] = useState(false)
   const [loading, setLoading] = useState(true)
   const [editingField, setEditingField] = useState<FormField | null>(null)
-  const [scoringConfigs, setScoringConfigs] = useState<any[]>([])
   const [closers, setClosers] = useState<any[]>([])
-  const [showScoringSettings, setShowScoringSettings] = useState(false)
   const [activeTab, setActiveTab] = useState('fields')
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop')
 
@@ -188,7 +186,6 @@ export default function FormBuilderPage() {
   useEffect(() => {
     if (organization?.id) {
       fetchTemplates()
-      fetchScoringConfigs()
       fetchClosers()
     }
   }, [organization?.id])
@@ -213,18 +210,6 @@ export default function FormBuilderPage() {
       console.error('Erro:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchScoringConfigs = async () => {
-    if (!organization?.id) return
-    
-    try {
-      const response = await fetch(`/api/scoring-configs?organization_id=${organization.id}`)
-      const data = await response.json()
-      setScoringConfigs(data || [])
-    } catch (error) {
-      console.error('Erro ao buscar configs de scoring:', error)
     }
   }
 
@@ -324,9 +309,15 @@ export default function FormBuilderPage() {
 
       // Usar o slug definido pelo usuário ou gerar automaticamente se vazio
       const slug = currentTemplate.slug?.trim() || generateSlug(currentTemplate.name)
+      const { leadQualification, ...rest } = currentTemplate
       const templateData = {
-        ...currentTemplate,
+        name: rest.name,
+        description: rest.description,
         slug,
+        form_type: rest.form_type,
+        fields: rest.fields,
+        style: rest.style,
+        lead_qualification: leadQualification || null,
         organization_id: organization.id,
         updated_at: new Date().toISOString()
       }
@@ -376,9 +367,15 @@ export default function FormBuilderPage() {
     setActiveTab('fields')
   }
 
-  const editTemplate = (template: FormTemplate) => {
+  const editTemplate = (template: any) => {
     setCurrentTemplate({
-      ...template,
+      id: template.id,
+      name: template.name,
+      description: template.description,
+      slug: template.slug,
+      form_type: template.form_type,
+      fields: template.fields || [],
+      leadQualification: template.lead_qualification || undefined,
       style: template.style || defaultStyle
     })
     setShowEditor(true)
@@ -1115,19 +1112,19 @@ export default function FormBuilderPage() {
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                        🎯 Qualificação de Leads
+                        Qualificacao de Leads
                       </CardTitle>
                       <CardDescription>
-                        Configure pontuação automática e direcionamento para closers baseado no score
+                        Configure pontuacao por pergunta e direcione automaticamente para closers
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                       {/* Enable Lead Qualification */}
                       <div className="flex items-center justify-between">
                         <div>
-                          <Label className="text-base font-medium">Ativar Qualificação de Leads</Label>
+                          <Label className="text-base font-medium">Ativar Qualificacao de Leads</Label>
                           <p className="text-sm text-gray-500 mt-1">
-                            Calcular pontuação e direcionar automaticamente para closers
+                            Calcular pontuacao e direcionar automaticamente para closers
                           </p>
                         </div>
                         <input
@@ -1138,8 +1135,9 @@ export default function FormBuilderPage() {
                             leadQualification: {
                               ...prev.leadQualification,
                               enabled: e.target.checked,
-                              threshold: prev.leadQualification?.threshold || 70,
-                              enableCalendar: prev.leadQualification?.enableCalendar || true
+                              thresholdMorno: prev.leadQualification?.thresholdMorno || 40,
+                              thresholdQuente: prev.leadQualification?.thresholdQuente || 70,
+                              enableCalendar: prev.leadQualification?.enableCalendar ?? true
                             }
                           }))}
                           className="w-5 h-5"
@@ -1148,142 +1146,154 @@ export default function FormBuilderPage() {
 
                       {currentTemplate.leadQualification?.enabled && (
                         <>
-                          {/* Scoring Configuration */}
-                          <div className="space-y-3">
-                            <Label>Configuração de Pontuação</Label>
-                            <Select
-                              value={currentTemplate.leadQualification?.scoringConfigId || ''}
-                              onValueChange={(value) => setCurrentTemplate(prev => ({
-                                ...prev,
-                                leadQualification: {
-                                  ...prev.leadQualification!,
-                                  scoringConfigId: value
+                          {/* Max Score Summary */}
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h4 className="font-medium text-blue-800 mb-2">Pontuacao Maxima dos Campos</h4>
+                            {(() => {
+                              const scoredFields = currentTemplate.fields.filter(f => f.scoring?.enabled)
+                              const maxScore = scoredFields.reduce((total, f) => {
+                                if (['select', 'radio', 'checkbox'].includes(f.type) && f.scoring?.optionScores) {
+                                  const maxOpt = Math.max(...Object.values(f.scoring.optionScores), 0)
+                                  return total + maxOpt
                                 }
-                              }))}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione uma configuração de pontuação" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {scoringConfigs.map((config) => (
-                                  <SelectItem key={config.id} value={config.id}>
-                                    {config.name} (Max: {
-                                      config.telefone_score + config.email_score + 
-                                      config.empresa_score + config.cargo_score +
-                                      config.temperatura_quente_score + config.nivel_interesse_alto_score +
-                                      config.orcamento_disponivel_score + config.decisor_principal_score +
-                                      config.dor_principal_score
-                                    } pts)
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {scoringConfigs.length === 0 && (
-                              <p className="text-sm text-amber-600">
-                                ⚠️ Nenhuma configuração de pontuação encontrada. Crie uma primeiro.
-                              </p>
+                                return total + (f.scoring?.points || 0)
+                              }, 0)
+                              return (
+                                <div>
+                                  <p className="text-2xl font-bold text-blue-700">{maxScore} pts</p>
+                                  <p className="text-xs text-blue-600 mt-1">
+                                    {scoredFields.length} campo(s) com pontuacao ativa de {currentTemplate.fields.length} total
+                                  </p>
+                                  {scoredFields.length === 0 && (
+                                    <p className="text-sm text-amber-600 mt-2">
+                                      Ative a pontuacao nos campos (aba Campos {'>'} Sistema de Pontuacao)
+                                    </p>
+                                  )}
+                                </div>
+                              )
+                            })()}
+                          </div>
+
+                          {/* Score Thresholds */}
+                          <div className="space-y-3">
+                            <Label className="text-base font-medium">Limites de Temperatura</Label>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label className="text-sm text-yellow-700">Limite Morno (de...)</Label>
+                                <Input
+                                  type="number"
+                                  value={currentTemplate.leadQualification?.thresholdMorno || 40}
+                                  onChange={(e) => setCurrentTemplate(prev => ({
+                                    ...prev,
+                                    leadQualification: {
+                                      ...prev.leadQualification!,
+                                      thresholdMorno: Number(e.target.value)
+                                    }
+                                  }))}
+                                  min="0"
+                                  max="100"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-sm text-green-700">Limite Quente (de...)</Label>
+                                <Input
+                                  type="number"
+                                  value={currentTemplate.leadQualification?.thresholdQuente || 70}
+                                  onChange={(e) => setCurrentTemplate(prev => ({
+                                    ...prev,
+                                    leadQualification: {
+                                      ...prev.leadQualification!,
+                                      thresholdQuente: Number(e.target.value)
+                                    }
+                                  }))}
+                                  min="0"
+                                  max="100"
+                                />
+                              </div>
+                            </div>
+                            <div className="text-xs space-y-1 bg-gray-50 p-3 rounded-lg">
+                              <div className="text-blue-600">Frio: 0 - {(currentTemplate.leadQualification?.thresholdMorno || 40) - 1} pts</div>
+                              <div className="text-yellow-600">Morno: {currentTemplate.leadQualification?.thresholdMorno || 40} - {(currentTemplate.leadQualification?.thresholdQuente || 70) - 1} pts</div>
+                              <div className="text-green-600">Quente: {currentTemplate.leadQualification?.thresholdQuente || 70}+ pts</div>
+                            </div>
+                          </div>
+
+                          {/* 3 Closer Assignment */}
+                          <div className="space-y-4">
+                            <Label className="text-base font-medium">Closer por Temperatura</Label>
+
+                            <div className="space-y-3">
+                              <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/50">
+                                <Label className="text-sm text-blue-700 mb-1 block">Closer para Lead FRIO</Label>
+                                <Select
+                                  value={currentTemplate.leadQualification?.frioCloserId || ''}
+                                  onValueChange={(value) => setCurrentTemplate(prev => ({
+                                    ...prev,
+                                    leadQualification: { ...prev.leadQualification!, frioCloserId: value }
+                                  }))}
+                                >
+                                  <SelectTrigger><SelectValue placeholder="Selecione o closer para leads frios" /></SelectTrigger>
+                                  <SelectContent>
+                                    {closers.map((c) => (
+                                      <SelectItem key={c.id} value={c.id}>{c.nome_completo}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="border border-yellow-200 rounded-lg p-3 bg-yellow-50/50">
+                                <Label className="text-sm text-yellow-700 mb-1 block">Closer para Lead MORNO</Label>
+                                <Select
+                                  value={currentTemplate.leadQualification?.mornoCloserId || ''}
+                                  onValueChange={(value) => setCurrentTemplate(prev => ({
+                                    ...prev,
+                                    leadQualification: { ...prev.leadQualification!, mornoCloserId: value }
+                                  }))}
+                                >
+                                  <SelectTrigger><SelectValue placeholder="Selecione o closer para leads mornos" /></SelectTrigger>
+                                  <SelectContent>
+                                    {closers.map((c) => (
+                                      <SelectItem key={c.id} value={c.id}>{c.nome_completo}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="border border-green-200 rounded-lg p-3 bg-green-50/50">
+                                <Label className="text-sm text-green-700 mb-1 block">Closer para Lead QUENTE</Label>
+                                <Select
+                                  value={currentTemplate.leadQualification?.quenteCloserId || ''}
+                                  onValueChange={(value) => setCurrentTemplate(prev => ({
+                                    ...prev,
+                                    leadQualification: { ...prev.leadQualification!, quenteCloserId: value }
+                                  }))}
+                                >
+                                  <SelectTrigger><SelectValue placeholder="Selecione o closer para leads quentes" /></SelectTrigger>
+                                  <SelectContent>
+                                    {closers.map((c) => (
+                                      <SelectItem key={c.id} value={c.id}>{c.nome_completo}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+
+                            {closers.length === 0 && (
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <p className="text-sm text-red-700">
+                                  Nenhum closer encontrado! Configure closers no sistema primeiro.
+                                </p>
+                              </div>
                             )}
                           </div>
-
-                          {/* Score Threshold */}
-                          <div className="space-y-3">
-                            <Label>Limite de Score Alto</Label>
-                            <div className="flex items-center gap-4">
-                              <Input
-                                type="number"
-                                value={currentTemplate.leadQualification?.threshold || 70}
-                                onChange={(e) => setCurrentTemplate(prev => ({
-                                  ...prev,
-                                  leadQualification: {
-                                    ...prev.leadQualification!,
-                                    threshold: Number(e.target.value)
-                                  }
-                                }))}
-                                className="w-24"
-                                min="0"
-                                max="200"
-                              />
-                              <span className="text-sm text-gray-600">pontos</span>
-                            </div>
-                            <p className="text-xs text-gray-500">
-                              Score ≥ {currentTemplate.leadQualification?.threshold || 70}: Gabriel Maia (QUENTE) | 
-                              Score &lt; {currentTemplate.leadQualification?.threshold || 70}: Paulo Guimarães (FRIO/MORNO)
-                            </p>
-                            <div className="mt-2 text-xs space-y-1">
-                              <div className="text-red-600">🔥 Frio: &lt; 50 pontos</div>
-                              <div className="text-yellow-600">🔶 Morno: 50-70 pontos</div>
-                              <div className="text-green-600">🔥 Quente: 70+ pontos</div>
-                            </div>
-                          </div>
-
-                          {/* Closer Assignment */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-3">
-                              <Label className="text-orange-700">Paulo Guimarães (Frio/Morno: &lt;70)</Label>
-                              <Select
-                                value={currentTemplate.leadQualification?.lowScoreCloserId || ''}
-                                onValueChange={(value) => setCurrentTemplate(prev => ({
-                                  ...prev,
-                                  leadQualification: {
-                                    ...prev.leadQualification!,
-                                    lowScoreCloserId: value
-                                  }
-                                }))}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione Paulo Guimarães para leads frios/mornos" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {closers.map((closer) => (
-                                    <SelectItem key={closer.id} value={closer.id}>
-                                      {closer.nome_completo}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <div className="space-y-3">
-                              <Label className="text-green-700">Gabriel Maia (Quente: 70+)</Label>
-                              <Select
-                                value={currentTemplate.leadQualification?.highScoreCloserId || ''}
-                                onValueChange={(value) => setCurrentTemplate(prev => ({
-                                  ...prev,
-                                  leadQualification: {
-                                    ...prev.leadQualification!,
-                                    highScoreCloserId: value
-                                  }
-                                }))}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione Gabriel Maia para leads quentes" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {closers.map((closer) => (
-                                    <SelectItem key={closer.id} value={closer.id}>
-                                      {closer.nome_completo}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-
-                          {closers.length === 0 && (
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                              <p className="text-sm text-red-700">
-                                ⚠️ Nenhum closer encontrado! Configure closers no sistema primeiro.
-                              </p>
-                            </div>
-                          )}
 
                           {/* Calendar Integration */}
                           <div className="space-y-3">
                             <div className="flex items-center justify-between">
                               <div>
-                                <Label className="text-base font-medium">Agendamento Automático</Label>
+                                <Label className="text-base font-medium">Agendamento Automatico</Label>
                                 <p className="text-sm text-gray-500 mt-1">
-                                  Mostrar agenda do closer no final do formulário para agendamento direto
+                                  Redirecionar para agenda do closer apos o formulario
                                 </p>
                               </div>
                               <input
@@ -1301,39 +1311,13 @@ export default function FormBuilderPage() {
                             </div>
 
                             {currentTemplate.leadQualification?.enableCalendar && (
-                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <p className="text-sm text-blue-700">
-                                  ✅ <strong>Fluxo Ativado:</strong> Após responder todas as perguntas, o lead verá:
+                              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <p className="text-sm text-green-700">
+                                  <strong>Fluxo:</strong> Lead responde {'>'} Score calculado {'>'} Redireciona para agenda do closer
                                 </p>
-                                <ul className="list-disc list-inside text-sm text-blue-600 mt-2 space-y-1">
-                                  <li>Score calculado automaticamente</li>
-                                  <li>Agenda do closer correspondente</li>
-                                  <li>Agendamento direto sem sair do formulário</li>
-                                  <li>Lead criado e atribuído automaticamente</li>
-                                </ul>
                               </div>
                             )}
                           </div>
-
-                          {/* Scoring Preview */}
-                          {currentTemplate.leadQualification?.scoringConfigId && (
-                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                              <h4 className="font-medium text-gray-700 mb-3">📊 Configuração de Pontuação Ativa:</h4>
-                              {(() => {
-                                const config = scoringConfigs.find(c => c.id === currentTemplate.leadQualification?.scoringConfigId)
-                                return config ? (
-                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                                    <div>📞 Telefone: +{config.telefone_score}</div>
-                                    <div>📧 Email: +{config.email_score}</div>
-                                    <div>🏢 Empresa: +{config.empresa_score}</div>
-                                    <div>👔 Cargo: +{config.cargo_score}</div>
-                                    <div>🔥 Quente: +{config.temperatura_quente_score}</div>
-                                    <div>📈 Interest Alto: +{config.nivel_interesse_alto_score}</div>
-                                  </div>
-                                ) : null
-                              })()}
-                            </div>
-                          )}
                         </>
                       )}
                     </CardContent>
