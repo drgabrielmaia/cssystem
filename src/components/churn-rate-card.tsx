@@ -108,11 +108,9 @@ export function ChurnRateCard() {
         .select('id, nome_completo, motivo_exclusao, data_entrada, data_exclusao, excluido')
         .eq('organization_id', organizationId)
         .eq('excluido', true)
-        .eq('motivo_exclusao', 'reembolso')
 
-      // Aplicar filtro de data apenas para o churn se necessário
-      if (dateRange && timeFilter !== 'ano_atual') {
-        // Filtrar por data_exclusao para churns no período
+      // Aplicar filtro de data para churns no periodo selecionado
+      if (dateRange) {
         churnQuery = churnQuery
           .gte('data_exclusao', dateRange.start)
           .lte('data_exclusao', dateRange.end)
@@ -123,8 +121,8 @@ export function ChurnRateCard() {
       if (churnError) throw churnError
 
       const totalMentorias = todosMentorados?.length || 0
-      const churnPorReembolso = churnedMentorados?.length || 0
-      const taxaChurn = totalMentorias > 0 ? (churnPorReembolso / totalMentorias) * 100 : 0
+      const totalChurned = churnedMentorados?.length || 0
+      const taxaChurn = totalMentorias > 0 ? (totalChurned / totalMentorias) * 100 : 0
 
       let status: 'excelente' | 'aceitavel' | 'grave'
       if (taxaChurn <= 5) {
@@ -137,7 +135,7 @@ export function ChurnRateCard() {
 
       setStats({
         totalMentorias,
-        desistencias: churnPorReembolso,
+        desistencias: totalChurned,
         taxaChurn,
         status,
         churnedMentorados: churnedMentorados || []
@@ -223,7 +221,7 @@ export function ChurnRateCard() {
             </select>
           </div>
           <CardDescription>
-            Mentorados que saíram por reembolso (não inclui exclusões por erro)
+            Mentorados que sairam da mentoria (todos os motivos)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -265,7 +263,7 @@ export function ChurnRateCard() {
                   <span className="font-medium">{stats.totalMentorias}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Reembolsos (churn):</span>
+                  <span>Desistencias (churn):</span>
                   <button
                     onClick={() => setShowChurnedModal(true)}
                     className={`font-medium text-red-600 ${stats.desistencias > 0 ? 'hover:underline cursor-pointer' : ''}`}
@@ -299,7 +297,7 @@ export function ChurnRateCard() {
 
             <div className="mb-4">
               <p className="text-sm text-muted-foreground">
-                {stats.churnedMentorados?.length || 0} mentorado(s) saíram por reembolso no período selecionado
+                {stats.churnedMentorados?.length || 0} mentorado(s) sairam no periodo selecionado
               </p>
             </div>
 

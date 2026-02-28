@@ -33,7 +33,8 @@ import {
   Building2,
   Trophy,
   PieChart,
-  FileText
+  FileText,
+  Award
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -74,6 +75,7 @@ const modules = [
     items: [
       { name: 'Mentorados', href: '/lista-mentorados', icon: Users, description: 'Gerenciar pessoas' },
       { name: 'Closers/SDRs', href: '/admin/closers', icon: Target, description: 'Gerenciar closers e SDRs' },
+      { name: 'Niveis de Closers', href: '/admin/closer-levels', icon: Award, description: 'Configurar niveis e metas' },
       { name: 'Onboarding', href: '/onboarding', icon: Brain, description: 'Mapa mental de metas' },
     ]
   },
@@ -105,7 +107,6 @@ const modules = [
       { name: 'Dashboard', href: '/financeiro/dashboard', icon: BarChart3, description: 'Visão geral financeira' },
       { name: 'Análise Avançada', href: '/financeiro/analise', icon: TrendingUp, description: 'Gráficos e relatórios detalhados' },
       { name: 'Comissões', href: '/comissoes', icon: DollarSign, description: 'Gestão de comissões' },
-      { name: 'Comissões Terceiros', href: '/admin/comissoes-terceiros', icon: UserPlus, description: 'Comissões para usuários terceirizados' },
       { name: 'Pendências', href: '/pendencias', icon: Clock, description: 'Contas e pendências' },
       { name: 'Gestão de Usuários', href: '/financeiro/usuarios', icon: Shield, description: 'Gerenciar acessos do financeiro' },
     ]

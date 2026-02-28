@@ -245,8 +245,139 @@ export const generateCommissionPaymentList = (
   // Generate filename
   const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-')
   const filename = `lista-pagamentos-${timestamp}.pdf`
-  
+
   doc.save(filename)
-  
+
+  return filename
+}
+
+// ==============================
+// Unified All Commissions PDF
+// ==============================
+
+interface UnifiedCommissionItem {
+  nome: string
+  pix_key: string
+  valor: number
+  tipo: 'mentorado' | 'terceiro'
+  descricao?: string
+}
+
+export const generateAllCommissionsPaymentPDF = (
+  items: UnifiedCommissionItem[],
+  organizationName?: string
+) => {
+  if (items.length === 0) return null
+
+  const doc = new jsPDF()
+  const now = new Date()
+
+  // Header
+  doc.setFontSize(20)
+  doc.setTextColor(30, 58, 138) // Dark blue
+  doc.text('Lista de Pagamentos - Todas as Comissoes', 20, 20)
+
+  // Organization info
+  if (organizationName) {
+    doc.setFontSize(12)
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Organizacao: ${organizationName}`, 20, 30)
+  }
+
+  // Date
+  doc.setFontSize(10)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Gerado em: ${now.toLocaleDateString('pt-BR')} as ${now.toLocaleTimeString('pt-BR')}`, 20, 38)
+
+  // Summary
+  const mentoradoItems = items.filter(i => i.tipo === 'mentorado')
+  const terceiroItems = items.filter(i => i.tipo === 'terceiro')
+  const totalGeral = items.reduce((sum, i) => sum + i.valor, 0)
+  const totalMentorados = mentoradoItems.reduce((sum, i) => sum + i.valor, 0)
+  const totalTerceiros = terceiroItems.reduce((sum, i) => sum + i.valor, 0)
+
+  doc.setFontSize(12)
+  doc.setTextColor(0, 0, 0)
+  doc.text('Resumo:', 20, 50)
+
+  doc.setFontSize(10)
+  doc.text(`Total geral a pagar: R$ ${totalGeral.toFixed(2)}`, 20, 58)
+  doc.text(`Mentorados: ${mentoradoItems.length} comissoes - R$ ${totalMentorados.toFixed(2)}`, 20, 64)
+  doc.text(`Terceiros: ${terceiroItems.length} comissoes - R$ ${totalTerceiros.toFixed(2)}`, 20, 70)
+
+  // Table data
+  const tableData = items.map((item, index) => [
+    (index + 1).toString(),
+    item.nome,
+    item.pix_key || '-',
+    `R$ ${item.valor.toFixed(2)}`,
+    item.tipo === 'mentorado' ? 'Mentorado' : 'Terceiro',
+    item.descricao || '-'
+  ])
+
+  doc.autoTable({
+    head: [['#', 'Beneficiario', 'Chave PIX', 'Valor', 'Tipo', 'Descricao']],
+    body: tableData,
+    startY: 80,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [30, 58, 138],
+      textColor: 255,
+      fontSize: 10,
+      fontStyle: 'bold'
+    },
+    bodyStyles: {
+      fontSize: 9,
+      textColor: 50
+    },
+    alternateRowStyles: {
+      fillColor: [245, 245, 245]
+    },
+    columnStyles: {
+      0: { cellWidth: 10 },
+      1: { cellWidth: 35 },
+      2: { cellWidth: 40 },
+      3: { cellWidth: 25 },
+      4: { cellWidth: 25 },
+      5: { cellWidth: 40 },
+    },
+    didParseCell: function(data: any) {
+      if (data.column.index === 4) {
+        const tipo = data.cell.raw
+        if (tipo === 'Mentorado') {
+          data.cell.styles.textColor = [30, 58, 138]
+        } else if (tipo === 'Terceiro') {
+          data.cell.styles.textColor = [212, 175, 55]
+        }
+      }
+    }
+  })
+
+  // Total row
+  const finalY = (doc as any).lastAutoTable.finalY || 200
+  doc.setFontSize(14)
+  doc.setTextColor(220, 20, 60)
+  doc.text(`TOTAL A PAGAR: R$ ${totalGeral.toFixed(2)}`, 20, finalY + 15)
+
+  // Footer
+  const pageCount = doc.internal.pages.length - 1
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    doc.setFontSize(8)
+    doc.setTextColor(100, 100, 100)
+    doc.text(
+      `Pagina ${i} de ${pageCount} - Lista de Pagamentos`,
+      doc.internal.pageSize.width / 2,
+      doc.internal.pageSize.height - 10,
+      { align: 'center' }
+    )
+  }
+
+  // Generate filename
+  const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-')
+  const filename = `lista-pagamentos-geral-${timestamp}.pdf`
+
+  doc.save(filename)
+
   return filename
 }

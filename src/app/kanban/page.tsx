@@ -91,6 +91,10 @@ export default function KanbanPage() {
   const [organizationMembers, setOrganizationMembers] = useState<{email: string; role: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [showAllTasks, setShowAllTasks] = useState(true)
+
+  const isAdmin = userRole === 'owner' || userRole === 'manager'
   const [showNewTaskModal, setShowNewTaskModal] = useState(false)
   const [showNewBoardModal, setShowNewBoardModal] = useState(false)
   const [newTaskColumnId, setNewTaskColumnId] = useState<string>('')
@@ -142,8 +146,34 @@ export default function KanbanPage() {
     if (organizationId) {
       loadBoards()
       loadOrganizationMembers()
+      loadUserRole()
     }
   }, [organizationId])
+
+  const loadUserRole = async () => {
+    if (!user?.email || !organizationId) return
+    try {
+      const { data, error } = await supabase
+        .from('organization_users')
+        .select('role')
+        .eq('organization_id', organizationId)
+        .eq('email', user.email)
+        .eq('is_active', true)
+        .single()
+
+      if (error) {
+        console.error('Error loading user role:', error)
+        return
+      }
+      setUserRole(data?.role || null)
+      // Non-admin users default to seeing only their own tasks
+      if (data?.role !== 'owner' && data?.role !== 'manager') {
+        setShowAllTasks(false)
+      }
+    } catch (error) {
+      console.error('Error loading user role:', error)
+    }
+  }
 
   // Close task menu when clicking outside
   useEffect(() => {
@@ -459,8 +489,16 @@ export default function KanbanPage() {
   const getTasksByColumn = (columnId: string) => {
     return tasks
       .filter(task => task.column_id === columnId)
-      .filter(task => 
-        !searchTerm || 
+      .filter(task => {
+        // Non-admin users only see tasks assigned to them (unless toggle is somehow on)
+        // Admins see all tasks when showAllTasks is true, otherwise only their own
+        if (!showAllTasks && user?.email) {
+          return task.assigned_to_email === user.email || task.created_by_email === user.email
+        }
+        return true
+      })
+      .filter(task =>
+        !searchTerm ||
         task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         task.assigned_to_email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -517,6 +555,28 @@ export default function KanbanPage() {
         </div>
         
         <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button
+              variant={showAllTasks ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowAllTasks(!showAllTasks)}
+              className={showAllTasks
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white'}
+            >
+              {showAllTasks ? (
+                <>
+                  <Users className="h-4 w-4 mr-2" />
+                  Todas as Tarefas
+                </>
+              ) : (
+                <>
+                  <User className="h-4 w-4 mr-2" />
+                  Minhas Tarefas
+                </>
+              )}
+            </Button>
+          )}
           <Dialog open={showNewBoardModal} onOpenChange={setShowNewBoardModal}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">

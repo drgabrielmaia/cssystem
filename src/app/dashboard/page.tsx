@@ -1,15 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Navbar } from '@/components/dashboard/Navbar'
 import { Sidebar } from '@/components/dashboard/Sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Building2, Crown, Shield, User2, Users, Loader2, DollarSign, Target, RefreshCw, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { Building2, Crown, Shield, User2, Loader2, DollarSign, Target, RefreshCw, AlertCircle, Eye, EyeOff, Calendar } from 'lucide-react'
 import { useOrganizationFilter } from '@/hooks/use-organization-filter'
-import { useOptimizedDashboard } from '@/hooks/use-optimized-dashboard'
+import { useOptimizedDashboard, DateFilter } from '@/hooks/use-optimized-dashboard'
 import { OptimizedLoadingCard } from '@/components/dashboard/OptimizedLoadingCard'
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
 
+
+const DATE_FILTER_OPTIONS: { value: DateFilter; label: string }[] = [
+  { value: 'today', label: 'Hoje' },
+  { value: 'week', label: 'Semana' },
+  { value: 'month', label: 'Mês' },
+  { value: 'quarter', label: 'Trimestre' },
+  { value: 'semester', label: 'Semestre' },
+  { value: 'year', label: 'Ano' },
+  { value: 'custom', label: 'Personalizado' },
+]
 
 export default function DashboardPage() {
   const {
@@ -23,13 +34,21 @@ export default function DashboardPage() {
     isReady
   } = useOrganizationFilter()
 
+  const [dateFilter, setDateFilter] = useState<DateFilter>('month')
+  const [customStartDate, setCustomStartDate] = useState<string>('')
+  const [customEndDate, setCustomEndDate] = useState<string>('')
+
+  const customStart = useMemo(() => customStartDate ? new Date(customStartDate) : undefined, [customStartDate])
+  const customEnd = useMemo(() => customEndDate ? new Date(customEndDate) : undefined, [customEndDate])
+
   const {
     metrics,
+    evolution,
     loading: metricsLoading,
     error: metricsError,
     refetch,
     isStale
-  } = useOptimizedDashboard(activeOrganizationId, isReady)
+  } = useOptimizedDashboard(activeOrganizationId, isReady, dateFilter, customStart, customEnd)
 
   const [showValues, setShowValues] = useState(false)
 
@@ -51,6 +70,9 @@ export default function DashboardPage() {
     taxa_conversao_calls: 0
   }
 
+  const arrecadacaoPercentage = salesMetrics.valor_vendido > 0
+    ? (salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100
+    : 0
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -77,6 +99,33 @@ export default function DashboardPage() {
     }
   }
 
+  // Revenue ruler color logic based on new thresholds
+  const getRevenueBarColor = (percentage: number): string => {
+    if (percentage <= 20) return 'bg-gradient-to-r from-red-500 to-red-600'
+    if (percentage <= 40) return 'bg-gradient-to-r from-orange-500 to-orange-600'
+    if (percentage <= 60) return 'bg-gradient-to-r from-blue-500 to-blue-600'
+    if (percentage <= 70) return 'bg-gradient-to-r from-yellow-400 to-green-400'
+    return 'bg-gradient-to-r from-green-500 to-green-600'
+  }
+
+  // Custom tooltip for the evolution chart
+  const EvolutionTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-gray-900 text-white p-3 rounded-lg shadow-xl border border-gray-700 text-sm">
+          <p className="font-bold mb-2">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} style={{ color: entry.color }} className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: entry.color }}></span>
+              {entry.name}: {entry.name.includes('Taxa') ? `${entry.value}%` : entry.name === 'Volume Calls' ? entry.value : formatCurrency(entry.value)}
+            </p>
+          ))}
+        </div>
+      )
+    }
+    return null
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar */}
@@ -91,10 +140,55 @@ export default function DashboardPage() {
           <div className="max-w-7xl mx-auto space-y-8">
             {/* Welcome Section */}
             <div className="bg-card p-8 rounded-2xl border">
-              <h1 className="text-2xl font-semibold text-foreground mb-4">Dashboard do Customer Success</h1>
+              <div className="flex items-center justify-between mb-4">
+                <h1 className="text-2xl font-semibold text-foreground">Dashboard do Customer Success</h1>
+              </div>
               <p className="text-muted-foreground mb-6">
                 Bem-vindo ao sistema de Customer Success. Use o menu lateral para navegar pelas funcionalidades.
               </p>
+
+              {/* Date Filter Buttons */}
+              <div className="flex flex-wrap items-center gap-2 mb-6">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground mr-1">Filtro:</span>
+                {DATE_FILTER_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setDateFilter(option.value)}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                      dateFilter === option.value
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom date inputs */}
+              {dateFilter === 'custom' && (
+                <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-muted/50 rounded-lg border">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-muted-foreground">De:</label>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="px-3 py-1.5 text-sm border rounded-lg bg-background text-foreground"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-muted-foreground">Até:</label>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="px-3 py-1.5 text-sm border rounded-lg bg-background text-foreground"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Organization Info */}
               {loading ? (
@@ -169,55 +263,9 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Quick Stats - Only show when organization is ready */}
+            {/* Faturamento Card - Full Width Hero */}
             {isReady && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Dados filtrados por</p>
-                        <p className="text-2xl font-bold text-foreground">Organização</p>
-                      </div>
-                      <Building2 className="w-8 h-8 text-blue-500" />
-                    </div>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Todos os dados são filtrados pela organização ativa
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Seu acesso</p>
-                        <p className="text-2xl font-bold text-foreground capitalize">{userRole}</p>
-                      </div>
-                      {userRole && getRoleIcon(userRole)}
-                    </div>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      {canManage ? 'Pode criar e editar' : 'Apenas visualização'}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Multi-tenant</p>
-                        <p className="text-2xl font-bold text-foreground">Ativo</p>
-                      </div>
-                      <Users className="w-8 h-8 text-green-500" />
-                    </div>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Sistema isolado por organização
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Card de Faturamento Premium com Design Luxuoso */}
+              <div className="space-y-6">
                 {metricsLoading ? (
                   <OptimizedLoadingCard />
                 ) : metricsError ? (
@@ -236,7 +284,7 @@ export default function DashboardPage() {
                     </CardContent>
                   </Card>
                 ) : (
-                  <Card className="relative overflow-hidden bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 border-2 border-yellow-400 shadow-2xl transform hover:scale-105 transition-all duration-300">
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 border-2 border-yellow-400 shadow-2xl">
                     <CardContent className="pt-6 relative z-10">
                       <>
                         {/* Stale data indicator */}
@@ -253,12 +301,12 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between mb-4">
                           <div>
                             <h3 className="text-xl font-extrabold text-gray-900 flex items-center gap-2">
-                              💰 FATURAMENTO
-                              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-bounce">
-                                ↑ 155%
+                              FATURAMENTO
+                              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+                                {DATE_FILTER_OPTIONS.find(o => o.value === dateFilter)?.label || 'Mês'}
                               </span>
                             </h3>
-                            <p className="text-sm text-gray-700 font-medium">Centro de Resultados • Mês Atual</p>
+                            <p className="text-sm text-gray-700 font-medium">Centro de Resultados</p>
                           </div>
                           <div className="flex items-center gap-3">
                             <button
@@ -290,16 +338,16 @@ export default function DashboardPage() {
                           <div className={`text-4xl md:text-5xl font-black text-gray-900 mb-2 drop-shadow-lg transition-all duration-300 ${
                             !showValues ? 'blur-sm select-none' : ''
                           }`}>
-                            {showValues ? formatCurrency(salesMetrics.valor_vendido) : 'R$ •••.•••,••'}
+                            {showValues ? formatCurrency(salesMetrics.valor_vendido) : 'R$ ***.***,**'}
                           </div>
                           <div className="text-lg font-bold text-gray-800">
-                            💎 Valor Total Vendido
+                            Valor Total Vendido
                           </div>
                           <div className={`text-sm text-gray-700 mt-2 bg-white/50 rounded-lg px-3 py-1 inline-block transition-all duration-300 ${
                             !showValues ? 'blur-sm select-none' : ''
                           }`}>
-                            🎯 Meta: <span className="font-bold">{showValues ? formatCurrency(500000) : 'R$ •••.•••,••'}</span> •
-                            💳 {showValues ? `${salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100).toFixed(1) : '0.0'}% arrecadado` : '••.•% arrecadado'}
+                            Meta: <span className="font-bold">{showValues ? formatCurrency(500000) : 'R$ ***.***,**'}</span> |
+                            {showValues ? ` ${arrecadacaoPercentage.toFixed(1)}% arrecadado` : ' **.* % arrecadado'}
                           </div>
                         </div>
 
@@ -312,7 +360,8 @@ export default function DashboardPage() {
                               <div className={`text-2xl font-bold text-gray-900 mb-1 transition-all duration-300 ${
                                 !showValues ? 'blur-sm select-none' : ''
                               }`}>
-                                🎯 {showValues ? (salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_vendido / 500000) * 100).toFixed(1) : '0.0') : '••.•'}%
+                                <Target className="w-5 h-5 inline mr-1" />
+                                {showValues ? (salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_vendido / 500000) * 100).toFixed(1) : '0.0') : '**.* '}%
                               </div>
                               <div className="text-sm font-semibold text-gray-800 mb-2">Meta Atingida</div>
                               <div className="h-2 bg-gray-900/30 rounded-full overflow-hidden">
@@ -335,7 +384,7 @@ export default function DashboardPage() {
                               <div className={`text-2xl font-bold text-gray-900 mb-1 transition-all duration-300 ${
                                 !showValues ? 'blur-sm select-none' : ''
                               }`}>
-                                📈 {showValues ? (callsMetrics.total_calls > 0 ? ((callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100).toFixed(1) : '0.0') : '••.•'}%
+                                {showValues ? (callsMetrics.total_calls > 0 ? ((callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100).toFixed(1) : '0.0') : '**.* '}%
                               </div>
                               <div className="text-sm font-semibold text-gray-800 mb-2">Conversão</div>
                               <div className="h-2 bg-gray-900/30 rounded-full overflow-hidden mb-1">
@@ -364,7 +413,7 @@ export default function DashboardPage() {
                               <div className={`text-xs text-gray-700 transition-all duration-300 ${
                                 !showValues ? 'blur-sm select-none' : ''
                               }`}>
-                                {showValues ? `${callsMetrics.calls_vendidas || 0}/${callsMetrics.total_calls || 0}` : '•••/•••'} calls
+                                {showValues ? `${callsMetrics.calls_vendidas || 0}/${callsMetrics.total_calls || 0}` : '***/***'} calls
                               </div>
                             </div>
                           </div>
@@ -375,7 +424,7 @@ export default function DashboardPage() {
                               <div className={`text-2xl font-bold text-gray-900 mb-1 transition-all duration-300 ${
                                 !showValues ? 'blur-sm select-none' : ''
                               }`}>
-                                💳 {showValues ? (salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100).toFixed(1) : '0.0') : '••.•'}%
+                                {showValues ? arrecadacaoPercentage.toFixed(1) : '**.* '}%
                               </div>
                               <div className="text-sm font-semibold text-gray-800 mb-1">Arrecadado</div>
                               <div className="text-xs text-gray-700">
@@ -386,65 +435,152 @@ export default function DashboardPage() {
 
                         </div>
 
-                        {/* Régua de Arrecadação Premium */}
+                        {/* Régua de Arrecadação Premium - 5 segments */}
                         <div className="bg-black/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                           <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-lg font-bold text-gray-900">🏆 Performance de Arrecadação</h4>
+                            <h4 className="text-lg font-bold text-gray-900">Performance de Arrecadação</h4>
                             <div className={`text-2xl font-black text-gray-900 transition-all duration-300 ${
                               !showValues ? 'blur-sm select-none' : ''
                             }`}>
-                              {showValues ? (salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100).toFixed(1) : '0.0') : '••.•'}%
+                              {showValues ? arrecadacaoPercentage.toFixed(1) : '**.* '}%
                             </div>
                           </div>
 
-                          {/* Barra de Progresso Melhorada */}
+                          {/* Barra de Progresso - 5 faixas */}
                           <div className="relative h-6 bg-gray-900/30 rounded-full overflow-hidden mb-3 shadow-inner">
-                            {/* Faixas de cores de fundo */}
+                            {/* Faixas de cores de fundo: 20% + 20% + 20% + 10% + 30% = 100% */}
                             <div className="absolute inset-0 flex z-0">
                               <div style={{ width: '20%' }} className="bg-red-300/60"></div>
-                              <div style={{ width: '15%' }} className="bg-yellow-300/60"></div>
-                              <div style={{ width: '15%' }} className="bg-blue-300/60"></div>
-                              <div style={{ width: '50%' }} className="bg-green-300/60"></div>
+                              <div style={{ width: '20%' }} className="bg-orange-300/60"></div>
+                              <div style={{ width: '20%' }} className="bg-blue-300/60"></div>
+                              <div style={{ width: '10%' }} className="bg-lime-300/60"></div>
+                              <div style={{ width: '30%' }} className="bg-green-300/60"></div>
                             </div>
 
                             {/* Barra de progresso */}
                             <div
                               className={`h-full transition-all duration-1000 relative z-10 shadow-lg ${
-                                showValues ? (
-                                  salesMetrics.valor_vendido > 0
-                                    ? (() => {
-                                        const percentage = (salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100;
-                                        if (percentage < 20) return 'bg-gradient-to-r from-red-500 to-red-600';
-                                        if (percentage < 35) return 'bg-gradient-to-r from-yellow-500 to-yellow-600';
-                                        if (percentage < 50) return 'bg-gradient-to-r from-blue-500 to-blue-600';
-                                        return 'bg-gradient-to-r from-green-500 to-green-600';
-                                      })()
-                                    : 'bg-gray-400'
-                                ) : 'bg-gray-400'
+                                showValues ? getRevenueBarColor(arrecadacaoPercentage) : 'bg-gray-400'
                               }`}
                               style={{
-                                width: `${showValues ? (
-                                  salesMetrics.valor_vendido > 0
-                                    ? Math.min(((salesMetrics.valor_arrecadado / salesMetrics.valor_vendido) * 100) * 2, 100)
-                                    : 0
-                                ) : 40}%`
+                                width: `${showValues ? Math.min(arrecadacaoPercentage, 100) : 40}%`
                               }}
                             />
                           </div>
 
-                          {/* Labels das faixas */}
-                          <div className="flex justify-between text-xs font-semibold">
-                            <span className="text-red-600">🔴 Crítico</span>
-                            <span className="text-yellow-600">🟡 Regular</span>
-                            <span className="text-blue-600">🔵 Bom</span>
-                            <span className="text-green-600">🟢 Excelente</span>
+                          {/* Labels das 5 faixas */}
+                          <div className="flex text-xs font-semibold">
+                            <div style={{ width: '20%' }} className="text-red-600 text-center">Péssimo</div>
+                            <div style={{ width: '20%' }} className="text-orange-600 text-center">Ruim</div>
+                            <div style={{ width: '20%' }} className="text-blue-600 text-center">Bom</div>
+                            <div style={{ width: '10%' }} className="text-lime-600 text-center">Ótimo</div>
+                            <div style={{ width: '30%' }} className="text-green-600 text-center">Excelente</div>
                           </div>
                         </div>
 
-
                       </>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Evolução do Dashboard Chart */}
+                {!metricsLoading && !metricsError && evolution && evolution.length > 1 && (
+                  <Card className="border shadow-lg">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg font-bold flex items-center gap-2">
+                        Evolução do Dashboard
+                        <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                          {DATE_FILTER_OPTIONS.find(o => o.value === dateFilter)?.label || 'Mês'}
+                        </span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[350px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={evolution} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis
+                              dataKey="label"
+                              tick={{ fontSize: 12, fill: '#6b7280' }}
+                              tickLine={false}
+                            />
+                            <YAxis
+                              yAxisId="currency"
+                              tick={{ fontSize: 11, fill: '#6b7280' }}
+                              tickFormatter={(value) => {
+                                if (value >= 1000) return `${(value / 1000).toFixed(0)}k`
+                                return value.toString()
+                              }}
+                              tickLine={false}
+                              axisLine={false}
+                            />
+                            <YAxis
+                              yAxisId="percentage"
+                              orientation="right"
+                              tick={{ fontSize: 11, fill: '#6b7280' }}
+                              tickFormatter={(value) => `${value}%`}
+                              tickLine={false}
+                              axisLine={false}
+                              domain={[0, 100]}
+                            />
+                            <Tooltip content={<EvolutionTooltip />} />
+                            <Legend
+                              wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                            />
+                            <Line
+                              yAxisId="currency"
+                              type="monotone"
+                              dataKey="faturamento"
+                              name="Faturamento"
+                              stroke="#22c55e"
+                              strokeWidth={2.5}
+                              dot={{ r: 4, fill: '#22c55e' }}
+                              activeDot={{ r: 6 }}
+                            />
+                            <Line
+                              yAxisId="currency"
+                              type="monotone"
+                              dataKey="arrecadado"
+                              name="Arrecadado"
+                              stroke="#a855f7"
+                              strokeWidth={2.5}
+                              dot={{ r: 4, fill: '#a855f7' }}
+                              activeDot={{ r: 6 }}
+                            />
+                            <Line
+                              yAxisId="percentage"
+                              type="monotone"
+                              dataKey="taxa_conversao"
+                              name="Taxa Conversão"
+                              stroke="#eab308"
+                              strokeWidth={2}
+                              dot={{ r: 3, fill: '#eab308' }}
+                              strokeDasharray="5 5"
+                            />
+                            <Line
+                              yAxisId="percentage"
+                              type="monotone"
+                              dataKey="taxa_churn"
+                              name="Taxa Churn"
+                              stroke="#ef4444"
+                              strokeWidth={2}
+                              dot={{ r: 3, fill: '#ef4444' }}
+                              strokeDasharray="5 5"
+                            />
+                            <Line
+                              yAxisId="percentage"
+                              type="monotone"
+                              dataKey="volume_calls"
+                              name="Volume Calls"
+                              stroke="#3b82f6"
+                              strokeWidth={2}
+                              dot={{ r: 3, fill: '#3b82f6' }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
             )}

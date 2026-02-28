@@ -648,6 +648,7 @@ export interface FollowupStep {
   step_numero: number;
   delay_days: number;
   delay_hours?: number;
+  delay_minutes?: number;
   tipo_acao: 'email' | 'whatsapp' | 'ligacao' | 'tarefa';
   titulo: string;
   conteudo: string;

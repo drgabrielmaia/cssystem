@@ -24,7 +24,9 @@ import {
   Plus,
   X,
   Edit,
-  Users
+  Users,
+  TrendingUp,
+  Clock
 } from 'lucide-react'
 
 interface Divida {
@@ -80,6 +82,7 @@ export default function PendenciasPage() {
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear())
   const [turmaSelecionada, setTurmaSelecionada] = useState('todas')
   const [mostrarApenasAtrasados, setMostrarApenasAtrasados] = useState(false)
+  const [mostrarApenasVenceHoje, setMostrarApenasVenceHoje] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   // Estados do formulário de nova dívida
@@ -385,6 +388,22 @@ export default function PendenciasPage() {
       return temAtraso
     }
 
+    if (mostrarApenasVenceHoje) {
+      const hoje = new Date()
+      hoje.setHours(0, 0, 0, 0)
+
+      const temVencimentoHoje = mentorado.dividas.some((divida: any) => {
+        if (divida.status === 'pendente') {
+          const dataVencimento = new Date(divida.data_vencimento + 'T12:00:00')
+          dataVencimento.setHours(0, 0, 0, 0)
+          return dataVencimento.toDateString() === hoje.toDateString()
+        }
+        return false
+      })
+
+      return temVencimentoHoje
+    }
+
     return true
   })
 
@@ -410,6 +429,32 @@ export default function PendenciasPage() {
     const fimSemana = new Date(inicioSemana)
     fimSemana.setDate(inicioSemana.getDate() + 6)
 
+    // Projected income time boundaries
+    const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
+    fimMes.setHours(0, 0, 0, 0)
+
+    const inicioProximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1)
+    inicioProximoMes.setHours(0, 0, 0, 0)
+    const fimProximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 2, 0)
+    fimProximoMes.setHours(0, 0, 0, 0)
+
+    // Quarter: current month to end of quarter
+    const quarterMonth = Math.floor(hoje.getMonth() / 3) * 3
+    const fimTrimestre = new Date(hoje.getFullYear(), quarterMonth + 3, 0)
+    fimTrimestre.setHours(0, 0, 0, 0)
+
+    // Semester: current month to end of semester
+    const semesterMonth = Math.floor(hoje.getMonth() / 6) * 6
+    const fimSemestre = new Date(hoje.getFullYear(), semesterMonth + 6, 0)
+    fimSemestre.setHours(0, 0, 0, 0)
+
+    let previsaoHoje = 0
+    let previsaoSemana = 0
+    let previsaoMes = 0
+    let previsaoProximoMes = 0
+    let previsaoTrimestre = 0
+    let previsaoSemestre = 0
+
     mentorados.forEach(mentorado => {
       let temAtraso = false
       mentorado.dividas.forEach((divida: any) => {
@@ -427,10 +472,36 @@ export default function PendenciasPage() {
 
           if (dataVencimento.toDateString() === hoje.toDateString()) {
             vencimentosHoje += divida.valor
+            previsaoHoje += divida.valor
           }
 
           if (dataVencimento >= inicioSemana && dataVencimento <= fimSemana) {
             vencimentosSemana += divida.valor
+          }
+
+          // Projected income: this week (from today onwards)
+          if (dataVencimento >= hoje && dataVencimento <= fimSemana) {
+            previsaoSemana += divida.valor
+          }
+
+          // This month (from today to end of month)
+          if (dataVencimento >= hoje && dataVencimento <= fimMes) {
+            previsaoMes += divida.valor
+          }
+
+          // Next month
+          if (dataVencimento >= inicioProximoMes && dataVencimento <= fimProximoMes) {
+            previsaoProximoMes += divida.valor
+          }
+
+          // This quarter (from today to end of quarter)
+          if (dataVencimento >= hoje && dataVencimento <= fimTrimestre) {
+            previsaoTrimestre += divida.valor
+          }
+
+          // This semester (from today to end of semester)
+          if (dataVencimento >= hoje && dataVencimento <= fimSemestre) {
+            previsaoSemestre += divida.valor
           }
         }
       })
@@ -444,7 +515,13 @@ export default function PendenciasPage() {
       vencimentosHoje,
       vencimentosSemana,
       comPendencias: mentorados.filter(m => m.totalPendente > 0).length,
-      emDia: mentorados.filter(m => m.totalPendente === 0).length
+      emDia: mentorados.filter(m => m.totalPendente === 0).length,
+      previsaoHoje,
+      previsaoSemana,
+      previsaoMes,
+      previsaoProximoMes,
+      previsaoTrimestre,
+      previsaoSemestre
     }
   }
 
@@ -641,9 +718,12 @@ export default function PendenciasPage() {
                 variant="outline"
                 size="sm"
                 className="w-full mt-3"
-                onClick={() => setMostrarApenasAtrasados(!mostrarApenasAtrasados)}
+                onClick={() => {
+                  setMostrarApenasAtrasados(!mostrarApenasAtrasados)
+                  if (!mostrarApenasAtrasados) setMostrarApenasVenceHoje(false)
+                }}
               >
-                {mostrarApenasAtrasados ? '✅ Mostrando Atrasados' : '🔍 Ver Atrasados'}
+                {mostrarApenasAtrasados ? 'Mostrando Atrasados' : 'Ver Atrasados'}
               </Button>
             </CardContent>
           </Card>
@@ -661,6 +741,17 @@ export default function PendenciasPage() {
                   <Calendar className="h-6 w-6 text-primary" />
                 </div>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-3"
+                onClick={() => {
+                  setMostrarApenasVenceHoje(!mostrarApenasVenceHoje)
+                  if (!mostrarApenasVenceHoje) setMostrarApenasAtrasados(false)
+                }}
+              >
+                {mostrarApenasVenceHoje ? 'Mostrando Vence Hoje' : 'Ver Vence Hoje'}
+              </Button>
             </CardContent>
           </Card>
 
@@ -684,7 +775,57 @@ export default function PendenciasPage() {
           </Card>
         </div>
 
-        {/* Filtros e Ações */}
+        {/* Previsao de Receita */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <TrendingUp className="h-5 w-5 text-green-600" />
+              Previsao de Receita
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Hoje</p>
+                <p className="text-lg font-bold text-blue-700 mt-1">
+                  {formatCurrency(metricas.previsaoHoje)}
+                </p>
+              </div>
+              <div className="text-center p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                <p className="text-xs font-medium text-indigo-600 uppercase tracking-wide">Esta Semana</p>
+                <p className="text-lg font-bold text-indigo-700 mt-1">
+                  {formatCurrency(metricas.previsaoSemana)}
+                </p>
+              </div>
+              <div className="text-center p-3 bg-purple-50 rounded-lg border border-purple-100">
+                <p className="text-xs font-medium text-purple-600 uppercase tracking-wide">Este Mes</p>
+                <p className="text-lg font-bold text-purple-700 mt-1">
+                  {formatCurrency(metricas.previsaoMes)}
+                </p>
+              </div>
+              <div className="text-center p-3 bg-violet-50 rounded-lg border border-violet-100">
+                <p className="text-xs font-medium text-violet-600 uppercase tracking-wide">Proximo Mes</p>
+                <p className="text-lg font-bold text-violet-700 mt-1">
+                  {formatCurrency(metricas.previsaoProximoMes)}
+                </p>
+              </div>
+              <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
+                <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Este Trimestre</p>
+                <p className="text-lg font-bold text-green-700 mt-1">
+                  {formatCurrency(metricas.previsaoTrimestre)}
+                </p>
+              </div>
+              <div className="text-center p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                <p className="text-xs font-medium text-emerald-600 uppercase tracking-wide">Este Semestre</p>
+                <p className="text-lg font-bold text-emerald-700 mt-1">
+                  {formatCurrency(metricas.previsaoSemestre)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Filtros e Acoes */}
         <Card>
           <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
@@ -794,7 +935,30 @@ export default function PendenciasPage() {
                     onClick={() => setMostrarApenasAtrasados(false)}
                     className="text-red-600 hover:bg-red-100"
                   >
-                    ✖️ Limpar filtro
+                    Limpar filtro
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {mostrarApenasVenceHoje && (
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="h-5 w-5 text-blue-600" />
+                    <span className="font-medium text-blue-800">
+                      Mostrando apenas dividas que vencem hoje
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setMostrarApenasVenceHoje(false)}
+                    className="text-blue-600 hover:bg-blue-100"
+                  >
+                    Limpar filtro
                   </Button>
                 </div>
               </CardContent>
