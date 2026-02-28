@@ -85,10 +85,20 @@ export default function PostEditor({
   const bgImageRef = useRef<HTMLInputElement>(null);
   const [scale, setScale] = useState(0.5);
 
+  // Debounced slides for preview (prevents scroll jump on every keystroke)
+  const [previewSlides, setPreviewSlides] = useState<PostSlide[]>(slides);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setPreviewSlides(slides), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [slides]);
+
   // Load initial slides when provided
   useEffect(() => {
     if (initialSlides && initialSlides.length > 0) {
       setSlides(initialSlides);
+      setPreviewSlides(initialSlides);
       setCurrentSlide(0);
     }
   }, [initialSlides]);
@@ -183,6 +193,9 @@ export default function PostEditor({
   // ---- Export ----
   const exportSlide = useCallback(async () => {
     if (!canvasRef.current) return;
+    // Flush debounced preview to ensure export uses latest content
+    setPreviewSlides(slides);
+    await new Promise(r => setTimeout(r, 100));
     setExporting(true);
     try {
       const el = canvasRef.current;
@@ -203,6 +216,8 @@ export default function PostEditor({
 
   const exportAllSlides = useCallback(async () => {
     if (!canvasRef.current) return;
+    setPreviewSlides(slides);
+    await new Promise(r => setTimeout(r, 100));
     setExporting(true);
     const origSlide = currentSlide;
     for (let i = 0; i < slides.length; i++) {
@@ -231,6 +246,7 @@ export default function PostEditor({
   if (!open) return null;
 
   const slide = slides[currentSlide] || { title: '', body: '' };
+  const previewSlide = previewSlides[currentSlide] || { title: '', body: '' };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -252,7 +268,7 @@ export default function PostEditor({
         {/* Body */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* Controls - scrollable */}
-          <div className="md:w-[340px] flex-shrink-0 md:border-r border-b md:border-b-0 border-white/[0.06] overflow-y-auto max-h-[40vh] md:max-h-none p-4 space-y-3">
+          <div className="md:w-[340px] flex-shrink-0 md:border-r border-b md:border-b-0 border-white/[0.06] overflow-y-auto overscroll-contain max-h-[40vh] md:max-h-none p-4 space-y-3">
 
             {/* Slide navigation */}
             <div className="flex items-center gap-2">
@@ -519,7 +535,7 @@ export default function PostEditor({
           </div>
 
           {/* Preview */}
-          <div ref={containerRef} className="flex-1 flex items-center justify-center p-4 md:p-6 bg-[#0a0a0c] min-h-[50vh] md:min-h-0">
+          <div ref={containerRef} className="flex-1 flex items-center justify-center p-4 md:p-6 bg-[#0a0a0c] min-h-[50vh] md:min-h-0 overflow-hidden">
             <div style={{
               width: `${1080 * scale}px`,
               height: `${1080 * scale}px`,
@@ -530,17 +546,17 @@ export default function PostEditor({
               <div ref={canvasRef} style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
                 <PostTemplate
                   backgroundColor={bgColor}
-                  title={slide.title || undefined}
+                  title={previewSlide.title || undefined}
                   titleFontStyle={titleFontStyle}
                   titleFontSize={titleFontSize}
-                  body={slide.body || ' '}
+                  body={previewSlide.body || ' '}
                   bodyFontStyle={bodyFontStyle}
                   bodyFontSize={bodyFontSize}
                   profileName={profileName}
                   profileHandle={profileHandle}
                   avatarUrl={avatarUrl}
                   profilePosition={profilePosition}
-                  inlineImageUrl={slide.inlineImageUrl}
+                  inlineImageUrl={previewSlide.inlineImageUrl}
                   backgroundImageUrl={bgImageUrl || undefined}
                   backgroundImageOpacity={bgImageOpacity}
                   slideIndicator={slides.length > 1 ? `${currentSlide + 1}/${slides.length}` : undefined}
