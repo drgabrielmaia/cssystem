@@ -364,6 +364,7 @@ export function EditLeadModal({ isOpen, onClose, lead, onSuccess }: EditLeadModa
                   <option value="frio">❄️ Frio</option>
                   <option value="morno">🌤️ Morno</option>
                   <option value="quente">🔥 Quente</option>
+                  <option value="elite">💎 Elite</option>
                 </select>
               </div>
 

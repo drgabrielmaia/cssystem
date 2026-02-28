@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       defaultScore += email ? 10 : 0
       defaultScore += empresa ? 15 : 0
       defaultScore += cargo ? 10 : 0
-      defaultScore += temperatura === 'quente' ? 20 : (temperatura === 'morno' ? 10 : 0)
+      defaultScore += temperatura === 'elite' ? 30 : (temperatura === 'quente' ? 20 : (temperatura === 'morno' ? 10 : 0))
       defaultScore += nivel_interesse === '3' ? 15 : (nivel_interesse === '2' ? 10 : 5)
       defaultScore += orcamento_disponivel > 0 ? 10 : 0
       defaultScore += decisor_principal ? 10 : 0
@@ -145,7 +145,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Temperature scoring
-    if (temperatura === 'quente') {
+    if (temperatura === 'elite') {
+      totalScore += scoringConfig.temperatura_elite_score || 40
+      scoreDetails.push({ field: 'temperatura_elite', score: scoringConfig.temperatura_elite_score || 40 })
+    } else if (temperatura === 'quente') {
       totalScore += scoringConfig.temperatura_quente_score
       scoreDetails.push({ field: 'temperatura_quente', score: scoringConfig.temperatura_quente_score })
     } else if (temperatura === 'morno') {

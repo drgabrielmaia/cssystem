@@ -1919,12 +1919,13 @@ function EditLeadForm({ lead, onSave, onCancel }: {
                 onChange={(e) => setFormData(prev => ({ ...prev, temperatura: e.target.value }))}
                 className="w-full px-4 py-3 pr-10 border border-orange-200 rounded-xl focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all shadow-sm hover:shadow-md bg-gray-700 text-white"
               >
+                <option value="elite">💎 Elite - Altíssima probabilidade</option>
                 <option value="quente">🔥 Quente - Alta probabilidade</option>
                 <option value="morno">🌟 Morno - Média probabilidade</option>
                 <option value="frio">❄️ Frio - Baixa probabilidade</option>
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <div className={`w-3 h-3 rounded-full ${formData.temperatura === 'quente' ? 'bg-red-500 animate-pulse' : formData.temperatura === 'morno' ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
+                <div className={`w-3 h-3 rounded-full ${formData.temperatura === 'elite' ? 'bg-purple-500 animate-pulse' : formData.temperatura === 'quente' ? 'bg-red-500 animate-pulse' : formData.temperatura === 'morno' ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
               </div>
             </div>
           </div>

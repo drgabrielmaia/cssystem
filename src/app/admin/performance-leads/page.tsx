@@ -367,6 +367,7 @@ export default function AdvancedPerformanceLeadsPage() {
 
   const getTemperaturaColor = useCallback((temperatura?: string) => {
     switch (temperatura) {
+      case 'elite': return 'bg-purple-600 text-white'
       case 'quente': return 'bg-red-500 text-white'
       case 'morno': return 'bg-yellow-500 text-white'
       case 'frio': return 'bg-blue-500 text-white'

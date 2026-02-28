@@ -131,7 +131,7 @@ export const validationSchemas = {
     telefone: z.string().regex(/^\d{10,11}$/),
     empresa: z.string().optional(),
     cargo: z.string().optional(),
-    temperatura: z.enum(['quente', 'morno', 'frio']).optional(),
+    temperatura: z.enum(['elite', 'quente', 'morno', 'frio']).optional(),
     nivel_interesse: z.enum(['alto', 'medio', 'baixo']).optional(),
     orcamento_disponivel: z.number().min(0).optional(),
     decisor_principal: z.boolean().optional(),

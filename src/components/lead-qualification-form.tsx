@@ -21,6 +21,7 @@ interface ScoringConfig {
   email_score: number
   empresa_score: number
   cargo_score: number
+  temperatura_elite_score: number
   temperatura_quente_score: number
   temperatura_morno_score: number
   temperatura_frio_score: number
@@ -47,7 +48,7 @@ interface FormData {
   telefone: string
   empresa: string
   cargo: string
-  temperatura: 'quente' | 'morno' | 'frio'
+  temperatura: 'elite' | 'quente' | 'morno' | 'frio'
   nivel_interesse: 'alto' | 'medio' | 'baixo'
   orcamento_disponivel: number
   decisor_principal: boolean
@@ -115,7 +116,8 @@ const LeadQualificationForm = ({
     if (formData.cargo) score += scoringConfig.cargo_score
     
     // Temperature
-    if (formData.temperatura === 'quente') score += scoringConfig.temperatura_quente_score
+    if (formData.temperatura === 'elite') score += scoringConfig.temperatura_elite_score
+    else if (formData.temperatura === 'quente') score += scoringConfig.temperatura_quente_score
     else if (formData.temperatura === 'morno') score += scoringConfig.temperatura_morno_score
     else if (formData.temperatura === 'frio') score += scoringConfig.temperatura_frio_score
     
@@ -204,7 +206,7 @@ const LeadQualificationForm = ({
       scoringConfig.email_score +
       scoringConfig.empresa_score +
       scoringConfig.cargo_score +
-      scoringConfig.temperatura_quente_score +
+      scoringConfig.temperatura_elite_score +
       scoringConfig.nivel_interesse_alto_score +
       scoringConfig.orcamento_disponivel_score +
       scoringConfig.decisor_principal_score +
@@ -402,6 +404,10 @@ const LeadQualificationForm = ({
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="quente" id="temp-quente" />
                   <Label htmlFor="temp-quente">Urgente (+30 pontos)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="elite" id="temp-elite" />
+                  <Label htmlFor="temp-elite">Pronto para fechar agora (+40 pontos)</Label>
                 </div>
               </RadioGroup>
             </div>

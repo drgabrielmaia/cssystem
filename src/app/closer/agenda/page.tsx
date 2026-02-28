@@ -319,6 +319,7 @@ function AgendaPageContent() {
     if (!temperatura) return null
     
     const colors = {
+      'elite': 'bg-purple-600',
       'quente': 'bg-red-500',
       'morno': 'bg-yellow-500',
       'frio': 'bg-blue-500',

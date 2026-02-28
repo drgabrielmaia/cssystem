@@ -110,7 +110,8 @@ const STATUS_OPTIONS = [
 const TEMPERATURA_OPTIONS = [
   { value: 'frio', label: 'Frio', color: 'bg-blue-400' },
   { value: 'morno', label: 'Morno', color: 'bg-yellow-400' },
-  { value: 'quente', label: 'Quente', color: 'bg-red-400' }
+  { value: 'quente', label: 'Quente', color: 'bg-red-400' },
+  { value: 'elite', label: 'Elite', color: 'bg-purple-500' }
 ]
 
 const PRIORIDADE_OPTIONS = [

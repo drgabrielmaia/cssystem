@@ -24,6 +24,7 @@ interface ScoringConfig {
   cargo_score: number
   
   // Temperature scoring
+  temperatura_elite_score: number
   temperatura_quente_score: number
   temperatura_morno_score: number
   temperatura_frio_score: number
@@ -73,6 +74,7 @@ const ScoringConfigPanel = ({ organizationId }: ScoringConfigPanelProps) => {
     email_score: 10,
     empresa_score: 15,
     cargo_score: 15,
+    temperatura_elite_score: 40,
     temperatura_quente_score: 30,
     temperatura_morno_score: 20,
     temperatura_frio_score: 10,
@@ -163,7 +165,7 @@ const ScoringConfigPanel = ({ organizationId }: ScoringConfigPanelProps) => {
       config.email_score +
       config.empresa_score +
       config.cargo_score +
-      config.temperatura_quente_score +
+      config.temperatura_elite_score +
       config.nivel_interesse_alto_score +
       config.orcamento_disponivel_score +
       config.decisor_principal_score +
@@ -378,7 +380,16 @@ const ScoringConfigPanel = ({ organizationId }: ScoringConfigPanelProps) => {
                 {/* Temperature */}
                 <div>
                   <Label className="text-base font-medium">Urgência/Temperatura</Label>
-                  <div className="grid grid-cols-3 gap-4 mt-3">
+                  <div className="grid grid-cols-4 gap-4 mt-3">
+                    <div className="space-y-2">
+                      <Label>Elite</Label>
+                      <Input
+                        type="number"
+                        value={selectedConfig.temperatura_elite_score}
+                        onChange={(e) => setSelectedConfig(prev => prev ? {...prev, temperatura_elite_score: Number(e.target.value)} : null)}
+                        disabled={!isEditing}
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Quente</Label>
                       <Input

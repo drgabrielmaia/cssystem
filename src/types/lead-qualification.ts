@@ -1,5 +1,5 @@
 // Lead Qualification System Types
-export type LeadTemperature = 'quente' | 'morno' | 'frio'
+export type LeadTemperature = 'elite' | 'quente' | 'morno' | 'frio'
 export type PaymentIntent = 'a_vista' | 'parcelado' | 'vai_conseguir' | 'nao_tem'
 export type UrgencyLevel = 'imediato' | 'ate_30_dias' | 'ate_3_meses' | 'pesquisando'
 export type BusinessSituation = 'tem_negocio_escalando' | 'quer_comecar_com_experiencia' | 'iniciante_total'
