@@ -34,6 +34,8 @@ interface PostTemplateProps {
   backgroundImageOpacity?: number;
   slideIndicator?: string;
   accentColor?: string;
+  contentSpacing?: number;
+  topPadding?: number;
 }
 
 export const PostTemplate: React.FC<PostTemplateProps> = ({
@@ -53,6 +55,8 @@ export const PostTemplate: React.FC<PostTemplateProps> = ({
   backgroundImageOpacity = 0.15,
   slideIndicator,
   accentColor = '#16A34A',
+  contentSpacing = 12,
+  topPadding = 52,
 }) => {
   const isDark = isColorDark(backgroundColor);
   const textColor = isDark ? '#FFFFFF' : '#111111';
@@ -84,7 +88,7 @@ export const PostTemplate: React.FC<PostTemplateProps> = ({
   const paragraphs = body.split('\n\n').filter(Boolean);
 
   const profileSection = (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', flexShrink: 0, width: '100%' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '16px', flexShrink: 0, width: '100%' }}>
       {avatarUrl ? (
         <img src={avatarUrl} alt="" style={{
           width: '56px', height: '56px', borderRadius: '50%',
@@ -147,13 +151,13 @@ export const PostTemplate: React.FC<PostTemplateProps> = ({
 
       {/* Content */}
       <div style={{
-        padding: '52px 56px', display: 'flex', flexDirection: 'column',
-        justifyContent: 'center', alignItems: 'center',
+        padding: `${topPadding}px 56px 52px 56px`, display: 'flex', flexDirection: 'column',
+        justifyContent: 'center', alignItems: 'flex-start',
         height: '100%', boxSizing: 'border-box', position: 'relative', zIndex: 1,
       }}>
         {/* Profile top */}
         {profilePosition === 'top' && (
-          <div style={{ marginBottom: '32px', flexShrink: 0, width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ marginBottom: `${contentSpacing}px`, flexShrink: 0, width: '100%' }}>
             {profileSection}
           </div>
         )}
@@ -166,7 +170,7 @@ export const PostTemplate: React.FC<PostTemplateProps> = ({
             lineHeight: 1.2, letterSpacing: '-0.02em',
             margin: 0, marginBottom: inlineImageUrl ? '20px' : '24px',
             whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-            textAlign: 'center', width: '100%',
+            textAlign: 'left', width: '100%',
           }}>{title}</h2>
         )}
 
@@ -183,7 +187,7 @@ export const PostTemplate: React.FC<PostTemplateProps> = ({
         {/* Body text */}
         <div style={{
           display: 'flex', flexDirection: 'column',
-          gap: '20px', width: '100%', textAlign: 'center',
+          gap: '20px', width: '100%', textAlign: 'left',
         }}>
           {paragraphs.map((p, i) => (
             <p key={i} style={{
@@ -198,7 +202,7 @@ export const PostTemplate: React.FC<PostTemplateProps> = ({
 
         {/* Profile bottom */}
         {profilePosition === 'bottom' && (
-          <div style={{ marginTop: '32px', flexShrink: 0, width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ marginTop: `${contentSpacing}px`, flexShrink: 0, width: '100%' }}>
             {profileSection}
           </div>
         )}

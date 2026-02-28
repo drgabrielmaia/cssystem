@@ -68,6 +68,8 @@ export default function PostEditor({
   const [bgImageUrl, setBgImageUrl] = useState('');
   const [bgImageOpacity, setBgImageOpacity] = useState(0.15);
   const [accentColor, setAccentColor] = useState('#16A34A');
+  const [contentSpacing, setContentSpacing] = useState(12);
+  const [topPadding, setTopPadding] = useState(52);
 
   // Collapsible sections
   const [showStyle, setShowStyle] = useState(false);
@@ -430,6 +432,28 @@ export default function PostEditor({
                     ))}
                   </div>
                 </div>
+
+                {/* Content spacing */}
+                <div>
+                  <label className="block text-[10px] font-semibold text-[#5a5a5f] mb-1.5 uppercase tracking-wider">Espacamento do Conteudo: {contentSpacing}px</label>
+                  <input type="range" min={0} max={60} value={contentSpacing}
+                    onChange={(e) => setContentSpacing(Number(e.target.value))} className="w-full accent-emerald-500" />
+                  <div className="flex justify-between text-[9px] text-[#3a3a3f] mt-0.5">
+                    <span>Junto</span>
+                    <span>Afastado</span>
+                  </div>
+                </div>
+
+                {/* Top padding */}
+                <div>
+                  <label className="block text-[10px] font-semibold text-[#5a5a5f] mb-1.5 uppercase tracking-wider">Distância do Topo: {topPadding}px</label>
+                  <input type="range" min={20} max={200} value={topPadding}
+                    onChange={(e) => setTopPadding(Number(e.target.value))} className="w-full accent-emerald-500" />
+                  <div className="flex justify-between text-[9px] text-[#3a3a3f] mt-0.5">
+                    <span>Perto</span>
+                    <span>Longe</span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -521,6 +545,8 @@ export default function PostEditor({
                   backgroundImageOpacity={bgImageOpacity}
                   slideIndicator={slides.length > 1 ? `${currentSlide + 1}/${slides.length}` : undefined}
                   accentColor={accentColor}
+                  contentSpacing={contentSpacing}
+                  topPadding={topPadding}
                 />
               </div>
             </div>

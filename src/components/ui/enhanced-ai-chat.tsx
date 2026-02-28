@@ -37,6 +37,8 @@ import {
   Image as ImageIcon,
   Phone,
   Download,
+  Zap,
+  ImagePlus,
 } from "lucide-react";
 
 // ========================
@@ -534,7 +536,7 @@ export default function EnhancedAIChat() {
         : isSecretaria
         ? (effectiveMsg.trim() || "Analise a imagem da conversa e sugira a melhor resposta.")
         : isContent
-          ? `Gere um post para Instagram do tipo ${contentMode}. Contexto: ${effectiveMsg}`
+          ? `Crie um post VIRAL para Instagram do tipo "${contentMode}". Use um hook poderoso que pare o scroll, aplique storytelling e termine com CTA emocional. Contexto/tema do post: ${effectiveMsg}`
           : effectiveMsg;
       const filledDores = dores.filter(Boolean);
       const filledDesejos = desejos.filter(Boolean);
@@ -890,88 +892,155 @@ export default function EnhancedAIChat() {
         </header>
 
         {/* Usage bar */}
-        {aiUsage && (
-          <div className="border-b border-white/[0.06] bg-[#0d0d10] px-3 md:px-4 py-2 flex-shrink-0">
-            <div className="max-w-3xl mx-auto flex items-center gap-3 md:gap-5 text-[11px]">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <ImageIcon className="w-3 h-3 text-purple-400 flex-shrink-0" />
-                <div className="flex-1 h-1.5 bg-[#1a1a1e] rounded-full overflow-hidden max-w-[100px]">
-                  <div className="h-full rounded-full transition-all" style={{
-                    width: `${Math.min((aiUsage.images_generated / aiUsage.limits.maxImages) * 100, 100)}%`,
-                    background: aiUsage.images_generated >= aiUsage.limits.maxImages ? '#ef4444' : 'linear-gradient(to right, #a855f7, #ec4899)',
-                  }} />
+        {aiUsage && (() => {
+          const tokensRemaining = Math.max(aiUsage.limits.maxChatMessages - aiUsage.chat_messages_sent, 0);
+          const imagesRemaining = Math.max(aiUsage.limits.maxImages - aiUsage.images_generated, 0);
+          const tokensPct = Math.min((aiUsage.chat_messages_sent / aiUsage.limits.maxChatMessages) * 100, 100);
+          const imagesPct = Math.min((aiUsage.images_generated / aiUsage.limits.maxImages) * 100, 100);
+          const tokensExhausted = aiUsage.chat_messages_sent >= aiUsage.limits.maxChatMessages;
+          const imagesExhausted = aiUsage.images_generated >= aiUsage.limits.maxImages;
+          return (
+            <div className="border-b border-white/[0.04] bg-gradient-to-r from-[#0d0d10] via-[#111118] to-[#0d0d10] px-3 md:px-4 py-2.5 flex-shrink-0">
+              <div className="max-w-3xl mx-auto flex items-center gap-4 md:gap-6">
+                {/* Tokens */}
+                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                  <div className={cn(
+                    "flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 transition-all",
+                    tokensExhausted
+                      ? "bg-red-500/15 ring-1 ring-red-500/30"
+                      : "bg-gradient-to-br from-cyan-500/15 to-blue-500/15 ring-1 ring-cyan-500/20"
+                  )}>
+                    <Zap className={cn("w-3.5 h-3.5", tokensExhausted ? "text-red-400" : "text-cyan-400")} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-medium text-[#6a6a6f] uppercase tracking-wider">Tokens</span>
+                      <span className={cn(
+                        "text-[11px] font-semibold tabular-nums",
+                        tokensExhausted ? "text-red-400" : "text-white/80"
+                      )}>
+                        {tokensRemaining.toLocaleString("pt-BR")}
+                        <span className="text-[#4a4a4f] font-normal"> / {aiUsage.limits.maxChatMessages.toLocaleString("pt-BR")}</span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-[#1a1a1e] rounded-full overflow-hidden ring-1 ring-white/[0.03]">
+                      <div className="h-full rounded-full transition-all duration-500 ease-out" style={{
+                        width: `${tokensPct}%`,
+                        background: tokensExhausted
+                          ? 'linear-gradient(to right, #ef4444, #dc2626)'
+                          : 'linear-gradient(to right, #06b6d4, #3b82f6, #8b5cf6)',
+                        boxShadow: tokensExhausted ? '0 0 8px rgba(239,68,68,0.4)' : '0 0 8px rgba(59,130,246,0.3)',
+                      }} />
+                    </div>
+                  </div>
                 </div>
-                <span className="text-white font-mono whitespace-nowrap">{Math.max(aiUsage.limits.maxImages - aiUsage.images_generated, 0)} img</span>
-              </div>
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <MessageSquare className="w-3 h-3 text-blue-400 flex-shrink-0" />
-                <div className="flex-1 h-1.5 bg-[#1a1a1e] rounded-full overflow-hidden max-w-[100px]">
-                  <div className="h-full rounded-full transition-all" style={{
-                    width: `${Math.min((aiUsage.chat_messages_sent / aiUsage.limits.maxChatMessages) * 100, 100)}%`,
-                    background: aiUsage.chat_messages_sent >= aiUsage.limits.maxChatMessages ? '#ef4444' : 'linear-gradient(to right, #3b82f6, #22d3ee)',
-                  }} />
+
+                {/* Divider */}
+                <div className="w-px h-8 bg-gradient-to-b from-transparent via-white/[0.06] to-transparent flex-shrink-0" />
+
+                {/* Images */}
+                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                  <div className={cn(
+                    "flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 transition-all",
+                    imagesExhausted
+                      ? "bg-red-500/15 ring-1 ring-red-500/30"
+                      : "bg-gradient-to-br from-purple-500/15 to-pink-500/15 ring-1 ring-purple-500/20"
+                  )}>
+                    <ImagePlus className={cn("w-3.5 h-3.5", imagesExhausted ? "text-red-400" : "text-purple-400")} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-medium text-[#6a6a6f] uppercase tracking-wider">Imagens</span>
+                      <span className={cn(
+                        "text-[11px] font-semibold tabular-nums",
+                        imagesExhausted ? "text-red-400" : "text-white/80"
+                      )}>
+                        {imagesRemaining}
+                        <span className="text-[#4a4a4f] font-normal"> / {aiUsage.limits.maxImages}</span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-[#1a1a1e] rounded-full overflow-hidden ring-1 ring-white/[0.03]">
+                      <div className="h-full rounded-full transition-all duration-500 ease-out" style={{
+                        width: `${imagesPct}%`,
+                        background: imagesExhausted
+                          ? 'linear-gradient(to right, #ef4444, #dc2626)'
+                          : 'linear-gradient(to right, #a855f7, #ec4899)',
+                        boxShadow: imagesExhausted ? '0 0 8px rgba(239,68,68,0.4)' : '0 0 8px rgba(168,85,247,0.3)',
+                      }} />
+                    </div>
+                  </div>
                 </div>
-                <span className="text-white font-mono whitespace-nowrap">{Math.max(aiUsage.limits.maxChatMessages - aiUsage.chat_messages_sent, 0)} msg</span>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
           {contentMode === "imagem" ? (
             /* ===== IMAGE MODE: config panel + chat messages below ===== */
             <div className="h-full overflow-y-auto">
-              {/* Config panel — collapsible */}
-              <div className="border-b border-white/[0.06] bg-[#0d0d10]">
-                <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
-                  {/* Reference Photos */}
-                  <div className="space-y-2">
+              {/* Config panel */}
+              <div className="border-b border-white/[0.06] bg-gradient-to-b from-[#0d0d10] to-[#0a0a0e]">
+                <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
+                  {/* Reference Photos - improved with larger cards */}
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-semibold text-white flex items-center gap-2">
-                        <Camera className="w-3.5 h-3.5 text-purple-400" />
-                        Fotos de Referencia ({referenceImages.length}/5)
+                      <h3 className="text-sm font-semibold text-white flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-purple-500/15 flex items-center justify-center ring-1 ring-purple-500/20">
+                          <Camera className="w-3.5 h-3.5 text-purple-400" />
+                        </div>
+                        Fotos de Referencia
+                        <span className="text-[11px] font-normal text-[#5a5a5f] ml-1">{referenceImages.length}/5</span>
                       </h3>
                       {referenceImages.length > 0 && (
-                        <button onClick={() => setReferenceImages([])} className="text-[10px] text-red-400 hover:text-red-300 transition-colors">
-                          Limpar
+                        <button onClick={() => setReferenceImages([])} className="text-[11px] text-red-400 hover:text-red-300 transition-colors px-2 py-1 rounded-lg hover:bg-red-500/10">
+                          Limpar todas
                         </button>
                       )}
                     </div>
-                    <div className="flex gap-2">
+                    <p className="text-[11px] text-[#4a4a4f] -mt-1">Envie suas fotos para que a IA gere imagens com o seu rosto</p>
+                    <div className="flex gap-3 flex-wrap">
                       {referenceImages.map((img, i) => (
-                        <div key={i} className="relative w-12 h-12 rounded-lg overflow-hidden ring-1 ring-white/10 group flex-shrink-0">
+                        <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 group shadow-lg shadow-black/20 hover:ring-purple-400/30 transition-all">
                           <img src={img} alt="" className="w-full h-full object-cover" onError={(e) => {
                             const target = e.currentTarget;
                             target.style.display = 'none';
                             const placeholder = document.createElement('div');
                             placeholder.className = 'w-full h-full flex flex-col items-center justify-center bg-[#1a1a2e] text-purple-300';
-                            placeholder.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
+                            placeholder.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
                             target.parentElement?.appendChild(placeholder);
                           }} />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                           <button onClick={() => removeRefImage(i)}
-                            className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <X className="w-2.5 h-2.5 text-white" />
+                            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/70 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/80 ring-1 ring-white/10">
+                            <X className="w-3 h-3 text-white" />
                           </button>
+                          <span className="absolute bottom-1 left-1.5 text-[9px] font-bold text-white/70 opacity-0 group-hover:opacity-100 transition-opacity">{i + 1}</span>
                         </div>
                       ))}
                       {referenceImages.length < 5 && (
                         <button onClick={() => refImageInputRef.current?.click()}
-                          className="w-12 h-12 rounded-lg border-2 border-dashed border-white/10 hover:border-purple-400/40 flex items-center justify-center text-[#5a5a5f] hover:text-purple-300 transition-all cursor-pointer flex-shrink-0">
-                          <Camera className="w-4 h-4" />
+                          className="w-20 h-20 rounded-xl border-2 border-dashed border-white/[0.08] hover:border-purple-400/40 flex flex-col items-center justify-center gap-1.5 text-[#4a4a4f] hover:text-purple-300 transition-all cursor-pointer group hover:bg-purple-500/[0.03]">
+                          <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                          <span className="text-[9px] font-medium">Adicionar</span>
                         </button>
                       )}
                     </div>
                     <input ref={refImageInputRef} type="file" accept="image/*,.heic,.heif" multiple className="hidden" onChange={handleRefImagesSelect} />
                   </div>
 
-                  {/* Style Templates — horizontal scroll */}
-                  <div className="space-y-2">
-                    <h3 className="text-xs font-semibold text-white flex items-center gap-2">
-                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                      Estilo
+                  <div className="border-t border-white/[0.04]" />
+
+                  {/* Style Templates - improved with visual cards */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-white flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center ring-1 ring-cyan-500/20">
+                        <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                      </div>
+                      Escolha o Estilo
                     </h3>
-                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {IMAGE_TEMPLATES.map((tmpl) => (
                         <button key={tmpl.id}
                           onClick={() => {
@@ -983,14 +1052,19 @@ export default function EnhancedAIChat() {
                               setTemplatePrompt(tmpl.prompt);
                             }
                           }}
-                          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0",
+                          className={cn(
+                            "relative flex flex-col items-center gap-2 px-3 py-3.5 rounded-xl text-xs font-medium transition-all duration-200",
                             selectedTemplate === tmpl.id
-                              ? "bg-purple-500/20 text-purple-300 ring-1 ring-purple-400/30"
-                              : "bg-[#18181c] text-[#8a8a8f] hover:text-white ring-1 ring-white/[0.06] hover:ring-white/10"
+                              ? "bg-gradient-to-b from-purple-500/20 to-purple-600/10 text-white ring-2 ring-purple-400/50 shadow-lg shadow-purple-500/10"
+                              : "bg-[#14141a] text-[#7a7a7f] hover:text-white ring-1 ring-white/[0.06] hover:ring-white/[0.12] hover:bg-[#18181e]"
                           )}>
-                          <span>{tmpl.icon}</span>
-                          <span>{tmpl.label}</span>
-                          {selectedTemplate === tmpl.id && <Check className="w-3 h-3 text-purple-400" />}
+                          <span className="text-2xl leading-none">{tmpl.icon}</span>
+                          <span className="text-[11px] font-semibold tracking-tight">{tmpl.label}</span>
+                          {selectedTemplate === tmpl.id && (
+                            <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                          )}
                         </button>
                       ))}
                     </div>

@@ -56,6 +56,8 @@ interface DarkTemplateProps {
   avatarUrl?: string;
   imageUrl?: string;
   imageOpacity?: number;
+  contentSpacing?: number;
+  topPadding?: number;
 }
 
 export const DarkTemplate: React.FC<DarkTemplateProps> = ({
@@ -67,6 +69,8 @@ export const DarkTemplate: React.FC<DarkTemplateProps> = ({
   avatarUrl,
   imageUrl,
   imageOpacity = 0.15,
+  contentSpacing = 44,
+  topPadding = 52,
 }) => {
   const paragraphs = text.split('\n\n').filter(Boolean);
   const font = FONT_CONFIG[fontStyle];
@@ -141,7 +145,7 @@ export const DarkTemplate: React.FC<DarkTemplateProps> = ({
       {/* Content container */}
       <div
         style={{
-          padding: '52px 56px',
+          padding: `${topPadding}px 56px 52px 56px`,
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
@@ -155,9 +159,9 @@ export const DarkTemplate: React.FC<DarkTemplateProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            justifyContent: 'flex-start',
             gap: '16px',
-            marginBottom: '44px',
+            marginBottom: `${contentSpacing}px`,
             flexShrink: 0,
             width: '100%',
           }}
@@ -244,7 +248,7 @@ export const DarkTemplate: React.FC<DarkTemplateProps> = ({
                 padding: 0,
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
-                textAlign: 'center',
+                textAlign: 'left',
                 ...(fontStyle === 'bold' ? { textTransform: 'uppercase' as const } : {}),
               }}
             >

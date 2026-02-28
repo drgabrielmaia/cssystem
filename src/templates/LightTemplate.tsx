@@ -58,6 +58,8 @@ interface LightTemplateProps {
   avatarUrl?: string;
   imageUrl?: string;
   imageOpacity?: number;
+  contentSpacing?: number;
+  topPadding?: number;
 }
 
 export const LightTemplate: React.FC<LightTemplateProps> = ({
@@ -71,6 +73,8 @@ export const LightTemplate: React.FC<LightTemplateProps> = ({
   avatarUrl,
   imageUrl,
   imageOpacity = 0.1,
+  contentSpacing = 36,
+  topPadding = 0,
 }) => {
   const font = FONT_CONFIG[fontStyle];
 
@@ -177,7 +181,7 @@ export const LightTemplate: React.FC<LightTemplateProps> = ({
 
       <div
         style={{
-          padding: '0 56px',
+          padding: `${topPadding}px 56px 0 56px`,
           width: '100%',
           boxSizing: 'border-box',
           position: 'relative',
@@ -189,9 +193,9 @@ export const LightTemplate: React.FC<LightTemplateProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            justifyContent: 'flex-start',
             gap: '14px',
-            marginBottom: '36px',
+            marginBottom: `${contentSpacing}px`,
             width: '100%',
           }}
         >
@@ -266,7 +270,7 @@ export const LightTemplate: React.FC<LightTemplateProps> = ({
             marginBottom: '24px',
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
-            textAlign: 'center',
+            textAlign: 'left',
             ...(fontStyle === 'bold' ? { textTransform: 'uppercase' as const } : {}),
           }}
         >
