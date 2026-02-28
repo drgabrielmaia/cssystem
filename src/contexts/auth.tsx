@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
@@ -38,6 +38,9 @@ export function useAuth() {
 const AUTH_STORAGE_KEY = 'customer_success_auth'
 const ORG_STORAGE_KEY = 'customer_success_org'
 
+// Intervalo do heartbeat: verificar sessão a cada 4 minutos
+const SESSION_HEARTBEAT_MS = 4 * 60 * 1000
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [organizationId, setOrganizationId] = useState<string | null>(null)
@@ -46,6 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const router = useRouter()
+  const isRecoveringRef = useRef(false)
+  const heartbeatRef = useRef<NodeJS.Timeout | null>(null)
 
 
   // Função para salvar dados de auth no localStorage
@@ -67,38 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (orgId) {
         localStorage.setItem(ORG_STORAGE_KEY, orgId)
       }
-      console.log('💾 Auth data salva no localStorage')
     } catch (error) {
-      console.error('❌ Erro ao salvar auth data:', error)
-    }
-  }
-
-  // Função para carregar dados de auth do localStorage
-  const loadAuthData = (): { user: User | null, organizationId: string | null } => {
-    try {
-      const stored = localStorage.getItem(AUTH_STORAGE_KEY)
-      const storedOrg = localStorage.getItem(ORG_STORAGE_KEY)
-
-      if (!stored) return { user: null, organizationId: null }
-
-      const authData = JSON.parse(stored)
-
-      // Verificar se não expirou
-      if (authData.expires_at && Date.now() > authData.expires_at) {
-        console.log('🕒 Auth data expirada, removendo...')
-        localStorage.removeItem(AUTH_STORAGE_KEY)
-        localStorage.removeItem(ORG_STORAGE_KEY)
-        return { user: null, organizationId: null }
-      }
-
-      console.log('📂 Auth data carregada do localStorage')
-      return {
-        user: authData.user as User,
-        organizationId: authData.organization_id || storedOrg
-      }
-    } catch (error) {
-      console.error('❌ Erro ao carregar auth data:', error)
-      return { user: null, organizationId: null }
+      console.error('Erro ao salvar auth data:', error)
     }
   }
 
@@ -107,56 +82,109 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.removeItem(AUTH_STORAGE_KEY)
       localStorage.removeItem(ORG_STORAGE_KEY)
-      console.log('🗑️ Auth data removida do localStorage')
     } catch (error) {
-      console.error('❌ Erro ao limpar auth data:', error)
+      console.error('Erro ao limpar auth data:', error)
     }
   }
+
+  // Recuperar sessão: força refresh do token e revalida tudo
+  const recoverSession = useCallback(async () => {
+    // Evitar múltiplas recuperações simultâneas
+    if (isRecoveringRef.current) return
+    isRecoveringRef.current = true
+
+    try {
+      console.log('🔄 Recuperando sessão...')
+
+      // 1. Tentar refresh do token (valida server-side)
+      const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
+
+      if (refreshError || !session?.user) {
+        // 2. Se refresh falhou, tentar getUser() como fallback (valida server-side)
+        const { data: { user: validatedUser }, error: userError } = await supabase.auth.getUser()
+
+        if (userError || !validatedUser) {
+          console.log('Session recovery failed - token expired')
+          clearAuthData()
+          setUser(null)
+          setOrganizationId(null)
+          setOrgUser(null)
+          setIsAuthenticated(false)
+          return
+        }
+
+        // getUser validou, mas precisamos do token. Forçar novo refresh
+        const { data: retryData } = await supabase.auth.refreshSession()
+        if (retryData.session?.user) {
+          setUser(retryData.session.user)
+          const orgId = await getOrganizationForUser(retryData.session.user)
+          if (orgId) saveAuthData(retryData.session.user, orgId)
+          console.log('Session recovered via getUser + retry refresh')
+        }
+        return
+      }
+
+      // Refresh deu certo - sessão recuperada
+      setUser(session.user)
+      const orgId = await getOrganizationForUser(session.user)
+      if (orgId) saveAuthData(session.user, orgId)
+      console.log('Session recovered via refreshSession')
+
+    } catch (error) {
+      console.error('Session recovery error:', error)
+    } finally {
+      isRecoveringRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
       try {
-        console.log('🔍 Verificando sessão inicial (server-side)...')
+        // Usar getUser() para validação server-side real (não apenas localStorage)
+        const { data: { user: validatedUser }, error: userError } = await supabase.auth.getUser()
 
-        // 1. SEMPRE validar no Supabase (server-side) - não confia no localStorage
-        console.log('🔄 Validação server-side obrigatória...')
-        const { data: { session }, error } = await supabase.auth.getSession()
+        if (userError || !validatedUser) {
+          // getUser falhou - tentar getSession como fallback (pode ter token válido em storage)
+          const { data: { session } } = await supabase.auth.getSession()
+          const currentUser = session?.user ?? null
 
-        if (error) {
-          console.error('❌ Erro ao buscar sessão:', error)
-          clearAuthData() // Limpa qualquer coisa local
-          setUser(null)
-          setOrganizationId(null)
-          setOrgUser(null)
-          setLoading(false)
-          setIsInitialized(true)
-          return
-        }
+          if (!currentUser) {
+            clearAuthData()
+            setUser(null)
+            setOrganizationId(null)
+            setOrgUser(null)
+            setLoading(false)
+            setIsInitialized(true)
+            return
+          }
 
-        const currentUser = session?.user ?? null
-        console.log('👤 Usuário Supabase encontrado:', currentUser ? 'SIM' : 'NÃO')
-
-        if (currentUser) {
-          console.log('✅ Sessão válida confirmada server-side')
-          setUser(currentUser)
-
-          // Validar organização SEMPRE no servidor
-          const orgId = await getOrganizationForUser(currentUser)
-
-          if (orgId) {
-            // Só salvar se validação server-side passou
-            saveAuthData(currentUser, orgId)
+          // Session existe mas getUser falhou - token pode estar expirando, forçar refresh
+          const { data: refreshData } = await supabase.auth.refreshSession()
+          if (refreshData.session?.user) {
+            setUser(refreshData.session.user)
+            const orgId = await getOrganizationForUser(refreshData.session.user)
+            if (orgId) saveAuthData(refreshData.session.user, orgId)
           } else {
-            // Se não tem org válida, limpar tudo
             clearAuthData()
             setUser(null)
             setOrganizationId(null)
             setOrgUser(null)
           }
+
+          setLoading(false)
+          setIsInitialized(true)
+          return
+        }
+
+        // getUser validou server-side com sucesso
+        setUser(validatedUser)
+        const orgId = await getOrganizationForUser(validatedUser)
+
+        if (orgId) {
+          saveAuthData(validatedUser, orgId)
         } else {
-          console.log('❌ Sessão inválida ou expirada')
-          clearAuthData() // Limpa localStorage comprometido
+          clearAuthData()
           setUser(null)
           setOrganizationId(null)
           setOrgUser(null)
@@ -166,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsInitialized(true)
 
       } catch (error) {
-        console.error('❌ Erro na verificação inicial:', error)
+        console.error('Erro na verificação inicial:', error)
         clearAuthData()
         setUser(null)
         setOrganizationId(null)
@@ -178,45 +206,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     getInitialSession()
 
-    // Listen for auth changes
+    // Listen for auth changes (sem depender de isInitialized para não perder eventos)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔄 Auth state changed:', event, 'Initialized:', isInitialized)
-
-      // Skip if not initialized yet
-      if (!isInitialized) return
+      console.log('Auth state changed:', event)
 
       const currentUser = session?.user ?? null
-      console.log('👤 Usuário atualizado:', currentUser ? 'SIM' : 'NÃO')
+
+      if (event === 'TOKEN_REFRESHED') {
+        // Token foi renovado automaticamente - atualizar user silenciosamente
+        if (currentUser) {
+          setUser(currentUser)
+          saveAuthData(currentUser, organizationId || undefined)
+        }
+        return
+      }
+
+      if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setOrganizationId(null)
+        setOrgUser(null)
+        setIsAuthenticated(false)
+        clearAuthData()
+        return
+      }
 
       if (currentUser) {
         setUser(currentUser)
-
-        // Get organization for the user
         const orgId = await getOrganizationForUser(currentUser)
-
-        // Salvar no localStorage
         saveAuthData(currentUser, orgId || undefined)
       } else {
         setUser(null)
         setOrganizationId(null)
         setOrgUser(null)
-
-        // Limpar localStorage quando logout
-        if (event === 'SIGNED_OUT') {
-          clearAuthData()
-        }
       }
 
       setLoading(false)
     })
 
-    // Cleanup para evitar memory leaks
+    // VISIBILITYCHANGE: Recuperar sessão quando a aba volta a ficar visível
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Tab visible - recovering session...')
+        recoverSession()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // HEARTBEAT: Verificar sessão periodicamente como safety net
+    heartbeatRef.current = setInterval(async () => {
+      // Só fazer heartbeat se a aba estiver visível
+      if (document.visibilityState !== 'visible') return
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          console.log('Heartbeat: no session, recovering...')
+          recoverSession()
+        }
+      } catch {
+        // Silenciar erros do heartbeat
+      }
+    }, SESSION_HEARTBEAT_MS)
+
+    // Cleanup
     return () => {
       subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current)
     }
-  }, [supabase.auth, isInitialized])
+  }, [])
 
   const signOut = async () => {
     console.log('🚪 Iniciando logout...')
@@ -260,16 +320,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Função para validar autenticação atual (força verificação no Supabase)
+  // Função para validar autenticação atual (força refresh do token server-side)
   const refreshAuth = useCallback(async () => {
-    console.log('🔄 Refresh auth forçado...')
+    console.log('Refresh auth forçado...')
     setLoading(true)
-    
+
     try {
-      const { data: { session }, error } = await supabase.auth.getSession()
-      
+      // Usar refreshSession() para forçar renovação server-side
+      const { data: { session }, error } = await supabase.auth.refreshSession()
+
       if (error || !session?.user) {
-        console.log('❌ Refresh: sem sessão válida')
+        console.log('Refresh: sem sessão válida')
         setUser(null)
         setOrganizationId(null)
         setOrgUser(null)
@@ -279,13 +340,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const currentUser = session.user
-      console.log('✅ Refresh: sessão válida encontrada')
 
       // Verificar organização
       const orgId = await getOrganizationForUser(currentUser)
-      
+
       if (!orgId) {
-        console.log('❌ Refresh: usuário sem organização ativa')
         setUser(null)
         setOrganizationId(null)
         setOrgUser(null)
@@ -298,10 +357,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setOrganizationId(orgId)
       setIsAuthenticated(true)
       saveAuthData(currentUser, orgId)
-      
-      console.log('✅ Refresh auth completado com sucesso')
     } catch (error) {
-      console.error('❌ Erro no refresh auth:', error)
+      console.error('Erro no refresh auth:', error)
       setUser(null)
       setOrganizationId(null)
       setOrgUser(null)

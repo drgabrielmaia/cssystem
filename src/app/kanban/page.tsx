@@ -1186,8 +1186,21 @@ export default function KanbanPage() {
                 Salvar
               </Button>
             ) : (
-              <Button 
-                onClick={() => setIsEditingTask(true)}
+              <Button
+                onClick={() => {
+                  if (selectedTask) {
+                    setEditTask({
+                      title: selectedTask.title,
+                      description: selectedTask.description || '',
+                      assigned_to_email: selectedTask.assigned_to_email || 'none',
+                      priority: selectedTask.priority,
+                      due_date: selectedTask.due_date || '',
+                      estimated_hours: selectedTask.estimated_hours ? selectedTask.estimated_hours.toString() : '',
+                      tags: selectedTask.tags
+                    })
+                  }
+                  setIsEditingTask(true)
+                }}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Edit className="h-4 w-4 mr-2" />

@@ -8,15 +8,7 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true,
-    // Melhor tratamento de erros de auth
-    onAuthStateChange: (event, session) => {
-      if (event === 'TOKEN_REFRESHED') {
-        console.log('🔄 Token refreshed successfully')
-      } else if (event === 'SIGNED_OUT') {
-        console.log('👋 User signed out')
-      }
-    }
+    detectSessionInUrl: true
   },
   global: {
     headers: {
