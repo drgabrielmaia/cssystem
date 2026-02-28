@@ -266,6 +266,7 @@ export const LightTemplate: React.FC<LightTemplateProps> = ({
             marginBottom: '24px',
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
+            textAlign: 'center',
             ...(fontStyle === 'bold' ? { textTransform: 'uppercase' as const } : {}),
           }}
         >

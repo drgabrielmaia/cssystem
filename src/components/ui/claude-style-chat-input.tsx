@@ -262,7 +262,7 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage 
     // File Handling
     const handleFiles = useCallback((newFilesList: FileList | File[]) => {
         const newFiles = Array.from(newFilesList).map(file => {
-            const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name);
+            const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg|heic|heif)$/i.test(file.name);
             return {
                 id: Math.random().toString(36).substr(2, 9),
                 file,

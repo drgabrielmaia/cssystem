@@ -244,6 +244,7 @@ export const DarkTemplate: React.FC<DarkTemplateProps> = ({
                 padding: 0,
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
+                textAlign: 'center',
                 ...(fontStyle === 'bold' ? { textTransform: 'uppercase' as const } : {}),
               }}
             >

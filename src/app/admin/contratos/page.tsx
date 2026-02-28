@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/contexts/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,7 +32,8 @@ import {
   MessageCircle,
   Users,
   Settings,
-  Trash2
+  Trash2,
+  Download
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { sendContractAfterCreation } from '@/lib/contract-whatsapp'
@@ -116,14 +117,69 @@ export default function ContractsPage() {
   const [signatureForm, setSignatureForm] = useState({
     signature_name: '',
     signature_title: '',
-    signature_document: ''
+    signature_document: '',
+    signature_image: '' // base64 drawn signature
   })
+
+  // Org signature canvas
+  const orgSigCanvasRef = useRef<HTMLCanvasElement>(null)
+  const [orgSigDrawing, setOrgSigDrawing] = useState(false)
+  const [orgSigHasDrawn, setOrgSigHasDrawn] = useState(false)
+
+  const setupOrgSigCanvas = () => {
+    const ctx = orgSigCanvasRef.current?.getContext('2d')
+    if (ctx) { ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round' }
+  }
+
+  const orgSigStart = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if ('touches' in e) e.preventDefault()
+    setOrgSigDrawing(true)
+    const canvas = orgSigCanvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const cx = 'touches' in e ? e.touches[0].clientX : e.clientX
+    const cy = 'touches' in e ? e.touches[0].clientY : e.clientY
+    const ctx = canvas.getContext('2d')
+    if (ctx) { ctx.beginPath(); ctx.moveTo((cx - rect.left) * (canvas.width / rect.width), (cy - rect.top) * (canvas.height / rect.height)) }
+  }
+  const orgSigDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!orgSigDrawing) return
+    if ('touches' in e) e.preventDefault()
+    const canvas = orgSigCanvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return
+    const rect = canvas.getBoundingClientRect()
+    const cx = 'touches' in e ? e.touches[0].clientX : e.clientX
+    const cy = 'touches' in e ? e.touches[0].clientY : e.clientY
+    ctx.lineTo((cx - rect.left) * (canvas.width / rect.width), (cy - rect.top) * (canvas.height / rect.height))
+    ctx.stroke()
+    setOrgSigHasDrawn(true)
+  }
+  const orgSigStop = () => { setOrgSigDrawing(false) }
+  const orgSigClear = () => {
+    const canvas = orgSigCanvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (canvas && ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); setupOrgSigCanvas(); setOrgSigHasDrawn(false) }
+    setSignatureForm(prev => ({ ...prev, signature_image: '' }))
+  }
+  const orgSigCapture = () => {
+    const canvas = orgSigCanvasRef.current
+    if (!canvas) return ''
+    return canvas.toDataURL('image/png')
+  }
 
   useEffect(() => {
     if (organizationId) {
       loadData()
     }
   }, [organizationId, statusFilter])
+
+  // Init org signature canvas when settings tab is shown
+  useEffect(() => {
+    if (activeTab === 'settings') {
+      setTimeout(() => setupOrgSigCanvas(), 100)
+    }
+  }, [activeTab])
 
   const loadData = async () => {
     setLoading(true)
@@ -172,7 +228,8 @@ export default function ContractsPage() {
         setSignatureForm({
           signature_name: signatureData.signature_name,
           signature_title: signatureData.signature_title || '',
-          signature_document: signatureData.signature_document || ''
+          signature_document: signatureData.signature_document || '',
+          signature_image: signatureData.signature_image_url || ''
         })
       }
 
@@ -421,8 +478,11 @@ export default function ContractsPage() {
 
         // Process signatures in the content
         if (orgSignature) {
+          const orgSigImg = orgSignature.signature_image_url
+            ? `<img src="${orgSignature.signature_image_url}" alt="Assinatura Contratada" style="max-width:200px;height:60px;margin:10px 0;" />`
+            : ''
           const orgSignatureBlock = `
-    
+${orgSigImg}
 ___________________
 ${orgSignature.signature_name}
 ${orgSignature.signature_title || ''}
@@ -433,15 +493,24 @@ CNPJ: 56.267.958/0001-60`
           content = content.replace(/\[ASSINATURA_CONTRATADA\]/g, orgSignatureBlock)
         }
 
-        // If contract is signed, show signature info
+        // If contract is signed, show signature info (fetch signature_data from contracts table)
         if (contract.status === 'signed') {
+          let clientSigImg = ''
+          const { data: contractFull } = await supabase
+            .from('contracts')
+            .select('signature_data')
+            .eq('id', contract.id)
+            .single()
+          if (contractFull?.signature_data?.signature) {
+            clientSigImg = `<img src="${contractFull.signature_data.signature}" alt="Assinatura" style="max-width:200px;height:60px;margin:10px 0;" />`
+          }
           const clientSignatureBlock = `
-
+${clientSigImg}
 ___________________
 ${contract.recipient_name}
 Assinatura Digital
 Assinado em: ${contract.signed_at ? new Date(contract.signed_at).toLocaleDateString('pt-BR') : 'Data não disponível'}`
-          
+
           content = content.replace(/\[ASSINATURA_CONTRATANTE\]/g, clientSignatureBlock)
           content = content.replace(/\[SIGNATURE\]/g, clientSignatureBlock)
         } else {
@@ -493,11 +562,13 @@ Assinatura do Contratante`
     if (!organizationId) return
 
     try {
+      const capturedImage = orgSigHasDrawn ? orgSigCapture() : signatureForm.signature_image
       const signatureData = {
         organization_id: organizationId,
         signature_name: signatureForm.signature_name,
         signature_title: signatureForm.signature_title,
-        signature_document: signatureForm.signature_document
+        signature_document: signatureForm.signature_document,
+        signature_image_url: capturedImage || null
       }
 
       if (signatureSettings) {
@@ -1000,6 +1071,43 @@ Assinatura do Contratante`
                   />
                 </div>
 
+                {/* Drawn Signature */}
+                <div>
+                  <Label className="text-white">Assinatura Desenhada da Contratada</Label>
+                  <p className="text-gray-400 text-xs mb-2">Desenhe a assinatura que aparecerá nos contratos como contratada</p>
+                  <div className="border-2 border-dashed border-gray-600 rounded-lg p-3 max-w-md">
+                    <canvas
+                      ref={orgSigCanvasRef}
+                      width={360}
+                      height={150}
+                      className="w-full border rounded bg-white cursor-crosshair"
+                      style={{ touchAction: 'none' }}
+                      onMouseDown={orgSigStart}
+                      onMouseMove={orgSigDraw}
+                      onMouseUp={orgSigStop}
+                      onMouseLeave={orgSigStop}
+                      onTouchStart={orgSigStart}
+                      onTouchMove={orgSigDraw}
+                      onTouchEnd={orgSigStop}
+                    />
+                  </div>
+                  {signatureForm.signature_image && !orgSigHasDrawn && (
+                    <div className="mt-2">
+                      <p className="text-gray-400 text-xs mb-1">Assinatura salva:</p>
+                      <img src={signatureForm.signature_image} alt="Assinatura" className="h-12 bg-white rounded p-1" />
+                    </div>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={orgSigClear}
+                    className="mt-2 border-gray-600 text-gray-300 hover:bg-gray-700"
+                  >
+                    Limpar Assinatura
+                  </Button>
+                </div>
+
                 <Button type="submit" className="bg-[#D4AF37] hover:bg-[#B8860B]">
                   <Settings className="h-4 w-4 mr-2" />
                   Salvar Configurações
@@ -1017,6 +1125,9 @@ Assinatura do Contratante`
             <CardContent>
               <div className="bg-white p-6 rounded-lg">
                 <div className="text-center space-y-2">
+                  {signatureForm.signature_image && (
+                    <img src={signatureForm.signature_image} alt="Assinatura" className="h-14 mx-auto mb-2" />
+                  )}
                   <div className="border-b border-gray-300 pb-2 mb-4">
                     <p className="text-gray-900 font-semibold">{signatureForm.signature_name || '[Nome do Responsável]'}</p>
                   </div>
@@ -1082,16 +1193,31 @@ Assinatura do Contratante`
 
               {/* Action Buttons */}
               <div className="flex gap-3 justify-end">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const w = window.open('', '_blank')
+                    if (!w) return
+                    w.document.write(`<!DOCTYPE html><html><head><title>Contrato - ${viewingContract.recipient_name}</title><style>body{font-family:Arial,sans-serif;padding:20px;line-height:1.6;max-width:800px;margin:0 auto}@media print{body{margin:0;padding:15px}}</style></head><body><div style="white-space:pre-wrap;font-size:14px;">${contractContent.replace(/\n/g, '<br>')}</div></body></html>`)
+                    w.document.close()
+                    w.focus()
+                    setTimeout(() => w.print(), 500)
+                  }}
+                  className="bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Baixar PDF
+                </Button>
+                <Button
+                  variant="outline"
                   onClick={() => copySigningUrl(viewingContract.id)}
                   className="bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
                 >
                   <Copy className="h-4 w-4 mr-2" />
                   Copiar Link
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setShowViewModal(false)}
                   className="bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
                 >

@@ -45,10 +45,11 @@ import {
   Video
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/auth'
 import { toast } from 'sonner'
-import { 
-  LeadFollowupSequence, 
-  FollowupStep, 
+import {
+  LeadFollowupSequence,
+  FollowupStep,
   LeadFollowupExecution
 } from '@/types/commission'
 
@@ -142,6 +143,7 @@ const STEP_TEMPLATES = {
 }
 
 export default function FollowUpConfigPage() {
+  const { organizationId } = useAuth()
   const [sequences, setSequences] = useState<LeadFollowupSequence[]>([])
   const [sequenceStats, setSequenceStats] = useState<SequenceStats[]>([])
   const [executions, setExecutions] = useState<LeadFollowupExecution[]>([])
@@ -150,7 +152,7 @@ export default function FollowUpConfigPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false)
-  
+
   const [formData, setFormData] = useState<SequenceFormData>({
     nome_sequencia: '',
     descricao: '',
@@ -164,8 +166,8 @@ export default function FollowUpConfigPage() {
   })
 
   useEffect(() => {
-    loadData()
-  }, [])
+    if (organizationId) loadData()
+  }, [organizationId])
 
   const loadData = async () => {
     setLoading(true)
@@ -187,6 +189,7 @@ export default function FollowUpConfigPage() {
     const { data, error } = await supabase
       .from('lead_followup_sequences')
       .select('*')
+      .eq('organization_id', organizationId)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -298,9 +301,9 @@ export default function FollowUpConfigPage() {
     try {
       const sequenceData = {
         ...formData,
-        organization_id: '1', // Substituir pela organização atual
-        criterios_ativacao: JSON.stringify(formData.criterios_ativacao),
-        steps: JSON.stringify(formData.steps)
+        organization_id: organizationId,
+        criterios_ativacao: formData.criterios_ativacao,
+        steps: formData.steps
       }
 
       const { error } = await supabase
@@ -325,8 +328,8 @@ export default function FollowUpConfigPage() {
     try {
       const sequenceData = {
         ...formData,
-        criterios_ativacao: JSON.stringify(formData.criterios_ativacao),
-        steps: JSON.stringify(formData.steps),
+        criterios_ativacao: formData.criterios_ativacao,
+        steps: formData.steps,
         updated_at: new Date().toISOString()
       }
 

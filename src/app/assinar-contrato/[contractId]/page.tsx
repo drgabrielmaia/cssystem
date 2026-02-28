@@ -29,6 +29,7 @@ interface ContractForSigning {
   created_at: string
   signature_data?: any
   organization_id?: string
+  lead_id?: string
 }
 
 export default function ContractSigningPage() {
@@ -115,6 +116,7 @@ export default function ContractSigningPage() {
 
   // Canvas drawing functions
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if ('touches' in e) e.preventDefault()
     setIsDrawing(true)
     const canvas = signatureCanvasRef.current
     if (!canvas) return
@@ -122,9 +124,9 @@ export default function ContractSigningPage() {
     const rect = canvas.getBoundingClientRect()
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-    
-    const x = clientX - rect.left
-    const y = clientY - rect.top
+
+    const x = (clientX - rect.left) * (canvas.width / rect.width)
+    const y = (clientY - rect.top) * (canvas.height / rect.height)
 
     const ctx = canvas.getContext('2d')
     if (ctx) {
@@ -135,7 +137,8 @@ export default function ContractSigningPage() {
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return
-    
+    if ('touches' in e) e.preventDefault()
+
     const canvas = signatureCanvasRef.current
     const ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
@@ -143,9 +146,9 @@ export default function ContractSigningPage() {
     const rect = canvas.getBoundingClientRect()
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-    
-    const x = clientX - rect.left
-    const y = clientY - rect.top
+
+    const x = (clientX - rect.left) * (canvas.width / rect.width)
+    const y = (clientY - rect.top) * (canvas.height / rect.height)
 
     ctx.lineTo(x, y)
     ctx.stroke()
@@ -205,8 +208,10 @@ export default function ContractSigningPage() {
     content = content.replace(/\[DATA_NASCIMENTO\]/g, '')
     
     // Create organization signature block
+    const orgSigImage = organizationSignature?.signature_image_url ? `[ASSINATURA_ORG_IMAGEM]` : ''
     const orgSignatureBlock = organizationSignature ? `
-    
+
+${orgSigImage}
 ___________________
 ${organizationSignature.signature_name}
 ${organizationSignature.signature_title || ''}
@@ -293,10 +298,71 @@ Assinatura do Contratante`
         signature_data: signatureData,
         status: 'signed'
       } : null)
-      
+
       setSigned(true)
       setCurrentStep(4)
-      
+
+      // Auto-convert lead to mentorado
+      if (contract.lead_id && contract.organization_id) {
+        try {
+          console.log('Converting lead to mentorado:', contract.lead_id)
+          const enderecoStr = `${formData.rua}${formData.numero ? ', ' + formData.numero : ''}${formData.bairro ? ', ' + formData.bairro : ''}, ${formData.cidade}, ${formData.estado}, CEP: ${formData.cep}`
+
+          // Generate a random password for the new mentorado
+          const randomPwd = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4)
+
+          // Create mentorado from lead data
+          const { data: newMentorado, error: mentoradoError } = await supabase
+            .from('mentorados')
+            .insert({
+              nome_completo: contract.recipient_name,
+              email: contract.recipient_email,
+              cpf: formData.cpf,
+              endereco: enderecoStr,
+              lead_id: contract.lead_id,
+              organization_id: contract.organization_id,
+              password_hash: randomPwd,
+              status_login: 'ativo',
+              data_entrada: new Date().toISOString().split('T')[0],
+              data_inicio_mentoria: new Date().toISOString().split('T')[0],
+            })
+            .select('id')
+            .single()
+
+          if (mentoradoError) {
+            console.error('Erro ao criar mentorado:', mentoradoError)
+          } else if (newMentorado) {
+            console.log('Mentorado criado:', newMentorado.id)
+
+            // Update lead status to 'convertido'
+            await supabase
+              .from('leads')
+              .update({ status: 'convertido' })
+              .eq('id', contract.lead_id)
+
+            // Grant access to ALL modules of this organization
+            const { data: modules } = await supabase
+              .from('video_modules')
+              .select('id')
+              .eq('organization_id', contract.organization_id)
+              .eq('is_active', true)
+
+            if (modules && modules.length > 0) {
+              const accessRows = modules.map((m: any) => ({
+                mentorado_id: newMentorado.id,
+                module_id: m.id,
+                has_access: true,
+                granted_by: 'contract-auto',
+              }))
+              await supabase.from('video_access_control').insert(accessRows)
+              console.log(`Acesso liberado a ${modules.length} modulos`)
+            }
+          }
+        } catch (convError) {
+          console.error('Erro na conversao lead->mentorado:', convError)
+        }
+      }
+
       // Try to send WhatsApp confirmation
       try {
         console.log('📱 Enviando confirmação via WhatsApp...')
@@ -340,19 +406,27 @@ Assinatura do Contratante`
     }
   }
 
+  const renderContractHTML = () => {
+    return getProcessedContractContent()
+      .replace(/\[ASSINATURA_IMAGEM\]/g,
+        contract?.signature_data?.signature
+          ? `<img src="${contract.signature_data.signature}" alt="Assinatura Contratante" style="max-width: 200px; height: 60px; margin: 10px 0;" />`
+          : ''
+      )
+      .replace(/\[ASSINATURA_ORG_IMAGEM\]/g,
+        organizationSignature?.signature_image_url
+          ? `<img src="${organizationSignature.signature_image_url}" alt="Assinatura Contratada" style="max-width: 200px; height: 60px; margin: 10px 0;" />`
+          : ''
+      )
+  }
+
   const downloadContractPDF = () => {
     if (!contract) return
 
-    // Create a new window with the contract content for printing
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
 
-    const contractContent = getProcessedContractContent()
-      .replace(/\[ASSINATURA_IMAGEM\]/g, 
-        contract.signature_data?.signature ? 
-          `<img src="${contract.signature_data.signature}" alt="Assinatura" style="max-width: 200px; height: 60px; margin: 10px 0;" />` 
-          : ''
-      )
+    const contractContent = renderContractHTML()
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -670,16 +744,9 @@ Assinatura do Contratante`
               </CardHeader>
               <CardContent>
                 <div className="bg-white p-6 rounded-lg text-black max-h-96 overflow-y-auto">
-                  <div 
+                  <div
                     className="whitespace-pre-wrap text-sm leading-relaxed"
-                    dangerouslySetInnerHTML={{
-                      __html: getProcessedContractContent()
-                        .replace(/\[ASSINATURA_IMAGEM\]/g, 
-                          contract.signature_data?.signature ? 
-                            `<img src="${contract.signature_data.signature}" alt="Assinatura" style="max-width: 200px; height: 60px; margin: 10px 0;" />` 
-                            : ''
-                        )
-                    }}
+                    dangerouslySetInnerHTML={{ __html: renderContractHTML() }}
                   />
                 </div>
                 
@@ -716,47 +783,45 @@ Assinatura do Contratante`
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Signature Panel */}
-                <div className="space-y-4">
-                  <Label className="text-white text-lg">Sua Assinatura</Label>
-                  <div className="border-2 border-dashed border-gray-600 rounded-lg p-4">
-                    <canvas
-                      ref={signatureCanvasRef}
-                      width={400}
-                      height={200}
-                      className="w-full border rounded bg-white cursor-crosshair"
-                      onMouseDown={startDrawing}
-                      onMouseMove={draw}
-                      onMouseUp={stopDrawing}
-                      onMouseLeave={stopDrawing}
-                      onTouchStart={startDrawing}
-                      onTouchMove={draw}
-                      onTouchEnd={stopDrawing}
-                    />
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearSignature}
-                      className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                    >
-                      Limpar Assinatura
-                    </Button>
-                  </div>
+              {/* Summary Info — first */}
+              <div className="bg-gray-700 p-5 rounded-lg">
+                <h3 className="text-white font-semibold text-lg mb-3">Resumo dos Dados</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-gray-400">Nome:</span> <span className="text-white">{contract.recipient_name}</span></div>
+                  <div><span className="text-gray-400">Email:</span> <span className="text-white">{contract.recipient_email}</span></div>
+                  <div><span className="text-gray-400">CPF:</span> <span className="text-white">{formData.cpf}</span></div>
+                  <div className="sm:col-span-2"><span className="text-gray-400">Endereço:</span> <span className="text-white">{`${formData.rua}${formData.numero ? ', ' + formData.numero : ''}${formData.bairro ? ', ' + formData.bairro : ''}, ${formData.cidade}, ${formData.estado}, CEP: ${formData.cep}`}</span></div>
                 </div>
+              </div>
 
-                {/* Summary Info */}
-                <div className="bg-gray-700 p-6 rounded-lg space-y-4">
-                  <h3 className="text-white font-semibold text-lg">Resumo dos Dados</h3>
-                  <div className="space-y-2 text-sm">
-                    <div><span className="text-gray-400">Nome:</span> <span className="text-white">{contract.recipient_name}</span></div>
-                    <div><span className="text-gray-400">Email:</span> <span className="text-white">{contract.recipient_email}</span></div>
-                    <div><span className="text-gray-400">CPF:</span> <span className="text-white">{formData.cpf}</span></div>
-                    <div><span className="text-gray-400">Endereço:</span> <span className="text-white">{`${formData.rua}${formData.numero ? ', ' + formData.numero : ''}${formData.bairro ? ', ' + formData.bairro : ''}, ${formData.cidade}, ${formData.estado}, CEP: ${formData.cep}`}</span></div>
-                  </div>
+              {/* Signature Panel — below info */}
+              <div className="space-y-4">
+                <Label className="text-white text-lg">Sua Assinatura</Label>
+                <div className="border-2 border-dashed border-gray-600 rounded-lg p-4 max-w-lg mx-auto">
+                  <canvas
+                    ref={signatureCanvasRef}
+                    width={400}
+                    height={200}
+                    className="w-full border rounded bg-white cursor-crosshair"
+                    style={{ touchAction: 'none' }}
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={stopDrawing}
+                  />
+                </div>
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearSignature}
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                  >
+                    Limpar Assinatura
+                  </Button>
                 </div>
               </div>
 
@@ -843,16 +908,9 @@ Assinatura do Contratante`
               </CardHeader>
               <CardContent>
                 <div className="bg-white p-6 rounded-lg text-black">
-                  <div 
+                  <div
                     className="whitespace-pre-wrap text-sm leading-relaxed"
-                    dangerouslySetInnerHTML={{
-                      __html: getProcessedContractContent()
-                        .replace(/\[ASSINATURA_IMAGEM\]/g, 
-                          contract.signature_data?.signature ? 
-                            `<img src="${contract.signature_data.signature}" alt="Assinatura" style="max-width: 200px; height: 60px; margin: 10px 0;" />` 
-                            : ''
-                        )
-                    }}
+                    dangerouslySetInnerHTML={{ __html: renderContractHTML() }}
                   />
                 </div>
               </CardContent>

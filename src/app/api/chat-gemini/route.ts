@@ -1,10 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { GoogleGenAI } from '@google/genai'
+import { createClient } from '@supabase/supabase-js'
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'SUA_NOVA_API_KEY_AQUI'
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+)
 
-export const maxDuration = 120 // Allow up to 2 minutes for Vercel
+// Limits: R$15/month ≈ US$2.70
+// Images: $0.039/each → ~50 images = $1.95
+// Chat: $0.10/1M input + $0.40/1M output → ~2000 messages easily
+const MONTHLY_LIMITS = {
+  maxImages: 50,
+  maxChatMessages: 2000,
+}
+
+function getCurrentMonthYear() {
+  return new Date().toISOString().slice(0, 7) // '2026-02'
+}
+
+async function getUsage(mentoradoId: string) {
+  const monthYear = getCurrentMonthYear()
+  const { data } = await supabaseAdmin
+    .from('ai_usage')
+    .select('*')
+    .eq('mentorado_id', mentoradoId)
+    .eq('month_year', monthYear)
+    .single()
+  return data || { images_generated: 0, chat_messages_sent: 0, input_tokens_estimated: 0, output_tokens_estimated: 0 }
+}
+
+async function incrementUsage(mentoradoId: string, isImage: boolean) {
+  const monthYear = getCurrentMonthYear()
+  const { data: existing } = await supabaseAdmin
+    .from('ai_usage')
+    .select('id, images_generated, chat_messages_sent')
+    .eq('mentorado_id', mentoradoId)
+    .eq('month_year', monthYear)
+    .single()
+
+  if (existing) {
+    await supabaseAdmin.from('ai_usage').update({
+      images_generated: existing.images_generated + (isImage ? 1 : 0),
+      chat_messages_sent: existing.chat_messages_sent + (isImage ? 0 : 1),
+      updated_at: new Date().toISOString(),
+    }).eq('id', existing.id)
+  } else {
+    await supabaseAdmin.from('ai_usage').insert({
+      mentorado_id: mentoradoId,
+      month_year: monthYear,
+      images_generated: isImage ? 1 : 0,
+      chat_messages_sent: isImage ? 0 : 1,
+    })
+  }
+}
+
+export const maxDuration = 120
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +68,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { message, userEmail, context, imageBase64, generateImage, referenceImages } = await request.json()
+    const { message, userEmail, mentoradoId, context, imageBase64, generateImage, referenceImages } = await request.json()
 
     console.log('[chat-gemini] userEmail:', userEmail, '| message:', message?.substring(0, 50), '| generateImage:', !!generateImage)
 
@@ -32,6 +85,24 @@ export async function POST(request: NextRequest) {
         { error: 'Mensagem é obrigatória' },
         { status: 400 }
       )
+    }
+
+    // Check usage limits if mentoradoId provided
+    let usage = null
+    if (mentoradoId) {
+      usage = await getUsage(mentoradoId)
+      if (generateImage && usage.images_generated >= MONTHLY_LIMITS.maxImages) {
+        return NextResponse.json({
+          error: `Limite de imagens atingido (${MONTHLY_LIMITS.maxImages}/mes). Renova no proximo mes.`,
+          usage: { ...usage, limits: MONTHLY_LIMITS },
+        }, { status: 429 })
+      }
+      if (!generateImage && usage.chat_messages_sent >= MONTHLY_LIMITS.maxChatMessages) {
+        return NextResponse.json({
+          error: `Limite de mensagens atingido (${MONTHLY_LIMITS.maxChatMessages}/mes). Renova no proximo mes.`,
+          usage: { ...usage, limits: MONTHLY_LIMITS },
+        }, { status: 429 })
+      }
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
@@ -320,12 +391,20 @@ QUALIDADE: Foto realista, iluminação profissional, resolução alta.`
         }
       }
 
+      // Track image usage
+      if (mentoradoId && generatedImageBase64) {
+        await incrementUsage(mentoradoId, true).catch(() => {})
+      }
+
+      const updatedUsage = mentoradoId ? await getUsage(mentoradoId).catch(() => null) : null
+
       return NextResponse.json({
         success: true,
         message: responseText || 'Imagem gerada com sucesso!',
         generatedImage: generatedImageBase64,
         model: usedModel,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        usage: updatedUsage ? { ...updatedUsage, limits: MONTHLY_LIMITS } : undefined,
       })
     }
 
@@ -349,11 +428,19 @@ QUALIDADE: Foto realista, iluminação profissional, resolução alta.`
 
     const aiResponse = result.response.text()
 
+    // Track chat usage
+    if (mentoradoId) {
+      await incrementUsage(mentoradoId, false).catch(() => {})
+    }
+
+    const updatedUsage = mentoradoId ? await getUsage(mentoradoId).catch(() => null) : null
+
     return NextResponse.json({
       success: true,
       message: aiResponse,
       model: 'gemini-2.5-flash-lite',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      usage: updatedUsage ? { ...updatedUsage, limits: MONTHLY_LIMITS } : undefined,
     })
 
   } catch (error: any) {
@@ -372,4 +459,14 @@ QUALIDADE: Foto realista, iluminação profissional, resolução alta.`
       { status: isQuotaError ? 429 : 500 }
     )
   }
+}
+
+// GET: fetch usage for a mentorado
+export async function GET(request: NextRequest) {
+  const mentoradoId = request.nextUrl.searchParams.get('mentoradoId')
+  if (!mentoradoId) {
+    return NextResponse.json({ error: 'mentoradoId required' }, { status: 400 })
+  }
+  const usage = await getUsage(mentoradoId)
+  return NextResponse.json({ usage: { ...usage, limits: MONTHLY_LIMITS } })
 }
