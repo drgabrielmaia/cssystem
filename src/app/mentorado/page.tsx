@@ -14,6 +14,7 @@ import { CacheRefreshHelper } from '@/components/cache-refresh-helper'
 import { RankingPorGenero } from '@/components/ranking/RankingPorGenero'
 import MentoradoInfoWrapper from '@/components/MentoradoInfoWrapper'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 interface VideoModule {
   id: string
@@ -28,6 +29,7 @@ interface VideoModule {
 
 function MentoradoPageContent() {
   const { mentorado, loading: authLoading, error, signIn, signOut } = useMentoradoAuth()
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -35,6 +37,32 @@ function MentoradoPageContent() {
   const [modules, setModules] = useState<VideoModule[]>([])
   const [showGeneroEspecialidadeModal, setShowGeneroEspecialidadeModal] = useState(false)
   const [needsProfileUpdate, setNeedsProfileUpdate] = useState(false)
+
+  // Check ICP completion and redirect if needed
+  useEffect(() => {
+    const checkICP = async () => {
+      if (!mentorado) return
+      if (mentorado.icp_completed) return
+      // Check if there's an active ICP template
+      const { data: template } = await supabase
+        .from('icp_form_templates')
+        .select('id')
+        .eq('is_active', true)
+        .limit(1)
+      if (template && template.length > 0) {
+        // Check if already has a response
+        const { data: existing } = await supabase
+          .from('icp_responses')
+          .select('id')
+          .eq('mentorado_id', mentorado.id)
+          .limit(1)
+        if (!existing || existing.length === 0) {
+          router.push('/mentorado/icp')
+        }
+      }
+    }
+    checkICP()
+  }, [mentorado, router])
 
   useEffect(() => {
     if (mentorado) {
