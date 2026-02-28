@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   BarChart3,
   TrendingUp,
@@ -27,10 +27,18 @@ import {
   Filter,
   Star,
   Trophy,
-  Shield
+  Shield,
+  Brain,
+  Send,
+  X,
+  Sparkles,
+  Loader2,
+  Bot,
+  User
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
+import ReactMarkdown from 'react-markdown'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -40,9 +48,17 @@ interface LeadRaw {
   origem: string | null
   status: string | null
   valor_venda: number | null
+  valor_vendido: number | null
+  valor_arrecadado: number | null
   closer_id: string | null
+  sdr_id: string | null
   created_at: string
   closers: {
+    id: string
+    nome_completo: string | null
+    nome: string | null
+  } | null
+  sdrs: {
     id: string
     nome_completo: string | null
     nome: string | null
@@ -92,21 +108,33 @@ interface StatusCount {
 // ─── Status configuration ───────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; gradient: string }> = {
-  novo:            { label: 'Novo',            color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20',    gradient: 'from-blue-500 to-blue-600' },
-  contactado:      { label: 'Contactado',      color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/20',    gradient: 'from-cyan-500 to-cyan-600' },
-  qualificado:     { label: 'Qualificado',     color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20',   gradient: 'from-amber-500 to-amber-600' },
-  proposta:        { label: 'Proposta',         color: 'text-purple-400',  bg: 'bg-purple-500/10',  border: 'border-purple-500/20',  gradient: 'from-purple-500 to-purple-600' },
-  negociacao:      { label: 'Negociação',      color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/20',  gradient: 'from-orange-500 to-orange-600' },
-  fechado_ganho:   { label: 'Fechado (Ganho)',  color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', gradient: 'from-emerald-500 to-emerald-600' },
-  fechado_perdido: { label: 'Fechado (Perdido)',color: 'text-red-400',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     gradient: 'from-red-500 to-red-600' },
-  churn:           { label: 'Churn',            color: 'text-rose-400',    bg: 'bg-rose-500/10',    border: 'border-rose-500/20',    gradient: 'from-rose-500 to-rose-600' },
-  churnzinho:      { label: 'Churnzinho',       color: 'text-pink-400',    bg: 'bg-pink-500/10',    border: 'border-pink-500/20',    gradient: 'from-pink-500 to-pink-600' },
-  desistiu:        { label: 'Desistiu',         color: 'text-gray-400',    bg: 'bg-gray-500/10',    border: 'border-gray-500/20',    gradient: 'from-gray-500 to-gray-600' },
+  novo:              { label: 'Novo',              color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20',    gradient: 'from-blue-500 to-blue-600' },
+  contactado:        { label: 'Contactado',        color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/20',    gradient: 'from-cyan-500 to-cyan-600' },
+  qualificado:       { label: 'Qualificado',       color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20',   gradient: 'from-amber-500 to-amber-600' },
+  agendado:          { label: 'Agendado',          color: 'text-indigo-400',  bg: 'bg-indigo-500/10',  border: 'border-indigo-500/20',  gradient: 'from-indigo-500 to-indigo-600' },
+  call_agendada:     { label: 'Call Agendada',     color: 'text-violet-400',  bg: 'bg-violet-500/10',  border: 'border-violet-500/20',  gradient: 'from-violet-500 to-violet-600' },
+  proposta:          { label: 'Proposta',          color: 'text-purple-400',  bg: 'bg-purple-500/10',  border: 'border-purple-500/20',  gradient: 'from-purple-500 to-purple-600' },
+  proposta_enviada:  { label: 'Proposta Enviada',  color: 'text-fuchsia-400', bg: 'bg-fuchsia-500/10', border: 'border-fuchsia-500/20', gradient: 'from-fuchsia-500 to-fuchsia-600' },
+  negociacao:        { label: 'Negociação',        color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/20',  gradient: 'from-orange-500 to-orange-600' },
+  vendido:           { label: 'Vendido',           color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', gradient: 'from-emerald-500 to-emerald-600' },
+  'no-show':         { label: 'No-Show',           color: 'text-yellow-400',  bg: 'bg-yellow-500/10',  border: 'border-yellow-500/20',  gradient: 'from-yellow-500 to-yellow-600' },
+  perdido:           { label: 'Perdido',           color: 'text-red-400',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     gradient: 'from-red-500 to-red-600' },
+  churn:             { label: 'Churn',             color: 'text-rose-400',    bg: 'bg-rose-500/10',    border: 'border-rose-500/20',    gradient: 'from-rose-500 to-rose-600' },
+  churnzinho:        { label: 'Churnzinho',        color: 'text-pink-400',    bg: 'bg-pink-500/10',    border: 'border-pink-500/20',    gradient: 'from-pink-400 to-pink-600' },
+  vazado:            { label: 'Vazado',            color: 'text-slate-400',   bg: 'bg-slate-500/10',   border: 'border-slate-500/20',   gradient: 'from-slate-500 to-slate-600' },
+  desistiu:          { label: 'Desistiu',          color: 'text-gray-400',    bg: 'bg-gray-500/10',    border: 'border-gray-500/20',    gradient: 'from-gray-500 to-gray-600' },
 }
 
-const STATUS_ORDER = ['novo', 'contactado', 'qualificado', 'proposta', 'negociacao', 'fechado_ganho', 'fechado_perdido', 'churn', 'churnzinho', 'desistiu']
+// Statuses that count as "sold" for revenue calculations
+const SOLD_STATUSES = ['vendido', 'fechado_ganho']
+
+const STATUS_ORDER = ['novo', 'contactado', 'qualificado', 'agendado', 'call_agendada', 'proposta', 'proposta_enviada', 'negociacao', 'vendido', 'no-show', 'perdido', 'churn', 'churnzinho', 'vazado', 'desistiu']
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
+
+function getLeadRevenue(lead: LeadRaw): number {
+  return lead.valor_vendido || lead.valor_venda || lead.valor_arrecadado || 0
+}
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -212,6 +240,14 @@ export default function LeadDistributionDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState('30d')
 
+  // AI Chat State
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [isChatLoading, setIsChatLoading] = useState(false)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<HTMLTextAreaElement>(null)
+
   // ─── Date range calculation ─────────────────────────────────────────────────
 
   const getDateRanges = useCallback(() => {
@@ -276,7 +312,7 @@ export default function LeadDistributionDashboard() {
       const [leadsResult, closersResult] = await Promise.all([
         supabase
           .from('leads')
-          .select('id, nome_completo, origem, status, valor_venda, closer_id, created_at, closers:closer_id(id, nome_completo, nome)')
+          .select('id, nome_completo, origem, status, valor_venda, valor_vendido, valor_arrecadado, closer_id, sdr_id, created_at, closers:closer_id(id, nome_completo, nome), sdrs:sdr_id(id, nome_completo, nome)')
           .eq('organization_id', organizationId)
           .not('origem', 'is', null),
         supabase
@@ -310,13 +346,13 @@ export default function LeadDistributionDashboard() {
 
   const totalRevenue = useMemo(() => {
     return leads
-      .filter(l => l.status === 'fechado_ganho')
-      .reduce((sum, l) => sum + (l.valor_venda || 0), 0)
+      .filter(l => SOLD_STATUSES.includes(l.status || ''))
+      .reduce((sum, l) => sum + getLeadRevenue(l), 0)
   }, [leads])
 
   const conversionRate = useMemo(() => {
     if (totalLeads === 0) return 0
-    const won = leads.filter(l => l.status === 'fechado_ganho').length
+    const won = leads.filter(l => SOLD_STATUSES.includes(l.status || '')).length
     return (won / totalLeads) * 100
   }, [leads, totalLeads])
 
@@ -327,8 +363,8 @@ export default function LeadDistributionDashboard() {
       const status = lead.status || 'novo'
       if (!counts[status]) counts[status] = { count: 0, revenue: 0 }
       counts[status].count += 1
-      if (lead.valor_venda && lead.status === 'fechado_ganho') {
-        counts[status].revenue += lead.valor_venda
+      if (SOLD_STATUSES.includes(lead.status || '')) {
+        counts[status].revenue += getLeadRevenue(lead)
       }
     })
 
@@ -366,9 +402,9 @@ export default function LeadDistributionDashboard() {
 
       if (!channelConversions[channel]) channelConversions[channel] = { total: 0, converted: 0, revenue: 0 }
       channelConversions[channel].total += 1
-      if (lead.status === 'fechado_ganho') {
+      if (SOLD_STATUSES.includes(lead.status || '')) {
         channelConversions[channel].converted += 1
-        channelConversions[channel].revenue += lead.valor_venda || 0
+        channelConversions[channel].revenue += getLeadRevenue(lead)
       }
     })
 
@@ -407,9 +443,9 @@ export default function LeadDistributionDashboard() {
       if (!lead.closer_id) return
       if (!closerMap[lead.closer_id]) closerMap[lead.closer_id] = { leads: 0, won: 0, revenue: 0 }
       closerMap[lead.closer_id].leads += 1
-      if (lead.status === 'fechado_ganho') {
+      if (SOLD_STATUSES.includes(lead.status || '')) {
         closerMap[lead.closer_id].won += 1
-        closerMap[lead.closer_id].revenue += lead.valor_venda || 0
+        closerMap[lead.closer_id].revenue += getLeadRevenue(lead)
       }
     })
 
@@ -477,6 +513,128 @@ export default function LeadDistributionDashboard() {
   // ─── Period label ───────────────────────────────────────────────────────────
 
   const periodLabel = selectedPeriod === '7d' ? 'Esta Semana' : selectedPeriod === '30d' ? 'Este Mês' : selectedPeriod === '90d' ? 'Últimos 90 dias' : 'Último Ano'
+
+  // ─── AI Chat ──────────────────────────────────────────────────────────────────
+
+  const buildAnalyticsContext = useCallback(() => {
+    const soldLeads = leads.filter(l => SOLD_STATUSES.includes(l.status || ''))
+    const statusCounts = leads.reduce((acc, l) => {
+      const s = l.status || 'novo'
+      acc[s] = (acc[s] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    const channelRevenues = channelData.map(c => `${formatChannelName(c.origem)}: ${c.total_leads} leads, ${formatCurrency(c.revenue)} faturamento, ${c.conversion_rate.toFixed(1)}% conversão`).join('\n')
+    const closerStats = closerPerformance.map(c => `${c.name} (${c.tipo || 'closer'}): ${c.leads_assigned} leads, ${c.leads_won} vendas, ${formatCurrency(c.revenue)} faturamento, ${c.conversion_rate.toFixed(1)}% conversão`).join('\n')
+    const statusList = Object.entries(statusCounts).map(([k, v]) => `${STATUS_CONFIG[k]?.label || k}: ${v}`).join(', ')
+
+    return `
+DADOS ATUAIS DA DISTRIBUIÇÃO DE LEADS (Período: ${periodLabel}):
+
+RESUMO GERAL:
+- Total de leads: ${totalLeads}
+- Faturamento total (vendidos): ${formatCurrency(totalRevenue)}
+- Taxa de conversão geral: ${conversionRate.toFixed(1)}%
+- Total vendidos: ${soldLeads.length}
+
+STATUS DOS LEADS:
+${statusList}
+
+PERFORMANCE POR CANAL:
+${channelRevenues}
+
+PERFORMANCE DOS CLOSERS:
+${closerStats}
+
+FATURAMENTO POR CANAL (apenas canais com vendas):
+${revenueByChannel.map(c => `${formatChannelName(c.origem)}: ${formatCurrency(c.revenue)}`).join('\n')}
+`
+  }, [leads, channelData, closerPerformance, revenueByChannel, totalLeads, totalRevenue, conversionRate, periodLabel])
+
+  const sendChatMessage = useCallback(async () => {
+    if (!chatInput.trim() || isChatLoading) return
+
+    const userMessage = chatInput.trim()
+    setChatInput('')
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }])
+    setIsChatLoading(true)
+
+    try {
+      const analyticsContext = buildAnalyticsContext()
+      const systemPrompt = `Você é uma ANALISTA DE LEADS SÊNIOR com 15 anos de experiência em vendas B2B, marketing digital e análise de dados comerciais. Seu nome é Ana.
+
+PERSONALIDADE:
+- Direta, assertiva e estratégica
+- Usa dados para embasar TODAS as suas opiniões
+- Faz comparações inteligentes entre períodos, canais e closers
+- Identifica padrões ocultos e oportunidades
+- Sugere ações concretas e práticas
+- É honesta sobre problemas e não suaviza métricas ruins
+- Fala com propriedade sobre funil de vendas, CAC, LTV, churn
+
+FORMATO DE RESPOSTA:
+- Use markdown para formatar (negrito, listas, títulos)
+- Sempre que possível, cite números específicos dos dados
+- Quando gerar relatórios, organize em seções claras
+- Use emojis estrategicamente para destacar pontos importantes
+
+DADOS DISPONÍVEIS:
+${analyticsContext}
+
+REGRAS:
+- Responda SEMPRE em português brasileiro
+- Base suas análises EXCLUSIVAMENTE nos dados fornecidos
+- Se não tem dados suficientes, diga claramente
+- Compare métricas entre canais e closers para gerar insights
+- Identifique tendências e padrões
+- Sugira próximos passos quando relevante`
+
+      const messagesForAPI = [
+        { role: 'system', content: systemPrompt },
+        ...chatMessages.map(m => ({ role: m.role, content: m.content })),
+        { role: 'user', content: userMessage }
+      ]
+
+      const response = await fetch('/api/chat-gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage,
+          userEmail: 'admin@system.com',
+          context: {
+            nome: 'Analista de Leads',
+            especialidade: 'Lead Analytics',
+            tipoPost: 'chat',
+            tomComunicacao: 'profissional e direto',
+            persona: systemPrompt,
+            publicoAlvo: 'gestores comerciais',
+            doresDesejos: [],
+            problemasAudiencia: '',
+            desejoAudiencia: '',
+            transformacao: ''
+          }
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.message) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: data.message }])
+      } else {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: 'Desculpe, tive um problema ao processar sua solicitação. Tente novamente.' }])
+      }
+    } catch (error) {
+      console.error('Chat error:', error)
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Erro de conexão. Verifique sua internet e tente novamente.' }])
+    } finally {
+      setIsChatLoading(false)
+    }
+  }, [chatInput, isChatLoading, chatMessages, buildAnalyticsContext])
+
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages])
 
   // ─── Loading ────────────────────────────────────────────────────────────────
 
@@ -598,7 +756,7 @@ export default function LeadDistributionDashboard() {
               </div>
               <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Faturamento Total</p>
               <p className="text-3xl font-bold text-white mt-1 tabular-nums">{formatCurrency(totalRevenue)}</p>
-              <p className="text-[11px] text-white/30 mt-1">Vendas fechadas (ganho)</p>
+              <p className="text-[11px] text-white/30 mt-1">Leads vendidos</p>
             </div>
           </div>
 
@@ -617,7 +775,7 @@ export default function LeadDistributionDashboard() {
               </div>
               <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Taxa de Conversão</p>
               <p className="text-3xl font-bold text-white mt-1 tabular-nums">{formatPercent(conversionRate)}</p>
-              <p className="text-[11px] text-white/30 mt-1">Leads {'->'} Fechado Ganho</p>
+              <p className="text-[11px] text-white/30 mt-1">Leads {'->'} Vendido</p>
             </div>
           </div>
 
@@ -1234,6 +1392,151 @@ export default function LeadDistributionDashboard() {
           </p>
         </div>
       </div>
+
+      {/* ── AI Chat FAB Button ──────────────────────────────────────────────── */}
+      {!isChatOpen && (
+        <button
+          onClick={() => setIsChatOpen(true)}
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-indigo-700 text-white shadow-2xl shadow-violet-500/30 flex items-center justify-center hover:scale-110 transition-all duration-300 group"
+        >
+          <Brain className="h-6 w-6 group-hover:scale-110 transition-transform" />
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-[#0a0a0c] animate-pulse" />
+        </button>
+      )}
+
+      {/* ── AI Chat Panel ───────────────────────────────────────────────────── */}
+      {isChatOpen && (
+        <div className="fixed bottom-0 right-0 z-50 w-full sm:w-[480px] h-[85vh] sm:h-[700px] sm:bottom-4 sm:right-4 bg-[#0f0f13] border border-white/[0.08] rounded-t-2xl sm:rounded-2xl shadow-2xl shadow-black/50 flex flex-col overflow-hidden">
+          {/* Chat Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] bg-gradient-to-r from-violet-600/10 to-indigo-600/10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                <Brain className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  Ana - Analista de Leads
+                  <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+                </h3>
+                <p className="text-[10px] text-white/40">IA Sênior &middot; Análise em tempo real</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsChatOpen(false)}
+              className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.06] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.1] transition-all"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scrollbar-thin scrollbar-thumb-white/10">
+            {chatMessages.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600/20 to-indigo-600/20 border border-violet-500/20 flex items-center justify-center mb-4">
+                  <Bot className="h-8 w-8 text-violet-400" />
+                </div>
+                <h4 className="text-sm font-semibold text-white mb-2">Olá! Sou a Ana</h4>
+                <p className="text-xs text-white/40 mb-6 max-w-[300px]">
+                  Analista de leads sênior com acesso aos seus dados em tempo real. Pergunte qualquer coisa!
+                </p>
+                <div className="space-y-2 w-full">
+                  {[
+                    'Gere um relatório completo dos meus leads',
+                    'Qual canal gera mais receita?',
+                    'Analise a performance dos closers',
+                    'Onde estou perdendo mais leads?',
+                  ].map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onClick={() => {
+                        setChatInput(suggestion)
+                        setTimeout(() => chatInputRef.current?.focus(), 100)
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-xs text-white/50 bg-white/[0.03] border border-white/[0.06] rounded-xl hover:bg-violet-500/10 hover:border-violet-500/20 hover:text-violet-300 transition-all"
+                    >
+                      <Sparkles className="h-3 w-3 inline mr-2 text-violet-400/50" />
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {chatMessages.map((msg, idx) => (
+              <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.role === 'assistant' && (
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Bot className="h-3.5 w-3.5 text-white" />
+                  </div>
+                )}
+                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-gradient-to-br from-violet-600 to-indigo-700 text-white rounded-br-md'
+                    : 'bg-white/[0.05] border border-white/[0.06] text-white/80 rounded-bl-md'
+                }`}>
+                  {msg.role === 'assistant' ? (
+                    <div className="prose prose-invert prose-sm max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_h1]:font-bold [&_h2]:font-semibold [&_h3]:font-medium [&_strong]:text-violet-300 [&_code]:text-emerald-400 [&_code]:bg-white/10 [&_code]:px-1 [&_code]:rounded">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p>{msg.content}</p>
+                  )}
+                </div>
+                {msg.role === 'user' && (
+                  <div className="w-7 h-7 rounded-lg bg-white/[0.08] border border-white/[0.06] flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <User className="h-3.5 w-3.5 text-white/60" />
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {isChatLoading && (
+              <div className="flex gap-3 justify-start">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center flex-shrink-0">
+                  <Bot className="h-3.5 w-3.5 text-white" />
+                </div>
+                <div className="bg-white/[0.05] border border-white/[0.06] rounded-2xl rounded-bl-md px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 text-violet-400 animate-spin" />
+                    <span className="text-xs text-white/40">Ana está analisando...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Chat Input */}
+          <div className="p-4 border-t border-white/[0.06] bg-[#0a0a0e]">
+            <div className="flex items-end gap-2">
+              <textarea
+                ref={chatInputRef}
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    sendChatMessage()
+                  }
+                }}
+                placeholder="Pergunte sobre seus leads..."
+                rows={1}
+                className="flex-1 resize-none bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500/30 transition-all max-h-32"
+                style={{ minHeight: '44px' }}
+              />
+              <button
+                onClick={sendChatMessage}
+                disabled={!chatInput.trim() || isChatLoading}
+                className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 text-white flex items-center justify-center hover:from-violet-500 hover:to-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-violet-500/20"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

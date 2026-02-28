@@ -72,7 +72,8 @@ export async function POST(request: NextRequest) {
 
     console.log('[chat-gemini] userEmail:', userEmail, '| message:', message?.substring(0, 50), '| generateImage:', !!generateImage)
 
-    if (userEmail !== 'emersonbljr2802@gmail.com') {
+    const ALLOWED_EMAILS = ['emersonbljr2802@gmail.com', 'admin@system.com', 'gabriel@admin.com']
+    if (!ALLOWED_EMAILS.includes(userEmail)) {
       console.log('[chat-gemini] BLOQUEADO: email não autorizado:', userEmail)
       return NextResponse.json(
         { error: 'Acesso não autorizado.' },

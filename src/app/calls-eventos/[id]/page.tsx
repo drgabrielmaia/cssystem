@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { 
+import {
   ArrowLeft,
   Users,
   UserPlus,
@@ -29,8 +29,15 @@ import {
   TrendingUp,
   BarChart3,
   Edit,
-  Trash2
+  Trash2,
+  Brain,
+  Loader2,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  Sparkles
 } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
 import { toast } from 'sonner'
@@ -129,6 +136,12 @@ export default function EventDetailsPage() {
   const [showConvertModal, setShowConvertModal] = useState(false)
   const [showEditParticipantModal, setShowEditParticipantModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<EventParticipant | null>(null)
+
+  // Transcription Analyzer State
+  const [transcription, setTranscription] = useState('')
+  const [transcriptionAnalysis, setTranscriptionAnalysis] = useState('')
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [showTranscriptionSection, setShowTranscriptionSection] = useState(false)
 
   // Form states
   const [selectedLead, setSelectedLead] = useState('')
@@ -370,6 +383,108 @@ export default function EventDetailsPage() {
   }
 
   const stats = getStats()
+
+  // ─── Transcription Analyzer ─────────────────────────────────────────────────
+
+  const analyzeTranscription = async () => {
+    if (!transcription.trim() || isAnalyzing) return
+    setIsAnalyzing(true)
+    setTranscriptionAnalysis('')
+
+    try {
+      const participantsList = participants.map(p =>
+        `${p.participant_name} (${p.attendance_status === 'attended' ? 'presente' : 'ausente'}, conversão: ${p.conversion_status})`
+      ).join(', ')
+
+      const systemPrompt = `Você é um ANALISTA COMERCIAL SÊNIOR especializado em calls de venda em grupo, webinars e eventos de fechamento.
+
+Sua missão é analisar a transcrição desta call/evento e extrair TODAS as informações possíveis.
+
+CONTEXTO DO EVENTO:
+- Nome: ${event?.name || 'N/A'}
+- Tipo: ${event?.type || 'N/A'}
+- Data: ${event?.date_time ? new Date(event.date_time).toLocaleString('pt-BR') : 'N/A'}
+- Participantes: ${participantsList || 'Nenhum registrado'}
+
+FORMATO DA SUA ANÁLISE (use markdown):
+
+## 🎯 Resumo Executivo
+Breve resumo do que aconteceu na call (2-3 frases)
+
+## 🔍 Análise de Cada Participante
+Para CADA pessoa mencionada na transcrição:
+- **Nome**: (extrair da transcrição)
+- **Nível de Interesse**: 🔥 Alto / 🟡 Médio / ❄️ Baixo
+- **Dor Principal**: o que mais incomoda essa pessoa
+- **Objeções**: quais objeções levantou
+- **O que disse de importante**: frases-chave
+- **Próximo Passo Recomendado**: o que fazer com esse lead
+
+## ❌ Erros do Apresentador/Closer
+Liste EXATAMENTE onde o apresentador errou:
+- Momento/contexto do erro
+- O que foi dito
+- O que deveria ter sido dito
+- Impacto na venda
+
+## ✅ Acertos do Apresentador
+O que foi feito bem e deve ser replicado
+
+## 📊 Informações Extraídas dos Leads
+Para cada lead mencionado, extraia:
+- Faturamento/situação financeira mencionada
+- Segmento/nicho
+- Experiência com mentorias anteriores
+- Urgência de decisão
+- Forma de pagamento mencionada
+
+## 💡 Recomendações Estratégicas
+- O que fazer no follow-up
+- Abordagem personalizada para cada lead
+- Objeções a rebater
+- Timing ideal para próximo contato
+
+REGRAS:
+- Seja EXTREMAMENTE detalhista
+- Cite trechos da transcrição quando relevante
+- Não invente informações que não estão na transcrição
+- Responda SEMPRE em português brasileiro`
+
+      const response = await fetch('/api/chat-gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `Analise esta transcrição de call/evento:\n\n${transcription}`,
+          userEmail: 'admin@system.com',
+          context: {
+            nome: 'Analista de Calls',
+            especialidade: 'Sales Analysis',
+            tipoPost: 'chat',
+            tomComunicacao: 'profissional analítico',
+            persona: systemPrompt,
+            publicoAlvo: 'gestores comerciais',
+            doresDesejos: [],
+            problemasAudiencia: '',
+            desejoAudiencia: '',
+            transformacao: ''
+          }
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.message) {
+        setTranscriptionAnalysis(data.message)
+      } else {
+        setTranscriptionAnalysis('Erro ao analisar a transcrição. Tente novamente.')
+      }
+    } catch (error) {
+      console.error('Transcription analysis error:', error)
+      setTranscriptionAnalysis('Erro de conexão. Verifique sua internet e tente novamente.')
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -706,6 +821,89 @@ export default function EventDetailsPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── Transcription Analyzer Section ───────────────────────────────── */}
+      <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <button
+          onClick={() => setShowTranscriptionSection(!showTranscriptionSection)}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-750 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-violet-500/20">
+              <Brain className="h-5 w-5 text-white" />
+            </div>
+            <div className="text-left">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                Analisador de Transcrição IA
+                <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+              </h3>
+              <p className="text-xs text-gray-400">Cole a transcrição da call para análise completa</p>
+            </div>
+          </div>
+          {showTranscriptionSection ? (
+            <ChevronUp className="h-5 w-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-gray-400" />
+          )}
+        </button>
+
+        {showTranscriptionSection && (
+          <div className="border-t border-gray-700 p-4 space-y-4">
+            {/* Textarea for transcription */}
+            <div>
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">
+                <FileText className="h-3.5 w-3.5 inline mr-1" />
+                Transcrição da Call
+              </label>
+              <textarea
+                value={transcription}
+                onChange={(e) => setTranscription(e.target.value)}
+                placeholder="Cole aqui a transcrição completa da call em grupo, webinar ou evento..."
+                rows={10}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500/30 resize-y"
+              />
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-gray-500">
+                  {transcription.length > 0 ? `${transcription.length.toLocaleString()} caracteres` : 'Nenhum texto colado'}
+                </span>
+                <Button
+                  onClick={analyzeTranscription}
+                  disabled={!transcription.trim() || isAnalyzing}
+                  className="bg-gradient-to-r from-violet-600 to-indigo-700 hover:from-violet-500 hover:to-indigo-600 text-white shadow-lg shadow-violet-500/20"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Analisando...
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="h-4 w-4 mr-2" />
+                      Analisar Transcrição
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Analysis Result */}
+            {transcriptionAnalysis && (
+              <div className="bg-gray-900 border border-violet-500/20 rounded-lg p-5">
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-800">
+                  <Brain className="h-5 w-5 text-violet-400" />
+                  <h4 className="text-sm font-bold text-white">Análise da Transcrição</h4>
+                  <span className="text-[10px] text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-full ml-auto">
+                    IA Sênior
+                  </span>
+                </div>
+                <div className="prose prose-invert prose-sm max-w-none text-gray-300 [&_h2]:text-white [&_h2]:text-base [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2 [&_h3]:text-white [&_h3]:text-sm [&_strong]:text-violet-300 [&_ul]:space-y-1 [&_li]:text-gray-300 [&_code]:text-emerald-400 [&_code]:bg-gray-800 [&_code]:px-1 [&_code]:rounded">
+                  <ReactMarkdown>{transcriptionAnalysis}</ReactMarkdown>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Add Lead Modal */}
