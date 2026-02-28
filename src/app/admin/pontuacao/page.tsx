@@ -56,7 +56,7 @@ export default function PontuacaoAdminPage() {
     descricao: '',
     data_acao: new Date().toISOString().split('T')[0]
   })
-  
+
   // Form state para remoção
   const [removeFormData, setRemoveFormData] = useState({
     mentorado_id: '',
@@ -64,7 +64,7 @@ export default function PontuacaoAdminPage() {
     descricao: '',
     data_acao: new Date().toISOString().split('T')[0]
   })
-  
+
   const [processingIndicacoes, setProcessingIndicacoes] = useState(false)
   const [indicacoesPendentes, setIndicacoesPendentes] = useState(0)
 
@@ -97,7 +97,6 @@ export default function PontuacaoAdminPage() {
 
     setProcessingIndicacoes(true)
     try {
-      // Primeiro verificar pendentes
       const checkResponse = await fetch('/api/indicacao-pontos')
       const checkResult = await checkResponse.json()
 
@@ -109,7 +108,6 @@ export default function PontuacaoAdminPage() {
       let processados = 0
       let erros = 0
 
-      // Processar cada lead pendente
       for (const lead of checkResult.pending_leads) {
         try {
           const processResponse = await fetch('/api/indicacao-pontos', {
@@ -138,7 +136,6 @@ export default function PontuacaoAdminPage() {
 
       alert(`Processamento concluído!\n✅ ${processados} pontos adicionados\n❌ ${erros} erros\n📋 Total verificado: ${checkResult.pending_leads.length}`)
 
-      // Recarregar dados
       await loadData()
       await checkIndicacoesPendentes()
 
@@ -191,12 +188,10 @@ export default function PontuacaoAdminPage() {
 
       const response = await fetch('/api/pontuacao', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          criado_por: 'admin' // TODO: pegar do contexto de auth
+          criado_por: 'admin'
         })
       })
 
@@ -236,13 +231,11 @@ export default function PontuacaoAdminPage() {
 
       const response = await fetch('/api/pontuacao', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mentorado_id: removeFormData.mentorado_id,
           tipo_acao: 'custom',
-          pontos: -removeFormData.pontos, // Negativo para remoção
+          pontos: -removeFormData.pontos,
           descricao: `REMOÇÃO: ${removeFormData.descricao}`,
           data_acao: removeFormData.data_acao,
           criado_por: 'admin'
@@ -326,8 +319,8 @@ export default function PontuacaoAdminPage() {
       <PageLayout title="Gerenciar Pontuação">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Carregando...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-400">Carregando...</p>
           </div>
         </div>
       </PageLayout>
@@ -337,11 +330,11 @@ export default function PontuacaoAdminPage() {
   return (
     <PageLayout title="Gerenciar Pontuação">
       <div className="space-y-6">
-        {/* Header com botão de adicionar */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Sistema de Pontuação</h1>
-            <p className="text-gray-600">Gerencie pontos e ranking dos mentorados</p>
+            <h1 className="text-2xl font-bold text-white">Sistema de Pontuação</h1>
+            <p className="text-gray-400">Gerencie pontos e ranking dos mentorados</p>
           </div>
           <div className="flex items-center gap-2">
             {indicacoesPendentes > 0 && (
@@ -349,20 +342,20 @@ export default function PontuacaoAdminPage() {
                 onClick={processarIndicacoesPendentes}
                 disabled={processingIndicacoes}
                 variant="outline"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 border-white/10 text-gray-300 hover:bg-white/5"
               >
                 <User className="w-4 h-4" />
                 {processingIndicacoes ? 'Processando...' : `Processar ${indicacoesPendentes} Indicações`}
               </Button>
             )}
-            <Button onClick={() => setShowAddModal(true)} className="flex items-center gap-2">
+            <Button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700">
               <Plus className="w-4 h-4" />
               Adicionar Pontos
             </Button>
-            <Button 
-              onClick={() => setShowRemoveModal(true)} 
-              variant="outline" 
-              className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50"
+            <Button
+              onClick={() => setShowRemoveModal(true)}
+              variant="outline"
+              className="flex items-center gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10"
             >
               <Minus className="w-4 h-4" />
               Remover Pontos
@@ -372,77 +365,85 @@ export default function PontuacaoAdminPage() {
 
         {/* Cards de estatísticas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="bg-[#141418] p-6 rounded-xl ring-1 ring-white/[0.06]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Mentorados</p>
-                <p className="text-2xl font-bold text-gray-900">{mentorados.length}</p>
+                <p className="text-sm text-gray-400">Total Mentorados</p>
+                <p className="text-2xl font-bold text-white">{mentorados.length}</p>
               </div>
-              <User className="w-8 h-8 text-blue-500" />
+              <div className="w-10 h-10 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                <User className="w-5 h-5 text-blue-400" />
+              </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="bg-[#141418] p-6 rounded-xl ring-1 ring-white/[0.06]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Com Pontuação</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm text-gray-400">Com Pontuação</p>
+                <p className="text-2xl font-bold text-white">
                   {mentorados.filter(m => m.pontuacao_total && m.pontuacao_total > 0).length}
                 </p>
               </div>
-              <Trophy className="w-8 h-8 text-yellow-500" />
+              <div className="w-10 h-10 rounded-lg bg-yellow-500/15 flex items-center justify-center">
+                <Trophy className="w-5 h-5 text-yellow-400" />
+              </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="bg-[#141418] p-6 rounded-xl ring-1 ring-white/[0.06]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Pontos Totais</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm text-gray-400">Pontos Totais</p>
+                <p className="text-2xl font-bold text-white">
                   {mentorados.reduce((sum, m) => sum + (m.pontuacao_total || 0), 0)}
                 </p>
               </div>
-              <Star className="w-8 h-8 text-purple-500" />
+              <div className="w-10 h-10 rounded-lg bg-purple-500/15 flex items-center justify-center">
+                <Star className="w-5 h-5 text-purple-400" />
+              </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="bg-[#141418] p-6 rounded-xl ring-1 ring-white/[0.06]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Ações Registradas</p>
-                <p className="text-2xl font-bold text-gray-900">{pontuacoes.length}</p>
+                <p className="text-sm text-gray-400">Ações Registradas</p>
+                <p className="text-2xl font-bold text-white">{pontuacoes.length}</p>
               </div>
-              <Award className="w-8 h-8 text-green-500" />
+              <div className="w-10 h-10 rounded-lg bg-green-500/15 flex items-center justify-center">
+                <Award className="w-5 h-5 text-green-400" />
+              </div>
             </div>
           </div>
         </div>
 
         {/* Top 5 Ranking */}
         {topMentorados.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-yellow-500" />
+          <div className="bg-[#141418] rounded-xl ring-1 ring-white/[0.06] p-6">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-yellow-400" />
               Top 5 Ranking
             </h2>
             <div className="space-y-3">
               {topMentorados.map((mentorado, index) => (
-                <div key={mentorado.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={mentorado.id} className="flex items-center justify-between p-3 bg-white/[0.03] rounded-lg ring-1 ring-white/[0.04]">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
                       index === 0 ? 'bg-yellow-500' :
                       index === 1 ? 'bg-gray-400' :
-                      index === 2 ? 'bg-amber-600' : 'bg-gray-300'
+                      index === 2 ? 'bg-amber-600' : 'bg-gray-600'
                     }`}>
                       {index + 1}
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{mentorado.nome_completo}</p>
-                      <p className="text-sm text-gray-600">{mentorado.genero || 'Não informado'}</p>
+                      <p className="font-medium text-white">{mentorado.nome_completo}</p>
+                      <p className="text-sm text-gray-500">{mentorado.genero || 'Não informado'}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-lg text-gray-900">{mentorado.pontuacao_total}</p>
-                    <p className="text-xs text-gray-600">pontos</p>
+                    <p className="font-bold text-lg text-white">{mentorado.pontuacao_total}</p>
+                    <p className="text-xs text-gray-500">pontos</p>
                   </div>
                 </div>
               ))}
@@ -451,28 +452,28 @@ export default function PontuacaoAdminPage() {
         )}
 
         {/* Busca */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="bg-[#141418] rounded-xl ring-1 ring-white/[0.06] p-6">
           <div className="flex items-center gap-4 mb-4">
-            <Search className="w-5 h-5 text-gray-400" />
+            <Search className="w-5 h-5 text-gray-500" />
             <Input
               placeholder="Buscar mentorado..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1"
+              className="flex-1 bg-[#1a1a1e] border-white/[0.06] text-white placeholder-gray-500"
             />
           </div>
 
           {/* Lista de mentorados */}
           <div className="space-y-2">
             {filteredMentorados.map((mentorado) => (
-              <div key={mentorado.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+              <div key={mentorado.id} className="flex items-center justify-between p-3 rounded-lg ring-1 ring-white/[0.04] hover:bg-white/[0.03] transition-colors">
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">{mentorado.nome_completo}</p>
-                  <p className="text-sm text-gray-600">{mentorado.email}</p>
+                  <p className="font-medium text-white">{mentorado.nome_completo}</p>
+                  <p className="text-sm text-gray-500">{mentorado.email}</p>
                 </div>
                 <div className="text-center px-4">
-                  <p className="font-bold text-lg text-gray-900">{mentorado.pontuacao_total || 0}</p>
-                  <p className="text-xs text-gray-600">pontos</p>
+                  <p className="font-bold text-lg text-white">{mentorado.pontuacao_total || 0}</p>
+                  <p className="text-xs text-gray-500">pontos</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -483,7 +484,7 @@ export default function PontuacaoAdminPage() {
                     }}
                     size="sm"
                     variant="outline"
-                    className="text-green-600 border-green-200 hover:bg-green-50"
+                    className="text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
                   >
                     + Pontos
                   </Button>
@@ -495,7 +496,7 @@ export default function PontuacaoAdminPage() {
                     }}
                     size="sm"
                     variant="outline"
-                    className="text-red-600 border-red-200 hover:bg-red-50"
+                    className="text-red-400 border-red-500/30 hover:bg-red-500/10"
                   >
                     - Pontos
                   </Button>
@@ -507,41 +508,41 @@ export default function PontuacaoAdminPage() {
 
         {/* Histórico recente */}
         {pontuacoes.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Histórico Recente</h2>
+          <div className="bg-[#141418] rounded-xl ring-1 ring-white/[0.06] p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">Histórico Recente</h2>
             <div className="space-y-3">
               {pontuacoes.slice(0, 10).map((pontuacao) => {
                 const isRemoval = pontuacao.pontos < 0 || pontuacao.descricao?.startsWith('REMOÇÃO:')
-                const config = isRemoval ? 
-                  { icon: Minus, color: 'bg-red-500' } : 
+                const config = isRemoval ?
+                  { icon: Minus, color: 'bg-red-500' } :
                   getTipoAcaoConfig(pontuacao.tipo_acao)
                 const Icon = config.icon
                 const isNegative = pontuacao.pontos < 0
                 return (
-                  <div key={pontuacao.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div key={pontuacao.id} className="flex items-center justify-between p-3 rounded-lg ring-1 ring-white/[0.04]">
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${config.color}`}>
                         <Icon className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-white">
                           {pontuacao.mentorado?.nome_completo || 'Mentorado não encontrado'}
                         </p>
-                        <p className="text-sm text-gray-600">{pontuacao.descricao}</p>
+                        <p className="text-sm text-gray-500">{pontuacao.descricao}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-right">
-                        <p className={`font-bold ${isNegative ? 'text-red-600' : 'text-green-600'}`}>
+                        <p className={`font-bold ${isNegative ? 'text-red-400' : 'text-emerald-400'}`}>
                           {isNegative ? '' : '+'}{pontuacao.pontos}
                         </p>
-                        <p className="text-xs text-gray-600">{formatDate(pontuacao.data_acao)}</p>
+                        <p className="text-xs text-gray-500">{formatDate(pontuacao.data_acao)}</p>
                       </div>
                       <Button
                         onClick={() => handleDeletePontuacao(pontuacao.id)}
                         size="sm"
                         variant="ghost"
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1"
+                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10 p-1"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -556,16 +557,16 @@ export default function PontuacaoAdminPage() {
 
       {/* Modal para adicionar pontos */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-[#1a1a1e] border-white/[0.06]">
           <DialogHeader>
-            <DialogTitle>Adicionar Pontos</DialogTitle>
+            <DialogTitle className="text-white">Adicionar Pontos</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Mentorado</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Mentorado</label>
               <Select value={formData.mentorado_id} onValueChange={(value) => setFormData(prev => ({ ...prev, mentorado_id: value }))}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-[#141418] border-white/[0.06] text-white">
                   <SelectValue placeholder="Selecione um mentorado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -579,9 +580,9 @@ export default function PontuacaoAdminPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Ação</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Tipo de Ação</label>
               <Select value={formData.tipo_acao} onValueChange={handleTipoAcaoChange}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-[#141418] border-white/[0.06] text-white">
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -590,7 +591,7 @@ export default function PontuacaoAdminPage() {
                       <div className="flex items-center gap-2">
                         <tipo.icon className="w-4 h-4" />
                         {tipo.label}
-                        {tipo.pontos > 0 && <span className="text-xs text-gray-500">({tipo.pontos} pts)</span>}
+                        {tipo.pontos > 0 && <span className="text-xs text-gray-400">({tipo.pontos} pts)</span>}
                       </div>
                     </SelectItem>
                   ))}
@@ -599,40 +600,43 @@ export default function PontuacaoAdminPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Pontos</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Pontos</label>
               <Input
                 type="number"
                 min="0"
                 value={formData.pontos}
                 onChange={(e) => setFormData(prev => ({ ...prev, pontos: parseInt(e.target.value) || 0 }))}
+                className="bg-[#141418] border-white/[0.06] text-white"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Descrição</label>
               <Textarea
                 value={formData.descricao}
                 onChange={(e) => setFormData(prev => ({ ...prev, descricao: e.target.value }))}
                 placeholder="Descreva o motivo dos pontos..."
                 rows={3}
+                className="bg-[#141418] border-white/[0.06] text-white placeholder-gray-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Data da Ação</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Data da Ação</label>
               <Input
                 type="date"
                 value={formData.data_acao}
                 onChange={(e) => setFormData(prev => ({ ...prev, data_acao: e.target.value }))}
+                className="bg-[#141418] border-white/[0.06] text-white"
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddModal(false)}>
+            <Button variant="outline" onClick={() => setShowAddModal(false)} className="border-white/10 text-gray-300 hover:bg-white/5">
               Cancelar
             </Button>
-            <Button onClick={handleAddPontos}>
+            <Button onClick={handleAddPontos} className="bg-emerald-600 hover:bg-emerald-700">
               Adicionar Pontos
             </Button>
           </DialogFooter>
@@ -641,16 +645,16 @@ export default function PontuacaoAdminPage() {
 
       {/* Modal para remover pontos */}
       <Dialog open={showRemoveModal} onOpenChange={setShowRemoveModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-[#1a1a1e] border-white/[0.06]">
           <DialogHeader>
-            <DialogTitle className="text-red-600">Remover Pontos</DialogTitle>
+            <DialogTitle className="text-red-400">Remover Pontos</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Mentorado</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Mentorado</label>
               <Select value={removeFormData.mentorado_id} onValueChange={(value) => setRemoveFormData(prev => ({ ...prev, mentorado_id: value }))}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-[#141418] border-white/[0.06] text-white">
                   <SelectValue placeholder="Selecione um mentorado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -664,41 +668,44 @@ export default function PontuacaoAdminPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Quantidade de Pontos a Remover</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Quantidade de Pontos a Remover</label>
               <Input
                 type="number"
                 min="1"
                 value={removeFormData.pontos}
                 onChange={(e) => setRemoveFormData(prev => ({ ...prev, pontos: parseInt(e.target.value) || 0 }))}
                 placeholder="Ex: 5"
+                className="bg-[#141418] border-white/[0.06] text-white placeholder-gray-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Motivo da Remoção</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Motivo da Remoção</label>
               <Textarea
                 value={removeFormData.descricao}
                 onChange={(e) => setRemoveFormData(prev => ({ ...prev, descricao: e.target.value }))}
                 placeholder="Descreva o motivo da remoção dos pontos..."
                 rows={3}
+                className="bg-[#141418] border-white/[0.06] text-white placeholder-gray-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Data da Ação</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Data da Ação</label>
               <Input
                 type="date"
                 value={removeFormData.data_acao}
                 onChange={(e) => setRemoveFormData(prev => ({ ...prev, data_acao: e.target.value }))}
+                className="bg-[#141418] border-white/[0.06] text-white"
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRemoveModal(false)}>
+            <Button variant="outline" onClick={() => setShowRemoveModal(false)} className="border-white/10 text-gray-300 hover:bg-white/5">
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={handleRemovePontos}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
