@@ -108,13 +108,42 @@ export interface DespesaMensal {
 // SISTEMA DE POSTS - Canvas/HTML to Image
 // ============================================================
 
+export type FontStyle = 'modern' | 'elegant' | 'bold' | 'minimal';
+
+// Legacy - kept for backward compat with test page
 export interface PostData {
   template: 'dark' | 'light';
   text: string;
   fontSize?: number;
+  fontStyle?: FontStyle;
   highlightWord?: string;
   author?: string;
   profileName?: string;
   profileHandle?: string;
   avatarUrl?: string;
+  imageUrl?: string;
+  imageOpacity?: number;
+}
+
+// New carousel system
+export interface PostSlide {
+  title: string;
+  body: string;
+  inlineImageUrl?: string; // Rounded image inside the post
+}
+
+export interface PostConfig {
+  slides: PostSlide[];
+  backgroundColor: string; // Hex color
+  backgroundImageUrl?: string;
+  backgroundImageOpacity?: number;
+  titleFontStyle: FontStyle;
+  bodyFontStyle: FontStyle;
+  titleFontSize: number;
+  bodyFontSize: number;
+  profileName: string;
+  profileHandle: string;
+  avatarUrl?: string;
+  profilePosition: 'top' | 'bottom';
+  accentColor: string;
 }

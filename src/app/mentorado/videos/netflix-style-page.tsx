@@ -92,38 +92,57 @@ export default function NetflixStyleVideosPage() {
     try {
       console.log('🎥 Carregando dados de vídeo para:', mentoradoData.id)
 
-      // Step 1: Calcular dias desde entrada
-      const dataEntrada = new Date(mentoradoData.data_entrada)
-      const hoje = new Date()
-      const diasDesdeEntrada = Math.floor((hoje.getTime() - dataEntrada.getTime()) / (1000 * 60 * 60 * 24))
-      
-      console.log(`⏰ Mentorado ${mentoradoData.nome_completo} entrou há ${diasDesdeEntrada} dias`)
+      // Step 1: Consultar video_access_control para saber quais módulos o mentorado pode acessar
+      const { data: accessData, error: accessError } = await supabase
+        .from('video_access_control')
+        .select('module_id')
+        .eq('mentorado_id', mentoradoData.id)
+        .eq('has_access', true)
 
       let accessibleModuleIds: string[] = []
 
-      if (diasDesdeEntrada < 7) {
-        // Menos de 7 dias: apenas módulo de onboarding
-        console.log('🆕 Mentorado novato - acesso apenas ao onboarding')
-        const { data: onboardingModule } = await supabase
-          .from('video_modules')
-          .select('id')
-          .eq('title', 'Onboarding')
-          .eq('organization_id', mentoradoData.organization_id)
-          .eq('is_active', true)
-          .single()
-        
-        if (onboardingModule) {
-          accessibleModuleIds = [onboardingModule.id]
-        }
-      } else {
-        // 7+ dias: acesso a todos os módulos da organização
-        console.log('🎓 Mentorado experiente - acesso a todos os módulos')
+      if (accessError) {
+        console.error('❌ Erro ao verificar acesso:', accessError)
+        // Fallback: carregar todos os módulos ativos da organização
         const { data: allModulesData } = await supabase
           .from('video_modules')
           .select('id')
           .eq('organization_id', mentoradoData.organization_id)
           .eq('is_active', true)
         accessibleModuleIds = allModulesData?.map(m => m.id) || []
+      } else if (accessData && accessData.length > 0) {
+        accessibleModuleIds = accessData.map(a => a.module_id)
+      } else {
+        // Nenhum registro de acesso encontrado - carregar todos como fallback
+        console.log('⚠️ Nenhum registro de acesso encontrado, liberando todos os módulos')
+        const { data: allModulesData } = await supabase
+          .from('video_modules')
+          .select('id')
+          .eq('organization_id', mentoradoData.organization_id)
+          .eq('is_active', true)
+        accessibleModuleIds = allModulesData?.map(m => m.id) || []
+      }
+
+      // Validação de tempo: menos de 7 dias na mentoria = só Onboarding
+      const dataEntrada = mentoradoData.data_entrada ? new Date(mentoradoData.data_entrada) : null
+      const diasNaMentoria = dataEntrada
+        ? Math.floor((Date.now() - dataEntrada.getTime()) / (1000 * 60 * 60 * 24))
+        : 999 // Se não tiver data, libera tudo
+
+      if (diasNaMentoria < 7) {
+        console.log(`⏳ Mentorado com ${diasNaMentoria} dias na mentoria - exibindo apenas Onboarding`)
+        // Buscar só o módulo de Onboarding (order_index = 0)
+        const { data: onboardingModule } = await supabase
+          .from('video_modules')
+          .select('id')
+          .eq('organization_id', mentoradoData.organization_id)
+          .eq('is_active', true)
+          .eq('order_index', 0)
+          .single()
+
+        if (onboardingModule) {
+          accessibleModuleIds = accessibleModuleIds.filter(id => id === onboardingModule.id)
+        }
       }
 
       console.log('🔓 Módulos acessíveis:', accessibleModuleIds.length)

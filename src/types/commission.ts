@@ -653,6 +653,10 @@ export interface FollowupStep {
   conteudo: string;
   template_vars?: string[];
   condicoes_execucao?: Record<string, any>;
+  media_url?: string;
+  media_type?: 'image' | 'video' | 'document';
+  media_filename?: string;
+  media_mimetype?: string;
 }
 
 export interface LeadFollowupExecution {

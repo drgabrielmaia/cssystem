@@ -1,29 +1,55 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { PageLayout } from '@/components/ui/page-layout';
-import { ChartCard } from '@/components/ui/chart-card';
-import { MetricCard } from '@/components/ui/metric-card';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MessageCircle, Phone, QrCode, Send, Users, Wifi, WifiOff, ExternalLink, Search, RefreshCw, Settings, Clock, X, CalendarDays, Plus, Trash2 } from 'lucide-react';
+import {
+  MessageCircle, Phone, QrCode, Send, Users, Wifi, WifiOff,
+  Search, RefreshCw, Settings, Clock, X, CalendarDays, Plus,
+  Trash2, Paperclip, Image as ImageIcon, Mic, ChevronLeft,
+  Star, StickyNote, History, User, Building2, Mail, Tag,
+  AlertCircle, Check, CheckCheck, Pin, Filter, MoreVertical,
+  FileText, ArrowLeft, Loader2
+} from 'lucide-react';
 import { whatsappMultiService, type WhatsAppStatus, type Contact, type Chat, type Message } from '@/lib/whatsapp-multi-service';
 import { useAuth } from '@/contexts/auth';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
+// ─── Types ──────────────────────────────────────────────────────
+interface LeadInfo {
+  id: string;
+  nome_completo: string;
+  email: string;
+  telefone: string;
+  empresa: string;
+  cargo: string;
+  origem: string;
+  status: string;
+  temperatura: string;
+  lead_score: number;
+  tags: string[];
+  observacoes: string;
+  valor_potencial: number;
+  created_at: string;
+}
+
+interface LeadNote {
+  id: number;
+  lead_id: string;
+  nota: string;
+  tipo: string;
+  categoria: string;
+  is_important: boolean;
+  responsavel: string;
+  created_at: string;
+}
+
+type ContactTab = 'conversa' | 'detalhes' | 'anotacoes' | 'historico';
+
+// ─── Component ──────────────────────────────────────────────────
 export default function WhatsAppPage() {
   const { user } = useAuth();
 
-  // LÓGICA SIMPLIFICADA - SÓ O ESSENCIAL
+  // Core state
   const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(false);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -34,290 +60,300 @@ export default function WhatsAppPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncingChat, setIsSyncingChat] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // UI state
+  const [activeTab, setActiveTab] = useState<ContactTab>('conversa');
+  const [showDetailsPanel, setShowDetailsPanel] = useState(false);
   const [showAutoMessageModal, setShowAutoMessageModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [adminPhone, setAdminPhone] = useState('+5583996910414');
-  const [autoMessages, setAutoMessages] = useState([
-    {
-      id: '1',
-      message: '',
-      scheduledDate: '',
-      scheduledTime: '',
-      targetGroup: '',
-      photoUrl: '',
-      photoCaption: '',
-      isActive: true
-    }
-  ]);
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
+
+  // Lead/notes state
+  const [leadInfo, setLeadInfo] = useState<LeadInfo | null>(null);
+  const [leadNotes, setLeadNotes] = useState<LeadNote[]>([]);
+  const [newNote, setNewNote] = useState('');
+  const [isLoadingLead, setIsLoadingLead] = useState(false);
+
+  // Image state
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [imageCaption, setImageCaption] = useState('');
+  const [isSendingImage, setIsSendingImage] = useState(false);
+
+  // Auto messages
+  const [autoMessages, setAutoMessages] = useState([{
+    id: '1', message: '', scheduledDate: '', scheduledTime: '',
+    targetGroup: '', photoUrl: '', photoCaption: '', isActive: true
+  }]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Filtrar chats baseado na busca
+  // ─── Filtered chats ─────────────────────────────────────────
   const filteredChats = chats.filter(chat =>
     chat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     chat.id.includes(searchTerm) ||
     chat.lastMessage?.body.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // FUNÇÃO SIMPLES: SÓ VERIFICA SE TÁ CONECTADO
+  // ─── Connection check ──────────────────────────────────────
   const checkWhatsAppConnection = useCallback(async () => {
     try {
-      console.log('🔍 Verificando conexão WhatsApp...');
-
-      // Timeout de 15 segundos (aumentado)
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout: API não respondeu')), 15000)
+        setTimeout(() => reject(new Error('Timeout')), 15000)
       );
-
       const response = await Promise.race([
         whatsappMultiService.getStatus(),
         timeoutPromise
       ]) as any;
 
-      console.log('📊 Resposta da API:', response);
-
-      // VERIFICAÇÃO MAIS ROBUSTA
       const isConnected = response?.success && (
-        response.data?.isReady || 
-        response.data?.status === 'connected' || 
+        response.data?.isReady ||
+        response.data?.status === 'connected' ||
         response.data?.state === 'CONNECTED' ||
         response.isReady === true
       );
 
       if (isConnected) {
-        console.log('✅ WhatsApp CONECTADO!');
         setIsWhatsAppConnected(true);
         setIsLoadingStatus(false);
-
-        // Se conectado, carrega as mensagens com tratamento de erro
         try {
           await Promise.all([
-            loadChats().catch(err => console.error('❌ Erro ao carregar chats:', err)),
-            loadContacts().catch(err => console.error('❌ Erro ao carregar contatos:', err)),
-            loadAutoMessages().catch(err => console.error('❌ Erro ao carregar mensagens automáticas:', err))
+            loadChats().catch(() => {}),
+            loadContacts().catch(() => {}),
+            loadAutoMessages().catch(() => {})
           ]);
-        } catch (error) {
-          console.error('❌ Erro ao carregar dados após conexão:', error);
-          // Mesmo com erro no carregamento, manter como conectado
-        }
+        } catch {}
       } else {
-        console.log('❌ WhatsApp NÃO conectado. Status:', response?.data || response);
         setIsWhatsAppConnected(false);
         setIsLoadingStatus(false);
       }
-    } catch (error) {
-      console.error('❌ Erro ao verificar WhatsApp:', error);
+    } catch {
       setIsWhatsAppConnected(false);
       setIsLoadingStatus(false);
     }
   }, []);
 
+  // ─── Load chats ────────────────────────────────────────────
   const loadChats = useCallback(async () => {
     try {
-      console.log('📱 Carregando chats e contatos...');
-
-      // Timeout para carregamento de chats (não pode travar a interface)
       const chatTimeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout ao carregar chats')), 10000)
+        setTimeout(() => reject(new Error('Timeout')), 10000)
       );
 
-      // Buscar chats existentes e contatos em paralelo com timeout
       const [chatsResponse, contactsResponse] = await Promise.race([
         Promise.all([
-          whatsappMultiService.getChats().catch(err => ({ success: false, error: err.message })),
-          whatsappMultiService.getContacts().catch(err => ({ success: false, error: err.message }))
+          whatsappMultiService.getChats().catch(() => ({ success: false, data: [] })),
+          whatsappMultiService.getContacts().catch(() => ({ success: false, data: [] }))
         ]),
         chatTimeout
       ]) as any;
 
       let allChats: Chat[] = [];
 
-      // Adicionar chats existentes (com mensagens) - com deduplicação
       if (chatsResponse.success && chatsResponse.data) {
-        // Agrupar chats duplicados por ID
         const chatMap = new Map<string, Chat>();
-
         chatsResponse.data.forEach((chat: any) => {
-          const existingChat = chatMap.get(chat.id);
-          if (!existingChat) {
-            // Primeiro chat com este ID
+          const existing = chatMap.get(chat.id);
+          if (!existing || (chat.lastMessage?.timestamp > existing.lastMessage?.timestamp)) {
             chatMap.set(chat.id, chat);
-          } else {
-            // Chat duplicado - manter o que tem mensagem mais recente
-            if (chat.lastMessage?.timestamp > existingChat.lastMessage?.timestamp) {
-              chatMap.set(chat.id, chat);
-            }
           }
         });
-
         allChats = Array.from(chatMap.values());
-        console.log(`💬 Chats com mensagens (após deduplicação): ${allChats.length} de ${chatsResponse.data.length} originais`);
       }
 
-      // Adicionar contatos como chats (mesmo sem mensagens)
       if (contactsResponse.success && contactsResponse.data) {
-        const contacts = contactsResponse.data.filter((contact: any) => contact.isMyContact);
-        console.log(`👥 Contatos encontrados: ${contacts.length}`);
-
-        contacts.forEach((contact: any) => {
-          // Só adicionar se não existe chat já
-          const existingChat = allChats.find(chat => chat.id === contact.id);
-          if (!existingChat) {
-            // Criar chat baseado no contato
-            const contactChat: Chat = {
-              id: contact.id,
-              name: contact.name || contact.pushname || contact.number,
-              isGroup: contact.id.includes('@g.us'),
-              lastMessage: {
-                body: 'Clique para iniciar conversa',
-                timestamp: Date.now(),
-                isFromMe: false
-              },
-              unreadCount: 0,
-              timestamp: Date.now()
-            };
-            allChats.push(contactChat);
-          }
-        });
+        contactsResponse.data
+          .filter((c: any) => c.isMyContact)
+          .forEach((contact: any) => {
+            if (!allChats.find(chat => chat.id === contact.id)) {
+              allChats.push({
+                id: contact.id,
+                name: contact.name || contact.pushname || contact.number,
+                isGroup: contact.id.includes('@g.us'),
+                lastMessage: { body: '', timestamp: 0, isFromMe: false },
+                unreadCount: 0,
+                timestamp: 0
+              });
+            }
+          });
       }
 
-      // Ordenar: chats com mensagens primeiro, depois por nome
       allChats.sort((a, b) => {
-        // Se um tem mensagem real e outro não
-        const aHasRealMessage = a.lastMessage?.body !== 'Clique para iniciar conversa';
-        const bHasRealMessage = b.lastMessage?.body !== 'Clique para iniciar conversa';
-
-        if (aHasRealMessage && !bHasRealMessage) return -1;
-        if (!aHasRealMessage && bHasRealMessage) return 1;
-
-        // Se ambos têm mensagens reais, ordenar por timestamp
-        if (aHasRealMessage && bHasRealMessage) {
-          return b.timestamp - a.timestamp;
-        }
-
-        // Se nenhum tem mensagem real, ordenar alfabeticamente
+        const aHas = a.lastMessage?.body && a.lastMessage.body !== '';
+        const bHas = b.lastMessage?.body && b.lastMessage.body !== '';
+        if (aHas && !bHas) return -1;
+        if (!aHas && bHas) return 1;
+        if (aHas && bHas) return (b.lastMessage?.timestamp || 0) - (a.lastMessage?.timestamp || 0);
         return a.name.localeCompare(b.name);
       });
 
       setChats(allChats);
-      console.log(`✅ Total de chats carregados: ${allChats.length}`);
-    } catch (error) {
-      console.error('❌ Erro ao carregar chats:', error);
-    }
+    } catch {}
   }, []);
 
   const loadContacts = useCallback(async () => {
     try {
       const response = await whatsappMultiService.getContacts();
       if (response.success && response.data) {
-        setContacts(response.data.filter(contact => contact.isMyContact));
+        setContacts(response.data.filter(c => c.isMyContact));
       }
-    } catch (error) {
-      console.error('Erro ao carregar contatos:', error);
-    }
+    } catch {}
   }, []);
 
+  // ─── Load messages ─────────────────────────────────────────
   const loadChatMessages = useCallback(async (chatId: string) => {
-    // Debounce: cancelar carregamento anterior se ainda não executou
-    if (loadingTimeoutRef.current) {
-      clearTimeout(loadingTimeoutRef.current);
-    }
+    if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
 
     loadingTimeoutRef.current = setTimeout(async () => {
       try {
-        console.log(`📨 Carregando mensagens para: ${chatId}`);
         const response = await whatsappMultiService.getChatMessages(chatId, 50);
         if (response.success && response.data) {
-          // Ordenar mensagens da mais antiga para mais nova
-          const sortedMessages = response.data.sort((a, b) => a.timestamp - b.timestamp);
-
-          setChatMessages(sortedMessages);
-          console.log(`✅ ${sortedMessages.length} mensagens carregadas para ${chatId}`);
-
-          // Scroll para o final das mensagens
-          setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-          }, 100);
+          const sorted = response.data.sort((a, b) => a.timestamp - b.timestamp);
+          setChatMessages(sorted);
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         } else {
           setChatMessages([]);
-          console.log('📭 Nenhuma mensagem encontrada');
         }
-      } catch (error) {
-        console.error('Erro ao carregar mensagens do chat:', error);
+      } catch {
         setChatMessages([]);
       }
-    }, 300); // Debounce de 300ms
+    }, 300);
   }, []);
 
+  // ─── Send message ──────────────────────────────────────────
   const sendMessage = async () => {
     if (!selectedChat || !newMessage.trim() || isLoading) return;
-
     setIsLoading(true);
     try {
-      console.log(`📤 Enviando mensagem para ${selectedChat.id}: ${newMessage}`);
-
       const response = await whatsappMultiService.sendMessage(selectedChat.id, newMessage);
-
       if (response.success) {
         setNewMessage('');
-        console.log('✅ Mensagem enviada com sucesso');
-
-        // Apenas scroll - SSE vai atualizar automaticamente as mensagens
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
       } else {
-        console.error('❌ Erro ao enviar:', response.error);
-        alert('Erro ao enviar mensagem: ' + response.error);
+        alert('Erro ao enviar: ' + response.error);
       }
-    } catch (error) {
-      console.error('❌ Erro ao enviar mensagem:', error);
+    } catch {
       alert('Erro ao enviar mensagem');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // ─── Send image ────────────────────────────────────────────
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedImage(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const sendImage = async () => {
+    if (!selectedChat || !imagePreview || isSendingImage) return;
+    setIsSendingImage(true);
+    try {
+      const response = await whatsappMultiService.sendImage(
+        selectedChat.id, imagePreview, imageCaption
+      );
+      if (response.success) {
+        setSelectedImage(null);
+        setImagePreview('');
+        setImageCaption('');
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      } else {
+        alert('Erro ao enviar imagem: ' + response.error);
+      }
+    } catch {
+      alert('Erro ao enviar imagem');
+    } finally {
+      setIsSendingImage(false);
+    }
+  };
+
+  const cancelImage = () => {
+    setSelectedImage(null);
+    setImagePreview('');
+    setImageCaption('');
+  };
+
+  // ─── Sync chat ─────────────────────────────────────────────
   const syncCurrentChat = async () => {
     if (!selectedChat || isSyncingChat) return;
-
     setIsSyncingChat(true);
     try {
-      console.log(`🔄 Sincronizando conversa: ${selectedChat.id}`);
-
       const response = await whatsappMultiService.syncChat(selectedChat.id);
-
       if (response.success && response.data) {
-        console.log(`✅ Conversa sincronizada: ${response.data.messageCount} mensagens`);
-
-        // Atualizar mensagens do chat atual
         setChatMessages(response.data.messages || []);
-
-        // Scroll para o final
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-
-        // Feedback visual
-        alert(`Conversa atualizada! ${response.data.messageCount} mensagens carregadas.`);
-      } else {
-        console.error('❌ Erro ao sincronizar:', response.error);
-        alert('Erro ao atualizar conversa: ' + response.error);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
       }
-    } catch (error) {
-      console.error('❌ Erro ao sincronizar conversa:', error);
-      alert('Erro ao atualizar conversa');
-    } finally {
+    } catch {} finally {
       setIsSyncingChat(false);
     }
   };
 
+  // ─── Lead lookup ───────────────────────────────────────────
+  const lookupLead = useCallback(async (chatId: string) => {
+    setIsLoadingLead(true);
+    setLeadInfo(null);
+    setLeadNotes([]);
+    try {
+      const phoneClean = chatId.replace(/@.*$/, '');
+      const last9 = phoneClean.slice(-9);
+
+      const { data: leads } = await supabase
+        .from('leads')
+        .select('*')
+        .ilike('telefone', `%${last9}`)
+        .limit(1);
+
+      if (leads && leads.length > 0) {
+        setLeadInfo(leads[0] as LeadInfo);
+        // Load notes
+        const { data: notes } = await supabase
+          .from('lead_notes')
+          .select('*')
+          .eq('lead_id', leads[0].id)
+          .order('created_at', { ascending: false });
+
+        if (notes) setLeadNotes(notes as LeadNote[]);
+      }
+    } catch {} finally {
+      setIsLoadingLead(false);
+    }
+  }, []);
+
+  // ─── Add note ──────────────────────────────────────────────
+  const addNote = async () => {
+    if (!leadInfo || !newNote.trim()) return;
+    try {
+      const { data, error } = await supabase
+        .from('lead_notes')
+        .insert({
+          lead_id: leadInfo.id,
+          nota: newNote.trim(),
+          tipo: 'geral',
+          categoria: 'whatsapp',
+          is_important: false,
+          responsavel: user?.email || 'sistema'
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        setLeadNotes(prev => [data as LeadNote, ...prev]);
+        setNewNote('');
+      }
+    } catch {}
+  };
+
+  // ─── Helpers ───────────────────────────────────────────────
   const formatTime = (timestamp: number) => {
     if (!timestamp || timestamp <= 0) return '';
-    return new Date(timestamp).toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return new Date(timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   };
 
   const formatDate = (timestamp: number) => {
@@ -326,1018 +362,1090 @@ export default function WhatsAppPage() {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Hoje';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Ontem';
-    } else {
-      return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    }
+    if (date.toDateString() === today.toDateString()) return 'Hoje';
+    if (date.toDateString() === yesterday.toDateString()) return 'Ontem';
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
   const getInitials = (name: string) => {
+    if (!name) return '?';
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
 
-  const getMessagePreview = (message: any) => {
-    if (!message || !message.body || message.body === 'Clique para iniciar conversa') {
-      return 'Clique para iniciar conversa';
+  const getDisplayName = (chat: Chat) => {
+    if (!chat.name || chat.name === chat.id) {
+      return chat.id.replace(/@.*$/, '');
     }
-    const text = String(message.body).trim();
-    if (!text) return 'Clique para iniciar conversa';
-    return text.length > 45 ? text.substring(0, 45) + '...' : text;
+    return chat.name;
   };
 
-  const addAutoMessage = () => {
-    const newMessage = {
-      id: Date.now().toString(),
-      message: '',
-      scheduledDate: '',
-      scheduledTime: '',
-      targetGroup: '',
-      photoUrl: '',
-      photoCaption: '',
-      isActive: true
+  const getPhoneDisplay = (chatId: string) => {
+    const num = chatId.replace(/@.*$/, '');
+    if (num.length >= 12) {
+      return `+${num.slice(0, 2)} (${num.slice(2, 4)}) ${num.slice(4, 9)}-${num.slice(9)}`;
+    }
+    return num;
+  };
+
+  const getContactBadge = (chat: Chat) => {
+    if (chat.isGroup) return null;
+    const phoneClean = chat.id.replace(/@.*$/, '');
+    const contact = contacts.find(c => c.id === chat.id);
+    if (!contact) return { label: 'Novo', color: 'bg-amber-100 text-amber-700' };
+    return { label: 'Contato', color: 'bg-emerald-100 text-emerald-700' };
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      'novo': 'bg-blue-100 text-blue-700',
+      'qualificado': 'bg-emerald-100 text-emerald-700',
+      'em_negociacao': 'bg-amber-100 text-amber-700',
+      'fechado': 'bg-green-100 text-green-700',
+      'perdido': 'bg-red-100 text-red-700',
     };
-    setAutoMessages([...autoMessages, newMessage]);
+    return colors[status] || 'bg-gray-100 text-gray-600';
   };
 
-  const removeAutoMessage = (id: string) => {
-    setAutoMessages(autoMessages.filter(msg => msg.id !== id));
+  const getTemperaturaIcon = (temp: string) => {
+    if (temp === 'quente') return '🔥';
+    if (temp === 'morno') return '🌡️';
+    return '❄️';
   };
 
+  // ─── Auto messages ────────────────────────────────────────
+  const addAutoMessage = () => {
+    setAutoMessages([...autoMessages, {
+      id: Date.now().toString(), message: '', scheduledDate: '',
+      scheduledTime: '', targetGroup: '', photoUrl: '', photoCaption: '', isActive: true
+    }]);
+  };
+
+  const removeAutoMessage = (id: string) => setAutoMessages(autoMessages.filter(m => m.id !== id));
   const updateAutoMessage = (id: string, field: string, value: string) => {
-    setAutoMessages(autoMessages.map(msg =>
-      msg.id === id ? { ...msg, [field]: value } : msg
-    ));
+    setAutoMessages(autoMessages.map(m => m.id === id ? { ...m, [field]: value } : m));
   };
 
   const loadAutoMessages = useCallback(async () => {
     try {
-      // Para mensagens automáticas, ainda usar 'default' por enquanto
       const response = await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/auto-messages?userId=default`);
       const data = await response.json();
-
-      if (data.success && data.data && data.data.length > 0) {
-        const loadedMessages = data.data.map((msg: any) => ({
+      if (data.success && data.data?.length > 0) {
+        setAutoMessages(data.data.map((msg: any) => ({
           id: msg.id || Date.now().toString(),
-          message: msg.message || '',
-          scheduledDate: msg.scheduled_date || '',
-          scheduledTime: msg.scheduled_time || '',
-          targetGroup: msg.target_group || '',
-          photoUrl: msg.photo_url || '',
-          photoCaption: msg.photo_caption || '',
+          message: msg.message || '', scheduledDate: msg.scheduled_date || '',
+          scheduledTime: msg.scheduled_time || '', targetGroup: msg.target_group || '',
+          photoUrl: msg.photo_url || '', photoCaption: msg.photo_caption || '',
           isActive: msg.is_active !== false
-        }));
-        setAutoMessages(loadedMessages);
-        console.log('✅ Mensagens automáticas carregadas:', loadedMessages.length);
-        console.log('📋 Dados brutos do servidor:', data.data);
-        console.log('🔄 Dados mapeados:', loadedMessages);
-      } else {
-        // Se não há mensagens cadastradas, manter o estado inicial com uma mensagem vazia
-        console.log('📭 Nenhuma mensagem automática encontrada');
+        })));
       }
-    } catch (error) {
-      console.error('❌ Erro ao carregar mensagens automáticas:', error);
-    }
+    } catch {}
   }, []);
 
   const loadSettings = useCallback(async () => {
     try {
-      console.log('📋 Carregando configurações da organização...');
-
-      // Buscar organização do usuário atual
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.log('⚠️ Usuário não autenticado, usando configurações padrão');
-        return;
-      }
+      if (!user) return;
 
-      // Buscar organização por email
-      const { data: orgData, error: orgError } = await supabase
+      const { data: orgData } = await supabase
         .from('organization_users')
         .select('organization_id')
         .eq('email', user.email)
         .single();
 
-      let organizationId = null;
-
-      if (orgError) {
-        console.log('🔍 Organização não encontrada via organization_users, tentando organizations...');
-        // Fallback: buscar diretamente na tabela organizations
-        const { data: orgDirectData, error: orgDirectError } = await supabase
-          .from('organizations')
-          .select('id, admin_phone')
-          .eq('owner_email', user.email)
-          .single();
-
-        if (!orgDirectError && orgDirectData) {
-          organizationId = orgDirectData.id;
-          if (orgDirectData.admin_phone) {
-            setAdminPhone(orgDirectData.admin_phone);
-            console.log('✅ Admin phone carregado da organização:', orgDirectData.admin_phone);
-            return;
-          }
+      let orgId = orgData?.organization_id;
+      if (!orgId) {
+        const { data: orgDirect } = await supabase
+          .from('organizations').select('id, admin_phone')
+          .eq('owner_email', user.email).single();
+        if (orgDirect) {
+          orgId = orgDirect.id;
+          if (orgDirect.admin_phone) { setAdminPhone(orgDirect.admin_phone); return; }
         }
-      } else {
-        organizationId = orgData.organization_id;
       }
 
-      if (organizationId) {
-        // Buscar configurações da organização
-        const { data: orgSettings, error: settingsError } = await supabase
-          .from('organizations')
-          .select('admin_phone')
-          .eq('id', organizationId)
-          .single();
-
-        if (!settingsError && orgSettings?.admin_phone) {
-          setAdminPhone(orgSettings.admin_phone);
-          console.log('✅ Admin phone carregado:', orgSettings.admin_phone);
-        } else {
-          console.log('ℹ️ Sem configurações salvas, usando padrão');
-        }
-      } else {
-        console.log('ℹ️ Organização não encontrada, usando configurações padrão');
+      if (orgId) {
+        const { data: settings } = await supabase
+          .from('organizations').select('admin_phone').eq('id', orgId).single();
+        if (settings?.admin_phone) setAdminPhone(settings.admin_phone);
       }
-
-    } catch (error) {
-      console.error('❌ Erro ao carregar configurações:', error);
-      // Fallback para localStorage se Supabase falhar
-      const savedSettings = localStorage.getItem('whatsapp_settings');
-      if (savedSettings) {
-        const settings = JSON.parse(savedSettings);
-        setAdminPhone(settings.adminPhone || '+5583996910414');
-      }
-    }
+    } catch {}
   }, []);
 
   const saveSettings = async () => {
     try {
-      console.log('💾 Salvando configurações no banco de dados...');
-
-      // Buscar organização do usuário atual
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        alert('Erro: Usuário não autenticado');
-        return;
+      if (!user) return;
+
+      const { data: orgData } = await supabase
+        .from('organization_users').select('organization_id')
+        .eq('email', user.email).single();
+
+      let orgId = orgData?.organization_id;
+      if (!orgId) {
+        const { data: orgDirect } = await supabase
+          .from('organizations').select('id').eq('owner_email', user.email).single();
+        orgId = orgDirect?.id;
       }
 
-      // Buscar organização por email
-      const { data: orgData, error: orgError } = await supabase
-        .from('organization_users')
-        .select('organization_id')
-        .eq('email', user.email)
-        .single();
-
-      let organizationId = null;
-
-      if (orgError) {
-        // Fallback: buscar diretamente na tabela organizations
-        const { data: orgDirectData, error: orgDirectError } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('owner_email', user.email)
-          .single();
-
-        if (orgDirectError || !orgDirectData) {
-          console.error('❌ Organização não encontrada');
-          alert('Erro: Organização não encontrada');
-          return;
-        }
-        organizationId = orgDirectData.id;
-      } else {
-        organizationId = orgData.organization_id;
+      if (orgId) {
+        await supabase.from('organizations')
+          .update({ admin_phone: adminPhone, updated_at: new Date().toISOString() })
+          .eq('id', orgId);
       }
-
-      console.log('🏢 Salvando para organização:', organizationId);
-
-      // Atualizar admin_phone na organização
-      const { data: updateData, error: updateError } = await supabase
-        .from('organizations')
-        .update({
-          admin_phone: adminPhone,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', organizationId)
-        .select();
-
-      if (updateError) {
-        console.error('❌ Erro ao salvar no banco:', updateError);
-
-        // Se falhar, salvar no localStorage como fallback
-        const settings = {
-          adminPhone,
-          whatsappNotifications: true,
-          updatedAt: new Date().toISOString()
-        };
-        localStorage.setItem('whatsapp_settings', JSON.stringify(settings));
-
-        alert('Configurações salvas localmente (erro no banco de dados)');
-        setShowSettingsModal(false);
-        return;
-      }
-
-      console.log('✅ Configurações salvas no banco:', updateData);
-      alert('Configurações salvas com sucesso!');
       setShowSettingsModal(false);
-
-    } catch (error) {
-      console.error('❌ Erro ao salvar configurações:', error);
-
-      // Fallback para localStorage
-      const settings = {
-        adminPhone,
-        whatsappNotifications: true,
-        updatedAt: new Date().toISOString()
-      };
-      localStorage.setItem('whatsapp_settings', JSON.stringify(settings));
-
-      alert('Configurações salvas localmente (erro no sistema)');
+    } catch {
+      localStorage.setItem('whatsapp_settings', JSON.stringify({ adminPhone }));
       setShowSettingsModal(false);
     }
   };
 
   const saveAutoMessages = async () => {
     try {
-      // Para mensagens automáticas, ainda usar 'default' por enquanto
-
-      // Debug: mostrar dados antes de enviar
-      console.log('🔍 AutoMessages antes de salvar:', autoMessages);
-
-      const messagesToSave = autoMessages.filter(msg => msg.message && msg.scheduledTime && msg.targetGroup).map(msg => ({
-        ...msg,
-        scheduled_date: msg.scheduledDate || null,
-        scheduled_time: msg.scheduledTime,
-        target_group: msg.targetGroup,
-        photo_url: msg.photoUrl || null,
-        photo_caption: msg.photoCaption || null,
-        is_active: msg.isActive
-      }));
-
-      console.log('📤 Mensagens que serão enviadas:', messagesToSave);
+      const messagesToSave = autoMessages
+        .filter(msg => msg.message && msg.scheduledTime && msg.targetGroup)
+        .map(msg => ({
+          ...msg, scheduled_date: msg.scheduledDate || null,
+          scheduled_time: msg.scheduledTime, target_group: msg.targetGroup,
+          photo_url: msg.photoUrl || null, photo_caption: msg.photoCaption || null,
+          is_active: msg.isActive
+        }));
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/auto-messages/bulk`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: 'default',
-          autoMessages: messagesToSave
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: 'default', autoMessages: messagesToSave }),
       });
-
       const data = await response.json();
-
       if (data.success) {
-        alert(data.message || 'Mensagens automáticas configuradas com sucesso!');
         setShowAutoMessageModal(false);
-        loadAutoMessages(); // Recarregar mensagens após salvar
-        console.log('✅ Mensagens automáticas salvas:', data.data);
-      } else {
-        alert('Erro ao salvar mensagens automáticas: ' + data.error);
-        console.error('❌ Erro:', data.error);
+        loadAutoMessages();
       }
-    } catch (error) {
-      console.error('❌ Erro ao salvar mensagens automáticas:', error);
-      alert('Erro ao conectar com o servidor. Tente novamente.');
-    }
+    } catch {}
   };
 
-  // useEffect SIMPLES: SÓ VERIFICA CONEXÃO
+  // ─── Effects ───────────────────────────────────────────────
   useEffect(() => {
-    console.log('🚀 Verificando conexão WhatsApp...');
-
-    // Verifica conexão inicial
     checkWhatsAppConnection();
-
-    // Verifica a cada 30 segundos
     const interval = setInterval(checkWhatsAppConnection, 30000);
-
-    // Carrega configurações sempre
     loadSettings();
 
-    // TIMEOUT AUTOMÁTICO: Se ficar mais de 20 segundos carregando, forçar interface
-    const forceLoadTimeout = setTimeout(() => {
+    const forceTimeout = setTimeout(() => {
       if (isLoadingStatus) {
-        console.log('⚠️ Timeout atingido, forçando carregamento da interface');
         setIsLoadingStatus(false);
-        // Se não conseguiu verificar status, assumir que está conectado
         setIsWhatsAppConnected(true);
         loadChats();
         loadContacts();
       }
     }, 20000);
 
-    return () => {
-      clearInterval(interval);
-      clearTimeout(forceLoadTimeout);
-    };
+    return () => { clearInterval(interval); clearTimeout(forceTimeout); };
   }, [checkWhatsAppConnection, loadSettings, isLoadingStatus]);
 
   useEffect(() => {
     if (selectedChat) {
       loadChatMessages(selectedChat.id);
+      if (!selectedChat.isGroup) lookupLead(selectedChat.id);
+      setActiveTab('conversa');
     }
-  }, [selectedChat, loadChatMessages]);
+  }, [selectedChat, loadChatMessages, lookupLead]);
 
-  return (
-    <PageLayout
-      title="WhatsApp Business"
-      subtitle="Sistema de mensagens profissional integrado"
-    >
-      {/* LOADING STATE */}
-      {isLoadingStatus && (
-        <div className="flex flex-col items-center justify-center py-12">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <span>Verificando conexão WhatsApp...</span>
+  // ─── Select chat handler ──────────────────────────────────
+  const handleSelectChat = (chat: Chat) => {
+    setSelectedChat(chat);
+    setMobileView('chat');
+    setShowDetailsPanel(false);
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════
+
+  // ─── Loading state ─────────────────────────────────────────
+  if (isLoadingStatus) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-[#f8f9fb] via-white to-[#f0f2f8]">
+        <div className="text-center">
+          <div className="relative w-16 h-16 mx-auto mb-4">
+            <div className="absolute inset-0 rounded-full border-4 border-[#FF2D6B]/20" />
+            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[#FF2D6B] animate-spin" />
           </div>
-          {/* Botão de debug para forçar carregamento */}
+          <p className="text-[#6C757D] font-medium">Conectando ao WhatsApp...</p>
           <button
-            onClick={() => {
-              console.log('🔧 Forçando carregamento da interface...');
-              setIsWhatsAppConnected(true);
-              setIsLoadingStatus(false);
-              loadChats();
-              loadContacts();
-            }}
-            className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600"
+            onClick={() => { setIsWhatsAppConnected(true); setIsLoadingStatus(false); loadChats(); loadContacts(); }}
+            className="mt-4 text-xs text-[#ADB5BD] hover:text-[#FF2D6B] transition-colors"
           >
-            🔧 Forçar Carregamento (Debug)
+            Forcar carregamento
           </button>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* NOT CONNECTED - BOTÃO PARA CONECTAR */}
-      {!isLoadingStatus && !isWhatsAppConnected && (
-        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-2xl p-8 mb-6 text-center">
-          <div className="flex flex-col items-center gap-4">
-            <WifiOff className="w-12 h-12 text-orange-500" />
-            <div>
-              <p className="font-semibold text-orange-800 text-lg">WhatsApp não conectado</p>
-              <p className="text-sm text-orange-700">
-                Conecte seu WhatsApp Business para começar a enviar mensagens
-              </p>
-            </div>
-            <Link href="/whatsapp/connect">
-              <button className="flex items-center gap-2 px-6 py-3 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors">
-                <QrCode className="w-5 h-5" />
-                Conectar WhatsApp
+  // ─── Not connected ─────────────────────────────────────────
+  if (!isWhatsAppConnected) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-[#f8f9fb] via-white to-[#f0f2f8]">
+        <div className="text-center max-w-md mx-auto px-6">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-[#FF2D6B]/10 to-[#FF2D6B]/5 flex items-center justify-center">
+            <WifiOff className="w-10 h-10 text-[#FF2D6B]" />
+          </div>
+          <h2 className="text-xl font-semibold text-[#1A1A2E] mb-2">WhatsApp nao conectado</h2>
+          <p className="text-[#6C757D] mb-6">Conecte seu WhatsApp para comecar a atender</p>
+          <Link href="/whatsapp/connect">
+            <button className="px-6 py-3 bg-[#FF2D6B] hover:bg-[#E91E5A] text-white rounded-xl font-medium transition-all shadow-lg shadow-[#FF2D6B]/25">
+              <QrCode className="w-5 h-5 inline mr-2" />
+              Conectar WhatsApp
+            </button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Main interface ────────────────────────────────────────
+  return (
+    <div className="h-screen flex bg-gradient-to-br from-[#f0f2f8] via-[#f8f9fb] to-[#eef1f8] overflow-hidden">
+
+      {/* ══════ COLUMN 1: Chat List ══════ */}
+      <div className={`w-full md:w-[380px] md:min-w-[380px] flex flex-col border-r border-[#E9ECEF]/60
+        ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}
+        bg-white/70 backdrop-blur-xl`}
+      >
+        {/* Header */}
+        <div className="px-5 pt-5 pb-3">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-lg font-semibold text-[#1A1A2E]">Chats</h1>
+            <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-100">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                <span className="text-[10px] font-medium text-emerald-600">Online</span>
+              </div>
+              <button
+                onClick={() => setShowAutoMessageModal(true)}
+                className="p-2 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D] hover:text-[#FF2D6B] transition-all"
+                title="Mensagens Automaticas"
+              >
+                <Clock className="w-4 h-4" />
               </button>
-            </Link>
+              <button
+                onClick={() => setShowSettingsModal(true)}
+                className="p-2 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D] hover:text-[#FF2D6B] transition-all"
+                title="Configuracoes"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#ADB5BD]" />
+            <input
+              type="text"
+              placeholder="Pesquisar contato..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-[#F1F3F5]/80 border border-transparent rounded-xl text-sm text-[#1A1A2E] placeholder-[#ADB5BD] focus:outline-none focus:border-[#FF2D6B]/30 focus:bg-white transition-all"
+            />
           </div>
         </div>
-      )}
 
-      {/* CONNECTED - INTERFACE COMPLETA */}
-      {!isLoadingStatus && isWhatsAppConnected && (
-        <>
-          {/* Actions */}
-          <div className="flex items-center gap-4 mb-6">
-            <button
-              onClick={() => setShowAutoMessageModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors"
-            >
-              <Clock className="w-4 h-4" />
-              Mensagens Automáticas
-            </button>
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-xl font-medium transition-colors"
-            >
-              <Settings className="w-4 h-4" />
-              Configurações
-            </button>
-            <div className="hidden lg:flex items-center gap-2 bg-green-50 px-3 py-2 rounded-xl border border-green-200">
-              <div className="w-2 h-2 bg-[#059669] rounded-full animate-pulse" />
-              <span className="text-sm font-medium text-[#059669]">WhatsApp Online</span>
+        {/* Chat list */}
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
+          {filteredChats.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+              <MessageCircle className="w-10 h-10 text-[#E9ECEF] mb-3" />
+              <p className="text-sm font-medium text-[#6C757D]">Nenhuma conversa</p>
+              <p className="text-xs text-[#ADB5BD] mt-1">Aguardando sincronizacao...</p>
             </div>
-          </div>
+          ) : (
+            filteredChats.map(chat => {
+              const badge = getContactBadge(chat);
+              const isSelected = selectedChat?.id === chat.id;
+              const displayName = getDisplayName(chat);
+              const preview = chat.lastMessage?.body && chat.lastMessage.body !== ''
+                ? chat.lastMessage.body
+                : 'Iniciar conversa';
+              const hasUnread = (chat.unreadCount || 0) > 0;
 
-          {/* Métricas */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <MetricCard
-              title="Status da Conexão"
-              value="Conectado"
-              change={0}
-              icon={Wifi}
-              iconColor="green"
-            />
-            <MetricCard
-              title="Contatos"
-              value={contacts.length.toString()}
-              change={0}
-              icon={Users}
-              iconColor="blue"
-            />
-            <MetricCard
-              title="Conversas"
-              value={chats.length.toString()}
-              change={0}
-              icon={MessageCircle}
-              iconColor="purple"
-            />
-            <MetricCard
-              title="Conversas Ativas"
-              value={filteredChats.length.toString()}
-              change={0}
-              icon={MessageCircle}
-              iconColor="orange"
-            />
-          </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Lista de Chats */}
-            <Card className="bg-white shadow-xl border-0 overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white pb-4">
-                <CardTitle className="flex items-center gap-3">
-                  <div className="bg-white/20 p-2 rounded-lg">
-                    <MessageCircle className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Conversas</h3>
-                    <p className="text-green-100 text-sm">{filteredChats.length} ativas</p>
-                  </div>
-                </CardTitle>
-                <div className="relative mt-4">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/70 h-4 w-4" />
-                  <Input
-                    placeholder="Buscar conversas..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-white/10 border-white/20 text-white placeholder-white/70 focus:bg-white/20 focus:border-white/40"
-                  />
-                </div>
-              </CardHeader>
-            <CardContent className="p-0 bg-white">
-              <ScrollArea className="h-96">
-                {filteredChats.length === 0 ? (
-                  <div className="p-6 text-center text-gray-500">
-                    <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p className="font-medium">Carregando conversas...</p>
-                    <p className="text-sm text-gray-400 mt-1">Aguarde enquanto sincronizamos seus chats</p>
-                  </div>
-                ) : (
-                  filteredChats.map((chat, index) => (
-                    <div
-                      key={chat.id}
-                      className={`p-4 cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-green-50 hover:to-transparent border-b border-gray-100 ${
-                        selectedChat?.id === chat.id
-                          ? 'bg-gradient-to-r from-green-100 to-green-50 border-green-200 shadow-sm'
-                          : ''
-                      }`}
-                      onClick={() => setSelectedChat(chat)}
+              return (
+                <div
+                  key={chat.id}
+                  onClick={() => handleSelectChat(chat)}
+                  className={`flex items-center gap-3 px-5 py-3.5 cursor-pointer transition-all duration-200 border-b border-[#F1F3F5]/60
+                    ${isSelected
+                      ? 'bg-gradient-to-r from-[#FF2D6B]/[0.08] to-transparent border-l-[3px] border-l-[#FF2D6B]'
+                      : 'hover:bg-[#F8F9FA] border-l-[3px] border-l-transparent'
+                    }`}
+                >
+                  {/* Avatar */}
+                  <div className="relative flex-shrink-0">
+                    <div className={`w-11 h-11 rounded-full flex items-center justify-center text-sm font-semibold
+                      ${isSelected ? 'bg-[#FF2D6B]/10 text-[#FF2D6B]' : 'bg-[#F1F3F5] text-[#6C757D]'}`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <Avatar className="h-12 w-12 shadow-sm">
-                            <AvatarFallback className="bg-gradient-to-br from-green-100 to-green-200 text-green-700 font-semibold">
-                              {getInitials(chat.name || chat.id)}
-                            </AvatarFallback>
-                          </Avatar>
-                          {chat.unreadCount > 0 && (
-                            <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-md">
-                              {chat.unreadCount > 9 ? '9+' : chat.unreadCount}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className="font-medium text-gray-900 truncate">
-                              {chat.name === chat.id ? chat.id.split('@')[0] : chat.name}
-                            </h4>
-                            {chat.lastMessage?.timestamp && chat.lastMessage.timestamp > 0 && (
-                              <span className="text-xs text-gray-400 font-medium">
-                                {formatTime(chat.lastMessage.timestamp)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {chat.lastMessage?.isFromMe && (
-                              <svg className="w-3 h-3 text-gray-400" viewBox="0 0 16 15">
-                                <path fill="currentColor" d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.064-.512z"/>
-                              </svg>
-                            )}
-                            <p className="text-sm text-gray-600 truncate flex-1">
-                              {getMessagePreview(chat.lastMessage)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
+                      {getInitials(displayName)}
                     </div>
-                  ))
-                )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
+                    {hasUnread && (
+                      <div className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-[#FF2D6B] text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                        {chat.unreadCount! > 9 ? '9+' : chat.unreadCount}
+                      </div>
+                    )}
+                  </div>
 
-          {/* Chat */}
-          <Card className="lg:col-span-2 overflow-hidden shadow-xl border-0 bg-white">
-            {selectedChat && (
-              <CardHeader className="bg-gradient-to-r from-green-600 to-green-700 text-white border-b-0 pb-4">
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <Avatar className="h-12 w-12 ring-2 ring-white/20">
-                      <AvatarFallback className="bg-white/20 text-white text-sm font-semibold">
-                        {getInitials(selectedChat.name || selectedChat.id)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
-                  </div>
-                  <div className="flex-1">
-                    <CardTitle className="text-lg font-semibold text-white">
-                      {selectedChat.name === selectedChat.id
-                        ? selectedChat.id.split('@')[0]
-                        : selectedChat.name
-                      }
-                    </CardTitle>
-                    <p className="text-sm text-green-100 flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
-                      {selectedChat.isGroup ? 'Grupo ativo' : 'Online agora'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-white hover:bg-white/10 rounded-full h-10 w-10 p-0"
-                      onClick={syncCurrentChat}
-                      disabled={isSyncingChat}
-                      title="Atualizar conversa"
-                    >
-                      <RefreshCw className={isSyncingChat ? 'spinner-sync' : 'h-5 w-5'} />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 rounded-full h-10 w-10 p-0">
-                      <Phone className="h-5 w-5" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 rounded-full h-10 w-10 p-0">
-                      <MessageCircle className="h-5 w-5" />
-                    </Button>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`text-sm truncate ${hasUnread ? 'font-semibold text-[#1A1A2E]' : 'font-medium text-[#1A1A2E]'}`}>
+                          {displayName}
+                        </span>
+                        {badge && (
+                          <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider ${badge.color}`}>
+                            {badge.label}
+                          </span>
+                        )}
+                      </div>
+                      {chat.lastMessage?.timestamp && chat.lastMessage.timestamp > 0 && (
+                        <span className={`text-[11px] flex-shrink-0 ml-2 ${hasUnread ? 'text-[#FF2D6B] font-medium' : 'text-[#ADB5BD]'}`}>
+                          {formatTime(chat.lastMessage.timestamp)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {chat.lastMessage?.isFromMe && (
+                        <CheckCheck className="w-3.5 h-3.5 flex-shrink-0 text-[#ADB5BD]" />
+                      )}
+                      <p className={`text-xs truncate ${hasUnread ? 'text-[#1A1A2E] font-medium' : 'text-[#6C757D]'}`}>
+                        {preview.length > 50 ? preview.substring(0, 50) + '...' : preview}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </CardHeader>
-            )}
-            <CardContent className={selectedChat ? "p-0" : ""}>
-              {selectedChat ? (
-                <div className="flex flex-col h-[500px]">
-                  {/* Mensagens - Estilo WhatsApp */}
-                  <div className="flex-1 overflow-y-auto bg-[#f0f2f5] bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxwYXRoIGlkPSJhIiBkPSJtMjAgMjAgMjAtMjBIMjB2MjB6Ii8+CiAgPC9kZWZzPgogIDx1c2UgZmlsbD0iI2ZmZmZmZjA1IiBocmVmPSIjYSIvPgo8L3N2Zz4=')] p-4">
-                    <div className="space-y-2">
-                      {chatMessages.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p>Nenhuma mensagem ainda. Envie a primeira!</p>
-                        </div>
-                      ) : (
-                        chatMessages.map((message, index) => {
-                          const showDate = index === 0 ||
-                            formatDate(message.timestamp) !== formatDate(chatMessages[index - 1]?.timestamp);
+              );
+            })
+          )}
+        </div>
+      </div>
 
-                          return (
-                            <div key={message.id}>
-                              {/* Separador de data */}
-                              {showDate && (
-                                <div className="flex justify-center my-4">
-                                  <div className="bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs text-gray-600 shadow-sm">
-                                    {formatDate(message.timestamp)}
-                                  </div>
+      {/* ══════ COLUMN 2: Conversation ══════ */}
+      <div className={`flex-1 flex flex-col min-w-0
+        ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}`}
+      >
+        {selectedChat ? (
+          <>
+            {/* Conversation Header */}
+            <div className="bg-white/80 backdrop-blur-xl border-b border-[#E9ECEF]/60 px-5 py-3">
+              <div className="flex items-center gap-3">
+                {/* Mobile back */}
+                <button
+                  onClick={() => setMobileView('list')}
+                  className="md:hidden p-1.5 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D]"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+
+                {/* Avatar */}
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF2D6B]/10 to-[#FF2D6B]/5 flex items-center justify-center">
+                  <span className="text-sm font-semibold text-[#FF2D6B]">
+                    {getInitials(getDisplayName(selectedChat))}
+                  </span>
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-[15px] font-semibold text-[#1A1A2E] truncate">
+                      {getDisplayName(selectedChat)}
+                    </h2>
+                    {leadInfo && (
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-700`}>
+                        Lead
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#ADB5BD]">
+                    {getPhoneDisplay(selectedChat.id)}
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={syncCurrentChat}
+                    disabled={isSyncingChat}
+                    className="p-2 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D] hover:text-[#FF2D6B] transition-all disabled:opacity-40"
+                    title="Sincronizar conversa"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isSyncingChat ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => setShowDetailsPanel(!showDetailsPanel)}
+                    className={`p-2 rounded-lg transition-all
+                      ${showDetailsPanel ? 'bg-[#FF2D6B]/10 text-[#FF2D6B]' : 'hover:bg-[#F1F3F5] text-[#6C757D] hover:text-[#FF2D6B]'}`}
+                    title="Detalhes do contato"
+                  >
+                    <User className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex gap-0 mt-3 -mb-3 border-b border-transparent">
+                {[
+                  { key: 'conversa' as ContactTab, label: 'Conversa', icon: MessageCircle },
+                  { key: 'detalhes' as ContactTab, label: 'Detalhes', icon: User },
+                  { key: 'anotacoes' as ContactTab, label: 'Anotacoes', icon: StickyNote },
+                  { key: 'historico' as ContactTab, label: 'Historico', icon: History },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-all
+                      ${activeTab === tab.key
+                        ? 'border-[#FF2D6B] text-[#FF2D6B]'
+                        : 'border-transparent text-[#6C757D] hover:text-[#1A1A2E]'
+                      }`}
+                  >
+                    <tab.icon className="w-3.5 h-3.5" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Tab: Conversa ── */}
+            {activeTab === 'conversa' && (
+              <div className="flex-1 flex flex-col min-h-0">
+                {/* Messages area */}
+                <div className="flex-1 overflow-y-auto px-5 py-4 bg-gradient-to-b from-[#f8f9fb] to-[#f0f2f5] scrollbar-thin">
+                  {chatMessages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                      <div className="w-16 h-16 rounded-2xl bg-[#F1F3F5] flex items-center justify-center mb-3">
+                        <MessageCircle className="w-8 h-8 text-[#ADB5BD]" />
+                      </div>
+                      <p className="text-sm text-[#6C757D]">Nenhuma mensagem ainda</p>
+                      <p className="text-xs text-[#ADB5BD] mt-1">Envie a primeira mensagem!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {chatMessages.map((message, index) => {
+                        const showDate = index === 0 ||
+                          formatDate(message.timestamp) !== formatDate(chatMessages[index - 1]?.timestamp);
+                        const isMe = message.isFromMe;
+                        const prevSameAuthor = index > 0 && chatMessages[index - 1]?.isFromMe === isMe;
+
+                        return (
+                          <div key={message.id || index}>
+                            {showDate && (
+                              <div className="flex justify-center my-4">
+                                <span className="px-3 py-1 bg-white/80 backdrop-blur-sm rounded-full text-[11px] text-[#6C757D] shadow-sm border border-[#E9ECEF]/40">
+                                  {formatDate(message.timestamp)}
+                                </span>
+                              </div>
+                            )}
+
+                            <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${prevSameAuthor ? 'mt-0.5' : 'mt-3'}`}>
+                              {/* Avatar for received (only if different author) */}
+                              {!isMe && !prevSameAuthor && (
+                                <div className="w-7 h-7 rounded-full bg-[#F1F3F5] flex items-center justify-center mr-2 mt-auto mb-1 flex-shrink-0">
+                                  <span className="text-[10px] font-semibold text-[#6C757D]">
+                                    {getInitials(message.contact?.name || getDisplayName(selectedChat))}
+                                  </span>
                                 </div>
                               )}
+                              {!isMe && prevSameAuthor && <div className="w-7 mr-2 flex-shrink-0" />}
 
-                              {/* Mensagem */}
-                              <div
-                                className={message.isFromMe ? 'message-me' : 'message-other'}
+                              <div className={`max-w-[65%] px-3.5 py-2 shadow-sm
+                                ${isMe
+                                  ? `bg-white border border-[#E9ECEF]/60 ${!prevSameAuthor ? 'rounded-2xl rounded-br-md' : 'rounded-2xl rounded-br-md'}`
+                                  : `bg-[#F1F3F5] ${!prevSameAuthor ? 'rounded-2xl rounded-bl-md' : 'rounded-2xl rounded-bl-md'}`
+                                }`}
                               >
-                                <div className="flex flex-col max-w-xs lg:max-w-md">
-                                  <div
-                                    className={`relative px-3 py-2 rounded-lg shadow-sm ${
-                                      message.isFromMe
-                                        ? 'bg-[#dcf8c6] text-gray-800 rounded-br-none'
-                                        : 'bg-white text-gray-800 rounded-bl-none'
-                                    }`}
-                                  >
-                                    {/* Texto da mensagem */}
-                                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                                      {message.body}
-                                    </p>
-
-                                    {/* Horário e status */}
-                                    <div className={`flex items-center gap-1 mt-1 ${
-                                      message.isFromMe ? 'justify-end' : 'justify-start'
-                                    }`}>
-                                      <span className="text-xs text-gray-500">
-                                        {formatTime(message.timestamp)}
-                                      </span>
-                                      {message.isFromMe && (
-                                        <div className="flex">
-                                          {/* Check duplo (entregue e lido) */}
-                                          <svg className="w-3 h-3 text-[#4fc3f7]" viewBox="0 0 16 15">
-                                            <path fill="currentColor" d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.064-.512zm-4.1 0l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.879a.32.32 0 0 1-.484.033L1.891 7.769a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l3.61 3.463c.143.14.361.125.484-.033l8.168-8.048a.365.365 0 0 0-.064-.512z"/>
-                                          </svg>
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {/* Rabinho da mensagem */}
-                                    <div
-                                      className={`absolute top-0 w-3 h-3 ${
-                                        message.isFromMe
-                                          ? '-right-1 bg-[#dcf8c6]'
-                                          : '-left-1 bg-white'
-                                      }`}
-                                      style={{
-                                        clipPath: message.isFromMe
-                                          ? 'polygon(0% 0%, 100% 100%, 0% 100%)'
-                                          : 'polygon(100% 0%, 100% 100%, 0% 100%)'
-                                      }}
-                                    />
-                                  </div>
+                                {!isMe && !prevSameAuthor && message.contact?.name && (
+                                  <p className="text-[11px] font-semibold text-[#FF2D6B] mb-0.5">
+                                    {message.contact.name}
+                                  </p>
+                                )}
+                                <p className="text-[13px] leading-relaxed text-[#1A1A2E] whitespace-pre-wrap break-words">
+                                  {message.body}
+                                </p>
+                                <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                  <span className="text-[10px] text-[#ADB5BD]">
+                                    {formatTime(message.timestamp)}
+                                  </span>
+                                  {isMe && <CheckCheck className="w-3 h-3 text-[#ADB5BD]" />}
                                 </div>
                               </div>
                             </div>
-                          );
-                        })
-                      )}
-                      {/* Referência para scroll automático */}
+                          </div>
+                        );
+                      })}
                       <div ref={messagesEndRef} />
                     </div>
-                  </div>
+                  )}
+                </div>
 
-                  {/* Input de nova mensagem - Estilo WhatsApp */}
-                  <div className="bg-[#f0f2f5] px-4 py-3 flex items-end gap-3">
-                    <div className="flex-1 bg-white rounded-3xl px-4 py-2 flex items-center gap-2 shadow-sm">
-                      <Textarea
-                        placeholder="Digite uma mensagem"
+                {/* Image preview */}
+                {imagePreview && (
+                  <div className="px-5 py-3 bg-white/90 backdrop-blur-xl border-t border-[#E9ECEF]/60">
+                    <div className="flex items-start gap-3">
+                      <div className="relative">
+                        <img src={imagePreview} alt="" className="w-20 h-20 object-cover rounded-xl border border-[#E9ECEF]" />
+                        <button
+                          onClick={cancelImage}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#FF2D6B] text-white rounded-full flex items-center justify-center shadow-sm"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          value={imageCaption}
+                          onChange={(e) => setImageCaption(e.target.value)}
+                          placeholder="Legenda (opcional)..."
+                          className="w-full px-3 py-2 bg-[#F1F3F5] rounded-lg text-sm text-[#1A1A2E] placeholder-[#ADB5BD] focus:outline-none focus:ring-1 focus:ring-[#FF2D6B]/30"
+                        />
+                        <button
+                          onClick={sendImage}
+                          disabled={isSendingImage}
+                          className="mt-2 px-4 py-1.5 bg-[#FF2D6B] hover:bg-[#E91E5A] text-white text-xs font-medium rounded-lg transition-all disabled:opacity-50"
+                        >
+                          {isSendingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Enviar imagem'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Input area */}
+                <div className="px-4 py-3 bg-white/80 backdrop-blur-xl border-t border-[#E9ECEF]/40">
+                  <div className="flex items-end gap-2">
+                    {/* Attach */}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2.5 rounded-xl hover:bg-[#F1F3F5] text-[#6C757D] hover:text-[#FF2D6B] transition-all flex-shrink-0"
+                      title="Enviar imagem"
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+
+                    {/* Input */}
+                    <div className="flex-1 bg-[#F1F3F5]/80 rounded-2xl px-4 py-2.5 border border-transparent focus-within:border-[#FF2D6B]/20 focus-within:bg-white transition-all">
+                      <textarea
+                        placeholder="Escreva sua mensagem aqui"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        className="flex-1 border-none resize-none min-h-[24px] max-h-32 p-0 focus:ring-0 focus:outline-none bg-transparent"
+                        className="w-full bg-transparent text-sm text-[#1A1A2E] placeholder-[#ADB5BD] resize-none focus:outline-none min-h-[24px] max-h-32"
                         rows={1}
                         style={{ height: 'auto' }}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            sendMessage();
-                          }
+                          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
                         }}
                         onInput={(e) => {
-                          const target = e.target as HTMLTextAreaElement;
-                          target.style.height = '24px';
-                          target.style.height = Math.min(target.scrollHeight, 128) + 'px';
+                          const t = e.target as HTMLTextAreaElement;
+                          t.style.height = '24px';
+                          t.style.height = Math.min(t.scrollHeight, 128) + 'px';
                         }}
                       />
                     </div>
 
-                    {newMessage.trim() ? (
-                      <Button
-                        onClick={sendMessage}
-                        disabled={isLoading}
-                        size="sm"
-                        className="rounded-full w-10 h-10 p-0 bg-[#00a884] hover:bg-[#008f72] shadow-sm"
-                      >
-                        {isLoading ? (
-                          <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        ) : (
-                          <Send className="h-4 w-4 text-white" />
-                        )}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="rounded-full w-10 h-10 p-0 text-gray-500"
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="h-[500px] flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 text-gray-500">
-                  <div className="text-center max-w-md">
-                    <div className="bg-gradient-to-r from-green-400 to-green-500 p-6 rounded-full mx-auto mb-6 w-24 h-24 flex items-center justify-center shadow-lg">
-                      <MessageCircle className="h-12 w-12 text-white" />
-                    </div>
-                    <h3 className="text-2xl font-light mb-3 text-gray-700">WhatsApp Business</h3>
-                    <p className="text-gray-600 mb-2">
-                      {filteredChats.length > 0
-                        ? 'Selecione uma conversa para começar a enviar mensagens'
-                        : 'Carregando suas conversas...'
+                    {/* Send */}
+                    <button
+                      onClick={sendMessage}
+                      disabled={!newMessage.trim() || isLoading}
+                      className={`p-2.5 rounded-xl flex-shrink-0 transition-all
+                        ${newMessage.trim()
+                          ? 'bg-[#FF2D6B] hover:bg-[#E91E5A] text-white shadow-lg shadow-[#FF2D6B]/25'
+                          : 'bg-[#F1F3F5] text-[#ADB5BD]'
+                        }`}
+                    >
+                      {isLoading
+                        ? <Loader2 className="w-5 h-5 animate-spin" />
+                        : <Send className="w-5 h-5" />
                       }
-                    </p>
-                    <div className="bg-white/60 backdrop-blur-sm rounded-lg p-4 mt-6">
-                      <p className="text-sm text-gray-500">
-                        💬 Envie e receba mensagens profissionais
-                      </p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        🚀 Integração completa com seu sistema
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-        </>
-      )}
-
-      {/* Modal de Mensagens Automáticas */}
-      <Dialog open={showAutoMessageModal} onOpenChange={setShowAutoMessageModal}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-xl">
-              <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-2 rounded-lg">
-                <Clock className="h-5 w-5 text-white" />
-              </div>
-              Configurar Mensagens Automáticas
-            </DialogTitle>
-            <p className="text-gray-600">
-              Configure mensagens para serem enviadas automaticamente em horários específicos
-            </p>
-          </DialogHeader>
-
-          <div className="space-y-6 py-4">
-            {/* Header com instruções */}
-            <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="bg-orange-100 p-2 rounded-lg">
-                    <CalendarDays className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-orange-800 mb-2">Como funciona:</h4>
-                    <ul className="text-sm text-orange-700 space-y-1">
-                      <li>• Configure múltiplas mensagens para diferentes horários</li>
-                      <li>• Selecione os grupos ou contatos que receberão as mensagens</li>
-                      <li>• As mensagens serão enviadas automaticamente nos horários definidos</li>
-                      <li>• Adicione fotos usando uma URL pública (opcional)</li>
-                      <li>• Não é necessário estar logado para o envio automático</li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Botão para recarregar mensagens */}
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                onClick={loadAutoMessages}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Recarregar Mensagens
-              </Button>
-            </div>
-
-            {/* Lista de mensagens configuradas */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-800">Mensagens Programadas</h3>
-                <Button
-                  onClick={addAutoMessage}
-                  className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Adicionar Mensagem
-                </Button>
-              </div>
-
-              {autoMessages.map((autoMsg, index) => (
-                <Card key={autoMsg.id} className="border-2 border-gray-200 hover:border-green-300 transition-colors">
-                  <CardHeader className="bg-gradient-to-r from-gray-50 to-white pb-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-gray-800">Mensagem {index + 1}</h4>
-                      {autoMessages.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeAutoMessage(autoMsg.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4 p-4">
-                    {/* Data e Horário */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label htmlFor={`date-${autoMsg.id}`} className="text-sm font-medium">
-                          Data de Envio
-                        </Label>
-                        <Input
-                          id={`date-${autoMsg.id}`}
-                          type="date"
-                          value={autoMsg.scheduledDate}
-                          onChange={(e) => updateAutoMessage(autoMsg.id, 'scheduledDate', e.target.value)}
-                          className="mt-1"
-                          min={new Date().toISOString().split('T')[0]}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor={`time-${autoMsg.id}`} className="text-sm font-medium">
-                          Horário de Envio
-                        </Label>
-                        <Input
-                          id={`time-${autoMsg.id}`}
-                          type="time"
-                          value={autoMsg.scheduledTime}
-                          onChange={(e) => updateAutoMessage(autoMsg.id, 'scheduledTime', e.target.value)}
-                          className="mt-1"
-                        />
-                      </div>
-
-                      {/* Grupo/Contato de destino */}
-                      <div>
-                        <Label htmlFor={`target-${autoMsg.id}`} className="text-sm font-medium">
-                          Destino
-                        </Label>
-                        <Select
-                          value={autoMsg.targetGroup}
-                          onValueChange={(value) => updateAutoMessage(autoMsg.id, 'targetGroup', value)}
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="Selecione o grupo ou contato" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {filteredChats.map((chat) => (
-                              <SelectItem key={chat.id} value={chat.id}>
-                                {chat.name === chat.id ? chat.id.split('@')[0] : chat.name}
-                                {chat.isGroup && ' (Grupo)'}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    {/* Mensagem */}
-                    <div>
-                      <Label htmlFor={`message-${autoMsg.id}`} className="text-sm font-medium">
-                        Mensagem
-                      </Label>
-                      <Textarea
-                        id={`message-${autoMsg.id}`}
-                        placeholder="Digite a mensagem que será enviada automaticamente..."
-                        value={autoMsg.message}
-                        onChange={(e) => updateAutoMessage(autoMsg.id, 'message', e.target.value)}
-                        className="mt-1 min-h-[100px]"
-                      />
-                    </div>
-
-                    {/* Foto (opcional) */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor={`photo-url-${autoMsg.id}`} className="text-sm font-medium">
-                          URL da Foto (opcional)
-                        </Label>
-                        <Input
-                          id={`photo-url-${autoMsg.id}`}
-                          type="url"
-                          placeholder="https://exemplo.com/imagem.jpg"
-                          value={autoMsg.photoUrl}
-                          onChange={(e) => updateAutoMessage(autoMsg.id, 'photoUrl', e.target.value)}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`photo-caption-${autoMsg.id}`} className="text-sm font-medium">
-                          Legenda da Foto (opcional)
-                        </Label>
-                        <Input
-                          id={`photo-caption-${autoMsg.id}`}
-                          placeholder="Legenda da imagem..."
-                          value={autoMsg.photoCaption}
-                          onChange={(e) => updateAutoMessage(autoMsg.id, 'photoCaption', e.target.value)}
-                          className="mt-1"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Preview da configuração */}
-                    {autoMsg.scheduledDate && autoMsg.scheduledTime && autoMsg.targetGroup && autoMsg.message && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <div className="flex items-start gap-2">
-                          <div className="bg-green-100 p-1 rounded">
-                            <Clock className="h-4 w-4 text-green-600" />
-                          </div>
-                          <div className="text-sm">
-                            <p className="text-green-800 font-medium">
-                              Será enviado em {new Date(autoMsg.scheduledDate).toLocaleDateString('pt-BR')} às {autoMsg.scheduledTime} para{' '}
-                              {filteredChats.find(c => c.id === autoMsg.targetGroup)?.name || autoMsg.targetGroup}
-                            </p>
-                            {autoMsg.photoUrl && (
-                              <p className="text-green-600 mt-1">
-                                📸 Com foto: {autoMsg.photoCaption || 'Sem legenda'}
-                              </p>
-                            )}
-                            <p className="text-green-600 mt-1 italic">
-                              "{autoMsg.message.substring(0, 100)}{autoMsg.message.length > 100 ? '...' : ''}"
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Botões de ação */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => setShowAutoMessageModal(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={saveAutoMessages}
-                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
-                disabled={!autoMessages.some(msg => msg.message && msg.scheduledDate && msg.scheduledTime && msg.targetGroup)}
-              >
-                Salvar Configurações
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de Configurações */}
-      <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Configurações do WhatsApp
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-6">
-            <div>
-              <Label htmlFor="admin-phone" className="text-sm font-medium">
-                Número do Administrador
-              </Label>
-              <p className="text-xs text-gray-500 mb-2">
-                Número que receberá notificações de agendamentos e calendário diário
-              </p>
-              <Input
-                id="admin-phone"
-                type="tel"
-                placeholder="+5583996910414"
-                value={adminPhone}
-                onChange={(e) => setAdminPhone(e.target.value)}
-                className="mt-1"
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                Formato: +55DDNNNNNNNNN (Ex: +5583996910414)
-              </p>
-            </div>
-
-            {adminPhone && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <div className="bg-blue-100 p-1 rounded">
-                    <Phone className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div className="text-sm">
-                    <p className="text-blue-800 font-medium">
-                      Administrador configurado: {adminPhone}
-                    </p>
-                    <p className="text-blue-600 mt-1">
-                      ✅ Receberá notificações de agendamentos<br/>
-                      ✅ Receberá calendário diário<br/>
-                      ✅ Receberá confirmações de calls
-                    </p>
+                    </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Botões de ação */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => setShowSettingsModal(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={saveSettings}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
-                disabled={!adminPhone || adminPhone.length < 10}
-              >
-                Salvar Configurações
-              </Button>
+            {/* ── Tab: Detalhes ── */}
+            {activeTab === 'detalhes' && (
+              <div className="flex-1 overflow-y-auto bg-[#f8f9fb] p-5 scrollbar-thin">
+                {isLoadingLead ? (
+                  <div className="flex items-center justify-center py-16">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#FF2D6B]" />
+                  </div>
+                ) : leadInfo ? (
+                  <div className="space-y-4">
+                    {/* Lead card */}
+                    <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-5 border border-[#E9ECEF]/40 shadow-sm">
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FF2D6B]/10 to-[#FF2D6B]/5 flex items-center justify-center">
+                          <span className="text-lg font-bold text-[#FF2D6B]">
+                            {getInitials(leadInfo.nome_completo)}
+                          </span>
+                        </div>
+                        <div>
+                          <h3 className="text-base font-semibold text-[#1A1A2E]">{leadInfo.nome_completo}</h3>
+                          <p className="text-xs text-[#6C757D]">{leadInfo.cargo || 'Sem cargo'} {leadInfo.empresa ? `em ${leadInfo.empresa}` : ''}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold ${getStatusColor(leadInfo.status)}`}>
+                          {leadInfo.status?.replace('_', ' ') || 'Novo'}
+                        </span>
+                        {leadInfo.temperatura && (
+                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-orange-50 text-orange-700">
+                            {getTemperaturaIcon(leadInfo.temperatura)} {leadInfo.temperatura}
+                          </span>
+                        )}
+                        {leadInfo.lead_score > 0 && (
+                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 text-purple-700">
+                            Score: {leadInfo.lead_score}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-2.5 text-sm">
+                        {leadInfo.telefone && (
+                          <div className="flex items-center gap-2.5 text-[#6C757D]">
+                            <Phone className="w-4 h-4 text-[#ADB5BD]" />
+                            <span>{leadInfo.telefone}</span>
+                          </div>
+                        )}
+                        {leadInfo.email && (
+                          <div className="flex items-center gap-2.5 text-[#6C757D]">
+                            <Mail className="w-4 h-4 text-[#ADB5BD]" />
+                            <span>{leadInfo.email}</span>
+                          </div>
+                        )}
+                        {leadInfo.empresa && (
+                          <div className="flex items-center gap-2.5 text-[#6C757D]">
+                            <Building2 className="w-4 h-4 text-[#ADB5BD]" />
+                            <span>{leadInfo.empresa}</span>
+                          </div>
+                        )}
+                        {leadInfo.origem && (
+                          <div className="flex items-center gap-2.5 text-[#6C757D]">
+                            <Tag className="w-4 h-4 text-[#ADB5BD]" />
+                            <span>Origem: {leadInfo.origem}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Extra info */}
+                    {leadInfo.valor_potencial > 0 && (
+                      <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 border border-[#E9ECEF]/40 shadow-sm">
+                        <h4 className="text-xs font-semibold text-[#ADB5BD] uppercase tracking-wider mb-3">Valor Potencial</h4>
+                        <p className="text-2xl font-bold text-[#1A1A2E]">
+                          R$ {leadInfo.valor_potencial.toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    )}
+
+                    {leadInfo.observacoes && (
+                      <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 border border-[#E9ECEF]/40 shadow-sm">
+                        <h4 className="text-xs font-semibold text-[#ADB5BD] uppercase tracking-wider mb-2">Observacoes</h4>
+                        <p className="text-sm text-[#6C757D] whitespace-pre-wrap">{leadInfo.observacoes}</p>
+                      </div>
+                    )}
+
+                    {leadInfo.tags && leadInfo.tags.length > 0 && (
+                      <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 border border-[#E9ECEF]/40 shadow-sm">
+                        <h4 className="text-xs font-semibold text-[#ADB5BD] uppercase tracking-wider mb-2">Tags</h4>
+                        <div className="flex flex-wrap gap-1.5">
+                          {leadInfo.tags.map((tag, i) => (
+                            <span key={i} className="px-2 py-0.5 bg-[#F1F3F5] rounded-md text-xs text-[#6C757D]">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-[#F1F3F5] flex items-center justify-center mb-3">
+                      <User className="w-7 h-7 text-[#ADB5BD]" />
+                    </div>
+                    <p className="text-sm font-medium text-[#6C757D]">Lead nao encontrado</p>
+                    <p className="text-xs text-[#ADB5BD] mt-1">Este contato nao esta cadastrado como lead</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Tab: Anotacoes ── */}
+            {activeTab === 'anotacoes' && (
+              <div className="flex-1 overflow-y-auto bg-[#f8f9fb] p-5 scrollbar-thin">
+                {leadInfo ? (
+                  <div className="space-y-4">
+                    {/* Add note */}
+                    <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 border border-[#E9ECEF]/40 shadow-sm">
+                      <textarea
+                        value={newNote}
+                        onChange={(e) => setNewNote(e.target.value)}
+                        placeholder="Adicionar anotacao..."
+                        className="w-full bg-[#F1F3F5]/80 rounded-xl px-4 py-3 text-sm text-[#1A1A2E] placeholder-[#ADB5BD] focus:outline-none focus:ring-1 focus:ring-[#FF2D6B]/30 resize-none min-h-[80px]"
+                      />
+                      <div className="flex justify-end mt-2">
+                        <button
+                          onClick={addNote}
+                          disabled={!newNote.trim()}
+                          className="px-4 py-2 bg-[#FF2D6B] hover:bg-[#E91E5A] text-white text-xs font-medium rounded-lg transition-all disabled:opacity-40 shadow-sm shadow-[#FF2D6B]/20"
+                        >
+                          Salvar
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Notes list */}
+                    {leadNotes.length === 0 ? (
+                      <div className="text-center py-8">
+                        <StickyNote className="w-8 h-8 text-[#E9ECEF] mx-auto mb-2" />
+                        <p className="text-sm text-[#ADB5BD]">Nenhuma anotacao ainda</p>
+                      </div>
+                    ) : (
+                      leadNotes.map(note => (
+                        <div key={note.id} className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 border border-[#E9ECEF]/40 shadow-sm">
+                          {note.is_important && (
+                            <div className="flex items-center gap-1 mb-2">
+                              <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                              <span className="text-[10px] font-semibold text-amber-600 uppercase">Importante</span>
+                            </div>
+                          )}
+                          <p className="text-sm text-[#1A1A2E] whitespace-pre-wrap">{note.nota}</p>
+                          <div className="flex items-center gap-2 mt-2 text-[10px] text-[#ADB5BD]">
+                            <span>{note.responsavel}</span>
+                            <span>•</span>
+                            <span>{new Date(note.created_at).toLocaleDateString('pt-BR')} {new Date(note.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                            {note.categoria && (
+                              <>
+                                <span>•</span>
+                                <span className="px-1.5 py-0.5 bg-[#F1F3F5] rounded text-[9px]">{note.categoria}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <StickyNote className="w-10 h-10 text-[#E9ECEF] mb-3" />
+                    <p className="text-sm text-[#6C757D]">Cadastre este contato como lead para adicionar anotacoes</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Tab: Historico ── */}
+            {activeTab === 'historico' && (
+              <div className="flex-1 overflow-y-auto bg-[#f8f9fb] p-5 scrollbar-thin">
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <History className="w-10 h-10 text-[#E9ECEF] mb-3" />
+                  <p className="text-sm text-[#6C757D]">Historico de interacoes</p>
+                  <p className="text-xs text-[#ADB5BD] mt-1">Em breve - acompanhe todas as interacoes com este contato</p>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          /* No chat selected */
+          <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-[#f8f9fb] to-[#f0f2f8]">
+            <div className="text-center max-w-sm">
+              <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-[#FF2D6B]/10 to-[#FF2D6B]/5 flex items-center justify-center">
+                <MessageCircle className="w-12 h-12 text-[#FF2D6B]/60" />
+              </div>
+              <h3 className="text-xl font-light text-[#1A1A2E] mb-2">Selecione uma conversa</h3>
+              <p className="text-sm text-[#6C757D]">
+                {filteredChats.length > 0
+                  ? 'Escolha um contato para comecar a conversar'
+                  : 'Carregando suas conversas...'
+                }
+              </p>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-    </PageLayout>
+        )}
+      </div>
+
+      {/* ══════ COLUMN 3: Details Panel (desktop only) ══════ */}
+      {showDetailsPanel && selectedChat && !selectedChat.isGroup && (
+        <div className="hidden lg:flex w-[320px] min-w-[320px] flex-col border-l border-[#E9ECEF]/60 bg-white/70 backdrop-blur-xl overflow-y-auto scrollbar-thin">
+          <div className="p-5 border-b border-[#E9ECEF]/40">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-[#1A1A2E]">Informacoes do Contato</h3>
+              <button onClick={() => setShowDetailsPanel(false)} className="p-1 rounded hover:bg-[#F1F3F5] text-[#ADB5BD]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Contact avatar */}
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#FF2D6B]/10 to-[#FF2D6B]/5 flex items-center justify-center mb-3">
+                <span className="text-2xl font-bold text-[#FF2D6B]">
+                  {getInitials(getDisplayName(selectedChat))}
+                </span>
+              </div>
+              <h3 className="text-base font-semibold text-[#1A1A2E]">{getDisplayName(selectedChat)}</h3>
+              <p className="text-xs text-[#ADB5BD] mt-0.5">{getPhoneDisplay(selectedChat.id)}</p>
+            </div>
+          </div>
+
+          {isLoadingLead ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-5 h-5 animate-spin text-[#FF2D6B]" />
+            </div>
+          ) : leadInfo ? (
+            <div className="p-5 space-y-4">
+              <div className="flex flex-wrap gap-1.5">
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${getStatusColor(leadInfo.status)}`}>
+                  {leadInfo.status?.replace('_', ' ') || 'Novo'}
+                </span>
+                {leadInfo.temperatura && (
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-orange-50 text-orange-700">
+                    {getTemperaturaIcon(leadInfo.temperatura)} {leadInfo.temperatura}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-2 text-xs">
+                {leadInfo.email && (
+                  <div className="flex items-center gap-2 text-[#6C757D]">
+                    <Mail className="w-3.5 h-3.5 text-[#ADB5BD]" />
+                    <span className="truncate">{leadInfo.email}</span>
+                  </div>
+                )}
+                {leadInfo.empresa && (
+                  <div className="flex items-center gap-2 text-[#6C757D]">
+                    <Building2 className="w-3.5 h-3.5 text-[#ADB5BD]" />
+                    <span>{leadInfo.empresa}</span>
+                  </div>
+                )}
+                {leadInfo.cargo && (
+                  <div className="flex items-center gap-2 text-[#6C757D]">
+                    <User className="w-3.5 h-3.5 text-[#ADB5BD]" />
+                    <span>{leadInfo.cargo}</span>
+                  </div>
+                )}
+                {leadInfo.origem && (
+                  <div className="flex items-center gap-2 text-[#6C757D]">
+                    <Tag className="w-3.5 h-3.5 text-[#ADB5BD]" />
+                    <span>{leadInfo.origem}</span>
+                  </div>
+                )}
+              </div>
+
+              {leadInfo.valor_potencial > 0 && (
+                <div className="bg-[#F8F9FA] rounded-xl p-3">
+                  <p className="text-[10px] text-[#ADB5BD] uppercase tracking-wider mb-1">Valor Potencial</p>
+                  <p className="text-lg font-bold text-[#1A1A2E]">
+                    R$ {leadInfo.valor_potencial.toLocaleString('pt-BR')}
+                  </p>
+                </div>
+              )}
+
+              {/* Quick notes */}
+              <div>
+                <h4 className="text-[10px] text-[#ADB5BD] uppercase tracking-wider mb-2">Ultimas Anotacoes</h4>
+                {leadNotes.length === 0 ? (
+                  <p className="text-xs text-[#ADB5BD]">Sem anotacoes</p>
+                ) : (
+                  leadNotes.slice(0, 3).map(note => (
+                    <div key={note.id} className="py-2 border-b border-[#F1F3F5] last:border-0">
+                      <p className="text-xs text-[#6C757D] line-clamp-2">{note.nota}</p>
+                      <p className="text-[10px] text-[#ADB5BD] mt-0.5">
+                        {new Date(note.created_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 px-5 text-center">
+              <User className="w-8 h-8 text-[#E9ECEF] mb-2" />
+              <p className="text-xs text-[#ADB5BD]">Lead nao cadastrado</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════ MODALS ══════ */}
+
+      {/* Auto Messages Modal */}
+      {showAutoMessageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl mx-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E9ECEF]">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#FF2D6B]/10 flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-[#FF2D6B]" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-[#1A1A2E]">Mensagens Automaticas</h2>
+                  <p className="text-xs text-[#ADB5BD]">Configure envios automatizados</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAutoMessageModal(false)} className="p-2 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto max-h-[calc(85vh-140px)] p-6 space-y-4">
+              <div className="flex justify-end">
+                <button onClick={addAutoMessage} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FF2D6B] hover:bg-[#E91E5A] text-white text-xs font-medium rounded-lg transition-all">
+                  <Plus className="w-3.5 h-3.5" /> Adicionar
+                </button>
+              </div>
+
+              {autoMessages.map((autoMsg, index) => (
+                <div key={autoMsg.id} className="bg-[#F8F9FA] rounded-xl p-4 border border-[#E9ECEF]/40">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-medium text-[#1A1A2E]">Mensagem {index + 1}</h4>
+                    {autoMessages.length > 1 && (
+                      <button onClick={() => removeAutoMessage(autoMsg.id)} className="p-1 text-red-400 hover:text-red-600">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div>
+                      <label className="text-[10px] text-[#ADB5BD] uppercase tracking-wider">Data</label>
+                      <input type="date" value={autoMsg.scheduledDate}
+                        onChange={(e) => updateAutoMessage(autoMsg.id, 'scheduledDate', e.target.value)}
+                        className="w-full mt-1 px-3 py-2 bg-white border border-[#E9ECEF] rounded-lg text-xs focus:outline-none focus:border-[#FF2D6B]/40"
+                        min={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#ADB5BD] uppercase tracking-wider">Horario</label>
+                      <input type="time" value={autoMsg.scheduledTime}
+                        onChange={(e) => updateAutoMessage(autoMsg.id, 'scheduledTime', e.target.value)}
+                        className="w-full mt-1 px-3 py-2 bg-white border border-[#E9ECEF] rounded-lg text-xs focus:outline-none focus:border-[#FF2D6B]/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#ADB5BD] uppercase tracking-wider">Destino</label>
+                      <select
+                        value={autoMsg.targetGroup}
+                        onChange={(e) => updateAutoMessage(autoMsg.id, 'targetGroup', e.target.value)}
+                        className="w-full mt-1 px-3 py-2 bg-white border border-[#E9ECEF] rounded-lg text-xs focus:outline-none focus:border-[#FF2D6B]/40"
+                      >
+                        <option value="">Selecione...</option>
+                        {filteredChats.map(chat => (
+                          <option key={chat.id} value={chat.id}>
+                            {getDisplayName(chat)} {chat.isGroup ? '(Grupo)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="text-[10px] text-[#ADB5BD] uppercase tracking-wider">Mensagem</label>
+                    <textarea value={autoMsg.message}
+                      onChange={(e) => updateAutoMessage(autoMsg.id, 'message', e.target.value)}
+                      placeholder="Digite a mensagem..."
+                      className="w-full mt-1 px-3 py-2 bg-white border border-[#E9ECEF] rounded-lg text-xs focus:outline-none focus:border-[#FF2D6B]/40 resize-none min-h-[80px]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-[#ADB5BD] uppercase tracking-wider">URL da Foto (opcional)</label>
+                      <input type="url" value={autoMsg.photoUrl}
+                        onChange={(e) => updateAutoMessage(autoMsg.id, 'photoUrl', e.target.value)}
+                        placeholder="https://..."
+                        className="w-full mt-1 px-3 py-2 bg-white border border-[#E9ECEF] rounded-lg text-xs focus:outline-none focus:border-[#FF2D6B]/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#ADB5BD] uppercase tracking-wider">Legenda (opcional)</label>
+                      <input type="text" value={autoMsg.photoCaption}
+                        onChange={(e) => updateAutoMessage(autoMsg.id, 'photoCaption', e.target.value)}
+                        placeholder="Legenda..."
+                        className="w-full mt-1 px-3 py-2 bg-white border border-[#E9ECEF] rounded-lg text-xs focus:outline-none focus:border-[#FF2D6B]/40"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#E9ECEF]">
+              <button onClick={() => setShowAutoMessageModal(false)} className="px-4 py-2 text-sm text-[#6C757D] hover:bg-[#F1F3F5] rounded-lg transition-all">
+                Cancelar
+              </button>
+              <button onClick={saveAutoMessages}
+                disabled={!autoMessages.some(msg => msg.message && msg.scheduledTime && msg.targetGroup)}
+                className="px-4 py-2 bg-[#FF2D6B] hover:bg-[#E91E5A] text-white text-sm font-medium rounded-lg transition-all disabled:opacity-40 shadow-sm shadow-[#FF2D6B]/20"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl mx-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E9ECEF]">
+              <div className="flex items-center gap-2">
+                <Settings className="w-5 h-5 text-[#FF2D6B]" />
+                <h2 className="text-base font-semibold text-[#1A1A2E]">Configuracoes</h2>
+              </div>
+              <button onClick={() => setShowSettingsModal(false)} className="p-2 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-xs font-medium text-[#1A1A2E] block mb-1">Numero do Administrador</label>
+                <p className="text-[10px] text-[#ADB5BD] mb-2">Recebera notificacoes de agendamentos</p>
+                <input type="tel" value={adminPhone}
+                  onChange={(e) => setAdminPhone(e.target.value)}
+                  placeholder="+5583996910414"
+                  className="w-full px-4 py-2.5 bg-[#F1F3F5] border border-transparent rounded-xl text-sm text-[#1A1A2E] placeholder-[#ADB5BD] focus:outline-none focus:border-[#FF2D6B]/30 focus:bg-white"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#E9ECEF]">
+              <button onClick={() => setShowSettingsModal(false)} className="px-4 py-2 text-sm text-[#6C757D] hover:bg-[#F1F3F5] rounded-lg">
+                Cancelar
+              </button>
+              <button onClick={saveSettings} disabled={!adminPhone || adminPhone.length < 10}
+                className="px-4 py-2 bg-[#FF2D6B] hover:bg-[#E91E5A] text-white text-sm font-medium rounded-lg transition-all disabled:opacity-40 shadow-sm shadow-[#FF2D6B]/20"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom scrollbar styles */}
+      <style jsx global>{`
+        .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #CED4DA; border-radius: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #ADB5BD; }
+        .scrollbar-thin { scrollbar-width: thin; scrollbar-color: #CED4DA transparent; }
+      `}</style>
+    </div>
   );
 }

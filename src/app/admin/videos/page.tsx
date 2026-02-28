@@ -339,28 +339,11 @@ export default function AdminVideosPage() {
         if (error) throw error
         alert('Módulo atualizado com sucesso!')
       } else {
-        // Criando novo módulo - buscar organization_id do usuário logado
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-          alert('Usuário não autenticado')
-          return
-        }
-
-        // Buscar dados do admin para pegar organization_id
-        const { data: adminData } = await supabase
-          .from('admins')
-          .select('organization_id')
-          .eq('email', user.email)
-          .single()
-
-        if (!adminData?.organization_id) {
-          alert('Organization ID não encontrado para o usuário')
-          return
-        }
-
+        // Criando novo módulo - usar organização padrão
+        // TODO: Implementar lógica para buscar organization_id do admin quando a tabela admins existir
         const moduleDataWithOrg = {
           ...moduleForm,
-          organization_id: adminData.organization_id
+          organization_id: '9c8c0033-15ea-4e33-a55f-28d81a19693b' // Médicos de Resultado
         }
 
         const { error } = await supabase

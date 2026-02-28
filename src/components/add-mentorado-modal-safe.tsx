@@ -44,7 +44,16 @@ const mentoradoSchema = z.object({
   crm: z.string().optional(),
   origem_conhecimento: z.string().optional(),
   data_inicio_mentoria: z.string().optional(),
-  data_entrada: z.string().optional()
+  data_entrada: z.string().optional(),
+  turma: z.string().optional(),
+  genero: z.string().optional(),
+  especialidade: z.string().optional(),
+  area_atuacao: z.string().optional(),
+  nivel_experiencia: z.string().optional(),
+  faturamento_inicial: z.string().optional(),
+  faturamento_meta: z.string().optional(),
+  status_login: z.string().optional(),
+  porcentagem_comissao: z.string().optional(),
 })
 
 type MentoradoFormData = z.infer<typeof mentoradoSchema>
@@ -74,7 +83,16 @@ export function AddMentoradoModalSafe({ isOpen, onClose, onSuccess, organization
       crm: '',
       origem_conhecimento: '',
       data_inicio_mentoria: '',
-      data_entrada: ''
+      data_entrada: '',
+      turma: '',
+      genero: '',
+      especialidade: '',
+      area_atuacao: '',
+      nivel_experiencia: '',
+      faturamento_inicial: '',
+      faturamento_meta: '',
+      status_login: 'ativo',
+      porcentagem_comissao: '',
     }
   })
 
@@ -87,11 +105,31 @@ export function AddMentoradoModalSafe({ isOpen, onClose, onSuccess, organization
       }
 
       // Criar novo mentorado com organization_id
+      // Converter strings vazias em null para campos de data e numéricos (Postgres rejeita "")
       const mentoradoData = {
-        ...data,
+        nome_completo: data.nome_completo,
+        email: data.email,
+        telefone: data.telefone || null,
+        cpf: data.cpf || null,
+        rg: data.rg || null,
+        endereco: data.endereco || null,
+        crm: data.crm || null,
+        origem_conhecimento: data.origem_conhecimento || null,
         organization_id: organizationId,
+        data_nascimento: data.data_nascimento || null,
+        data_inicio_mentoria: data.data_inicio_mentoria || null,
         data_entrada: data.data_entrada || new Date().toISOString().split('T')[0],
-        estado_atual: data.estado_atual || 'ativo'
+        estado_atual: data.estado_atual || 'ativo',
+        estado_entrada: data.estado_entrada || 'novo',
+        turma: data.turma || null,
+        genero: data.genero || null,
+        especialidade: data.especialidade || null,
+        area_atuacao: data.area_atuacao || null,
+        nivel_experiencia: data.nivel_experiencia || 'iniciante',
+        faturamento_inicial: data.faturamento_inicial ? parseFloat(data.faturamento_inicial) : 0,
+        faturamento_meta: data.faturamento_meta ? parseFloat(data.faturamento_meta) : null,
+        status_login: data.status_login || 'ativo',
+        porcentagem_comissao: data.porcentagem_comissao ? parseFloat(data.porcentagem_comissao) : 10.0,
       }
 
       console.log('📝 Criando mentorado:', mentoradoData)
@@ -258,6 +296,271 @@ Vamos com tudo. 🔥`
                           <SelectItem value="pausado">Pausado</SelectItem>
                           <SelectItem value="inativo">Inativo</SelectItem>
                           <SelectItem value="cancelado">Cancelado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="data_nascimento"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data de Nascimento</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="cpf"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CPF</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="000.000.000-00" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="rg"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>RG</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="00.000.000-0" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="crm"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CRM</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="CRM/UF 000000" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="endereco"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Endereço</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Endereço completo" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="origem_conhecimento"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Como conheceu</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Como conheceu a mentoria" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="data_inicio_mentoria"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data Início Mentoria</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="data_entrada"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data de Entrada</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="turma"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Turma</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Ex: Turma 1" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="genero"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Gênero</FormLabel>
+                    <FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="masculino">Masculino</SelectItem>
+                          <SelectItem value="feminino">Feminino</SelectItem>
+                          <SelectItem value="outro">Outro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="especialidade"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Especialidade</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Ex: Dermatologia" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="area_atuacao"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Área de Atuação</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Ex: Clínica particular" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="nivel_experiencia"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nível de Experiência</FormLabel>
+                    <FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="iniciante">Iniciante</SelectItem>
+                          <SelectItem value="intermediario">Intermediário</SelectItem>
+                          <SelectItem value="avancado">Avançado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="faturamento_inicial"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Faturamento Inicial (R$)</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="number" placeholder="0" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="faturamento_meta"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Meta de Faturamento (R$)</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="number" placeholder="0" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="porcentagem_comissao"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Comissão (%)</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="number" placeholder="10" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="status_login"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status Login</FormLabel>
+                    <FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ativo">Ativo</SelectItem>
+                          <SelectItem value="inativo">Inativo</SelectItem>
+                          <SelectItem value="bloqueado">Bloqueado</SelectItem>
                         </SelectContent>
                       </Select>
                     </FormControl>

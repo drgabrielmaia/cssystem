@@ -38,7 +38,11 @@ import {
   ArrowDown,
   Save,
   X,
-  Zap
+  Zap,
+  Upload,
+  FileText,
+  Image as ImageIcon,
+  Video
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -438,6 +442,46 @@ export default function FollowUpConfigPage() {
       i === index ? { ...step, ...updatedStep } : step
     )
     setFormData({ ...formData, steps: newSteps })
+  }
+
+  const handleMediaUpload = async (stepIndex: number, file: File) => {
+    try {
+      const mime = file.type
+      let mediaType: 'image' | 'video' | 'document' = 'document'
+      if (mime.startsWith('image/')) mediaType = 'image'
+      else if (mime.startsWith('video/')) mediaType = 'video'
+
+      const ext = file.name.split('.').pop() || 'bin'
+      const path = `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('followup-media')
+        .upload(path, file, { contentType: mime, upsert: false })
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage.from('followup-media').getPublicUrl(path)
+
+      updateStep(stepIndex, {
+        media_url: urlData.publicUrl,
+        media_type: mediaType,
+        media_filename: file.name,
+        media_mimetype: mime,
+      })
+      toast.success('Mídia anexada com sucesso')
+    } catch (err: any) {
+      console.error('Erro ao enviar mídia:', err)
+      toast.error('Erro ao enviar mídia: ' + (err.message || ''))
+    }
+  }
+
+  const removeMedia = (stepIndex: number) => {
+    updateStep(stepIndex, {
+      media_url: undefined,
+      media_type: undefined,
+      media_filename: undefined,
+      media_mimetype: undefined,
+    })
   }
 
   const applyTemplate = (template: string) => {
@@ -1150,6 +1194,49 @@ export default function FollowUpConfigPage() {
                           rows={3}
                         />
                       </div>
+
+                      {/* Mídia (foto/vídeo/documento) */}
+                      {step.tipo_acao === 'whatsapp' && (
+                        <div>
+                          <Label className="text-xs">Anexar Mídia (opcional)</Label>
+                          {step.media_url ? (
+                            <div className="flex items-center gap-3 mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border">
+                              {step.media_type === 'image' ? (
+                                <img src={step.media_url} alt="" className="w-12 h-12 rounded object-cover" />
+                              ) : step.media_type === 'video' ? (
+                                <div className="w-12 h-12 rounded bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                                  <Video className="w-5 h-5 text-blue-600" />
+                                </div>
+                              ) : (
+                                <div className="w-12 h-12 rounded bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
+                                  <FileText className="w-5 h-5 text-orange-600" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{step.media_filename}</p>
+                                <p className="text-[10px] text-gray-500">{step.media_type}</p>
+                              </div>
+                              <Button variant="ghost" size="sm" onClick={() => removeMedia(index)} className="text-red-500 hover:text-red-700 h-7 w-7 p-0">
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <label className="flex items-center gap-2 mt-1 px-3 py-2 border border-dashed rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors">
+                              <Upload className="w-4 h-4 text-gray-400" />
+                              <span className="text-xs text-gray-500">Foto, vídeo ou documento</span>
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept="image/*,video/*,.pdf,.doc,.docx"
+                                onChange={(e) => {
+                                  if (e.target.files?.[0]) handleMediaUpload(index, e.target.files[0])
+                                  e.target.value = ''
+                                }}
+                              />
+                            </label>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </Card>
                 ))}
