@@ -142,6 +142,8 @@ export default function EventDetailsPage() {
   const [transcriptionAnalysis, setTranscriptionAnalysis] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showTranscriptionSection, setShowTranscriptionSection] = useState(false)
+  const [savedLeadProfiles, setSavedLeadProfiles] = useState<string[]>([])
+  const [isSavingProfiles, setIsSavingProfiles] = useState(false)
 
   // Form states
   const [selectedLead, setSelectedLead] = useState('')
@@ -390,11 +392,12 @@ export default function EventDetailsPage() {
     if (!transcription.trim() || isAnalyzing) return
     setIsAnalyzing(true)
     setTranscriptionAnalysis('')
+    setSavedLeadProfiles([])
 
     try {
       const participantsList = participants.map(p =>
-        `${p.participant_name} (${p.attendance_status === 'attended' ? 'presente' : 'ausente'}, conversão: ${p.conversion_status})`
-      ).join(', ')
+        `- ${p.participant_name} (ID: ${p.lead_id || 'sem_lead'}, presença: ${p.attendance_status}, conversão: ${p.conversion_status})`
+      ).join('\n')
 
       const systemPrompt = `Você é um ANALISTA COMERCIAL SÊNIOR especializado em calls de venda em grupo, webinars e eventos de fechamento.
 
@@ -404,7 +407,8 @@ CONTEXTO DO EVENTO:
 - Nome: ${event?.name || 'N/A'}
 - Tipo: ${event?.type || 'N/A'}
 - Data: ${event?.date_time ? new Date(event.date_time).toLocaleString('pt-BR') : 'N/A'}
-- Participantes: ${participantsList || 'Nenhum registrado'}
+- Participantes registrados:
+${participantsList || 'Nenhum registrado'}
 
 FORMATO DA SUA ANÁLISE (use markdown):
 
@@ -450,6 +454,7 @@ REGRAS:
 - Não invente informações que não estão na transcrição
 - Responda SEMPRE em português brasileiro`
 
+      // 1) Visual analysis (markdown)
       const response = await fetch('/api/chat-gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -477,12 +482,161 @@ REGRAS:
         setTranscriptionAnalysis(data.message)
       } else {
         setTranscriptionAnalysis('Erro ao analisar a transcrição. Tente novamente.')
+        return
+      }
+
+      // 2) Extract structured data per lead and save to DB
+      if (participants.filter(p => p.lead_id).length > 0) {
+        await extractAndSaveLeadProfiles()
       }
     } catch (error) {
       console.error('Transcription analysis error:', error)
       setTranscriptionAnalysis('Erro de conexão. Verifique sua internet e tente novamente.')
     } finally {
       setIsAnalyzing(false)
+    }
+  }
+
+  const extractAndSaveLeadProfiles = async () => {
+    setIsSavingProfiles(true)
+    try {
+      const leadsWithIds = participants.filter(p => p.lead_id)
+      const leadNames = leadsWithIds.map(p => `- "${p.participant_name}" (lead_id: "${p.lead_id}")`).join('\n')
+
+      const extractPrompt = `Analise esta transcrição e extraia dados estruturados para CADA lead listado abaixo.
+
+LEADS REGISTRADOS NO EVENTO:
+${leadNames}
+
+IMPORTANTE: Retorne APENAS um JSON válido, sem markdown, sem texto extra. O formato deve ser:
+{
+  "leads": [
+    {
+      "lead_id": "uuid do lead",
+      "nome": "nome do lead",
+      "dor_principal": "principal dor/problema mencionado (max 500 chars)",
+      "objecoes_principais": "objeções levantadas (max 500 chars)",
+      "nivel_interesse": número de 1 a 10,
+      "objetivo_principal": "o que busca alcançar (max 500 chars)",
+      "perfil_comportamental": "analytical|expressive|driver|amiable",
+      "urgencia_compra": "imediato|ate_30_dias|ate_3_meses|pesquisando",
+      "observacoes_call": "resumo do que foi dito pelo lead na call (max 1000 chars)",
+      "temperatura": "elite|quente|morno|frio"
+    }
+  ]
+}
+
+Se um lead NÃO aparece na transcrição, NÃO inclua ele no JSON.
+Extraia APENAS informações que foram realmente ditas. Não invente.
+
+TRANSCRIÇÃO:
+${transcription}`
+
+      const extractResponse = await fetch('/api/chat-gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: extractPrompt,
+          userEmail: 'admin@system.com',
+          context: {
+            nome: 'Extrator de Dados',
+            especialidade: 'Data Extraction',
+            tipoPost: 'chat',
+            tomComunicacao: 'técnico',
+            persona: 'Você é um extrator de dados. Retorne APENAS JSON válido, sem markdown, sem ```json, sem texto extra.',
+            publicoAlvo: 'sistema',
+            doresDesejos: [],
+            problemasAudiencia: '',
+            desejoAudiencia: '',
+            transformacao: ''
+          }
+        })
+      })
+
+      const extractData = await extractResponse.json()
+
+      if (extractData.success && extractData.message) {
+        // Parse JSON from response (handle possible markdown wrapping)
+        let jsonStr = extractData.message.trim()
+        if (jsonStr.startsWith('```')) {
+          jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim()
+        }
+
+        try {
+          const parsed = JSON.parse(jsonStr)
+          const savedNames: string[] = []
+
+          if (parsed.leads && Array.isArray(parsed.leads)) {
+            for (const leadData of parsed.leads) {
+              if (!leadData.lead_id) continue
+
+              const updatePayload: Record<string, any> = {}
+
+              if (leadData.dor_principal) updatePayload.dor_principal = leadData.dor_principal
+              if (leadData.objecoes_principais) updatePayload.objecoes_principais = leadData.objecoes_principais
+              if (leadData.nivel_interesse) updatePayload.nivel_interesse = Math.min(10, Math.max(1, leadData.nivel_interesse))
+              if (leadData.objetivo_principal) updatePayload.objetivo_principal = leadData.objetivo_principal
+              if (leadData.perfil_comportamental) updatePayload.perfil_comportamental = leadData.perfil_comportamental
+              if (leadData.urgencia_compra) updatePayload.urgencia_compra = leadData.urgencia_compra
+              if (leadData.temperatura) updatePayload.temperatura = leadData.temperatura
+
+              // Append call observations to existing notes
+              if (leadData.observacoes_call) {
+                const participant = participants.find(p => p.lead_id === leadData.lead_id)
+                const callNote = `\n\n--- Análise IA (${event?.name}, ${new Date().toLocaleDateString('pt-BR')}) ---\n${leadData.observacoes_call}`
+
+                // Fetch current observacoes
+                const { data: current } = await supabase
+                  .from('leads')
+                  .select('observacoes, call_details')
+                  .eq('id', leadData.lead_id)
+                  .single()
+
+                updatePayload.observacoes = (current?.observacoes || '') + callNote
+
+                // Also save to call_details JSONB
+                const existingCallDetails = current?.call_details || {}
+                updatePayload.call_details = {
+                  ...existingCallDetails,
+                  [`evento_${eventId}`]: {
+                    evento_nome: event?.name,
+                    data: new Date().toISOString(),
+                    dor_principal: leadData.dor_principal,
+                    objecoes: leadData.objecoes_principais,
+                    nivel_interesse: leadData.nivel_interesse,
+                    objetivo: leadData.objetivo_principal,
+                    temperatura: leadData.temperatura,
+                    observacoes: leadData.observacoes_call
+                  }
+                }
+              }
+
+              updatePayload.last_interaction_date = new Date().toISOString()
+              updatePayload.updated_at = new Date().toISOString()
+
+              const { error } = await supabase
+                .from('leads')
+                .update(updatePayload)
+                .eq('id', leadData.lead_id)
+
+              if (!error) {
+                savedNames.push(leadData.nome || leadData.lead_id)
+              }
+            }
+          }
+
+          setSavedLeadProfiles(savedNames)
+          if (savedNames.length > 0) {
+            toast.success(`Perfil de ${savedNames.length} lead(s) atualizado automaticamente!`)
+          }
+        } catch (parseError) {
+          console.error('Error parsing lead extraction JSON:', parseError)
+        }
+      }
+    } catch (error) {
+      console.error('Error extracting lead profiles:', error)
+    } finally {
+      setIsSavingProfiles(false)
     }
   }
 
@@ -900,6 +1054,34 @@ REGRAS:
                 <div className="prose prose-invert prose-sm max-w-none text-gray-300 [&_h2]:text-white [&_h2]:text-base [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2 [&_h3]:text-white [&_h3]:text-sm [&_strong]:text-violet-300 [&_ul]:space-y-1 [&_li]:text-gray-300 [&_code]:text-emerald-400 [&_code]:bg-gray-800 [&_code]:px-1 [&_code]:rounded">
                   <ReactMarkdown>{transcriptionAnalysis}</ReactMarkdown>
                 </div>
+
+                {/* Auto-save feedback */}
+                {isSavingProfiles && (
+                  <div className="mt-4 flex items-center gap-2 text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Salvando perfis dos leads automaticamente...</span>
+                  </div>
+                )}
+                {savedLeadProfiles.length > 0 && (
+                  <div className="mt-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                      <span className="text-sm font-semibold text-emerald-300">
+                        Perfis atualizados automaticamente ({savedLeadProfiles.length} leads)
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {savedLeadProfiles.map((name, i) => (
+                        <Badge key={i} className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs">
+                          {name}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="text-xs text-emerald-400/60 mt-2">
+                      Dor principal, objeções, nível de interesse, temperatura e observações salvos no perfil de cada lead.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
