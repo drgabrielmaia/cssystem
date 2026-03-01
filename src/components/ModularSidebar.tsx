@@ -77,7 +77,7 @@ const modules = [
       { name: 'Closers/SDRs', href: '/admin/closers', icon: Target, description: 'Gerenciar closers e SDRs' },
       { name: 'Niveis de Closers', href: '/admin/closer-levels', icon: Award, description: 'Configurar niveis e metas' },
       { name: 'ICP', href: '/admin/icp', icon: Target, description: 'Perfil do Cliente Ideal' },
-      { name: 'Onboarding', href: '/onboarding', icon: Brain, description: 'Mapa mental de metas' },
+      { name: 'Mapas Mentais', href: '/admin/mapas-mentais', icon: Brain, description: 'Onboarding e mapa de aulas' },
     ]
   },
   {

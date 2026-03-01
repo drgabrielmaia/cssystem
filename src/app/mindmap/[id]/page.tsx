@@ -78,7 +78,7 @@ export default function SharedMindMapPage() {
           <div className="text-center text-white">
             <h2 className="text-2xl font-bold mb-4">Mapa Mental não encontrado</h2>
             <p className="text-white/70 mb-6">O mentorado solicitado não foi encontrado.</p>
-            <Link href="/onboarding">
+            <Link href="/admin/mapas-mentais">
               <Button variant="outline" className="text-white border-white/30 hover:bg-white/10">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Voltar ao Onboarding
@@ -96,6 +96,7 @@ export default function SharedMindMapPage() {
       <ModernMindMap
         mentorado={mentorado}
         isSharedView={!user}
+        mode={user ? 'admin' : 'mentorado'}
         onShare={handleShare}
       />
     </div>
