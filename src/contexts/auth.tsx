@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef } f
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
+import { apiFetch, getToken, getStoredUser, clearAuth as clearApiAuth } from '@/lib/api'
 
 interface OrganizationUser {
   is_active: boolean
@@ -141,11 +142,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Get initial session
     const getInitialSession = async () => {
       try {
-        // Usar getUser() para validação server-side real (não apenas localStorage)
+        // 1. Check custom JWT first (Docker PostgreSQL auth)
+        const token = getToken()
+        if (token) {
+          try {
+            const meResponse = await apiFetch('/auth/me')
+            if (meResponse.ok) {
+              const meData = await meResponse.json()
+              const customUser = {
+                id: meData.user.id,
+                email: meData.user.email,
+                created_at: new Date().toISOString(),
+                app_metadata: {},
+                user_metadata: { nome: meData.user.nome },
+                aud: 'authenticated',
+                role: meData.role,
+              } as any
+
+              setUser(customUser)
+              setOrganizationId(meData.organization_id)
+              setOrgUser({
+                is_active: meData.is_active,
+                organization_id: meData.organization_id,
+                role: meData.role,
+                email: meData.user.email,
+              })
+              setIsAuthenticated(true)
+              saveAuthData(customUser, meData.organization_id)
+              setLoading(false)
+              setIsInitialized(true)
+              return
+            } else {
+              clearApiAuth()
+            }
+          } catch {
+            clearApiAuth()
+          }
+        }
+
+        // 2. Fallback: Supabase auth (for pages not yet migrated)
         const { data: { user: validatedUser }, error: userError } = await supabase.auth.getUser()
 
         if (userError || !validatedUser) {
-          // getUser falhou - tentar getSession como fallback (pode ter token válido em storage)
           const { data: { session } } = await supabase.auth.getSession()
           const currentUser = session?.user ?? null
 
@@ -159,7 +197,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return
           }
 
-          // Session existe mas getUser falhou - token pode estar expirando, forçar refresh
           const { data: refreshData } = await supabase.auth.refreshSession()
           if (refreshData.session?.user) {
             setUser(refreshData.session.user)
@@ -177,7 +214,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
 
-        // getUser validou server-side com sucesso
         setUser(validatedUser)
         const orgId = await getOrganizationForUser(validatedUser)
 
@@ -245,6 +281,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     })
 
+    // Listen for custom API login events
+    const handleApiLogin = ((event: CustomEvent) => {
+      const { token, user: userData } = event.detail
+      const customUser = {
+        id: userData.id,
+        email: userData.email,
+        created_at: new Date().toISOString(),
+        app_metadata: {},
+        user_metadata: { nome: userData.nome },
+        aud: 'authenticated',
+        role: userData.role,
+      } as any
+
+      setUser(customUser)
+      setOrganizationId(userData.organization_id)
+      setOrgUser({
+        is_active: true,
+        organization_id: userData.organization_id,
+        role: userData.role,
+        email: userData.email,
+      })
+      setIsAuthenticated(true)
+      saveAuthData(customUser, userData.organization_id)
+      setLoading(false)
+    }) as EventListener
+    window.addEventListener('apiLoginSuccess', handleApiLogin)
+
     // VISIBILITYCHANGE: Recuperar sessão quando a aba volta a ficar visível
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -273,6 +336,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Cleanup
     return () => {
       subscription.unsubscribe()
+      window.removeEventListener('apiLoginSuccess', handleApiLogin)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       if (heartbeatRef.current) clearInterval(heartbeatRef.current)
     }
@@ -287,16 +351,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null)
       setOrganizationId(null)
       setOrgUser(null)
+      setIsAuthenticated(false)
 
-      // 2. Limpar localStorage de auth
+      // 2. Limpar localStorage de auth (both custom JWT and Supabase)
       clearAuthData()
+      clearApiAuth()
 
-      // 3. Logout do Supabase
-      await supabase.auth.signOut()
-      console.log('✅ Logout Supabase OK')
+      // 3. Logout do Supabase (may fail if using custom JWT, that's ok)
+      try {
+        await supabase.auth.signOut()
+        console.log('✅ Logout Supabase OK')
+      } catch {
+        // Ignore Supabase signOut errors when using custom JWT
+      }
 
       // 4. Limpeza básica de cookies
-      const cookiesToClear = ['admin_auth', 'mentorado']
+      const cookiesToClear = ['admin_auth', 'mentorado', 'cs_auth_token']
       cookiesToClear.forEach(name => {
         document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
       })
@@ -309,8 +379,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('❌ Erro no logout:', error)
 
-      // Fallback simples
       clearAuthData()
+      clearApiAuth()
       setUser(null)
       setOrganizationId(null)
       setOrgUser(null)

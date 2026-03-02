@@ -12,6 +12,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { DollarSign, Target, Users, Calendar, AlertCircle, UserPlus, Phone, MoreVertical, Eye, EyeOff } from 'lucide-react'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts'
 import { supabase } from '@/lib/supabase'
+import { apiFetch, getToken } from '@/lib/api'
 
 interface KPIData {
   total_vendas: number
@@ -173,13 +174,26 @@ export default function DashboardPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Check custom JWT first
+        const token = getToken()
+        if (token) {
+          const meResponse = await apiFetch('/auth/me')
+          if (meResponse.ok) {
+            console.log('✅ Usuário autenticado via JWT, carregando dashboard')
+            setIsAuthChecked(true)
+            loadDashboardData()
+            return
+          }
+        }
+
+        // Fallback to Supabase
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.user) {
           console.log('🔒 Usuário não autenticado, redirecionando para área de mentorado')
           router.replace('/mentorado')
           return
         }
-        console.log('✅ Usuário autenticado, carregando dashboard')
+        console.log('✅ Usuário autenticado via Supabase, carregando dashboard')
         setIsAuthChecked(true)
         loadDashboardData()
       } catch (error) {
@@ -207,176 +221,142 @@ export default function DashboardPage() {
 
   const loadDashboardData = async () => {
     try {
-      // Obter range de datas baseado no período selecionado
       const dateRange = getDateRange(selectedPeriod)
+      const token = getToken()
 
-      // Buscar TODOS os leads (sem filtros de exclusão que não existem)
-      const { data: allLeads } = await supabase
-        .from('leads')
-        .select('id, origem, created_at, status, valor_vendido, valor_arrecadado, data_venda, convertido_em, status_updated_at')
+      let allLeads: any[] = []
+      let mentoradosCount = 0
+      let eventosCount = 0
+      let pendenciasCount = 0
+      let apiRecentLeads: any[] = []
+      let apiRecentMentorados: any[] = []
 
-      const { data: mentoradosPeriod } = await supabase
-        .from('mentorados')
-        .select('*')
-        .gte('created_at', dateRange.start || '1900-01-01')
-        .lte('created_at', dateRange.end || '2100-01-01')
+      if (token) {
+        // Use Docker PostgreSQL API
+        const params = new URLSearchParams()
+        if (dateRange.start) params.set('start', dateRange.start)
+        if (dateRange.end) params.set('end', dateRange.end)
 
-      // Filtrar leads baseado no período e status, seguindo EXATAMENTE a lógica da Performance
-      let leadsPeriod = allLeads || []
-      let vendasPeriod = []
-
-      if (dateRange.start && dateRange.end && allLeads) {
-        // Para leads totais: usar created_at (igual Performance)
-        leadsPeriod = allLeads.filter(lead => {
-          const dataLead = new Date(lead.created_at)
-          const startDate = new Date(dateRange.start!)
-          const endDate = new Date(dateRange.end!)
-          return dataLead >= startDate && dataLead <= endDate
-        })
-
-        // Para vendas: usar status vendido (campo real do banco)
-        vendasPeriod = allLeads.filter(lead => {
-          if (lead.status !== 'vendido') return false
-          
-          // Usar data_venda ou convertido_em, depois created_at como fallback
-          const dataVenda = lead.data_venda || lead.convertido_em || lead.created_at
-          const dataVendaDate = new Date(dataVenda)
-          const startDate = new Date(dateRange.start!)
-          const endDate = new Date(dateRange.end!)
-          return dataVendaDate >= startDate && dataVendaDate <= endDate
-        })
+        const response = await apiFetch(`/api/dashboard?${params.toString()}`)
+        if (response.ok) {
+          const data = await response.json()
+          allLeads = data.leads || []
+          mentoradosCount = data.mentorados_count || 0
+          eventosCount = data.events_count || 0
+          pendenciasCount = (data.dividas_pendentes || 0) + (data.comissoes_pendentes || 0)
+          apiRecentLeads = data.recent_leads || []
+          apiRecentMentorados = data.recent_mentorados || []
+        }
       } else {
-        // Se não há filtro de data, pegar todos os leads vendidos
-        vendasPeriod = allLeads?.filter(lead => lead.status === 'vendido') || []
+        // Fallback: Supabase queries
+        const { data: leadsData } = await supabase
+          .from('leads')
+          .select('id, origem, created_at, status, valor_vendido, valor_arrecadado, data_venda, convertido_em, status_updated_at')
+        allLeads = leadsData || []
+
+        const { data: mentoradosPeriod } = await supabase
+          .from('mentorados')
+          .select('*')
+          .gte('created_at', dateRange.start || '1900-01-01')
+          .lte('created_at', dateRange.end || '2100-01-01')
+        mentoradosCount = mentoradosPeriod?.length || 0
+
+        let eventosQuery = supabase.from('calendar_events').select('*')
+        if (dateRange.start && dateRange.end) {
+          eventosQuery = eventosQuery.gte('start_datetime', dateRange.start).lte('start_datetime', dateRange.end)
+        } else {
+          eventosQuery = eventosQuery.gte('start_datetime', new Date().toISOString())
+        }
+        const { data: eventosAgendados } = await eventosQuery
+        eventosCount = eventosAgendados?.length || 0
+
+        const { data: session } = await supabase.auth.getSession()
+        if (session?.user) {
+          const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', session.user.id).single()
+          if (profile?.organization_id) {
+            const { data: dividasPendentes } = await supabase.from('dividas').select('mentorado_id').eq('organization_id', profile.organization_id).eq('status', 'pendente')
+            const { data: comissoesPendentes } = await supabase.from('comissoes').select('id').eq('organization_id', profile.organization_id).eq('status_pagamento', 'pendente')
+            const mentoradosComDividas = dividasPendentes ? new Set(dividasPendentes.map(d => d.mentorado_id)).size : 0
+            pendenciasCount = mentoradosComDividas + (comissoesPendentes?.length || 0)
+          }
+        }
       }
 
-      // Calcular calls realizadas: vendido + perdido + churn (incluindo churns)
-      let callsRealizadasPeriod = []
-      
-      if (dateRange.start && dateRange.end && allLeads) {
-        // Calls realizadas = vendido + perdido + churn no período
+      // Client-side filtering (same logic for both API and Supabase)
+      let leadsPeriod = allLeads
+      let vendasPeriod: any[] = []
+
+      if (dateRange.start && dateRange.end && allLeads.length > 0) {
+        leadsPeriod = allLeads.filter(lead => {
+          const dataLead = new Date(lead.created_at)
+          return dataLead >= new Date(dateRange.start!) && dataLead <= new Date(dateRange.end!)
+        })
+
+        vendasPeriod = allLeads.filter(lead => {
+          if (lead.status !== 'vendido') return false
+          const dataVenda = lead.data_venda || lead.convertido_em || lead.created_at
+          const dataVendaDate = new Date(dataVenda)
+          return dataVendaDate >= new Date(dateRange.start!) && dataVendaDate <= new Date(dateRange.end!)
+        })
+      } else {
+        vendasPeriod = allLeads.filter(lead => lead.status === 'vendido')
+      }
+
+      let callsRealizadasPeriod: any[] = []
+      if (dateRange.start && dateRange.end && allLeads.length > 0) {
         callsRealizadasPeriod = allLeads.filter(lead => {
           if (!['vendido', 'perdido', 'churn'].includes(lead.status)) return false
-          
-          // Para vendidos: usar data_venda, para outros: usar created_at ou status_updated_at
           let dataReferencia = lead.created_at
           if (lead.status === 'vendido' && (lead.data_venda || lead.convertido_em)) {
             dataReferencia = lead.data_venda || lead.convertido_em
           }
-          
           const dataRef = new Date(dataReferencia)
-          const startDate = new Date(dateRange.start!)
-          const endDate = new Date(dateRange.end!)
-          return dataRef >= startDate && dataRef <= endDate
+          return dataRef >= new Date(dateRange.start!) && dataRef <= new Date(dateRange.end!)
         })
       } else {
-        // Se não há filtro, pegar todos vendidos, perdidos e churns
-        callsRealizadasPeriod = allLeads?.filter(lead => 
-          ['vendido', 'perdido', 'churn'].includes(lead.status)
-        ) || []
+        callsRealizadasPeriod = allLeads.filter(lead => ['vendido', 'perdido', 'churn'].includes(lead.status))
       }
 
       const callsMetrics = {
-        calls_vendidas: vendasPeriod.length, // Vendas no período
-        calls_nao_vendidas: callsRealizadasPeriod.filter(l => ['perdido', 'churn'].includes(l.status)).length, // Perdidos + churns no período
-        total_calls: callsRealizadasPeriod.length // Total de calls realizadas (vendidas + perdidas + churns)
+        calls_vendidas: vendasPeriod.length,
+        calls_nao_vendidas: callsRealizadasPeriod.filter(l => ['perdido', 'churn'].includes(l.status)).length,
+        total_calls: callsRealizadasPeriod.length
       }
 
-      console.log('🔍 Debug calls metrics:', {
-        selectedPeriod,
-        callsMetrics
-      })
-
-      // Buscar eventos agendados baseado no período selecionado
-      // Se for período atual, usar apenas eventos futuros
-      // Caso contrário, usar eventos do período específico
-      let eventosQuery = supabase.from('calendar_events').select('*')
-
-      if (dateRange.start && dateRange.end) {
-        // Para períodos específicos, usar eventos daquele período
-        eventosQuery = eventosQuery
-          .gte('start_datetime', dateRange.start)
-          .lte('start_datetime', dateRange.end)
-      } else {
-        // Para "todos os dados" ou período atual, usar apenas eventos futuros
-        const now = new Date().toISOString()
-        eventosQuery = eventosQuery.gte('start_datetime', now)
-      }
-
-      const { data: eventosAgendados } = await eventosQuery
-
-      // Carregar pendências (dividas + comissões pendentes) por organização
-      const { data: session } = await supabase.auth.getSession()
-      let pendenciasCount = 0
-      
-      if (session?.user) {
-        // Buscar organização do usuário
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', session.user.id)
-          .single()
-          
-        if (profile?.organization_id) {
-          // Contar mentorados com dívidas pendentes
-          const { data: dividasPendentes } = await supabase
-            .from('dividas')
-            .select('mentorado_id')
-            .eq('organization_id', profile.organization_id)
-            .eq('status', 'pendente')
-            
-          // Contar comissões pendentes
-          const { data: comissoesPendentes } = await supabase
-            .from('comissoes')
-            .select('id')
-            .eq('organization_id', profile.organization_id)
-            .eq('status_pagamento', 'pendente')
-            
-          const mentoradosComDividas = dividasPendentes ? new Set(dividasPendentes.map(d => d.mentorado_id)).size : 0
-          const comissoesPendentesCount = comissoesPendentes?.length || 0
-          
-          pendenciasCount = mentoradosComDividas + comissoesPendentesCount
-        }
-      }
-
-      const totalVendasPeriod = vendasPeriod.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
-
-      // Carregar evolução do faturamento baseado no período do gráfico
-      await loadRevenueData(chartPeriod)
-
-      // Carregar atividade recente
-      await loadRecentActivity()
-
-      // Carregar distribuição de leads por origem
-      await loadLeadDistribution(leadsPeriod || [])
-
-      // Calcular valor arrecadado usando valor_arrecadado real dos leads vendidos
-      const valorArrecadado = vendasPeriod.reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0)
-
-      // Calcular taxa de conversão usando calls realizadas (vendidas + não vendidas)
+      const totalVendasPeriod = vendasPeriod.reduce((sum: number, lead: any) => sum + (parseFloat(lead.valor_vendido) || 0), 0)
+      const valorArrecadado = vendasPeriod.reduce((sum: number, lead: any) => sum + (parseFloat(lead.valor_arrecadado) || 0), 0)
       const totalCallsRealizadas = callsMetrics.calls_vendidas + callsMetrics.calls_nao_vendidas
       const taxaConversao = totalCallsRealizadas > 0 ? (callsMetrics.calls_vendidas / totalCallsRealizadas) * 100 : 0
+
+      // Load chart and activity data
+      await loadRevenueData(chartPeriod, token ? allLeads : undefined)
+      await loadRecentActivity(token ? apiRecentLeads : undefined, token ? apiRecentMentorados : undefined)
+      await loadLeadDistribution(leadsPeriod)
 
       const newKpiData = {
         total_vendas: totalVendasPeriod,
         valor_arrecadado: valorArrecadado,
         meta_vendas: 500000,
-        total_leads: totalCallsRealizadas, // Total de calls realizadas (vendidas + não vendidas)
-        leads_vendidos: callsMetrics.calls_vendidas, // Calls vendidas
-        total_mentorados: mentoradosPeriod?.length || 0,
-        checkins_agendados: eventosAgendados?.length || 0,
-        pendencias: pendenciasCount, // Pessoas com dívidas pendentes + comissões pendentes
+        total_leads: totalCallsRealizadas,
+        leads_vendidos: callsMetrics.calls_vendidas,
+        total_mentorados: token ? mentoradosCount : (leadsPeriod?.length || 0),
+        checkins_agendados: eventosCount,
+        pendencias: pendenciasCount,
         taxa_conversao: taxaConversao
+      }
+
+      // For API mode, use mentorados count from API
+      if (token) {
+        newKpiData.total_mentorados = mentoradosCount
       }
 
       setKpiData(newKpiData)
 
-      // Calcular porcentagens reais de mudança
       Promise.all([
         calculatePercentageChange(totalVendasPeriod, 'leads', 'valor_vendido'),
         calculatePercentageChange(newKpiData.total_mentorados, 'mentorados'),
-        calculatePercentageChange(newKpiData.checkins_agendados, 'calendar_events'), // corrigido para calendar_events
-        calculatePercentageChange(newKpiData.pendencias, 'dividas'), // pendencias baseadas em dividas
+        calculatePercentageChange(newKpiData.checkins_agendados, 'calendar_events'),
+        calculatePercentageChange(newKpiData.pendencias, 'dividas'),
         calculatePercentageChange(newKpiData.total_leads, 'calendar_events')
       ]).then(([vendasChange, mentoradosChange, checkinsChange, pendenciasChange, leadsChange]) => {
         setPercentageChanges({
@@ -397,19 +377,27 @@ export default function DashboardPage() {
     }
   }
 
-  const loadRevenueData = async (period: string = 'monthly') => {
+  const loadRevenueData = async (period: string = 'monthly', preloadedLeads?: any[]) => {
     try {
       console.log(`🔍 Carregando dados de faturamento ${period}...`)
 
-      // Buscar dados de vendas dos leads (usando campos reais do banco)
-      const { data: leads, error: leadsError } = await supabase
-        .from('leads')
-        .select('valor_vendido, data_venda, created_at, convertido_em, status')
-        .eq('status', 'vendido')
+      let leads: any[] | null = null
 
-      if (leadsError) {
-        console.error('❌ Erro ao buscar leads:', leadsError)
-        return
+      if (preloadedLeads) {
+        // Use pre-fetched leads from API
+        leads = preloadedLeads.filter((l: any) => l.status === 'vendido')
+      } else {
+        // Fallback: fetch from Supabase
+        const { data: supabaseLeads, error: leadsError } = await supabase
+          .from('leads')
+          .select('valor_vendido, data_venda, created_at, convertido_em, status')
+          .eq('status', 'vendido')
+
+        if (leadsError) {
+          console.error('❌ Erro ao buscar leads:', leadsError)
+          return
+        }
+        leads = supabaseLeads
       }
 
       console.log('📊 Leads vendidos encontrados:', leads?.length || 0)
@@ -564,20 +552,29 @@ export default function DashboardPage() {
     }
   }
 
-  const loadRecentActivity = async () => {
+  const loadRecentActivity = async (preloadedLeads?: any[], preloadedMentorados?: any[]) => {
     try {
-      // Buscar atividades recentes de diferentes tabelas
-      const { data: recentLeads } = await supabase
-        .from('leads')
-        .select('nome_completo, email, status, created_at, updated_at')
-        .order('updated_at', { ascending: false })
-        .limit(5)
+      let recentLeads: any[] | null = null
+      let recentMentorados: any[] | null = null
 
-      const { data: recentMentorados } = await supabase
-        .from('mentorados')
-        .select('nome_completo, email, created_at, updated_at')
-        .order('updated_at', { ascending: false })
-        .limit(3)
+      if (preloadedLeads && preloadedMentorados) {
+        recentLeads = preloadedLeads
+        recentMentorados = preloadedMentorados
+      } else {
+        const { data: leadsData } = await supabase
+          .from('leads')
+          .select('nome_completo, email, status, created_at, updated_at')
+          .order('updated_at', { ascending: false })
+          .limit(5)
+        recentLeads = leadsData
+
+        const { data: mentoradosData } = await supabase
+          .from('mentorados')
+          .select('nome_completo, email, created_at, updated_at')
+          .order('updated_at', { ascending: false })
+          .limit(3)
+        recentMentorados = mentoradosData
+      }
 
       const activities: any[] = []
 

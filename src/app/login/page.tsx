@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { apiFetch, setToken, setStoredUser } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,48 +39,34 @@ export default function LoginPage() {
         }
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
+      const response = await apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
       })
 
-      if (error) {
-        // Tratar erros específicos
-        if (error.message.includes('Invalid login credentials')) {
-          setError('Email ou senha incorretos')
-        } else if (error.message.includes('Email not confirmed')) {
-          setError('Email não confirmado. Verifique sua caixa de entrada.')
-        } else {
-          setError(error.message)
-        }
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Email ou senha incorretos')
         return
       }
 
-      // Login bem-sucedido - verificar se é usuário do financeiro
-      try {
-        const { data: financeUser, error: financeError } = await supabase
-          .from('usuarios_financeiro')
-          .select('*')
-          .eq('email', email)
-          .eq('ativo', true)
-          .maybeSingle()
+      // Store JWT and user data
+      setToken(data.token)
+      setStoredUser(data.user)
 
-        if (financeError) {
-          console.log('Erro ao buscar usuário financeiro:', financeError.message)
-        }
+      // Dispatch event for auth context
+      window.dispatchEvent(new CustomEvent('apiLoginSuccess', { detail: data }))
 
-        if (financeUser) {
-          // É usuário do financeiro - salvar dados e redirecionar
-          localStorage.setItem('finance_user', JSON.stringify(financeUser))
-          const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/financeiro/dashboard'
-          router.push(redirectTo)
-          return
-        }
-      } catch (financeError) {
-        // Não é usuário do financeiro, continuar para dashboard normal
+      // Check if finance user
+      if (data.user.role === 'viewer') {
+        localStorage.setItem('finance_user', JSON.stringify(data.user))
+        const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/financeiro/dashboard'
+        router.push(redirectTo)
+        return
       }
 
-      // Redirecionar para visão geral ou página anterior
+      // Redirect to dashboard or previous page
       const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/lista-mentorados'
       router.push(redirectTo)
     } catch (error: any) {

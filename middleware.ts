@@ -67,6 +67,13 @@ export async function middleware(req: NextRequest) {
 
   // Para todas as outras rotas, validar autenticação
   try {
+    // Check for custom JWT auth (Docker PostgreSQL migration)
+    const customToken = req.cookies.get('cs_auth_token')?.value
+    if (customToken) {
+      console.log('✅ Custom JWT token found, bypassing Supabase auth')
+      return NextResponse.next()
+    }
+
     let response = NextResponse.next({
       request: {
         headers: req.headers,
