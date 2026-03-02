@@ -1,11 +1,14 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { type Mentorado, supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Plus, Minus, Save, X, ArrowLeft, Share2, Play, Search, Video, Target, BookOpen, Loader2, GripVertical } from 'lucide-react'
+import {
+  Plus, Minus, Save, X, ArrowLeft, Share2, Play, Search, Video, Loader2,
+  Undo2, Redo2, StickyNote, Download, Palette, Maximize, ChevronRight
+} from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth'
 
@@ -29,6 +32,8 @@ interface MindMapNode {
   level: number
   linkedLesson?: LinkedLesson
   nodeType?: 'default' | 'meta' | 'aula'
+  collapsed?: boolean
+  notes?: string
 }
 
 interface MindMapEdge {
@@ -44,6 +49,11 @@ interface VideoLesson {
   panda_video_embed_url: string | null
   module_id: string
   module_title?: string
+}
+
+interface HistoryState {
+  nodes: MindMapNode[]
+  edges: MindMapEdge[]
 }
 
 // Paleta de cores rica estilo MindMeister
@@ -105,7 +115,7 @@ const LessonPickerModal = ({
         title: l.title,
         panda_video_embed_url: l.panda_video_embed_url,
         module_id: l.module_id,
-        module_title: l.video_modules?.title || 'Sem módulo'
+        module_title: l.video_modules?.title || 'Sem modulo'
       })))
     } catch (err) {
       console.error('Erro ao carregar aulas:', err)
@@ -265,6 +275,7 @@ const ModernMindMap = ({
   mode?: 'admin' | 'mentorado'
   onShare?: () => void
 }) => {
+  // Core state
   const [nodes, setNodes] = useState<MindMapNode[]>([])
   const [edges, setEdges] = useState<MindMapEdge[]>([])
   const [scale, setScale] = useState(1)
@@ -278,6 +289,23 @@ const ModernMindMap = ({
   const [editingText, setEditingText] = useState('')
   const [lessonPickerNodeId, setLessonPickerNodeId] = useState<string | null>(null)
   const [playingLesson, setPlayingLesson] = useState<LinkedLesson | null>(null)
+
+  // Undo/Redo
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
+  const undoStackRef = useRef<HistoryState[]>([])
+  const redoStackRef = useRef<HistoryState[]>([])
+
+  // Search
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Notes modal
+  const [notesNodeId, setNotesNodeId] = useState<string | null>(null)
+  const [notesText, setNotesText] = useState('')
+
+  // Color picker
+  const [colorPickerNodeId, setColorPickerNodeId] = useState<string | null>(null)
 
   // Drag state using refs for immediate access in event handlers
   const dragRef = useRef<{
@@ -297,8 +325,11 @@ const ModernMindMap = ({
 
   const { user } = useAuth()
   const containerRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const nodesRef = useRef(nodes)
   nodesRef.current = nodes
+  const edgesRef = useRef(edges)
+  edgesRef.current = edges
   const scaleRef = useRef(scale)
   scaleRef.current = scale
 
@@ -306,7 +337,87 @@ const ModernMindMap = ({
   const canEdit = !isReadOnly && !!user
   const totalLessons = nodes.filter(n => n.linkedLesson?.id).length
 
-  // Load mind map
+  // ==========================================
+  // VISIBLE NODES (collapse filtering)
+  // ==========================================
+  const visibleNodes = useMemo(() => {
+    const collapsedIds = new Set(nodes.filter(n => n.collapsed).map(n => n.id))
+    if (collapsedIds.size === 0) return nodes
+
+    return nodes.filter(node => {
+      let parentId = node.parentId
+      while (parentId) {
+        if (collapsedIds.has(parentId)) return false
+        const parent = nodes.find(n => n.id === parentId)
+        parentId = parent?.parentId
+      }
+      return true
+    })
+  }, [nodes])
+
+  const visibleEdges = useMemo(() => {
+    const visibleIds = new Set(visibleNodes.map(n => n.id))
+    return edges.filter(e => visibleIds.has(e.fromNodeId) && visibleIds.has(e.toNodeId))
+  }, [edges, visibleNodes])
+
+  // Search results
+  const highlightedNodeIds = useMemo(() => {
+    if (!searchOpen || !searchQuery.trim()) return new Set<string>()
+    const q = searchQuery.toLowerCase()
+    return new Set(nodes.filter(n => n.text.toLowerCase().includes(q)).map(n => n.id))
+  }, [searchOpen, searchQuery, nodes])
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return []
+    const q = searchQuery.toLowerCase()
+    return nodes.filter(n => n.text.toLowerCase().includes(q))
+  }, [nodes, searchQuery])
+
+  // ==========================================
+  // UNDO / REDO
+  // ==========================================
+  const pushUndo = useCallback(() => {
+    undoStackRef.current.push({
+      nodes: JSON.parse(JSON.stringify(nodesRef.current)),
+      edges: JSON.parse(JSON.stringify(edgesRef.current))
+    })
+    if (undoStackRef.current.length > 50) undoStackRef.current.shift()
+    redoStackRef.current = []
+    setCanUndo(true)
+    setCanRedo(false)
+  }, [])
+
+  const undo = useCallback(() => {
+    if (undoStackRef.current.length === 0) return
+    const prev = undoStackRef.current.pop()!
+    redoStackRef.current.push({
+      nodes: JSON.parse(JSON.stringify(nodesRef.current)),
+      edges: JSON.parse(JSON.stringify(edgesRef.current))
+    })
+    setNodes(prev.nodes)
+    setEdges(prev.edges)
+    setCanUndo(undoStackRef.current.length > 0)
+    setCanRedo(true)
+    setHasChanges(true)
+  }, [])
+
+  const redo = useCallback(() => {
+    if (redoStackRef.current.length === 0) return
+    const next = redoStackRef.current.pop()!
+    undoStackRef.current.push({
+      nodes: JSON.parse(JSON.stringify(nodesRef.current)),
+      edges: JSON.parse(JSON.stringify(edgesRef.current))
+    })
+    setNodes(next.nodes)
+    setEdges(next.edges)
+    setCanUndo(true)
+    setCanRedo(redoStackRef.current.length > 0)
+    setHasChanges(true)
+  }, [])
+
+  // ==========================================
+  // LOAD / SAVE
+  // ==========================================
   useEffect(() => {
     loadMindMap()
   }, [mentorado])
@@ -348,9 +459,8 @@ const ModernMindMap = ({
         setTranslateY(container.offsetHeight / 2 - rootNode.y)
       }
     }
-  }, [nodes.length === 1]) // Only on initial load
+  }, [nodes.length === 1])
 
-  // Save
   const saveMindMap = useCallback(async () => {
     if (!user || !hasChanges) return
     setIsSaving(true)
@@ -415,7 +525,11 @@ const ModernMindMap = ({
     const dist = Math.sqrt(dx * dx + dy * dy)
 
     if (dist > 5) {
-      dragRef.current.hasMoved = true
+      if (!dragRef.current.hasMoved) {
+        pushUndo()
+        dragRef.current.hasMoved = true
+      }
+
       const s = scaleRef.current
       const newX = dragRef.current.startNodeX + dx / s
       const newY = dragRef.current.startNodeY + dy / s
@@ -425,28 +539,28 @@ const ModernMindMap = ({
       ))
       setHasChanges(true)
     }
-  }, [])
+  }, [pushUndo])
 
-  const handleDocumentMouseUp = useCallback((e: MouseEvent) => {
+  const handleDocumentMouseUp = useCallback(() => {
     if (!dragRef.current.active) return
 
     const timeDiff = Date.now() - dragRef.current.startTime
     const nodeId = dragRef.current.nodeId!
 
     if (!dragRef.current.hasMoved && timeDiff < 400) {
-      // It was a click, not a drag - trigger edit
       const node = nodesRef.current.find(n => n.id === nodeId)
       if (node) {
         setEditingNodeId(nodeId)
         setEditingText(node.text)
         setSelectedNodeId(nodeId)
       }
+    } else if (!dragRef.current.hasMoved) {
+      setSelectedNodeId(nodeId)
     }
 
     dragRef.current = { active: false, nodeId: null, startX: 0, startY: 0, startNodeX: 0, startNodeY: 0, startTime: 0, hasMoved: false }
   }, [])
 
-  // Attach global mouse listeners
   useEffect(() => {
     document.addEventListener('mousemove', handleDocumentMouseMove)
     document.addEventListener('mouseup', handleDocumentMouseUp)
@@ -460,9 +574,10 @@ const ModernMindMap = ({
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.target !== e.currentTarget) return
     setSelectedNodeId(null)
+    setColorPickerNodeId(null)
     if (editingNodeId) {
-      // Save edit on background click
       if (editingText.trim()) {
+        pushUndo()
         setNodes(prev => prev.map(n => n.id === editingNodeId ? { ...n, text: editingText.trim() } : n))
         setHasChanges(true)
       }
@@ -470,7 +585,7 @@ const ModernMindMap = ({
       setEditingText('')
     }
     panRef.current = { active: true, startX: e.clientX, startY: e.clientY, startTX: translateX, startTY: translateY }
-  }, [editingNodeId, editingText, translateX, translateY])
+  }, [editingNodeId, editingText, translateX, translateY, pushUndo])
 
   const handleCanvasMouseMove = useCallback((e: MouseEvent) => {
     if (!panRef.current.active) return
@@ -501,18 +616,20 @@ const ModernMindMap = ({
     }
   }, [nodes])
 
-  // Node operations
-  const addChildNode = useCallback((parentId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
+  // ==========================================
+  // NODE OPERATIONS
+  // ==========================================
+  const addChildNode = useCallback((parentId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
     const parentNode = nodes.find(n => n.id === parentId)
     if (!parentNode) return
 
+    pushUndo()
     const newNodeId = `node_${Date.now()}`
     const childCount = nodes.filter(n => n.parentId === parentId).length
     const colorIndex = (parentNode.level === 0 ? childCount : parentNode.level - 1) % BRANCH_COLORS.length
     const color = parentNode.level === 0 ? BRANCH_COLORS[colorIndex] : (parentNode.color || BRANCH_COLORS[0])
 
-    // Smart positioning: spread children in a fan
     const existingChildren = nodes.filter(n => n.parentId === parentId)
     const baseAngle = existingChildren.length === 0 ? 0 : (Math.PI / 6) * existingChildren.length
     const sign = existingChildren.length % 2 === 0 ? 1 : -1
@@ -531,19 +648,52 @@ const ModernMindMap = ({
     }])
     setHasChanges(true)
 
-    // Auto-edit the new node
+    // If parent was collapsed, expand it
+    if (parentNode.collapsed) {
+      setNodes(prev => prev.map(n => n.id === parentId ? { ...n, collapsed: false } : n))
+    }
+
     setTimeout(() => {
       setEditingNodeId(newNodeId)
       setEditingText('Novo no')
       setSelectedNodeId(newNodeId)
     }, 50)
-  }, [nodes])
+  }, [nodes, pushUndo])
 
-  const deleteNode = useCallback((nodeId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
+  const addSiblingNode = useCallback(() => {
+    if (!selectedNodeId) return
+    const node = nodes.find(n => n.id === selectedNodeId)
+    if (!node || !node.parentId) return
+
+    pushUndo()
+    const newNodeId = `node_${Date.now()}`
+    const color = node.color || BRANCH_COLORS[0]
+
+    const newX = node.x
+    const newY = node.y + 80
+
+    setNodes(prev => [...prev, {
+      id: newNodeId, text: 'Novo no', x: newX, y: newY,
+      parentId: node.parentId, color, level: node.level
+    }])
+    setEdges(prev => [...prev, {
+      id: `${node.parentId}_${newNodeId}`, fromNodeId: node.parentId!, toNodeId: newNodeId, color
+    }])
+    setHasChanges(true)
+
+    setTimeout(() => {
+      setEditingNodeId(newNodeId)
+      setEditingText('Novo no')
+      setSelectedNodeId(newNodeId)
+    }, 50)
+  }, [selectedNodeId, nodes, pushUndo])
+
+  const deleteNode = useCallback((nodeId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
     if (nodeId === 'root') return
     if (!confirm('Deletar este no e todos os filhos?')) return
 
+    pushUndo()
     const toDelete = new Set<string>()
     const findDesc = (id: string) => {
       toDelete.add(id)
@@ -555,7 +705,37 @@ const ModernMindMap = ({
     setEdges(prev => prev.filter(e => !toDelete.has(e.fromNodeId) && !toDelete.has(e.toNodeId)))
     setHasChanges(true)
     setSelectedNodeId(null)
-  }, [nodes])
+  }, [nodes, pushUndo])
+
+  const toggleCollapse = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId)
+    if (!node) return
+    const hasChildren = nodes.some(n => n.parentId === nodeId)
+    if (!hasChildren) return
+
+    pushUndo()
+    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, collapsed: !n.collapsed } : n))
+    setHasChanges(true)
+  }, [nodes, pushUndo])
+
+  const changeNodeColor = useCallback((nodeId: string, color: string) => {
+    pushUndo()
+    // Get all descendants
+    const descendants = new Set<string>()
+    const findDesc = (id: string) => {
+      nodes.filter(n => n.parentId === id).forEach(c => {
+        descendants.add(c.id)
+        findDesc(c.id)
+      })
+    }
+    descendants.add(nodeId)
+    findDesc(nodeId)
+
+    setNodes(prev => prev.map(n => descendants.has(n.id) ? { ...n, color } : n))
+    setEdges(prev => prev.map(e => descendants.has(e.toNodeId) ? { ...e, color } : e))
+    setHasChanges(true)
+    setColorPickerNodeId(null)
+  }, [nodes, pushUndo])
 
   const linkLesson = useCallback((nodeId: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -564,6 +744,7 @@ const ModernMindMap = ({
 
   const handleLessonSelected = useCallback((lesson: LinkedLesson) => {
     if (!lessonPickerNodeId) return
+    pushUndo()
     setNodes(prev => prev.map(node => {
       if (node.id !== lessonPickerNodeId) return node
       if (!lesson.id) {
@@ -574,28 +755,282 @@ const ModernMindMap = ({
     }))
     setLessonPickerNodeId(null)
     setHasChanges(true)
-  }, [lessonPickerNodeId])
+  }, [lessonPickerNodeId, pushUndo])
 
-  // Edit handlers
+  // ==========================================
+  // EDIT HANDLERS
+  // ==========================================
   const handleSaveEdit = useCallback(() => {
     if (!editingNodeId) return
+    pushUndo()
     const text = editingText.trim() || 'Sem titulo'
     setNodes(prev => prev.map(n => n.id === editingNodeId ? { ...n, text } : n))
     setEditingNodeId(null)
     setEditingText('')
     setHasChanges(true)
-  }, [editingNodeId, editingText])
+  }, [editingNodeId, editingText, pushUndo])
 
-  // Zoom
+  const startEditing = useCallback(() => {
+    if (!selectedNodeId) return
+    const node = nodes.find(n => n.id === selectedNodeId)
+    if (!node) return
+    setEditingNodeId(selectedNodeId)
+    setEditingText(node.text)
+  }, [selectedNodeId, nodes])
+
+  // ==========================================
+  // NOTES
+  // ==========================================
+  const openNotes = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId)
+    if (!node) return
+    setNotesNodeId(nodeId)
+    setNotesText(node.notes || '')
+  }, [nodes])
+
+  const saveNotes = useCallback(() => {
+    if (!notesNodeId) return
+    pushUndo()
+    setNodes(prev => prev.map(n => n.id === notesNodeId ? { ...n, notes: notesText } : n))
+    setNotesNodeId(null)
+    setNotesText('')
+    setHasChanges(true)
+  }, [notesNodeId, notesText, pushUndo])
+
+  // ==========================================
+  // SEARCH
+  // ==========================================
+  const centerOnNode = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId)
+    if (!node || !containerRef.current) return
+    const container = containerRef.current
+    setTranslateX(container.offsetWidth / 2 - node.x * scale)
+    setTranslateY(container.offsetHeight / 2 - node.y * scale)
+    setSelectedNodeId(nodeId)
+
+    // Uncollapse ancestors
+    let parentId = node.parentId
+    const toUncollapse: string[] = []
+    while (parentId) {
+      const parent = nodes.find(n => n.id === parentId)
+      if (parent?.collapsed) toUncollapse.push(parentId)
+      parentId = parent?.parentId
+    }
+    if (toUncollapse.length > 0) {
+      setNodes(prev => prev.map(n => toUncollapse.includes(n.id) ? { ...n, collapsed: false } : n))
+    }
+  }, [nodes, scale])
+
+  // ==========================================
+  // NAVIGATION (arrow keys)
+  // ==========================================
+  const navigateToNode = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
+    if (!selectedNodeId) return
+    const node = nodes.find(n => n.id === selectedNodeId)
+    if (!node) return
+
+    let targetId: string | null = null
+
+    switch (direction) {
+      case 'left':
+        targetId = node.parentId || null
+        break
+      case 'right': {
+        if (node.collapsed) {
+          toggleCollapse(node.id)
+          return
+        }
+        const children = nodes.filter(n => n.parentId === node.id)
+        if (children.length > 0) targetId = children[0].id
+        break
+      }
+      case 'up':
+      case 'down': {
+        if (!node.parentId) break
+        const siblings = nodes.filter(n => n.parentId === node.parentId)
+        const idx = siblings.findIndex(n => n.id === node.id)
+        if (direction === 'up' && idx > 0) targetId = siblings[idx - 1].id
+        if (direction === 'down' && idx < siblings.length - 1) targetId = siblings[idx + 1].id
+        break
+      }
+    }
+
+    if (targetId) {
+      setSelectedNodeId(targetId)
+      // Center on target
+      const target = nodes.find(n => n.id === targetId)
+      if (target && containerRef.current) {
+        const container = containerRef.current
+        const nodeScreenX = target.x * scale + translateX
+        const nodeScreenY = target.y * scale + translateY
+        // Only pan if node is near edges
+        if (nodeScreenX < 100 || nodeScreenX > container.offsetWidth - 100 ||
+            nodeScreenY < 100 || nodeScreenY > container.offsetHeight - 100) {
+          setTranslateX(container.offsetWidth / 2 - target.x * scale)
+          setTranslateY(container.offsetHeight / 2 - target.y * scale)
+        }
+      }
+    }
+  }, [selectedNodeId, nodes, scale, translateX, translateY, toggleCollapse])
+
+  // ==========================================
+  // ZOOM
+  // ==========================================
   const handleZoomIn = () => setScale(prev => Math.min(prev * 1.2, 3))
   const handleZoomOut = () => setScale(prev => Math.max(prev / 1.2, 0.3))
 
-  // Wheel zoom
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
     const delta = e.deltaY > 0 ? 0.9 : 1.1
     setScale(prev => Math.max(0.3, Math.min(3, prev * delta)))
   }, [])
+
+  const zoomToFit = useCallback(() => {
+    if (!containerRef.current || visibleNodes.length === 0) return
+    const container = containerRef.current
+    const xs = visibleNodes.map(n => n.x)
+    const ys = visibleNodes.map(n => n.y)
+    const minX = Math.min(...xs) - 120
+    const maxX = Math.max(...xs) + 120
+    const minY = Math.min(...ys) - 80
+    const maxY = Math.max(...ys) + 80
+    const contentWidth = maxX - minX
+    const contentHeight = maxY - minY
+    const scaleX = container.offsetWidth / contentWidth
+    const scaleY = (container.offsetHeight - 56) / contentHeight
+    const newScale = Math.min(scaleX, scaleY, 1.5)
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+    setScale(newScale)
+    setTranslateX(container.offsetWidth / 2 - centerX * newScale)
+    setTranslateY((container.offsetHeight - 56) / 2 - centerY * newScale + 28)
+  }, [visibleNodes])
+
+  // ==========================================
+  // EXPORT PNG
+  // ==========================================
+  const exportPNG = useCallback(async () => {
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      const container = document.getElementById('mindmap-container')
+      if (!container) return
+      const canvas = await html2canvas(container, {
+        backgroundColor: '#FAFBFF',
+        scale: 2,
+        useCORS: true,
+        logging: false
+      })
+      const link = document.createElement('a')
+      link.download = `mapa-mental-${mentorado.nome_completo || 'export'}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } catch (err) {
+      console.error('Erro ao exportar PNG:', err)
+    }
+  }, [mentorado])
+
+  // ==========================================
+  // KEYBOARD HANDLER
+  // ==========================================
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+Z / Cmd+Z
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        undo()
+        return
+      }
+      // Ctrl+Y / Cmd+Shift+Z
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault()
+        redo()
+        return
+      }
+      // Ctrl+F
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault()
+        setSearchOpen(prev => {
+          if (!prev) setTimeout(() => searchInputRef.current?.focus(), 50)
+          else setSearchQuery('')
+          return !prev
+        })
+        return
+      }
+
+      // If editing text, only handle Escape/Enter
+      if (editingNodeId) {
+        // Enter/Escape handled by the input's onKeyDown
+        return
+      }
+
+      // Escape closes modals/search
+      if (e.key === 'Escape') {
+        if (searchOpen) { setSearchOpen(false); setSearchQuery(''); return }
+        if (notesNodeId) { setNotesNodeId(null); return }
+        if (colorPickerNodeId) { setColorPickerNodeId(null); return }
+        setSelectedNodeId(null)
+        return
+      }
+
+      if (!canEdit || !selectedNodeId) return
+
+      switch (e.key) {
+        case 'Tab':
+          e.preventDefault()
+          addChildNode(selectedNodeId)
+          break
+        case 'Enter':
+          e.preventDefault()
+          addSiblingNode()
+          break
+        case 'Delete':
+        case 'Backspace':
+          e.preventDefault()
+          deleteNode(selectedNodeId)
+          break
+        case 'F2':
+          e.preventDefault()
+          startEditing()
+          break
+        case ' ':
+          e.preventDefault()
+          toggleCollapse(selectedNodeId)
+          break
+        case 'ArrowLeft':
+          e.preventDefault()
+          navigateToNode('left')
+          break
+        case 'ArrowRight':
+          e.preventDefault()
+          navigateToNode('right')
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          navigateToNode('up')
+          break
+        case 'ArrowDown':
+          e.preventDefault()
+          navigateToNode('down')
+          break
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [undo, redo, editingNodeId, searchOpen, notesNodeId, colorPickerNodeId, canEdit, selectedNodeId, addChildNode, addSiblingNode, deleteNode, startEditing, toggleCollapse, navigateToNode])
+
+  // Focus search input when opened
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus()
+  }, [searchOpen])
+
+  // ==========================================
+  // HELPER: descendant count
+  // ==========================================
+  const getDescendantCount = useCallback((nodeId: string): number => {
+    const children = nodes.filter(n => n.parentId === nodeId)
+    return children.length + children.reduce((sum, c) => sum + getDescendantCount(c.id), 0)
+  }, [nodes])
 
   // ==========================================
   // RENDER NODE
@@ -605,9 +1040,13 @@ const ModernMindMap = ({
     const isSelected = selectedNodeId === node.id
     const isEditing = editingNodeId === node.id
     const hasLesson = !!node.linkedLesson?.id
+    const hasNotes = !!node.notes
     const nodeColor = node.color || BRANCH_COLORS[0]
     const bgColor = BRANCH_BG_COLORS[nodeColor] || '#F9FAFB'
     const isDraggingThis = dragRef.current.active && dragRef.current.nodeId === node.id
+    const isHighlighted = highlightedNodeIds.has(node.id)
+    const childCount = nodes.filter(n => n.parentId === node.id).length
+    const descendantCount = node.collapsed ? getDescendantCount(node.id) : 0
 
     if (isEditing && canEdit) {
       return (
@@ -662,9 +1101,10 @@ const ModernMindMap = ({
             ${isDraggingThis ? 'shadow-2xl scale-110 opacity-90' : ''}
             ${isReadOnly && hasLesson ? 'cursor-pointer hover:shadow-lg hover:scale-105' : ''}
             ${canEdit ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : ''}
+            ${isHighlighted ? 'ring-4 ring-yellow-400 shadow-xl' : ''}
           `}
           style={{
-            borderColor: isRoot ? nodeColor : nodeColor,
+            borderColor: nodeColor,
             backgroundColor: isRoot ? 'white' : bgColor,
             ...(isRoot ? {
               background: `linear-gradient(135deg, white 0%, ${bgColor} 100%)`
@@ -679,6 +1119,18 @@ const ModernMindMap = ({
             >
               <Play className="h-3.5 w-3.5 text-white ml-0.5" />
             </div>
+          )}
+
+          {/* Notes indicator */}
+          {hasNotes && (
+            <button
+              className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 hover:bg-amber-200 transition-colors"
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); openNotes(node.id) }}
+              title="Ver notas"
+            >
+              <StickyNote className="h-3 w-3 text-amber-600" />
+            </button>
           )}
 
           {/* Text */}
@@ -705,6 +1157,22 @@ const ModernMindMap = ({
             </span>
           )}
 
+          {/* Collapse indicator */}
+          {childCount > 0 && (
+            <button
+              className={`absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all z-20 border-2 border-white shadow-sm ${
+                node.collapsed
+                  ? 'bg-gray-700 text-white hover:bg-gray-600'
+                  : 'bg-gray-200 text-gray-500 hover:bg-gray-300 opacity-0 group-hover:opacity-100'
+              }`}
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); toggleCollapse(node.id) }}
+              title={node.collapsed ? `Expandir (${descendantCount} nos)` : 'Recolher'}
+            >
+              {node.collapsed ? descendantCount : <ChevronRight className="h-3 w-3" />}
+            </button>
+          )}
+
           {/* Admin action buttons */}
           {canEdit && (
             <div className={`
@@ -712,6 +1180,27 @@ const ModernMindMap = ({
               transition-all duration-200
               ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100'}
             `}>
+              {/* Notes */}
+              <button
+                className="w-7 h-7 rounded-full flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110 bg-amber-500"
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); openNotes(node.id) }}
+                title="Notas"
+              >
+                <StickyNote className="w-3.5 h-3.5" />
+              </button>
+              {/* Color */}
+              {!isRoot && (
+                <button
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110 bg-pink-500"
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); setColorPickerNodeId(colorPickerNodeId === node.id ? null : node.id) }}
+                  title="Cor"
+                >
+                  <Palette className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {/* Link lesson */}
               {!isRoot && (
                 <button
                   className="w-7 h-7 rounded-full flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110"
@@ -723,20 +1212,22 @@ const ModernMindMap = ({
                   <Video className="w-3.5 h-3.5" />
                 </button>
               )}
+              {/* Add child */}
               <button
                 className="w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110"
                 onMouseDown={e => e.stopPropagation()}
                 onClick={e => addChildNode(node.id, e)}
-                title="Adicionar filho"
+                title="Adicionar filho (Tab)"
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
+              {/* Delete */}
               {!isRoot && (
                 <button
                   className="w-7 h-7 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110"
                   onMouseDown={e => e.stopPropagation()}
                   onClick={e => deleteNode(node.id, e)}
-                  title="Deletar"
+                  title="Deletar (Del)"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -744,6 +1235,23 @@ const ModernMindMap = ({
             </div>
           )}
         </div>
+
+        {/* Color picker popover */}
+        {colorPickerNodeId === node.id && (
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white rounded-xl shadow-lg border p-2 flex gap-1.5 z-50">
+            {BRANCH_COLORS.map(c => (
+              <button
+                key={c}
+                className={`w-7 h-7 rounded-full border-2 shadow-sm hover:scale-125 transition-transform ${
+                  c === nodeColor ? 'border-gray-800 scale-110' : 'border-white'
+                }`}
+                style={{ backgroundColor: c }}
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); changeNodeColor(node.id, c) }}
+              />
+            ))}
+          </div>
+        )}
       </div>
     )
   }
@@ -759,7 +1267,7 @@ const ModernMindMap = ({
       {/* Toolbar */}
       <div className="absolute top-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-200/50">
         <div className="flex items-center justify-between px-5 py-3">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <Link href={isReadOnly ? '/mentorado' : '/admin/mapas-mentais'}>
               <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-800 rounded-xl">
                 <ArrowLeft className="h-4 w-4 mr-1.5" /> Voltar
@@ -772,6 +1280,21 @@ const ModernMindMap = ({
             ) : (
               <Badge className="bg-emerald-100 text-emerald-700 rounded-lg text-xs font-medium">Editavel</Badge>
             )}
+
+            {/* Undo/Redo */}
+            {canEdit && (
+              <>
+                <div className="h-6 w-px bg-gray-200" />
+                <Button variant="ghost" size="sm" onClick={undo} disabled={!canUndo}
+                  className="w-8 h-8 p-0 rounded-lg text-gray-500 hover:text-gray-800 disabled:opacity-30" title="Desfazer (Ctrl+Z)">
+                  <Undo2 className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={redo} disabled={!canRedo}
+                  className="w-8 h-8 p-0 rounded-lg text-gray-500 hover:text-gray-800 disabled:opacity-30" title="Refazer (Ctrl+Y)">
+                  <Redo2 className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -780,6 +1303,25 @@ const ModernMindMap = ({
                 <Play className="h-3 w-3 mr-1" /> {totalLessons} aula{totalLessons !== 1 ? 's' : ''}
               </Badge>
             )}
+
+            {/* Search toggle */}
+            <Button variant="ghost" size="sm" onClick={() => {
+              setSearchOpen(prev => {
+                if (!prev) setTimeout(() => searchInputRef.current?.focus(), 50)
+                else setSearchQuery('')
+                return !prev
+              })
+            }} className={`w-8 h-8 p-0 rounded-lg ${searchOpen ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-800'}`}
+              title="Buscar (Ctrl+F)">
+              <Search className="h-4 w-4" />
+            </Button>
+
+            {/* Export */}
+            <Button variant="ghost" size="sm" onClick={exportPNG}
+              className="w-8 h-8 p-0 rounded-lg text-gray-500 hover:text-gray-800" title="Exportar PNG">
+              <Download className="h-4 w-4" />
+            </Button>
+
             {hasChanges && canEdit && (
               <Badge className="bg-orange-100 text-orange-600 text-xs rounded-lg">Nao salvo</Badge>
             )}
@@ -796,13 +1338,51 @@ const ModernMindMap = ({
             )}
           </div>
         </div>
+
+        {/* Search bar */}
+        {searchOpen && (
+          <div className="px-5 pb-3 flex items-center gap-2">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery('') }
+                  if (e.key === 'Enter' && searchResults.length > 0) centerOnNode(searchResults[0].id)
+                }}
+                placeholder="Buscar nos..."
+                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                autoFocus
+              />
+            </div>
+            {searchQuery && (
+              <span className="text-xs text-gray-500">{searchResults.length} resultado{searchResults.length !== 1 ? 's' : ''}</span>
+            )}
+            {searchResults.length > 0 && (
+              <div className="flex gap-1 max-w-xs overflow-x-auto">
+                {searchResults.slice(0, 5).map(r => (
+                  <button
+                    key={r.id}
+                    onClick={() => centerOnNode(r.id)}
+                    className="text-xs px-2 py-1 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 transition-colors whitespace-nowrap"
+                  >
+                    {r.text.length > 20 ? r.text.slice(0, 20) + '...' : r.text}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Canvas */}
       <div
         ref={containerRef}
         id="mindmap-container"
-        className="absolute inset-x-0 top-14 bottom-0"
+        className={`absolute inset-x-0 bottom-0 ${searchOpen ? 'top-[104px]' : 'top-14'}`}
         style={{ cursor: panRef.current.active ? 'grabbing' : 'grab' }}
         onMouseDown={handleCanvasMouseDown}
         onWheel={handleWheel}
@@ -816,29 +1396,35 @@ const ModernMindMap = ({
         >
           {/* Edges */}
           <svg className="absolute pointer-events-none" style={{ width: '5000px', height: '5000px', left: '-2500px', top: '-2500px' }}>
-            {edges.map(edge => {
-              const from = nodes.find(n => n.id === edge.fromNodeId)
-              const to = nodes.find(n => n.id === edge.toNodeId)
+            {visibleEdges.map(edge => {
+              const from = visibleNodes.find(n => n.id === edge.fromNodeId)
+              const to = visibleNodes.find(n => n.id === edge.toNodeId)
               if (!from || !to) return null
               return <MindMapEdgeComponent key={edge.id} edge={edge} fromNode={from} toNode={to} />
             })}
           </svg>
 
           {/* Nodes */}
-          {nodes.map(renderNode)}
+          {visibleNodes.map(renderNode)}
         </div>
       </div>
 
       {/* Help card */}
       {canEdit && (
-        <div className="absolute top-18 right-4 z-30 bg-white/90 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-gray-200/50 max-w-[200px]">
-          <h4 className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">Como usar</h4>
-          <ul className="text-xs text-gray-500 space-y-1.5">
-            <li className="flex items-center gap-1.5"><span className="w-4 h-4 bg-gray-100 rounded flex items-center justify-center text-[10px]">🖱</span> Clique = editar</li>
-            <li className="flex items-center gap-1.5"><span className="w-4 h-4 bg-gray-100 rounded flex items-center justify-center text-[10px]">↕</span> Arraste = mover</li>
-            <li className="flex items-center gap-1.5"><span className="w-4 h-4 bg-emerald-100 rounded flex items-center justify-center"><Plus className="w-2.5 h-2.5 text-emerald-600" /></span> Filho</li>
-            <li className="flex items-center gap-1.5"><span className="w-4 h-4 bg-purple-100 rounded flex items-center justify-center"><Video className="w-2.5 h-2.5 text-purple-600" /></span> Linkar aula</li>
-            <li className="flex items-center gap-1.5"><span className="w-4 h-4 bg-gray-100 rounded flex items-center justify-center text-[10px]">🔍</span> Scroll = zoom</li>
+        <div className="absolute top-18 right-4 z-30 bg-white/90 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-gray-200/50 max-w-[220px]">
+          <h4 className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">Atalhos</h4>
+          <ul className="text-[11px] text-gray-500 space-y-1">
+            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Click</kbd> Editar texto</li>
+            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Drag</kbd> Mover no</li>
+            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Tab</kbd> Novo filho</li>
+            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Enter</kbd> Novo irmao</li>
+            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Del</kbd> Deletar</li>
+            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Space</kbd> Recolher/Expandir</li>
+            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">F2</kbd> Renomear</li>
+            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Setas</kbd> Navegar</li>
+            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Ctrl+Z/Y</kbd> Desfazer/Refazer</li>
+            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Ctrl+F</kbd> Buscar</li>
+            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Scroll</kbd> Zoom</li>
           </ul>
         </div>
       )}
@@ -860,7 +1446,44 @@ const ModernMindMap = ({
         <Button variant="ghost" size="sm" className="w-10 h-10 p-0 rounded-xl hover:bg-gray-100" onClick={handleZoomIn}>
           <Plus className="h-4 w-4" />
         </Button>
+        <div className="w-px h-6 bg-gray-200" />
+        <Button variant="ghost" size="sm" className="w-10 h-10 p-0 rounded-xl hover:bg-gray-100" onClick={zoomToFit} title="Ajustar zoom">
+          <Maximize className="h-4 w-4" />
+        </Button>
       </div>
+
+      {/* Notes Modal */}
+      {notesNodeId && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setNotesNodeId(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <StickyNote className="h-4 w-4 text-amber-500" />
+                Notas - {nodes.find(n => n.id === notesNodeId)?.text}
+              </h3>
+              <button onClick={() => setNotesNodeId(null)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-4">
+              <textarea
+                value={notesText}
+                onChange={e => setNotesText(e.target.value)}
+                readOnly={isReadOnly}
+                placeholder="Adicionar notas..."
+                className="w-full h-40 p-3 border rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                autoFocus
+              />
+            </div>
+            {canEdit && (
+              <div className="p-4 border-t flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setNotesNodeId(null)} className="rounded-xl">Cancelar</Button>
+                <Button size="sm" onClick={saveNotes} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl">Salvar</Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       <LessonPickerModal
