@@ -1,10 +1,11 @@
 import { createBrowserClient } from '@supabase/ssr'
+import { ApiQueryBuilder, ApiRpcBuilder } from './api-query-builder'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-// Cliente para usar nos componentes (com cookies e configurações otimizadas)
-export const supabase = createBrowserClient(supabaseUrl, supabaseKey, {
+// Real Supabase client — used for auth, storage, and as fallback when no JWT
+const _supabaseReal = createBrowserClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
@@ -17,22 +18,14 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseKey, {
     fetch: (url, options = {}) => {
       return fetch(url, {
         ...options,
-        // Use signal only if explicitly provided, avoiding conflicts
         ...(options.signal && { signal: options.signal })
       }).catch((error: any) => {
-        // Silenciar AbortError no nível do fetch
         if (error.name === 'AbortError') {
-          console.log('🚫 Request aborted:', url.slice(-50))
-          throw error // Re-throw mas com log
-        }
-        
-        // Tratar erros de auth de forma mais suave
-        if (error.message?.includes('Invalid Refresh') || error.message?.includes('refresh_token')) {
-          console.log('🔑 Auth token expired, redirecting to login...')
-          // Não quebrar a aplicação, apenas logar
           throw error
         }
-        
+        if (error.message?.includes('Invalid Refresh') || error.message?.includes('refresh_token')) {
+          throw error
+        }
         throw error
       })
     }
@@ -47,6 +40,52 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseKey, {
   }
 })
 
+// Check if custom JWT token exists (logged in via Docker PostgreSQL API)
+function hasCustomJwt(): boolean {
+  if (typeof window === 'undefined') return false
+  return !!localStorage.getItem('cs_auth_token')
+}
+
+// Supabase-compatible wrapper that routes data queries through the API
+// when logged in via custom JWT. Auth/storage always go through real Supabase.
+export const supabase = {
+  from(table: string) {
+    if (hasCustomJwt()) {
+      return new ApiQueryBuilder(table) as any
+    }
+    return _supabaseReal.from(table)
+  },
+
+  rpc(name: string, params?: any) {
+    if (hasCustomJwt()) {
+      return new ApiRpcBuilder(name, params) as any
+    }
+    return _supabaseReal.rpc(name, params)
+  },
+
+  // Auth always goes through real Supabase (for mentorado pages, Supabase-based users)
+  get auth() {
+    return _supabaseReal.auth
+  },
+
+  // Storage always goes through real Supabase
+  get storage() {
+    return _supabaseReal.storage
+  },
+
+  // Realtime always goes through real Supabase
+  channel(...args: any[]) {
+    return (_supabaseReal as any).channel(...args)
+  },
+
+  removeChannel(...args: any[]) {
+    return (_supabaseReal as any).removeChannel(...args)
+  },
+} as any
+
+// Also export the real Supabase client for cases that explicitly need it
+export const supabaseReal = _supabaseReal
+
 export const createClient = () => createBrowserClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
@@ -60,13 +99,10 @@ export const createClient = () => createBrowserClient(supabaseUrl, supabaseKey, 
     fetch: (url, options = {}) => {
       return fetch(url, {
         ...options,
-        // Use signal only if explicitly provided, avoiding conflicts
         ...(options.signal && { signal: options.signal })
       }).catch((error: any) => {
-        // Silenciar AbortError no nível do fetch
         if (error.name === 'AbortError') {
-          console.log('🚫 Request aborted:', url.slice(-50))
-          throw error // Re-throw mas com log
+          throw error
         }
         throw error
       })
@@ -124,7 +160,6 @@ export interface FunnelStep {
 
 // Funções para Automações
 export const automationService = {
-  // Listar todas as automações
   async getAll() {
     const { data, error } = await supabase
       .from('instagram_automations')
@@ -135,7 +170,6 @@ export const automationService = {
     return data as AutomationRule[]
   },
 
-  // Criar nova automação
   async create(automation: Omit<AutomationRule, 'id' | 'created_at' | 'updated_at'>) {
     const { data, error } = await supabase
       .from('instagram_automations')
@@ -146,7 +180,6 @@ export const automationService = {
     return data[0] as AutomationRule
   },
 
-  // Atualizar automação
   async update(id: string, updates: Partial<AutomationRule>) {
     const { data, error } = await supabase
       .from('instagram_automations')
@@ -158,7 +191,6 @@ export const automationService = {
     return data[0] as AutomationRule
   },
 
-  // Deletar automação
   async delete(id: string) {
     const { error } = await supabase
       .from('instagram_automations')
@@ -168,9 +200,7 @@ export const automationService = {
     if (error) throw error
   },
 
-  // Ativar/Desativar automação
   async toggleActive(id: string) {
-    // Primeiro buscar o estado atual
     const { data: current } = await supabase
       .from('instagram_automations')
       .select('is_active')
@@ -179,7 +209,6 @@ export const automationService = {
 
     if (!current) throw new Error('Automação não encontrada')
 
-    // Inverter o estado
     const { data, error } = await supabase
       .from('instagram_automations')
       .update({
@@ -196,7 +225,6 @@ export const automationService = {
 
 // Funções para Funis
 export const funnelService = {
-  // Listar todos os funis
   async getAll() {
     const { data, error } = await supabase
       .from('instagram_funnels')
@@ -207,7 +235,6 @@ export const funnelService = {
     return data as Funnel[]
   },
 
-  // Criar novo funil
   async create(funnel: Omit<Funnel, 'id' | 'created_at' | 'updated_at'>) {
     const { data, error } = await supabase
       .from('instagram_funnels')
@@ -218,7 +245,6 @@ export const funnelService = {
     return data[0] as Funnel
   },
 
-  // Atualizar funil
   async update(id: string, updates: Partial<Funnel>) {
     const { data, error } = await supabase
       .from('instagram_funnels')
@@ -230,7 +256,6 @@ export const funnelService = {
     return data[0] as Funnel
   },
 
-  // Deletar funil
   async delete(id: string) {
     const { error } = await supabase
       .from('instagram_funnels')
@@ -262,7 +287,6 @@ export interface OrganizationUser {
 
 // Funções para gerenciar organizações
 export const organizationService = {
-  // Buscar organização do usuário com tratamento de erro aprimorado
   async getUserOrganization(userId: string) {
     try {
       const { data, error } = await supabase
@@ -283,7 +307,6 @@ export const organizationService = {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          // No rows returned - user not in any organization
           console.log('User not found in any organization');
           return null;
         }
@@ -305,7 +328,6 @@ export const organizationService = {
     }
   },
 
-  // Buscar usuários da organização
   async getOrganizationUsers(organizationId: string) {
     const { data, error } = await supabase
       .from('organization_users')
@@ -317,9 +339,7 @@ export const organizationService = {
     return data as OrganizationUser[]
   },
 
-  // Adicionar usuário à organização
   async addUserToOrganization(organizationId: string, email: string, role: 'owner' | 'manager' | 'viewer') {
-    // Verificar se o email já existe na organização
     const { data: existing } = await supabase
       .from('organization_users')
       .select('*')
@@ -337,7 +357,7 @@ export const organizationService = {
         organization_id: organizationId,
         email: email.toLowerCase(),
         role,
-        user_id: null // Será preenchido quando o usuário fizer login
+        user_id: null
       })
       .select()
 
@@ -345,7 +365,6 @@ export const organizationService = {
     return data[0] as OrganizationUser
   },
 
-  // Atualizar role do usuário
   async updateUserRole(userId: string, role: 'owner' | 'manager' | 'viewer') {
     const { data, error } = await supabase
       .from('organization_users')
@@ -357,7 +376,6 @@ export const organizationService = {
     return data[0] as OrganizationUser
   },
 
-  // Remover usuário da organização
   async removeUserFromOrganization(userId: string) {
     const { error } = await supabase
       .from('organization_users')
@@ -367,7 +385,6 @@ export const organizationService = {
     if (error) throw error
   },
 
-  // Verificar se usuário tem permissão
   async checkUserPermission(userId: string, organizationId: string, requiredRole?: string[]) {
     const { data, error } = await supabase
       .from('organization_users')
@@ -383,7 +400,6 @@ export const organizationService = {
     return requiredRole.includes(data.role)
   },
 
-  // Convidar usuário por email (função para futura implementação de convites)
   async inviteUser(organizationId: string, email: string, role: 'owner' | 'manager' | 'viewer', invitedBy: string) {
     const { data, error } = await supabase
       .from('organization_users')
@@ -392,7 +408,6 @@ export const organizationService = {
         email: email.toLowerCase(),
         role,
         user_id: null,
-        // Futuramente adicionar campos como invited_by, invitation_token, etc.
       })
       .select()
 
@@ -400,7 +415,6 @@ export const organizationService = {
     return data[0] as OrganizationUser
   },
 
-  // Listar todas as organizações do usuário
   async getUserOrganizations(userId: string) {
     const { data, error } = await supabase
       .from('organization_users')
@@ -424,7 +438,6 @@ export const organizationService = {
     }))
   },
 
-  // Atualizar organização
   async updateOrganization(organizationId: string, updates: Partial<Pick<Organization, 'name'>>) {
     const { data, error } = await supabase
       .from('organizations')
@@ -439,9 +452,7 @@ export const organizationService = {
     return data[0] as Organization
   },
 
-  // Deletar organização (apenas owners)
   async deleteOrganization(organizationId: string) {
-    // Primeiro deletar todos os usuários da organização
     const { error: usersError } = await supabase
       .from('organization_users')
       .delete()
@@ -449,7 +460,6 @@ export const organizationService = {
 
     if (usersError) throw usersError
 
-    // Depois deletar a organização
     const { error: orgError } = await supabase
       .from('organizations')
       .delete()
@@ -458,7 +468,6 @@ export const organizationService = {
     if (orgError) throw orgError
   },
 
-  // Criar nova organização
   async createOrganization(name: string, ownerEmail: string) {
     const { data, error } = await supabase
       .from('organizations')
@@ -472,7 +481,6 @@ export const organizationService = {
     return data[0] as Organization
   },
 
-  // Buscar estatísticas da organização com timeout e error handling
   async getOrganizationStats(organizationId: string) {
     try {
       const { data: users, error: usersError } = await supabase
@@ -514,7 +522,6 @@ export const organizationService = {
 
 // Funções para Steps de Funis
 export const funnelStepService = {
-  // Buscar steps de um funil
   async getByFunnelId(funnelId: string) {
     const { data, error } = await supabase
       .from('instagram_funnel_steps')
@@ -526,7 +533,6 @@ export const funnelStepService = {
     return data as FunnelStep[]
   },
 
-  // Criar novo step
   async create(step: Omit<FunnelStep, 'id' | 'created_at'>) {
     const { data, error } = await supabase
       .from('instagram_funnel_steps')
@@ -537,7 +543,6 @@ export const funnelStepService = {
     return data[0] as FunnelStep
   },
 
-  // Atualizar step
   async update(id: string, updates: Partial<FunnelStep>) {
     const { data, error } = await supabase
       .from('instagram_funnel_steps')
@@ -549,7 +554,6 @@ export const funnelStepService = {
     return data[0] as FunnelStep
   },
 
-  // Deletar step
   async delete(id: string) {
     const { error } = await supabase
       .from('instagram_funnel_steps')

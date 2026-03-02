@@ -309,8 +309,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('apiLoginSuccess', handleApiLogin)
 
     // VISIBILITYCHANGE: Recuperar sessão quando a aba volta a ficar visível
+    // Skip if using custom JWT — no Supabase session to recover
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !getToken()) {
         console.log('Tab visible - recovering session...')
         recoverSession()
       }
@@ -318,9 +319,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     // HEARTBEAT: Verificar sessão periodicamente como safety net
+    // Skip if using custom JWT — session is managed via JWT expiry
     heartbeatRef.current = setInterval(async () => {
-      // Só fazer heartbeat se a aba estiver visível
       if (document.visibilityState !== 'visible') return
+      if (getToken()) return // Using custom JWT, skip Supabase heartbeat
 
       try {
         const { data: { session } } = await supabase.auth.getSession()
@@ -390,13 +392,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Função para validar autenticação atual (força refresh do token server-side)
+  // Função para validar autenticação atual
   const refreshAuth = useCallback(async () => {
     console.log('Refresh auth forçado...')
     setLoading(true)
 
     try {
-      // Usar refreshSession() para forçar renovação server-side
+      // If using custom JWT, validate via API
+      const token = getToken()
+      if (token) {
+        try {
+          const meResponse = await apiFetch('/auth/me')
+          if (meResponse.ok) {
+            const meData = await meResponse.json()
+            const customUser = {
+              id: meData.user.id,
+              email: meData.user.email,
+              created_at: new Date().toISOString(),
+              app_metadata: {},
+              user_metadata: { nome: meData.user.nome },
+              aud: 'authenticated',
+              role: meData.role,
+            } as any
+            setUser(customUser)
+            setOrganizationId(meData.organization_id)
+            setOrgUser({
+              is_active: meData.is_active,
+              organization_id: meData.organization_id,
+              role: meData.role,
+              email: meData.user.email,
+            })
+            setIsAuthenticated(true)
+            saveAuthData(customUser, meData.organization_id)
+            return
+          }
+        } catch {
+          // JWT expired, fall through to clear
+        }
+        clearApiAuth()
+        setUser(null)
+        setOrganizationId(null)
+        setOrgUser(null)
+        setIsAuthenticated(false)
+        clearAuthData()
+        return
+      }
+
+      // Fallback: Supabase refreshSession
       const { data: { session }, error } = await supabase.auth.refreshSession()
 
       if (error || !session?.user) {
@@ -410,8 +452,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const currentUser = session.user
-
-      // Verificar organização
       const orgId = await getOrganizationForUser(currentUser)
 
       if (!orgId) {
