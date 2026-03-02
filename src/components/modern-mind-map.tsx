@@ -246,18 +246,23 @@ const MindMapEdgeComponent = ({ edge, fromNode, toNode }: { edge: MindMapEdge; f
 
   const pathData = `M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`
   const fromLevel = fromNode.level || 0
-  const lineWidth = fromLevel === 0 ? 4 : fromLevel === 1 ? 3 : 2.5
+  const lineWidth = fromLevel === 0 ? 3.5 : fromLevel === 1 ? 2.5 : 1.8
+  const opacity = fromLevel === 0 ? 0.65 : fromLevel === 1 ? 0.5 : 0.4
 
   return (
-    <path
-      d={pathData}
-      stroke={edge.color}
-      strokeWidth={lineWidth}
-      strokeLinecap="round"
-      fill="none"
-      className="pointer-events-none"
-      style={{ opacity: 0.6 }}
-    />
+    <g className="pointer-events-none">
+      <path
+        d={pathData}
+        stroke={edge.color}
+        strokeWidth={lineWidth}
+        strokeLinecap="round"
+        fill="none"
+        style={{ opacity }}
+      />
+      {/* Connection dot at child end */}
+      <circle cx={endX} cy={endY} r={fromLevel === 0 ? 4.5 : 3.5} fill={edge.color} opacity={opacity * 0.7} />
+      <circle cx={endX} cy={endY} r={fromLevel === 0 ? 2 : 1.5} fill="white" />
+    </g>
   )
 }
 
@@ -1033,28 +1038,29 @@ const ModernMindMap = ({
   }, [nodes])
 
   // ==========================================
-  // RENDER NODE
+  // RENDER NODE — MindMeister style
+  // Root: clean white card, large bold text
+  // Level 1: solid filled colored card, white text
+  // Level 2+: plain text with colored dot connector
   // ==========================================
   const renderNode = (node: MindMapNode) => {
     const isRoot = node.id === 'root'
+    const isLevel1 = node.level === 1
+    const isDeep = node.level >= 2
     const isSelected = selectedNodeId === node.id
     const isEditing = editingNodeId === node.id
     const hasLesson = !!node.linkedLesson?.id
     const hasNotes = !!node.notes
     const nodeColor = node.color || BRANCH_COLORS[0]
-    const bgColor = BRANCH_BG_COLORS[nodeColor] || '#F9FAFB'
-    const isDraggingThis = dragRef.current.active && dragRef.current.nodeId === node.id
+    const isDragging = dragRef.current.active && dragRef.current.nodeId === node.id
     const isHighlighted = highlightedNodeIds.has(node.id)
     const childCount = nodes.filter(n => n.parentId === node.id).length
     const descendantCount = node.collapsed ? getDescendantCount(node.id) : 0
 
+    // --- Editing input (adapts to level) ---
     if (isEditing && canEdit) {
       return (
-        <div
-          key={node.id}
-          className="absolute z-30"
-          style={{ left: node.x, top: node.y, transform: 'translate(-50%, -50%)' }}
-        >
+        <div key={node.id} className="absolute z-30" style={{ left: node.x, top: node.y, transform: 'translate(-50%, -50%)' }}>
           <input
             type="text"
             value={editingText}
@@ -1065,176 +1071,184 @@ const ModernMindMap = ({
             }}
             onBlur={handleSaveEdit}
             autoFocus
-            className="bg-white border-2 border-blue-500 rounded-2xl outline-none font-sans text-gray-800 text-center shadow-xl px-5 py-3"
+            className={`outline-none font-sans shadow-xl ${
+              isLevel1
+                ? 'rounded-xl text-white font-bold text-[15px] px-5 py-3.5 border-2 border-white/40'
+                : isRoot
+                  ? 'bg-white border-2 border-blue-400 rounded-2xl text-gray-800 text-xl font-bold px-6 py-4 text-center'
+                  : 'bg-white border-2 border-blue-400 rounded-lg text-gray-700 text-[13px] font-medium px-3 py-2'
+            }`}
             style={{
-              minWidth: '160px',
-              fontSize: isRoot ? '18px' : node.level === 1 ? '15px' : '14px',
-              fontWeight: isRoot ? 700 : node.level === 1 ? 600 : 400
+              minWidth: isRoot ? '200px' : isLevel1 ? '140px' : '100px',
+              ...(isLevel1 ? { backgroundColor: nodeColor } : {})
             }}
           />
         </div>
       )
     }
 
+    // --- Admin action buttons (shared across levels) ---
+    const actionButtons = canEdit && (
+      <div className={`
+        absolute ${isLevel1 ? '-top-4 -right-2' : '-top-3 -right-3'} flex items-center gap-1
+        transition-all duration-200
+        ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100'}
+      `}>
+        <button className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-white shadow-lg hover:scale-110 transition-transform"
+          onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); openNotes(node.id) }} title="Notas">
+          <StickyNote className="w-3 h-3" />
+        </button>
+        {!isRoot && (
+          <button className="w-6 h-6 rounded-full bg-pink-500 flex items-center justify-center text-white shadow-lg hover:scale-110 transition-transform"
+            onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setColorPickerNodeId(colorPickerNodeId === node.id ? null : node.id) }} title="Cor">
+            <Palette className="w-3 h-3" />
+          </button>
+        )}
+        {!isRoot && (
+          <button className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-110 transition-transform" style={{ backgroundColor: '#7C3AED' }}
+            onMouseDown={e => e.stopPropagation()} onClick={e => linkLesson(node.id, e)} title="Linkar aula">
+            <Video className="w-3 h-3" />
+          </button>
+        )}
+        <button className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-110 transition-transform"
+          onMouseDown={e => e.stopPropagation()} onClick={e => addChildNode(node.id, e)} title="Filho (Tab)">
+          <Plus className="w-3 h-3" />
+        </button>
+        {!isRoot && (
+          <button className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-110 transition-transform"
+            onMouseDown={e => e.stopPropagation()} onClick={e => deleteNode(node.id, e)} title="Deletar (Del)">
+            <X className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+    )
+
+    // --- Collapse indicator (shared) ---
+    const collapseBtn = childCount > 0 && (
+      <button
+        className={`absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all z-20 border-2 shadow-sm ${
+          node.collapsed
+            ? isLevel1
+              ? 'border-white/60 bg-white text-gray-700 hover:bg-gray-100'
+              : 'border-white bg-gray-700 text-white hover:bg-gray-600'
+            : isLevel1
+              ? 'border-white/40 bg-white/30 text-white hover:bg-white/50 opacity-0 group-hover:opacity-100'
+              : 'border-white bg-gray-200 text-gray-500 hover:bg-gray-300 opacity-0 group-hover:opacity-100'
+        }`}
+        onMouseDown={e => e.stopPropagation()}
+        onClick={e => { e.stopPropagation(); toggleCollapse(node.id) }}
+        title={node.collapsed ? `Expandir (${descendantCount})` : 'Recolher'}
+      >
+        {node.collapsed ? descendantCount : <ChevronRight className="h-3 w-3" />}
+      </button>
+    )
+
     return (
       <div
         key={node.id}
-        className={`absolute select-none group transition-transform duration-75 ${isDraggingThis ? 'z-30' : isSelected ? 'z-20' : 'z-10'}`}
+        className={`absolute select-none group transition-transform duration-75 ${isDragging ? 'z-30' : isSelected ? 'z-20' : 'z-10'}`}
         style={{ left: node.x, top: node.y, transform: 'translate(-50%, -50%)' }}
         onMouseDown={canEdit ? (e) => handleNodePointerDown(node.id, e) : undefined}
         onClick={isReadOnly ? () => handleMentoradoNodeClick(node.id) : undefined}
       >
-        {/* Node pill */}
-        <div
-          className={`
-            relative rounded-2xl border-2 transition-all duration-200 flex items-center gap-2
-            ${isRoot
-              ? 'px-6 py-4 shadow-lg'
-              : node.level === 1
-                ? 'px-4 py-2.5 shadow-md'
-                : 'px-3.5 py-2 shadow-sm'
-            }
-            ${isSelected && canEdit
-              ? 'ring-4 ring-blue-200 shadow-xl scale-105'
-              : ''
-            }
-            ${isDraggingThis ? 'shadow-2xl scale-110 opacity-90' : ''}
-            ${isReadOnly && hasLesson ? 'cursor-pointer hover:shadow-lg hover:scale-105' : ''}
-            ${canEdit ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : ''}
-            ${isHighlighted ? 'ring-4 ring-yellow-400 shadow-xl' : ''}
-          `}
-          style={{
-            borderColor: nodeColor,
-            backgroundColor: isRoot ? 'white' : bgColor,
-            ...(isRoot ? {
-              background: `linear-gradient(135deg, white 0%, ${bgColor} 100%)`
-            } : {})
-          }}
-        >
-          {/* Play icon for lesson nodes */}
-          {hasLesson && (
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: nodeColor }}
-            >
-              <Play className="h-3.5 w-3.5 text-white ml-0.5" />
-            </div>
-          )}
-
-          {/* Notes indicator */}
-          {hasNotes && (
-            <button
-              className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 hover:bg-amber-200 transition-colors"
-              onMouseDown={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); openNotes(node.id) }}
-              title="Ver notas"
-            >
-              <StickyNote className="h-3 w-3 text-amber-600" />
-            </button>
-          )}
-
-          {/* Text */}
-          <span
-            className="font-sans"
-            style={{
-              color: isRoot ? '#1F2937' : '#374151',
-              fontSize: isRoot ? '18px' : node.level === 1 ? '15px' : '13px',
-              fontWeight: isRoot ? 700 : node.level === 1 ? 600 : 500,
-              maxWidth: '250px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {node.text}
-          </span>
-
-          {/* Lesson badge (admin) */}
-          {hasLesson && canEdit && (
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: nodeColor + '20', color: nodeColor }}>
-              {node.linkedLesson!.title.length > 15 ? node.linkedLesson!.title.slice(0, 15) + '...' : node.linkedLesson!.title}
+        {/* ===== ROOT NODE: white card, large text ===== */}
+        {isRoot && (
+          <div className={`
+            relative flex items-center gap-2 px-7 py-4 rounded-2xl bg-white shadow-lg border border-gray-200/60 transition-all duration-200
+            ${canEdit ? 'cursor-grab active:cursor-grabbing hover:shadow-xl' : ''}
+            ${isDragging ? 'shadow-2xl scale-110 opacity-90' : ''}
+            ${isSelected && canEdit ? 'ring-4 ring-blue-200 shadow-xl scale-105' : ''}
+            ${isHighlighted ? 'ring-4 ring-yellow-400' : ''}
+          `}>
+            {hasNotes && (
+              <button className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 hover:bg-amber-200"
+                onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); openNotes(node.id) }}>
+                <StickyNote className="h-3 w-3 text-amber-600" />
+              </button>
+            )}
+            <span className="text-xl font-bold text-gray-800 font-sans" style={{ maxWidth: '320px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {node.text}
             </span>
-          )}
+            {collapseBtn}
+            {actionButtons}
+          </div>
+        )}
 
-          {/* Collapse indicator */}
-          {childCount > 0 && (
-            <button
-              className={`absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all z-20 border-2 border-white shadow-sm ${
-                node.collapsed
-                  ? 'bg-gray-700 text-white hover:bg-gray-600'
-                  : 'bg-gray-200 text-gray-500 hover:bg-gray-300 opacity-0 group-hover:opacity-100'
-              }`}
-              onMouseDown={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); toggleCollapse(node.id) }}
-              title={node.collapsed ? `Expandir (${descendantCount} nos)` : 'Recolher'}
-            >
-              {node.collapsed ? descendantCount : <ChevronRight className="h-3 w-3" />}
-            </button>
-          )}
+        {/* ===== LEVEL 1: solid colored card, white text ===== */}
+        {isLevel1 && (
+          <div
+            className={`
+              relative flex items-center gap-2.5 px-5 py-3.5 rounded-xl shadow-lg transition-all duration-200
+              ${canEdit ? 'cursor-grab active:cursor-grabbing hover:shadow-xl hover:scale-[1.03]' : ''}
+              ${isReadOnly && hasLesson ? 'cursor-pointer hover:shadow-xl hover:scale-105' : ''}
+              ${isDragging ? 'shadow-2xl scale-110 opacity-90' : ''}
+              ${isSelected && canEdit ? 'ring-4 ring-white/50 shadow-2xl scale-105' : ''}
+              ${isHighlighted ? 'ring-4 ring-yellow-400' : ''}
+            `}
+            style={{ backgroundColor: nodeColor }}
+          >
+            {hasLesson && (
+              <div className="w-7 h-7 rounded-full bg-white/25 flex items-center justify-center flex-shrink-0">
+                <Play className="h-3.5 w-3.5 text-white/90 ml-0.5" />
+              </div>
+            )}
+            {hasNotes && (
+              <button className="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center flex-shrink-0 hover:bg-white/40 transition-colors"
+                onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); openNotes(node.id) }}>
+                <StickyNote className="h-3 w-3 text-white/80" />
+              </button>
+            )}
+            <span className="text-[15px] font-bold text-white font-sans" style={{ maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {node.text}
+            </span>
+            {hasLesson && canEdit && (
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20 text-white/80 flex-shrink-0">
+                {node.linkedLesson!.title.length > 12 ? node.linkedLesson!.title.slice(0, 12) + '...' : node.linkedLesson!.title}
+              </span>
+            )}
+            {collapseBtn}
+            {actionButtons}
+          </div>
+        )}
 
-          {/* Admin action buttons */}
-          {canEdit && (
-            <div className={`
-              absolute -top-3 -right-3 flex items-center gap-1
-              transition-all duration-200
-              ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100'}
-            `}>
-              {/* Notes */}
-              <button
-                className="w-7 h-7 rounded-full flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110 bg-amber-500"
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); openNotes(node.id) }}
-                title="Notas"
-              >
-                <StickyNote className="w-3.5 h-3.5" />
+        {/* ===== LEVEL 2+: plain text with colored dot ===== */}
+        {isDeep && (
+          <div
+            className={`
+              relative flex items-center gap-2 py-1.5 px-2 rounded-lg transition-all duration-200
+              ${canEdit ? 'cursor-grab active:cursor-grabbing hover:bg-white/70' : ''}
+              ${isReadOnly && hasLesson ? 'cursor-pointer hover:bg-white/70' : ''}
+              ${isDragging ? 'shadow-lg scale-105 bg-white/80' : ''}
+              ${isSelected && canEdit ? 'bg-white/80 shadow-sm ring-2 ring-blue-300' : ''}
+              ${isHighlighted ? 'bg-yellow-50/80 ring-2 ring-yellow-400' : ''}
+            `}
+          >
+            {/* Colored connector dot */}
+            <div className="w-3.5 h-3.5 rounded-full flex-shrink-0 shadow-sm border-2 border-white" style={{ backgroundColor: nodeColor }} />
+            {hasLesson && (
+              <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: nodeColor }}>
+                <Play className="h-3 w-3 text-white ml-0.5" />
+              </div>
+            )}
+            {hasNotes && (
+              <button className="w-4 h-4 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 hover:bg-amber-200 transition-colors"
+                onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); openNotes(node.id) }}>
+                <StickyNote className="h-2.5 w-2.5 text-amber-600" />
               </button>
-              {/* Color */}
-              {!isRoot && (
-                <button
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110 bg-pink-500"
-                  onMouseDown={e => e.stopPropagation()}
-                  onClick={e => { e.stopPropagation(); setColorPickerNodeId(colorPickerNodeId === node.id ? null : node.id) }}
-                  title="Cor"
-                >
-                  <Palette className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {/* Link lesson */}
-              {!isRoot && (
-                <button
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110"
-                  style={{ backgroundColor: '#7C3AED' }}
-                  onMouseDown={e => e.stopPropagation()}
-                  onClick={e => linkLesson(node.id, e)}
-                  title="Linkar aula"
-                >
-                  <Video className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {/* Add child */}
-              <button
-                className="w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110"
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => addChildNode(node.id, e)}
-                title="Adicionar filho (Tab)"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-              {/* Delete */}
-              {!isRoot && (
-                <button
-                  className="w-7 h-7 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110"
-                  onMouseDown={e => e.stopPropagation()}
-                  onClick={e => deleteNode(node.id, e)}
-                  title="Deletar (Del)"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+            <span className="text-[13px] font-medium text-gray-700 font-sans" style={{ maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {node.text}
+            </span>
+            {hasLesson && canEdit && (
+              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: nodeColor + '18', color: nodeColor }}>
+                {node.linkedLesson!.title.length > 12 ? node.linkedLesson!.title.slice(0, 12) + '...' : node.linkedLesson!.title}
+              </span>
+            )}
+            {collapseBtn}
+            {actionButtons}
+          </div>
+        )}
 
         {/* Color picker popover */}
         {colorPickerNodeId === node.id && (
@@ -1242,9 +1256,7 @@ const ModernMindMap = ({
             {BRANCH_COLORS.map(c => (
               <button
                 key={c}
-                className={`w-7 h-7 rounded-full border-2 shadow-sm hover:scale-125 transition-transform ${
-                  c === nodeColor ? 'border-gray-800 scale-110' : 'border-white'
-                }`}
+                className={`w-7 h-7 rounded-full border-2 shadow-sm hover:scale-125 transition-transform ${c === nodeColor ? 'border-gray-800 scale-110' : 'border-white'}`}
                 style={{ backgroundColor: c }}
                 onMouseDown={e => e.stopPropagation()}
                 onClick={e => { e.stopPropagation(); changeNodeColor(node.id, c) }}
