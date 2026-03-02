@@ -90,7 +90,7 @@ export const MOCK_MODULES: MockModule[] = [
       { id: 'pos18', module_id: 'mod-posicionamento', title: 'Funil de conteúdo I', description: '', panda_video_embed_url: '4b7f8e4b-280e-4839-a076-352253b7053b', duration_minutes: 35, order_index: 18, is_active: true },
       { id: 'pos19', module_id: 'mod-posicionamento', title: 'Funil de conteúdo II', description: '', panda_video_embed_url: '96836f99-5599-450e-b095-d9a0e1f662e3', duration_minutes: 35, order_index: 19, is_active: true },
       { id: 'pos20', module_id: 'mod-posicionamento', title: 'Funil de manychat', description: '', panda_video_embed_url: '2c7a327a-bb50-4276-988d-4e66a7b1fb49', duration_minutes: 30, order_index: 20, is_active: true },
-      { id: 'pos21', module_id: 'mod-posicionamento', title: 'Posicionamento digital estratégico e intencional', description: '', panda_video_embed_url: 'PLACEHOLDER', duration_minutes: 40, order_index: 21, is_active: true },
+      { id: 'pos21', module_id: 'mod-posicionamento', title: 'Posicionamento digital estratégico e intencional', description: '', panda_video_embed_url: '79ffc554-e2b7-4629-bf35-2cdc353a9517', duration_minutes: 40, order_index: 21, is_active: true },
     ]
   },
   {
