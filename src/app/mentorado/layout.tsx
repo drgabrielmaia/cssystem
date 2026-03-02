@@ -64,20 +64,8 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
 
   const checkAuth = async () => {
     try {
-      // MOCK MODE: verificar cookie mock
+      // MOCK MODE: não setar mentorado no layout — deixar a página tratar via context
       if (MOCK_MODE) {
-        const cookies = document.cookie
-        const match = cookies.match(/mentorado_auth=mock:([^;]+)/)
-        if (match) {
-          const email = decodeURIComponent(match[1])
-          setMentorado(createMockMentorado(email))
-        }
-        // Também checar fallback localStorage
-        const fallback = localStorage.getItem('mentorado_auth_fallback')
-        if (!match && fallback && fallback.startsWith('mock:')) {
-          const email = fallback.replace('mock:', '')
-          setMentorado(createMockMentorado(email))
-        }
         setIsLoading(false)
         return
       }

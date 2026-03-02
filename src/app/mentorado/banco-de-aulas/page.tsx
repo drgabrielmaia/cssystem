@@ -7,6 +7,7 @@ import { Play, BookOpen, Clock, CheckCircle, Lock, Search, ArrowLeft, Archive, C
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { PandaVideoPlayer } from '@/components/PandaVideoPlayer'
 import Link from 'next/link'
+import { MOCK_MODE, MOCK_MODULES } from '@/lib/mock-data'
 
 interface VideoModule {
   id: string
@@ -60,6 +61,17 @@ export default function BancoDeAulasPage() {
   const loadAllVideoData = async (mentoradoData: any) => {
     setLoading(true)
     try {
+      // MOCK MODE: usar dados locais
+      if (MOCK_MODE) {
+        const mockModules = MOCK_MODULES.map(m => ({
+          ...m,
+          lessons: m.lessons.map(l => ({ ...l, is_current: true, progress: undefined }))
+        }))
+        setModules(mockModules as any)
+        setLoading(false)
+        return
+      }
+
       console.log('📚 Carregando TODAS as aulas para:', mentoradoData.id)
 
       // Step 1: Calcular dias desde entrada
