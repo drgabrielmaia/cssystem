@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { MOCK_MODE, MOCK_PASSWORD, createMockMentorado } from '@/lib/mock-data'
 
 interface Mentorado {
   id: string
@@ -151,6 +152,21 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       setError(null)
 
+      // MOCK MODE: verificar se tem mentorado mockado salvo
+      if (MOCK_MODE) {
+        const mockEmail = getCookie(COOKIE_NAME)
+        if (mockEmail && mockEmail.startsWith('mock:')) {
+          const email = mockEmail.replace('mock:', '')
+          setMentorado(createMockMentorado(email) as any)
+          setLoading(false)
+          return
+        }
+        // Sem cookie mock, não autenticado
+        setMentorado(null)
+        setLoading(false)
+        return
+      }
+
       // Debug: Verificar dispositivo
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
       console.log('📱 Dispositivo:', isMobile ? 'MOBILE' : 'DESKTOP')
@@ -294,6 +310,23 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null)
       console.log('🔍 Tentando login com email:', email)
+
+      // MOCK MODE: aceitar qualquer email com senha fixa
+      if (MOCK_MODE) {
+        if (password !== MOCK_PASSWORD) {
+          setError('Senha incorreta')
+          return false
+        }
+        const mockData = createMockMentorado(email) as any
+        setMentorado(mockData)
+        setCookie(COOKIE_NAME, `mock:${email}`)
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('mentoradoLoginSuccess'))
+        }, 50)
+        console.log('✅ Login mock realizado com sucesso')
+        return true
+      }
+
       console.log('📋 Versão do auth:', AUTH_VERSION)
 
       // Busca simplificada - primeiro tenta case-insensitive

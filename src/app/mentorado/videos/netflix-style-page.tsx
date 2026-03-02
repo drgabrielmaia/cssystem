@@ -6,6 +6,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Play, BookOpen, Clock, CheckCircle, Lock, Search, Star, Trophy, Medal, Award, FileText, MessageSquare, ThumbsUp, Download } from 'lucide-react'
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { PandaVideoPlayer } from '@/components/PandaVideoPlayer'
+import { MOCK_MODE, MOCK_MODULES } from '@/lib/mock-data'
 
 interface VideoModule {
   id: string
@@ -84,13 +85,26 @@ export default function NetflixStyleVideosPage() {
     if (mentorado && !authLoading) {
       console.log('🎥 Mentorado autenticado via cookie:', mentorado.nome_completo)
       loadVideoData(mentorado)
-      loadRankingData()
+      if (!MOCK_MODE) {
+        loadRankingData()
+      }
     }
   }, [mentorado, authLoading])
 
   const loadVideoData = async (mentoradoData: any) => {
     try {
       console.log('🎥 Carregando dados de vídeo para:', mentoradoData.id)
+
+      // MOCK MODE: usar dados locais sem Supabase
+      if (MOCK_MODE) {
+        const mockModules = MOCK_MODULES.map(m => ({
+          ...m,
+          lessons: m.lessons.map(l => ({ ...l, progress: undefined }))
+        }))
+        setModules(mockModules as any)
+        console.log('✅ Mock: Carregou', mockModules.length, 'módulos')
+        return
+      }
 
       // Step 1: Consultar video_access_control para saber quais módulos o mentorado pode acessar
       const { data: accessData, error: accessError } = await supabase
@@ -103,7 +117,6 @@ export default function NetflixStyleVideosPage() {
 
       if (accessError) {
         console.error('❌ Erro ao verificar acesso:', accessError)
-        // Fallback: carregar todos os módulos ativos da organização
         const { data: allModulesData } = await supabase
           .from('video_modules')
           .select('id')
@@ -113,7 +126,6 @@ export default function NetflixStyleVideosPage() {
       } else if (accessData && accessData.length > 0) {
         accessibleModuleIds = accessData.map(a => a.module_id)
       } else {
-        // Nenhum registro de acesso encontrado - carregar todos como fallback
         console.log('⚠️ Nenhum registro de acesso encontrado, liberando todos os módulos')
         const { data: allModulesData } = await supabase
           .from('video_modules')
@@ -121,28 +133,6 @@ export default function NetflixStyleVideosPage() {
           .eq('organization_id', mentoradoData.organization_id)
           .eq('is_active', true)
         accessibleModuleIds = allModulesData?.map(m => m.id) || []
-      }
-
-      // Validação de tempo: menos de 7 dias na mentoria = só Onboarding
-      const dataEntrada = mentoradoData.data_entrada ? new Date(mentoradoData.data_entrada) : null
-      const diasNaMentoria = dataEntrada
-        ? Math.floor((Date.now() - dataEntrada.getTime()) / (1000 * 60 * 60 * 24))
-        : 999 // Se não tiver data, libera tudo
-
-      if (diasNaMentoria < 7) {
-        console.log(`⏳ Mentorado com ${diasNaMentoria} dias na mentoria - exibindo apenas Onboarding`)
-        // Buscar só o módulo de Onboarding (order_index = 0)
-        const { data: onboardingModule } = await supabase
-          .from('video_modules')
-          .select('id')
-          .eq('organization_id', mentoradoData.organization_id)
-          .eq('is_active', true)
-          .eq('order_index', 0)
-          .single()
-
-        if (onboardingModule) {
-          accessibleModuleIds = accessibleModuleIds.filter(id => id === onboardingModule.id)
-        }
       }
 
       console.log('🔓 Módulos acessíveis:', accessibleModuleIds.length)
@@ -171,13 +161,7 @@ export default function NetflixStyleVideosPage() {
         .eq('is_current', true)
         .order('order_index', { ascending: true })
 
-      console.log('🎬 Query direta das aulas - Success:', !!lessonsData, 'Error:', !!lessonsError)
-      console.log('🎬 Aulas retornadas:', lessonsData?.length || 0)
-
       if (lessonsError) {
-        console.log('❌ Erro ao carregar aulas:', lessonsError.message)
-        console.log('🔧 Implementando fallback para aulas...')
-        // Fallback: tentar carregar aulas sem filtro específico (apenas atuais)
         const { data: fallbackLessons } = await supabase
           .from('video_lessons')
           .select('*')
@@ -185,16 +169,9 @@ export default function NetflixStyleVideosPage() {
           .eq('is_current', true)
           .order('order_index', { ascending: true })
 
-        console.log('🔧 Fallback aulas - Total:', fallbackLessons?.length || 0)
-
-        // Filtrar apenas aulas dos módulos acessíveis
         lessonsData = fallbackLessons?.filter(lesson =>
           accessibleModuleIds.includes(lesson.module_id)
         ) || []
-
-        console.log('✅ Fallback funcionou, aulas filtradas:', lessonsData.length)
-      } else {
-        console.log('✅ Query direta funcionou, aulas:', lessonsData?.length || 0)
       }
 
       // Carregar progresso do mentorado
@@ -204,29 +181,14 @@ export default function NetflixStyleVideosPage() {
         .eq('mentorado_id', mentoradoData.id)
 
       // Processar dados dos módulos
-      console.log('🔄 Processando módulos...')
       const processedModules = modulesData?.map(module => {
         const moduleLessons = lessonsData?.filter(l => l.module_id === module.id) || []
-        console.log(`📚 Módulo ${module.title}: ${moduleLessons.length} aulas encontradas`)
-
         const lessonsWithProgress = moduleLessons.map(lesson => {
           const lessonProgress = progressData?.find(p => p.lesson_id === lesson.id)
-          return {
-            ...lesson,
-            progress: lessonProgress
-          }
+          return { ...lesson, progress: lessonProgress }
         })
-
-        return {
-          ...module,
-          lessons: lessonsWithProgress
-        }
+        return { ...module, lessons: lessonsWithProgress }
       }) || []
-
-      console.log('📊 Resultado final:')
-      processedModules.forEach(module => {
-        console.log(`  📚 ${module.title}: ${module.lessons.length} aulas`)
-      })
 
       setModules(processedModules)
       console.log('✅ Carregou', processedModules.length, 'módulos com', lessonsData?.length || 0, 'aulas total')
@@ -242,8 +204,8 @@ export default function NetflixStyleVideosPage() {
     setSelectedLesson(lesson)
     setShowVideoModal(true)
 
-    // Marcar como iniciada se não foi ainda
-    if (!lesson.progress && mentorado) {
+    // Marcar como iniciada se não foi ainda (skip em mock mode)
+    if (!MOCK_MODE && !lesson.progress && mentorado) {
       supabase
         .from('lesson_progress')
         .upsert({
@@ -267,6 +229,12 @@ export default function NetflixStyleVideosPage() {
 
   const handleCompleteLesson = async (lessonId: string) => {
     if (!mentorado) return
+
+    // MOCK MODE: apenas fechar modal
+    if (MOCK_MODE) {
+      setShowVideoModal(false)
+      return
+    }
 
     try {
       await supabase

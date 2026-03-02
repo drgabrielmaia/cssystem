@@ -14,6 +14,7 @@ import { CacheRefreshHelper } from '@/components/cache-refresh-helper'
 import { RankingPorGenero } from '@/components/ranking/RankingPorGenero'
 import MentoradoInfoWrapper from '@/components/MentoradoInfoWrapper'
 import Link from 'next/link'
+import { MOCK_MODE, MOCK_MODULES } from '@/lib/mock-data'
 
 interface VideoModule {
   id: string
@@ -41,7 +42,9 @@ function MentoradoPageContent() {
 
   useEffect(() => {
     if (mentorado) {
-      checkProfileComplete()
+      if (!MOCK_MODE) {
+        checkProfileComplete()
+      }
       loadModules()
     }
   }, [mentorado])
@@ -56,6 +59,19 @@ function MentoradoPageContent() {
   const loadModules = async () => {
     try {
       console.log('📚 Carregando módulos para dashboard inicial')
+
+      // MOCK MODE: usar dados locais
+      if (MOCK_MODE) {
+        setModules(MOCK_MODULES.slice(0, 6).map(m => ({
+          id: m.id,
+          title: m.title,
+          description: m.description,
+          cover_image_url: m.cover_image_url,
+          is_active: m.is_active,
+          order_index: m.order_index,
+        })))
+        return
+      }
 
       const { data: modulesData, error } = await supabase
         .from('video_modules')
@@ -224,7 +240,7 @@ function MentoradoPageContent() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-[36px] font-bold text-white mb-2">
-                Olá, {mentorado?.nome_completo?.split(' ')[0]}!
+                {MOCK_MODE ? 'Bem-vindo!' : `Olá, ${mentorado?.nome_completo?.split(' ')[0]}!`}
               </h1>
               <p className="text-[16px] text-gray-300">
                 Continue seu aprendizado de onde parou
@@ -330,11 +346,13 @@ function MentoradoPageContent() {
         </section>
 
         {/* Ranking de Pontuação por Gênero - Componente Otimizado */}
-        <RankingPorGenero
-          showOnlyTop3={true}
-          enableAutoRefresh={true}
-          mentoradoId={mentorado?.id}
-        />
+        {!MOCK_MODE && (
+          <RankingPorGenero
+            showOnlyTop3={true}
+            enableAutoRefresh={true}
+            mentoradoId={mentorado?.id}
+          />
+        )}
 
         {/* Continue Watching Section - Modules Grid */}
         <section>
@@ -478,43 +496,45 @@ function MentoradoPageContent() {
           </div>
         </section>
 
-        {/* Account Info */}
-        <section>
-          <h2 className="text-[24px] font-semibold text-white mb-6">
-            Informações da conta
-          </h2>
-          <div className="bg-[#1A1A1A] rounded-[8px] p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <div className="flex items-center mb-3">
-                  <div className="w-3 h-3 bg-[#22C55E] rounded-full mr-3"></div>
-                  <span className="text-[16px] text-white font-medium">Status: Ativo</span>
+        {/* Account Info - oculto em mock mode */}
+        {!MOCK_MODE && (
+          <section>
+            <h2 className="text-[24px] font-semibold text-white mb-6">
+              Informações da conta
+            </h2>
+            <div className="bg-[#1A1A1A] rounded-[8px] p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="flex items-center mb-3">
+                    <div className="w-3 h-3 bg-[#22C55E] rounded-full mr-3"></div>
+                    <span className="text-[16px] text-white font-medium">Status: Ativo</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-[#E879F9] rounded-full mr-3"></div>
+                    <span className="text-[16px] text-white font-medium">
+                      Estado: {mentorado?.estado_atual || 'Em progresso'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-[#E879F9] rounded-full mr-3"></div>
-                  <span className="text-[16px] text-white font-medium">
-                    Estado: {mentorado?.estado_atual || 'Em progresso'}
-                  </span>
-                </div>
-              </div>
-              <div className="text-gray-400">
-                <p className="text-[14px] mb-2">
-                  <strong className="text-white">Email:</strong> {mentorado?.email}
-                </p>
-                {mentorado?.telefone && (
-                  <p className="text-[14px]">
-                    <strong className="text-white">Telefone:</strong> {mentorado?.telefone}
+                <div className="text-gray-400">
+                  <p className="text-[14px] mb-2">
+                    <strong className="text-white">Email:</strong> {mentorado?.email}
                   </p>
-                )}
+                  {mentorado?.telefone && (
+                    <p className="text-[14px]">
+                      <strong className="text-white">Telefone:</strong> {mentorado?.telefone}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
       </div>
 
 
-      {/* Modal de Gênero e Especialidade */}
-      {mentorado && (
+      {/* Modal de Gênero e Especialidade - oculto em mock mode */}
+      {!MOCK_MODE && mentorado && (
         <GeneroEspecialidadeModal
           isOpen={showGeneroEspecialidadeModal}
           onClose={() => {

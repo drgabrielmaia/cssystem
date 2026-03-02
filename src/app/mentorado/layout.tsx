@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { usePathname } from 'next/navigation'
+import { MOCK_MODE, createMockMentorado } from '@/lib/mock-data'
 import Link from 'next/link'
 import { MentoradoAuthProvider } from '@/contexts/mentorado-auth'
 import {
@@ -63,6 +64,24 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
 
   const checkAuth = async () => {
     try {
+      // MOCK MODE: verificar cookie mock
+      if (MOCK_MODE) {
+        const cookies = document.cookie
+        const match = cookies.match(/mentorado_auth=mock:([^;]+)/)
+        if (match) {
+          const email = decodeURIComponent(match[1])
+          setMentorado(createMockMentorado(email))
+        }
+        // Também checar fallback localStorage
+        const fallback = localStorage.getItem('mentorado_auth_fallback')
+        if (!match && fallback && fallback.startsWith('mock:')) {
+          const email = fallback.replace('mock:', '')
+          setMentorado(createMockMentorado(email))
+        }
+        setIsLoading(false)
+        return
+      }
+
       const { data: { session } } = await supabase.auth.getSession()
 
       if (session?.user) {
