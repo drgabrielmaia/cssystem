@@ -3,7 +3,7 @@
 // Remover este arquivo quando o Supabase voltar
 // ============================================================
 
-export const MOCK_MODE = true // <-- Mudar para false quando Supabase voltar
+export const MOCK_MODE = false // Supabase ativo - dados reais no banco
 export const MOCK_PASSWORD = 'medicosderesultado'
 
 export interface MockModule {
@@ -90,8 +90,6 @@ export const MOCK_MODULES: MockModule[] = [
       { id: 'pos18', module_id: 'mod-posicionamento', title: 'Funil de conteúdo I', description: '', panda_video_embed_url: '4b7f8e4b-280e-4839-a076-352253b7053b', duration_minutes: 35, order_index: 18, is_active: true },
       { id: 'pos19', module_id: 'mod-posicionamento', title: 'Funil de conteúdo II', description: '', panda_video_embed_url: '96836f99-5599-450e-b095-d9a0e1f662e3', duration_minutes: 35, order_index: 19, is_active: true },
       { id: 'pos20', module_id: 'mod-posicionamento', title: 'Funil de manychat', description: '', panda_video_embed_url: '2c7a327a-bb50-4276-988d-4e66a7b1fb49', duration_minutes: 30, order_index: 20, is_active: true },
-      { id: 'pos21', module_id: 'mod-posicionamento', title: 'Posicionamento digital estratégico e intencional', description: '', panda_video_embed_url: '79ffc554-e2b7-4629-bf35-2cdc353a9517', duration_minutes: 40, order_index: 21, is_active: true },
-      { id: 'pos22', module_id: 'mod-posicionamento', title: 'Posicionamento digital para médicos - parte 2', description: '', panda_video_embed_url: '47078990-1290-4eee-baa7-6c249136cf96', duration_minutes: 40, order_index: 22, is_active: true },
     ]
   },
   {
@@ -187,6 +185,18 @@ export const MOCK_MODULES: MockModule[] = [
       { id: 'hs11', module_id: 'mod-hotseats', title: 'Hotseat 11 - Tráfego pago 1', description: '', panda_video_embed_url: 'a69507b8-f9b2-437d-94fb-3a41e52e845b', duration_minutes: 60, order_index: 11, is_active: true },
       { id: 'hs12', module_id: 'mod-hotseats', title: 'Hotseat 12 - Tráfego pago 2', description: '', panda_video_embed_url: 'eb1f8df4-f013-450b-84ae-5aa8da0a95cf', duration_minutes: 60, order_index: 12, is_active: true },
       { id: 'hs13', module_id: 'mod-hotseats', title: 'Hotseat 13 - Avaliando protocolos', description: '', panda_video_embed_url: 'b9c3afaf-71a1-4db8-b9e5-8078276849e2', duration_minutes: 60, order_index: 13, is_active: true },
+    ]
+  },
+  {
+    id: 'mod-onboarding',
+    title: 'Onboarding',
+    description: 'Boas-vindas e primeiros passos na mentoria.',
+    order_index: 7,
+    cover_image_url: 'https://medicosderesultado.com/wp-content/uploads/2024/10/modulo-onboarding.png',
+    is_active: true,
+    lessons: [
+      { id: 'ob1', module_id: 'mod-onboarding', title: 'Sua chave começa a virar agora!', description: '', panda_video_embed_url: 'dc4b635c-ce6a-4ded-9935-f499393e5240', duration_minutes: 15, order_index: 1, is_active: true },
+      { id: 'ob2', module_id: 'mod-onboarding', title: 'Abertura', description: '', panda_video_embed_url: '912a4bfd-761e-4bd5-a37c-ffc2245ff684', duration_minutes: 10, order_index: 2, is_active: true },
     ]
   },
 ]
