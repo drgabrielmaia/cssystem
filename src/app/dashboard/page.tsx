@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Navbar } from '@/components/dashboard/Navbar'
-import { Sidebar } from '@/components/dashboard/Sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Building2, Crown, Shield, User2, Loader2, DollarSign, Target, RefreshCw, AlertCircle, Eye, EyeOff, Calendar, UserX, UserMinus } from 'lucide-react'
@@ -85,19 +83,19 @@ export default function DashboardPage() {
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'owner': return <Crown className="w-4 h-4 text-purple-500" />
-      case 'manager': return <Shield className="w-4 h-4 text-blue-500" />
-      case 'viewer': return <User2 className="w-4 h-4 text-green-500" />
-      default: return <User2 className="w-4 h-4 text-gray-400" />
+      case 'owner': return <Crown className="w-4 h-4 text-purple-400" />
+      case 'manager': return <Shield className="w-4 h-4 text-blue-400" />
+      case 'viewer': return <User2 className="w-4 h-4 text-emerald-400" />
+      default: return <User2 className="w-4 h-4 text-white/40" />
     }
   }
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
-      case 'owner': return 'bg-purple-100 text-purple-700 border-purple-200'
-      case 'manager': return 'bg-blue-100 text-blue-700 border-blue-200'
-      case 'viewer': return 'bg-green-100 text-green-700 border-green-200'
-      default: return 'bg-gray-100 text-gray-700 border-gray-200'
+      case 'owner': return 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+      case 'manager': return 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+      case 'viewer': return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+      default: return 'bg-white/10 text-white/60 border-white/20'
     }
   }
 
@@ -114,8 +112,8 @@ export default function DashboardPage() {
   const EvolutionTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-gray-900 text-white p-3 rounded-lg shadow-xl border border-gray-700 text-sm">
-          <p className="font-bold mb-2">{label}</p>
+        <div className="bg-[#1a1a1e] text-white p-3 rounded-xl shadow-2xl border border-white/[0.08] text-sm">
+          <p className="font-bold mb-2 text-white/90">{label}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} style={{ color: entry.color }} className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: entry.color }}></span>
@@ -129,433 +127,424 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Navbar */}
-      <Navbar />
-
-      <div className="flex">
-        {/* Sidebar */}
-        <Sidebar />
-
-        {/* Main Content */}
-        <main className="flex-1 px-8 py-6">
-          <div className="max-w-7xl mx-auto space-y-8">
-            {/* Welcome Section */}
-            <div className="bg-card p-8 rounded-2xl border">
-              <div className="flex items-center justify-between mb-4">
-                <h1 className="text-2xl font-semibold text-foreground">Dashboard do Customer Success</h1>
+    <div className="min-h-screen bg-[#0a0a0c]">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-30 bg-[#0a0a0c]/80 backdrop-blur-xl border-b border-white/[0.06]">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <DollarSign className="h-5 w-5 text-white" />
               </div>
-              <p className="text-muted-foreground mb-6">
-                Bem-vindo ao sistema de Customer Success. Use o menu lateral para navegar pelas funcionalidades.
-              </p>
-
-              {/* Date Filter Buttons */}
-              <div className="flex flex-wrap items-center gap-2 mb-6">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-muted-foreground mr-1">Filtro:</span>
-                {DATE_FILTER_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setDateFilter(option.value)}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
-                      dateFilter === option.value
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
+              <div>
+                <h1 className="text-xl font-bold text-white tracking-tight">Dashboard</h1>
+                <p className="text-xs text-white/40 mt-0.5">Centro de resultados e performance</p>
               </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={refetch}
+                className="flex items-center gap-2 px-4 py-2 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl text-sm font-medium text-white/70 hover:text-white transition-all"
+              >
+                <RefreshCw className={`w-4 h-4 ${metricsLoading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{metricsLoading ? 'Atualizando...' : 'Atualizar'}</span>
+              </button>
+              <button
+                onClick={() => setShowValues(!showValues)}
+                className="flex items-center gap-2 px-4 py-2 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl text-sm font-medium text-white/70 hover:text-white transition-all"
+                title={showValues ? "Ocultar valores" : "Mostrar valores"}
+              >
+                {showValues ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <span className="hidden sm:inline">{showValues ? 'Ocultar' : 'Mostrar'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
-              {/* Custom date inputs */}
-              {dateFilter === 'custom' && (
-                <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-muted/50 rounded-lg border">
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-muted-foreground">De:</label>
-                    <input
-                      type="date"
-                      value={customStartDate}
-                      onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="px-3 py-1.5 text-sm border rounded-lg bg-background text-foreground"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-muted-foreground">Até:</label>
-                    <input
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="px-3 py-1.5 text-sm border rounded-lg bg-background text-foreground"
-                    />
-                  </div>
-                </div>
-              )}
+      {/* Main Content */}
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-              {/* Organization Info */}
-              {loading ? (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Carregando informações da organização...</span>
-                </div>
-              ) : isReady && activeOrganization ? (
-                <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Building2 className="w-5 h-5 text-blue-600" />
-                      Organização Ativa
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{organizationName}</h3>
-                          <p className="text-sm text-gray-600">
-                            Owner: {activeOrganization.organization.owner_email}
-                          </p>
-                        </div>
-
-                        <div className="flex flex-col items-end gap-2">
-                          {userRole && (
-                            <Badge variant="outline" className={getRoleBadgeColor(userRole)}>
-                              {getRoleIcon(userRole)}
-                              <span className="ml-1 capitalize">{userRole}</span>
-                            </Badge>
-                          )}
-
-                          <div className="text-xs text-gray-500">
-                            ID: {activeOrganizationId}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-4 text-sm">
-                        <div className="flex items-center gap-1">
-                          <span className={`w-2 h-2 rounded-full ${canManage ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
-                          <span className="text-gray-600">
-                            {canManage ? 'Pode gerenciar dados' : 'Acesso apenas para visualização'}
-                          </span>
-                        </div>
-
-                        {isOwner && (
-                          <div className="flex items-center gap-1">
-                            <Crown className="w-3 h-3 text-purple-500" />
-                            <span className="text-purple-600 font-medium">Proprietário</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3">
-                      <Building2 className="w-8 h-8 text-red-500" />
-                      <div>
-                        <h3 className="font-semibold text-gray-900">Nenhuma organização ativa</h3>
-                        <p className="text-sm text-gray-600">
-                          Você precisa ser membro de uma organização para acessar o sistema.
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+        {/* Date Filter + Organization Row */}
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Date Filters Card */}
+          <div className="flex-1 bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06]">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <Calendar className="w-4 h-4 text-white/40" />
+              <span className="text-sm font-medium text-white/50 mr-1">Periodo:</span>
+              {DATE_FILTER_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setDateFilter(option.value)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    dateFilter === option.value
+                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
+                      : 'bg-white/[0.05] text-white/50 hover:bg-white/[0.08] hover:text-white/80 border border-white/[0.06]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
 
-            {/* Faturamento Card - Full Width Hero */}
-            {isReady && (
-              <div className="space-y-6">
-                {metricsLoading ? (
-                  <OptimizedLoadingCard />
-                ) : metricsError ? (
-                  <Card className="relative overflow-hidden bg-gradient-to-br from-red-400 via-red-500 to-red-600 border-2 border-red-400 shadow-2xl">
-                    <CardContent className="pt-6 text-center text-white">
-                      <AlertCircle className="w-12 h-12 mx-auto mb-4" />
-                      <h3 className="text-xl font-bold mb-2">Erro ao carregar métricas</h3>
-                      <p className="text-sm mb-4">{metricsError}</p>
-                      <button
-                        onClick={refetch}
-                        className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium transition-all"
-                      >
-                        <RefreshCw className="w-4 h-4 inline mr-2" />
-                        Tentar Novamente
-                      </button>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card className="relative overflow-hidden bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 border-2 border-yellow-400 shadow-2xl">
-                    <CardContent className="pt-6 relative z-10">
-                      <>
-                        {/* Stale data indicator */}
-                        {isStale && (
-                          <div className="absolute top-2 right-2 bg-orange-500/80 text-white text-xs px-2 py-1 rounded-full animate-pulse z-20">
-                            Atualizando...
-                          </div>
-                        )}
+            {/* Custom date inputs */}
+            {dateFilter === 'custom' && (
+              <div className="flex flex-wrap items-center gap-4 mt-3 p-4 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-white/50">De:</label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="px-3 py-1.5 text-sm border border-white/[0.08] rounded-lg bg-white/[0.05] text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-white/50">Ate:</label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="px-3 py-1.5 text-sm border border-white/[0.08] rounded-lg bg-white/[0.05] text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
 
-                        {/* Efeito de brilho no fundo */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 animate-pulse"></div>
+          {/* Organization Info */}
+          <div className="lg:w-[380px]">
+            {loading ? (
+              <div className="bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06] flex items-center gap-3 h-full">
+                <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
+                <span className="text-sm text-white/50">Carregando organizacao...</span>
+              </div>
+            ) : isReady && activeOrganization ? (
+              <div className="bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06] h-full">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-violet-700 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                    <Building2 className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-white text-sm truncate">{organizationName}</h3>
+                    <p className="text-xs text-white/40 truncate">
+                      {activeOrganization.organization.owner_email}
+                    </p>
+                  </div>
+                  {userRole && (
+                    <Badge variant="outline" className={`${getRoleBadgeColor(userRole)} text-xs`}>
+                      {getRoleIcon(userRole)}
+                      <span className="ml-1 capitalize">{userRole}</span>
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${canManage ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+                    <span className="text-white/50">
+                      {canManage ? 'Pode gerenciar' : 'Visualizacao'}
+                    </span>
+                  </div>
+                  {isOwner && (
+                    <div className="flex items-center gap-1">
+                      <Crown className="w-3 h-3 text-purple-400" />
+                      <span className="text-purple-400 font-medium">Proprietario</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[#1a1a1e] rounded-2xl p-5 border border-red-500/20 h-full">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg shadow-red-500/20">
+                    <Building2 className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white text-sm">Nenhuma organizacao ativa</h3>
+                    <p className="text-xs text-white/40">
+                      Voce precisa ser membro de uma organizacao.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
-                        {/* Header Premium */}
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <h3 className="text-xl font-extrabold text-gray-900 flex items-center gap-2">
-                              FATURAMENTO
-                              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                                {DATE_FILTER_OPTIONS.find(o => o.value === dateFilter)?.label || 'Mês'}
-                              </span>
-                            </h3>
-                            <p className="text-sm text-gray-700 font-medium">Centro de Resultados</p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={() => setShowValues(!showValues)}
-                              className="bg-white/20 hover:bg-white/30 p-2 rounded-full shadow-lg transition-all duration-200 hover:scale-110"
-                              title={showValues ? "Ocultar valores" : "Mostrar valores"}
-                            >
-                              {showValues ? (
-                                <EyeOff className="w-5 h-5 text-gray-900" />
-                              ) : (
-                                <Eye className="w-5 h-5 text-gray-900" />
-                              )}
-                            </button>
-                            <button
-                              onClick={refetch}
-                              className="bg-white/20 hover:bg-white/30 p-2 rounded-full shadow-lg transition-all duration-200 hover:scale-110"
-                              title="Atualizar dados"
-                            >
-                              <RefreshCw className="w-5 h-5 text-gray-900" />
-                            </button>
-                            <div className="bg-white/20 p-3 rounded-full shadow-lg">
-                              <DollarSign className="w-8 h-8 text-gray-900" />
-                            </div>
-                          </div>
-                        </div>
+        {/* Faturamento + KPIs */}
+        {isReady && (
+          <div className="space-y-6">
+            {metricsLoading ? (
+              <OptimizedLoadingCard />
+            ) : metricsError ? (
+              <div className="bg-[#1a1a1e] rounded-2xl p-8 border border-red-500/20 text-center">
+                <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-400" />
+                <h3 className="text-xl font-bold mb-2 text-white">Erro ao carregar metricas</h3>
+                <p className="text-sm mb-4 text-white/50">{metricsError}</p>
+                <button
+                  onClick={refetch}
+                  className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 px-5 py-2.5 rounded-xl font-medium transition-all text-red-300 hover:text-red-200"
+                >
+                  <RefreshCw className="w-4 h-4 inline mr-2" />
+                  Tentar Novamente
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Faturamento Hero Card */}
+                <div className="relative overflow-hidden bg-[#1a1a1e] rounded-2xl border border-white/[0.06] shadow-2xl">
+                  {/* Gradient accent line at top */}
+                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-500" />
 
-                        {/* Valor Principal Destacado */}
-                        <div className="text-center mb-6 bg-black/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                          <div className={`text-4xl md:text-5xl font-black text-gray-900 mb-2 drop-shadow-lg transition-all duration-300 ${
-                            !showValues ? 'blur-sm select-none' : ''
+                  {/* Subtle glow effect */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] bg-gradient-to-b from-emerald-500/[0.06] to-transparent rounded-full blur-3xl pointer-events-none" />
+
+                  <div className="relative p-6">
+                    {/* Stale data indicator */}
+                    {isStale && (
+                      <div className="absolute top-4 right-4 bg-amber-500/20 text-amber-300 text-xs px-3 py-1 rounded-full animate-pulse border border-amber-500/20 z-20">
+                        Atualizando...
+                      </div>
+                    )}
+
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                          FATURAMENTO
+                          <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full border border-emerald-500/20 font-medium">
+                            {DATE_FILTER_OPTIONS.find(o => o.value === dateFilter)?.label || 'Mes'}
+                          </span>
+                        </h3>
+                        <p className="text-sm text-white/40 mt-0.5">Centro de Resultados</p>
+                      </div>
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                        <DollarSign className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+
+                    {/* Main Value */}
+                    <div className="text-center mb-6 bg-white/[0.03] backdrop-blur-sm rounded-2xl p-6 border border-white/[0.06]">
+                      <div className={`text-4xl md:text-5xl font-black text-white mb-2 tracking-tight transition-all duration-300 ${
+                        !showValues ? 'blur-md select-none' : ''
+                      }`}>
+                        {showValues ? formatCurrency(salesMetrics.valor_vendido) : 'R$ ***.***,**'}
+                      </div>
+                      <div className="text-base font-semibold text-white/60">
+                        Valor Total Vendido
+                      </div>
+                      <div className={`text-sm text-white/40 mt-2 bg-white/[0.05] rounded-lg px-3 py-1.5 inline-block transition-all duration-300 border border-white/[0.04] ${
+                        !showValues ? 'blur-md select-none' : ''
+                      }`}>
+                        Meta: <span className="font-bold text-white/60">{showValues ? formatCurrency(500000) : 'R$ ***.***,**'}</span> |
+                        {showValues ? ` ${arrecadacaoPercentage.toFixed(1)}% arrecadado` : ' **.* % arrecadado'}
+                      </div>
+                    </div>
+
+                    {/* KPI Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+
+                      {/* Meta Progress */}
+                      <div className="group relative bg-white/[0.03] backdrop-blur-sm p-5 rounded-2xl border border-white/[0.06] hover:border-emerald-500/20 transition-all duration-300 overflow-hidden">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-500/[0.06] to-transparent rounded-bl-full transition-all group-hover:from-emerald-500/[0.1]" />
+                        <div className="relative text-center">
+                          <div className={`text-3xl font-bold text-white mb-1 transition-all duration-300 ${
+                            !showValues ? 'blur-md select-none' : ''
                           }`}>
-                            {showValues ? formatCurrency(salesMetrics.valor_vendido) : 'R$ ***.***,**'}
+                            <Target className="w-5 h-5 inline mr-1 text-emerald-400" />
+                            {showValues ? (salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_vendido / 500000) * 100).toFixed(1) : '0.0') : '**.* '}%
                           </div>
-                          <div className="text-lg font-bold text-gray-800">
-                            Valor Total Vendido
-                          </div>
-                          <div className={`text-sm text-gray-700 mt-2 bg-white/50 rounded-lg px-3 py-1 inline-block transition-all duration-300 ${
-                            !showValues ? 'blur-sm select-none' : ''
-                          }`}>
-                            Meta: <span className="font-bold">{showValues ? formatCurrency(500000) : 'R$ ***.***,**'}</span> |
-                            {showValues ? ` ${arrecadacaoPercentage.toFixed(1)}% arrecadado` : ' **.* % arrecadado'}
-                          </div>
-                        </div>
-
-                        {/* Métricas em Grid Elegante */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-
-                          {/* Progresso da Meta */}
-                          <div className="bg-black/20 backdrop-blur-sm p-4 rounded-xl border border-white/30">
-                            <div className="text-center">
-                              <div className={`text-2xl font-bold text-gray-900 mb-1 transition-all duration-300 ${
-                                !showValues ? 'blur-sm select-none' : ''
-                              }`}>
-                                <Target className="w-5 h-5 inline mr-1" />
-                                {showValues ? (salesMetrics.valor_vendido > 0 ? ((salesMetrics.valor_vendido / 500000) * 100).toFixed(1) : '0.0') : '**.* '}%
-                              </div>
-                              <div className="text-sm font-semibold text-gray-800 mb-2">Meta Atingida</div>
-                              <div className="h-2 bg-gray-900/30 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full transition-all duration-1000 ${
-                                    showValues ? (
-                                      (salesMetrics.valor_vendido / 500000) > 0.8 ? 'bg-green-400' :
-                                      (salesMetrics.valor_vendido / 500000) >= 0.5 ? 'bg-yellow-300' : 'bg-red-400'
-                                    ) : 'bg-gray-400'
-                                  }`}
-                                  style={{ width: `${showValues ? Math.min((salesMetrics.valor_vendido / 500000) * 100, 100) : 30}%` }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Taxa de Conversão */}
-                          <div className="bg-black/20 backdrop-blur-sm p-4 rounded-xl border border-white/30">
-                            <div className="text-center">
-                              <div className={`text-2xl font-bold text-gray-900 mb-1 transition-all duration-300 ${
-                                !showValues ? 'blur-sm select-none' : ''
-                              }`}>
-                                {showValues ? (callsMetrics.total_calls > 0 ? ((callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100).toFixed(1) : '0.0') : '**.* '}%
-                              </div>
-                              <div className="text-sm font-semibold text-gray-800 mb-2">Conversão</div>
-                              <div className="h-2 bg-gray-900/30 rounded-full overflow-hidden mb-1">
-                                <div
-                                  className={`h-full transition-all duration-1000 ${
-                                    showValues ? (
-                                      callsMetrics.total_calls > 0
-                                        ? (() => {
-                                            const conversionRate = (callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100;
-                                            if (conversionRate >= 50) return 'bg-green-400';
-                                            if (conversionRate >= 30) return 'bg-yellow-300';
-                                            return 'bg-red-400';
-                                          })()
-                                        : 'bg-gray-400'
-                                    ) : 'bg-gray-400'
-                                  }`}
-                                  style={{
-                                    width: `${showValues ? (
-                                      callsMetrics.total_calls > 0
-                                        ? Math.min(((callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100) / 50 * 100, 100)
-                                        : 0
-                                    ) : 60}%`
-                                  }}
-                                />
-                              </div>
-                              <div className={`text-xs text-gray-700 transition-all duration-300 ${
-                                !showValues ? 'blur-sm select-none' : ''
-                              }`}>
-                                {showValues ? `${callsMetrics.calls_vendidas || 0}/${callsMetrics.total_calls || 0}` : '***/***'} calls
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* % Arrecadado */}
-                          <div className="bg-black/20 backdrop-blur-sm p-4 rounded-xl border border-white/30">
-                            <div className="text-center">
-                              <div className={`text-2xl font-bold text-gray-900 mb-1 transition-all duration-300 ${
-                                !showValues ? 'blur-sm select-none' : ''
-                              }`}>
-                                {showValues ? arrecadacaoPercentage.toFixed(1) : '**.* '}%
-                              </div>
-                              <div className="text-sm font-semibold text-gray-800 mb-1">Arrecadado</div>
-                              <div className="text-xs text-gray-700">
-                                do total vendido
-                              </div>
-                            </div>
-                          </div>
-
-                        </div>
-
-                        {/* Régua de Arrecadação Premium - 5 segments */}
-                        <div className="bg-black/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-lg font-bold text-gray-900">Performance de Arrecadação</h4>
-                            <div className={`text-2xl font-black text-gray-900 transition-all duration-300 ${
-                              !showValues ? 'blur-sm select-none' : ''
-                            }`}>
-                              {showValues ? arrecadacaoPercentage.toFixed(1) : '**.* '}%
-                            </div>
-                          </div>
-
-                          {/* Barra de Progresso - 5 faixas */}
-                          <div className="relative h-6 bg-gray-900/30 rounded-full overflow-hidden mb-3 shadow-inner">
-                            {/* Faixas de cores de fundo: 20% + 20% + 20% + 10% + 30% = 100% */}
-                            <div className="absolute inset-0 flex z-0">
-                              <div style={{ width: '20%' }} className="bg-red-300/60"></div>
-                              <div style={{ width: '20%' }} className="bg-orange-300/60"></div>
-                              <div style={{ width: '20%' }} className="bg-blue-300/60"></div>
-                              <div style={{ width: '10%' }} className="bg-lime-300/60"></div>
-                              <div style={{ width: '30%' }} className="bg-green-300/60"></div>
-                            </div>
-
-                            {/* Barra de progresso */}
+                          <div className="text-xs font-medium text-white/40 uppercase tracking-wider mb-3">Meta Atingida</div>
+                          <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
                             <div
-                              className={`h-full transition-all duration-1000 relative z-10 shadow-lg ${
-                                showValues ? getRevenueBarColor(arrecadacaoPercentage) : 'bg-gray-400'
+                              className={`h-full transition-all duration-1000 rounded-full ${
+                                showValues ? (
+                                  (salesMetrics.valor_vendido / 500000) > 0.8 ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' :
+                                  (salesMetrics.valor_vendido / 500000) >= 0.5 ? 'bg-gradient-to-r from-amber-500 to-amber-400' : 'bg-gradient-to-r from-red-500 to-red-400'
+                                ) : 'bg-white/20'
+                              }`}
+                              style={{ width: `${showValues ? Math.min((salesMetrics.valor_vendido / 500000) * 100, 100) : 30}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Conversion Rate */}
+                      <div className="group relative bg-white/[0.03] backdrop-blur-sm p-5 rounded-2xl border border-white/[0.06] hover:border-cyan-500/20 transition-all duration-300 overflow-hidden">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-cyan-500/[0.06] to-transparent rounded-bl-full transition-all group-hover:from-cyan-500/[0.1]" />
+                        <div className="relative text-center">
+                          <div className={`text-3xl font-bold text-white mb-1 transition-all duration-300 ${
+                            !showValues ? 'blur-md select-none' : ''
+                          }`}>
+                            {showValues ? (callsMetrics.total_calls > 0 ? ((callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100).toFixed(1) : '0.0') : '**.* '}%
+                          </div>
+                          <div className="text-xs font-medium text-white/40 uppercase tracking-wider mb-3">Conversao</div>
+                          <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden mb-2">
+                            <div
+                              className={`h-full transition-all duration-1000 rounded-full ${
+                                showValues ? (
+                                  callsMetrics.total_calls > 0
+                                    ? (() => {
+                                        const conversionRate = (callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100;
+                                        if (conversionRate >= 50) return 'bg-gradient-to-r from-emerald-500 to-emerald-400';
+                                        if (conversionRate >= 30) return 'bg-gradient-to-r from-amber-500 to-amber-400';
+                                        return 'bg-gradient-to-r from-red-500 to-red-400';
+                                      })()
+                                    : 'bg-white/20'
+                                ) : 'bg-white/20'
                               }`}
                               style={{
-                                width: `${showValues ? Math.min(arrecadacaoPercentage, 100) : 40}%`
+                                width: `${showValues ? (
+                                  callsMetrics.total_calls > 0
+                                    ? Math.min(((callsMetrics.calls_vendidas / callsMetrics.total_calls) * 100) / 50 * 100, 100)
+                                    : 0
+                                ) : 60}%`
                               }}
                             />
                           </div>
-
-                          {/* Labels das 5 faixas */}
-                          <div className="flex text-xs font-semibold">
-                            <div style={{ width: '20%' }} className="text-red-600 text-center">Péssimo</div>
-                            <div style={{ width: '20%' }} className="text-orange-600 text-center">Ruim</div>
-                            <div style={{ width: '20%' }} className="text-blue-600 text-center">Bom</div>
-                            <div style={{ width: '10%' }} className="text-lime-600 text-center">Ótimo</div>
-                            <div style={{ width: '30%' }} className="text-green-600 text-center">Excelente</div>
+                          <div className={`text-xs text-white/40 transition-all duration-300 ${
+                            !showValues ? 'blur-md select-none' : ''
+                          }`}>
+                            {showValues ? `${callsMetrics.calls_vendidas || 0}/${callsMetrics.total_calls || 0}` : '***/***'} calls
                           </div>
                         </div>
+                      </div>
 
-                      </>
-                    </CardContent>
-                  </Card>
-                )}
+                      {/* % Arrecadado */}
+                      <div className="group relative bg-white/[0.03] backdrop-blur-sm p-5 rounded-2xl border border-white/[0.06] hover:border-amber-500/20 transition-all duration-300 overflow-hidden">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-amber-500/[0.06] to-transparent rounded-bl-full transition-all group-hover:from-amber-500/[0.1]" />
+                        <div className="relative text-center">
+                          <div className={`text-3xl font-bold text-white mb-1 transition-all duration-300 ${
+                            !showValues ? 'blur-md select-none' : ''
+                          }`}>
+                            {showValues ? arrecadacaoPercentage.toFixed(1) : '**.* '}%
+                          </div>
+                          <div className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1">Arrecadado</div>
+                          <div className="text-xs text-white/30">
+                            do total vendido
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Performance Ruler */}
+                    <div className="bg-white/[0.03] backdrop-blur-sm rounded-2xl p-5 border border-white/[0.06]">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-bold text-white/80 uppercase tracking-wider">Performance de Arrecadacao</h4>
+                        <div className={`text-2xl font-black text-white transition-all duration-300 ${
+                          !showValues ? 'blur-md select-none' : ''
+                        }`}>
+                          {showValues ? arrecadacaoPercentage.toFixed(1) : '**.* '}%
+                        </div>
+                      </div>
+
+                      {/* Progress Bar - 5 ranges */}
+                      <div className="relative h-5 bg-white/[0.04] rounded-full overflow-hidden mb-3 shadow-inner">
+                        {/* Background color bands: 20% + 20% + 20% + 10% + 30% = 100% */}
+                        <div className="absolute inset-0 flex z-0">
+                          <div style={{ width: '20%' }} className="bg-red-500/15"></div>
+                          <div style={{ width: '20%' }} className="bg-orange-500/15"></div>
+                          <div style={{ width: '20%' }} className="bg-blue-500/15"></div>
+                          <div style={{ width: '10%' }} className="bg-lime-500/15"></div>
+                          <div style={{ width: '30%' }} className="bg-emerald-500/15"></div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div
+                          className={`h-full transition-all duration-1000 relative z-10 shadow-lg rounded-full ${
+                            showValues ? getRevenueBarColor(arrecadacaoPercentage) : 'bg-white/20'
+                          }`}
+                          style={{
+                            width: `${showValues ? Math.min(arrecadacaoPercentage, 100) : 40}%`
+                          }}
+                        />
+                      </div>
+
+                      {/* Range Labels */}
+                      <div className="flex text-[10px] font-semibold uppercase tracking-wider">
+                        <div style={{ width: '20%' }} className="text-red-400/70 text-center">Pessimo</div>
+                        <div style={{ width: '20%' }} className="text-orange-400/70 text-center">Ruim</div>
+                        <div style={{ width: '20%' }} className="text-blue-400/70 text-center">Bom</div>
+                        <div style={{ width: '10%' }} className="text-lime-400/70 text-center">Otimo</div>
+                        <div style={{ width: '30%' }} className="text-emerald-400/70 text-center">Excelente</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Churn & Churnzinho Cards */}
-                {!metricsLoading && !metricsError && (salesMetrics.total_churn > 0 || salesMetrics.total_churnzinho > 0) && (
+                {(salesMetrics.total_churn > 0 || salesMetrics.total_churnzinho > 0) && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Churn Card */}
-                    <Card className="relative overflow-hidden bg-gradient-to-br from-red-500 via-red-600 to-red-700 border-red-400 shadow-lg">
-                      <CardContent className="pt-6 relative z-10">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-red-100">Churn (Leads)</p>
-                            <p className="text-3xl font-black text-white mt-1">{salesMetrics.total_churn}</p>
-                            <p className="text-xs text-red-200 mt-1">
-                              {salesMetrics.total_leads > 0
-                                ? `${((salesMetrics.total_churn / salesMetrics.total_leads) * 100).toFixed(1)}% dos leads`
-                                : '0% dos leads'
-                              }
-                            </p>
-                          </div>
-                          <div className="bg-white/20 p-3 rounded-full">
-                            <UserX className="w-7 h-7 text-white" />
-                          </div>
+                    <div className="group relative bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06] hover:border-red-500/20 transition-all duration-300 overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-red-500/[0.08] to-transparent rounded-bl-full transition-all group-hover:from-red-500/[0.15]" />
+                      <div className="relative flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Churn (Leads)</p>
+                          <p className="text-3xl font-black text-white mt-1 tabular-nums">{salesMetrics.total_churn}</p>
+                          <p className="text-xs text-red-400/80 mt-1">
+                            {salesMetrics.total_leads > 0
+                              ? `${((salesMetrics.total_churn / salesMetrics.total_leads) * 100).toFixed(1)}% dos leads`
+                              : '0% dos leads'
+                            }
+                          </p>
                         </div>
-                      </CardContent>
-                    </Card>
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg shadow-red-500/20">
+                          <UserX className="w-6 h-6 text-white" />
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Churnzinho Card */}
-                    <Card className="relative overflow-hidden bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600 border-pink-300 shadow-lg">
-                      <CardContent className="pt-6 relative z-10">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-pink-100">Churnzinho (Leads)</p>
-                            <p className="text-3xl font-black text-white mt-1">{salesMetrics.total_churnzinho}</p>
-                            <p className="text-xs text-pink-200 mt-1">
-                              {salesMetrics.total_leads > 0
-                                ? `${((salesMetrics.total_churnzinho / salesMetrics.total_leads) * 100).toFixed(1)}% dos leads`
-                                : '0% dos leads'
-                              }
-                            </p>
-                          </div>
-                          <div className="bg-white/20 p-3 rounded-full">
-                            <UserMinus className="w-7 h-7 text-white" />
-                          </div>
+                    <div className="group relative bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06] hover:border-pink-500/20 transition-all duration-300 overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-pink-500/[0.08] to-transparent rounded-bl-full transition-all group-hover:from-pink-500/[0.15]" />
+                      <div className="relative flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Churnzinho (Leads)</p>
+                          <p className="text-3xl font-black text-white mt-1 tabular-nums">{salesMetrics.total_churnzinho}</p>
+                          <p className="text-xs text-pink-400/80 mt-1">
+                            {salesMetrics.total_leads > 0
+                              ? `${((salesMetrics.total_churnzinho / salesMetrics.total_leads) * 100).toFixed(1)}% dos leads`
+                              : '0% dos leads'
+                            }
+                          </p>
                         </div>
-                      </CardContent>
-                    </Card>
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-pink-700 flex items-center justify-center shadow-lg shadow-pink-500/20">
+                          <UserMinus className="w-6 h-6 text-white" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {/* Evolução do Dashboard Chart */}
-                {!metricsLoading && !metricsError && evolution && evolution.length > 1 && (
-                  <Card className="border shadow-lg">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg font-bold flex items-center gap-2">
-                        Evolução do Dashboard
-                        <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                          {DATE_FILTER_OPTIONS.find(o => o.value === dateFilter)?.label || 'Mês'}
-                        </span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                {/* Evolution Chart */}
+                {evolution && evolution.length > 1 && (
+                  <div className="bg-[#1a1a1e] rounded-2xl border border-white/[0.06] overflow-hidden">
+                    <div className="px-6 py-4 border-b border-white/[0.04]">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-sm font-bold text-white/80 uppercase tracking-wider">Evolucao do Dashboard</h3>
+                          <span className="text-xs font-medium text-white/30 bg-white/[0.05] px-2.5 py-0.5 rounded-full border border-white/[0.06]">
+                            {DATE_FILTER_OPTIONS.find(o => o.value === dateFilter)?.label || 'Mes'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-6">
                       <div className="h-[350px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={evolution} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                             <XAxis
                               dataKey="label"
-                              tick={{ fontSize: 12, fill: '#6b7280' }}
+                              tick={{ fontSize: 12, fill: 'rgba(255,255,255,0.35)' }}
                               tickLine={false}
+                              axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
                             />
                             <YAxis
                               yAxisId="currency"
-                              tick={{ fontSize: 11, fill: '#6b7280' }}
+                              tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.35)' }}
                               tickFormatter={(value) => {
                                 if (value >= 1000) return `${(value / 1000).toFixed(0)}k`
                                 return value.toString()
@@ -566,7 +555,7 @@ export default function DashboardPage() {
                             <YAxis
                               yAxisId="percentage"
                               orientation="right"
-                              tick={{ fontSize: 11, fill: '#6b7280' }}
+                              tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.35)' }}
                               tickFormatter={(value) => `${value}%`}
                               tickLine={false}
                               axisLine={false}
@@ -574,7 +563,7 @@ export default function DashboardPage() {
                             />
                             <Tooltip content={<EvolutionTooltip />} />
                             <Legend
-                              wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                              wrapperStyle={{ fontSize: '12px', paddingTop: '10px', color: 'rgba(255,255,255,0.5)' }}
                             />
                             <Line
                               yAxisId="currency"
@@ -583,8 +572,8 @@ export default function DashboardPage() {
                               name="Faturamento"
                               stroke="#22c55e"
                               strokeWidth={2.5}
-                              dot={{ r: 4, fill: '#22c55e' }}
-                              activeDot={{ r: 6 }}
+                              dot={{ r: 4, fill: '#22c55e', stroke: '#0a0a0c', strokeWidth: 2 }}
+                              activeDot={{ r: 6, stroke: '#22c55e', strokeWidth: 2, fill: '#0a0a0c' }}
                             />
                             <Line
                               yAxisId="currency"
@@ -593,17 +582,17 @@ export default function DashboardPage() {
                               name="Arrecadado"
                               stroke="#a855f7"
                               strokeWidth={2.5}
-                              dot={{ r: 4, fill: '#a855f7' }}
-                              activeDot={{ r: 6 }}
+                              dot={{ r: 4, fill: '#a855f7', stroke: '#0a0a0c', strokeWidth: 2 }}
+                              activeDot={{ r: 6, stroke: '#a855f7', strokeWidth: 2, fill: '#0a0a0c' }}
                             />
                             <Line
                               yAxisId="percentage"
                               type="monotone"
                               dataKey="taxa_conversao"
-                              name="Taxa Conversão"
+                              name="Taxa Conversao"
                               stroke="#eab308"
                               strokeWidth={2}
-                              dot={{ r: 3, fill: '#eab308' }}
+                              dot={{ r: 3, fill: '#eab308', stroke: '#0a0a0c', strokeWidth: 2 }}
                               strokeDasharray="5 5"
                             />
                             <Line
@@ -613,7 +602,7 @@ export default function DashboardPage() {
                               name="Taxa Churn"
                               stroke="#ef4444"
                               strokeWidth={2}
-                              dot={{ r: 3, fill: '#ef4444' }}
+                              dot={{ r: 3, fill: '#ef4444', stroke: '#0a0a0c', strokeWidth: 2 }}
                               strokeDasharray="5 5"
                             />
                             <Line
@@ -623,18 +612,18 @@ export default function DashboardPage() {
                               name="Volume Calls"
                               stroke="#3b82f6"
                               strokeWidth={2}
-                              dot={{ r: 3, fill: '#3b82f6' }}
+                              dot={{ r: 3, fill: '#3b82f6', stroke: '#0a0a0c', strokeWidth: 2 }}
                             />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </div>
-        </main>
+        )}
       </div>
     </div>
   )

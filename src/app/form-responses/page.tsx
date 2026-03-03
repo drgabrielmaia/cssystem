@@ -23,15 +23,15 @@ import {
 
 interface FormSubmission {
   id: string
-  template_id: string
-  template_slug: string
+  form_id: string
   lead_id: string | null
-  mentorado_id: string | null
-  source_url: string | null
   submission_data: Record<string, any>
+  metadata: Record<string, any> | null
   created_at: string
   template: {
-    name: string
+    id: string
+    slug: string | null
+    title: string
     description: string
     fields: any[]
   } | null
@@ -39,10 +39,6 @@ interface FormSubmission {
     nome_completo: string
     email: string
     telefone: string
-  } | null
-  mentorado: {
-    nome_completo: string
-    email: string
   } | null
 }
 
@@ -76,19 +72,21 @@ export default function FormResponsesPage() {
         return
       }
 
+      // DB schema: form_submissions has form_id, lead_id, data, metadata, organization_id, created_at
+      // DB schema: form_templates has id, slug, title, description, fields, settings, is_active
       const { data: rawSubmissions, error } = await supabase
         .from('form_submissions')
         .select(`
           id,
-          template_id,
-          template_slug,
+          form_id,
           lead_id,
-          mentorado_id,
-          source_url,
-          submission_data,
+          data,
+          metadata,
           created_at,
-          form_templates:template_id(
-            name,
+          form_templates:form_id(
+            id,
+            slug,
+            title,
             description,
             fields
           ),
@@ -96,10 +94,6 @@ export default function FormResponsesPage() {
             nome_completo,
             email,
             telefone
-          ),
-          mentorados:mentorado_id(
-            nome_completo,
-            email
           )
         `)
         .eq('organization_id', user.organizationId)
@@ -108,7 +102,7 @@ export default function FormResponsesPage() {
 
       if (error) {
         console.error('Erro ao buscar form submissions:', error)
-        if (error.code === '42P01') {
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
           setSubmissions([])
           setTemplates([])
           setLoading(false)
@@ -119,15 +113,15 @@ export default function FormResponsesPage() {
 
       const transformedSubmissions: FormSubmission[] = (rawSubmissions || []).map(submission => ({
         id: submission.id,
-        template_id: submission.template_id,
-        template_slug: submission.template_slug,
+        form_id: submission.form_id,
         lead_id: submission.lead_id,
-        mentorado_id: submission.mentorado_id,
-        source_url: submission.source_url,
-        submission_data: submission.submission_data || {},
+        submission_data: (submission as any).data || {},
+        metadata: (submission as any).metadata || null,
         created_at: submission.created_at,
         template: submission.form_templates ? {
-          name: (submission.form_templates as any).name,
+          id: (submission.form_templates as any).id,
+          slug: (submission.form_templates as any).slug,
+          title: (submission.form_templates as any).title,
           description: (submission.form_templates as any).description,
           fields: (submission.form_templates as any).fields || []
         } : null,
@@ -135,19 +129,15 @@ export default function FormResponsesPage() {
           nome_completo: (submission.leads as any).nome_completo,
           email: (submission.leads as any).email,
           telefone: (submission.leads as any).telefone
-        } : null,
-        mentorado: submission.mentorados ? {
-          nome_completo: (submission.mentorados as any).nome_completo,
-          email: (submission.mentorados as any).email
         } : null
       }))
 
       setSubmissions(transformedSubmissions)
 
-      const templateSlugs = transformedSubmissions
-        .map(s => s.template_slug)
+      const templateIds = transformedSubmissions
+        .map(s => s.template?.slug || s.form_id)
         .filter(Boolean) as string[]
-      const uniqueTemplates = Array.from(new Set(templateSlugs))
+      const uniqueTemplates = Array.from(new Set(templateIds))
       setTemplates(uniqueTemplates)
     } catch (error) {
       console.error('Erro geral:', error)
@@ -190,24 +180,20 @@ export default function FormResponsesPage() {
     if (searchTerm) {
       filtered = filtered.filter(submission => {
         const s = searchTerm.toLowerCase()
-        const templateName = submission.template?.name?.toLowerCase() || ''
+        const templateName = submission.template?.title?.toLowerCase() || ''
         const leadName = submission.lead?.nome_completo?.toLowerCase() || ''
         const leadEmail = submission.lead?.email?.toLowerCase() || ''
-        const mentoradoName = submission.mentorado?.nome_completo?.toLowerCase() || ''
-        const mentoradoEmail = submission.mentorado?.email?.toLowerCase() || ''
-        const source = submission.source_url?.toLowerCase() || ''
+        const dataValues = Object.values(submission.submission_data).join(' ').toLowerCase()
 
         return templateName.includes(s) ||
                leadName.includes(s) ||
                leadEmail.includes(s) ||
-               mentoradoName.includes(s) ||
-               mentoradoEmail.includes(s) ||
-               source.includes(s)
+               dataValues.includes(s)
       })
     }
 
     if (selectedTemplate !== 'all') {
-      filtered = filtered.filter(submission => submission.template_slug === selectedTemplate)
+      filtered = filtered.filter(submission => (submission.template?.slug || submission.form_id) === selectedTemplate)
     }
 
     setFilteredSubmissions(filtered)
@@ -242,26 +228,6 @@ export default function FormResponsesPage() {
     return formatDate(dateString)
   }
 
-  const getSourceLabel = (source: string | null): string => {
-    if (!source) return 'Direto'
-    if (source.includes('instagram')) return 'Instagram'
-    if (source.includes('facebook')) return 'Facebook'
-    if (source.includes('google')) return 'Google'
-    if (source.includes('bio')) return 'Link Bio'
-    if (source.includes('ads')) return 'Ads'
-    return source.length > 24 ? source.slice(0, 22) + '...' : source
-  }
-
-  const getSourceStyles = (source: string | null): string => {
-    if (!source) return 'bg-white/[0.04] text-white/50 border-white/[0.06]'
-    if (source.includes('instagram')) return 'bg-pink-500/10 text-pink-400 border-pink-500/20'
-    if (source.includes('facebook')) return 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-    if (source.includes('google')) return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-    if (source.includes('bio')) return 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-    if (source.includes('ads')) return 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-    return 'bg-white/[0.04] text-white/50 border-white/[0.06]'
-  }
-
   const exportSubmissions = () => {
     const csv = [
       [
@@ -276,12 +242,12 @@ export default function FormResponsesPage() {
       ].join(','),
       ...filteredSubmissions.map(submission => [
         formatDate(submission.created_at),
-        submission.template?.name || submission.template_slug,
-        submission.lead?.nome_completo || submission.mentorado?.nome_completo || '',
-        submission.lead?.email || submission.mentorado?.email || '',
+        submission.template?.title || 'Formulario',
+        submission.lead?.nome_completo || '',
+        submission.lead?.email || '',
         submission.lead?.telefone || '',
         '',
-        submission.source_url || '',
+        '',
         `"${JSON.stringify(submission.submission_data).replace(/"/g, '""')}"`
       ].join(','))
     ].join('\n')
@@ -306,7 +272,7 @@ export default function FormResponsesPage() {
   const conversionRate = totalResponses > 0 ? Math.round((leadsConverted / totalResponses) * 100) : 0
   const thisWeek = submissions.filter(s => new Date(s.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length
   const today = submissions.filter(s => new Date(s.created_at).toDateString() === new Date().toDateString()).length
-  const uniqueChannels = new Set(submissions.map(s => s.source_url).filter(Boolean)).size
+  const uniqueTemplates = new Set(submissions.map(s => s.template?.slug || s.form_id).filter(Boolean)).size
 
   // -------------------------------------------------------------------------
   // Sub-components
@@ -322,28 +288,16 @@ export default function FormResponsesPage() {
           </div>
           <div>
             <h3 className="text-lg font-semibold text-white">
-              {submission.template?.name || submission.template_slug}
+              {submission.template?.title || 'Formulario'}
             </h3>
             <p className="text-sm text-white/40">{formatDate(submission.created_at)}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {submission.source_url && (
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${getSourceStyles(submission.source_url)}`}>
-              <ExternalLink className="h-3 w-3" />
-              {getSourceLabel(submission.source_url)}
-            </span>
-          )}
           {submission.lead && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
               <CheckCircle2 className="h-3 w-3" />
-              Lead criado
-            </span>
-          )}
-          {submission.mentorado && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <Star className="h-3 w-3" />
-              Mentorado
+              Lead vinculado
             </span>
           )}
         </div>
@@ -373,26 +327,6 @@ export default function FormResponsesPage() {
         </div>
       )}
 
-      {/* Mentorado Info */}
-      {submission.mentorado && (
-        <div className="rounded-xl bg-emerald-500/[0.06] border border-emerald-500/10 p-4">
-          <h4 className="text-sm font-semibold text-emerald-400 mb-3 flex items-center gap-2">
-            <Star className="h-4 w-4" />
-            Informacoes do Mentorado
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <p className="text-[11px] uppercase tracking-wider text-white/30 mb-1">Nome</p>
-              <p className="text-sm text-white font-medium">{submission.mentorado.nome_completo}</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wider text-white/30 mb-1">Email</p>
-              <p className="text-sm text-white/70">{submission.mentorado.email}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Form Answers */}
       <div>
         <h4 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
@@ -401,8 +335,8 @@ export default function FormResponsesPage() {
         </h4>
         <div className="space-y-3">
           {Object.entries(submission.submission_data).map(([key, value]) => {
-            const field = submission.template?.fields?.find((f: any) => f.name === key)
-            const label = field?.label || key
+            const field = submission.template?.fields?.find((f: any) => f.name === key || f.id === key)
+            const label = field?.label || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 
             return (
               <div key={key} className="rounded-xl bg-[#111113] border border-white/[0.06] p-4">
@@ -480,11 +414,11 @@ export default function FormResponsesPage() {
                   className="appearance-none pl-9 pr-9 py-2 h-10 bg-[#111113] border border-white/[0.08] text-white text-sm rounded-xl focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/10 cursor-pointer"
                 >
                   <option value="all">Todos os formularios</option>
-                  {templates.map(templateSlug => {
-                    const sub = submissions.find(s => s.template_slug === templateSlug)
-                    const displayName = sub?.template?.name || templateSlug.replace(/[-_]/g, ' ')
+                  {templates.map(templateKey => {
+                    const sub = submissions.find(s => (s.template?.slug || s.form_id) === templateKey)
+                    const displayName = sub?.template?.title || templateKey.replace(/[-_]/g, ' ')
                     return (
-                      <option key={templateSlug} value={templateSlug}>
+                      <option key={templateKey} value={templateKey}>
                         {displayName}
                       </option>
                     )
@@ -543,7 +477,7 @@ export default function FormResponsesPage() {
               <div>
                 <p className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2">Formularios Ativos</p>
                 <p className="text-3xl font-bold text-white tabular-nums">{templates.length}</p>
-                <p className="text-xs text-white/30 mt-1.5">Em {uniqueChannels} {uniqueChannels === 1 ? 'canal' : 'canais'}</p>
+                <p className="text-xs text-white/30 mt-1.5">{uniqueTemplates} template{uniqueTemplates !== 1 ? 's' : ''}</p>
               </div>
               <div className="w-2 h-2 rounded-full bg-purple-500" />
             </div>
@@ -565,10 +499,9 @@ export default function FormResponsesPage() {
         {/* ----------------------------------------------------------------- */}
         {/* Table header                                                       */}
         {/* ----------------------------------------------------------------- */}
-        <div className="hidden lg:grid grid-cols-[1fr_1.2fr_140px_120px_180px] gap-4 px-5 py-2">
+        <div className="hidden lg:grid grid-cols-[1fr_1.2fr_120px_180px] gap-4 px-5 py-2">
           <p className="text-[11px] font-medium text-white/25 uppercase tracking-wider">Formulario</p>
           <p className="text-[11px] font-medium text-white/25 uppercase tracking-wider">Contato</p>
-          <p className="text-[11px] font-medium text-white/25 uppercase tracking-wider">Origem</p>
           <p className="text-[11px] font-medium text-white/25 uppercase tracking-wider">Data</p>
           <p className="text-[11px] font-medium text-white/25 uppercase tracking-wider text-right">Acoes</p>
         </div>
@@ -603,8 +536,8 @@ export default function FormResponsesPage() {
             </div>
           ) : (
             filteredSubmissions.map((submission) => {
-              const personName = submission.lead?.nome_completo || submission.mentorado?.nome_completo || ''
-              const personEmail = submission.lead?.email || submission.mentorado?.email || ''
+              const personName = submission.lead?.nome_completo || ''
+              const personEmail = submission.lead?.email || ''
               const personPhone = submission.lead?.telefone || ''
               const fieldsCount = Object.keys(submission.submission_data).length
 
@@ -615,7 +548,7 @@ export default function FormResponsesPage() {
                 >
                   <div className="p-5">
                     {/* Desktop layout */}
-                    <div className="hidden lg:grid grid-cols-[1fr_1.2fr_140px_120px_180px] gap-4 items-center">
+                    <div className="hidden lg:grid grid-cols-[1fr_1.2fr_120px_180px] gap-4 items-center">
                       {/* Template info */}
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-white/[0.06] flex items-center justify-center flex-shrink-0">
@@ -623,16 +556,13 @@ export default function FormResponsesPage() {
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-white truncate">
-                            {submission.template?.name || submission.template_slug}
+                            {submission.template?.title || 'Formulario'}
                           </p>
                           <p className="text-xs text-white/30 mt-0.5">
                             <Hash className="h-3 w-3 inline mr-0.5 -mt-px" />
                             {fieldsCount} campos
                             {submission.lead_id && (
                               <span className="ml-2 text-blue-400/60">Lead</span>
-                            )}
-                            {submission.mentorado_id && (
-                              <span className="ml-2 text-emerald-400/60">Mentorado</span>
                             )}
                           </p>
                         </div>
@@ -658,13 +588,6 @@ export default function FormResponsesPage() {
                         ) : (
                           <p className="text-xs text-white/20 italic">Sem contato vinculado</p>
                         )}
-                      </div>
-
-                      {/* Source badge */}
-                      <div>
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-medium border ${getSourceStyles(submission.source_url)}`}>
-                          {getSourceLabel(submission.source_url)}
-                        </span>
                       </div>
 
                       {/* Date */}
@@ -742,14 +665,12 @@ export default function FormResponsesPage() {
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-white truncate">
-                              {submission.template?.name || submission.template_slug}
+                              {submission.template?.title || 'Formulario'}
                             </p>
                             <p className="text-xs text-white/30 mt-0.5">{formatRelativeDate(submission.created_at)}</p>
                           </div>
                         </div>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium border ${getSourceStyles(submission.source_url)}`}>
-                          {getSourceLabel(submission.source_url)}
-                        </span>
+                        <span className="text-xs text-white/30">{formatRelativeDate(submission.created_at)}</span>
                       </div>
 
                       {personName && (
@@ -770,11 +691,6 @@ export default function FormResponsesPage() {
                         {submission.lead_id && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
                             <CheckCircle2 className="h-3 w-3" />Lead
-                          </span>
-                        )}
-                        {submission.mentorado_id && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            <Star className="h-3 w-3" />Mentorado
                           </span>
                         )}
                         <span className="text-[10px] text-white/20">{fieldsCount} campos</span>

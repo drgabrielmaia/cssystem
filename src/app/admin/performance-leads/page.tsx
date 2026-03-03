@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useStableData } from '@/hooks/use-stable-data'
 import { useStableMutation } from '@/hooks/use-stable-mutation'
 import { Button } from '@/components/ui/button'
@@ -43,13 +43,7 @@ import {
   AlertTriangle,
   XCircle,
   User,
-  Building,
-  Send,
-  Bot,
-  Sparkles,
-  Loader2,
-  X,
-  Trash2
+  Building
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -62,8 +56,8 @@ import {
   OrganizationLeadsOverview,
   CreateLeadInteractionData
 } from '@/types/commission'
-import ReactMarkdown from 'react-markdown'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
+import EmbeddedAIChat from '@/components/embedded-ai-chat'
 
 interface DashboardStats {
   totalLeads: number;
@@ -113,14 +107,6 @@ export default function AdvancedPerformanceLeadsPage() {
 
   // Tab state
   const [activeTab, setActiveTab] = useState('leads')
-
-  // AI Chat panel states
-  const [isChatOpen, setIsChatOpen] = useState(false)
-  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
-  const [chatInput, setChatInput] = useState('')
-  const [isChatLoading, setIsChatLoading] = useState(false)
-  const chatEndRef = useRef<HTMLDivElement>(null)
-  const chatInputRef = useRef<HTMLTextAreaElement>(null)
 
   // Calculate date filter for stable hooks
   const dateFilter = useMemo(() => {
@@ -427,11 +413,6 @@ export default function AdvancedPerformanceLeadsPage() {
     })
   }, [leads, searchTerm, selectedCloser, selectedTemperatura, selectedStatus])
 
-  // AI Chat auto-scroll
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [chatMessages])
-
   // AI Chat context builder
   const buildChatContext = useCallback(() => {
     const statusCounts = leads.reduce((acc, l) => {
@@ -463,56 +444,6 @@ LEADS DETALHADOS (top 20):
 ${filteredLeads.slice(0, 20).map(l => `${l.nome_completo}: ${l.status}, ${l.temperatura || 'N/A'}, ${l.total_interacoes} interacoes, ${l.dias_no_pipeline} dias, prob: ${l.probabilidade_real}%`).join('\n')}
 `
   }, [leads, closers, stats, filteredLeads])
-
-  // AI Chat send message
-  const sendChatMessage = useCallback(async (overrideMessage?: string) => {
-    const messageToSend = overrideMessage || chatInput.trim()
-    if (!messageToSend || isChatLoading) return
-
-    if (!overrideMessage) setChatInput('')
-    setChatMessages(prev => [...prev, { role: 'user', content: messageToSend }])
-    setIsChatLoading(true)
-
-    try {
-      const analyticsContext = buildChatContext()
-      const sysPrompt = `Voce e uma ANALISTA DE PERFORMANCE SENIOR especializada em metricas de vendas e closers. Analise os dados de performance fornecidos. Identifique closers de alta e baixa performance. Sugira melhorias nos processos de venda. Analise o pipeline e gargalos.`
-      const fullSystemPrompt = `${sysPrompt}\n\nDADOS DISPONIVEIS:\n${analyticsContext}\n\nREGRAS:\n- Responda SEMPRE em portugues brasileiro\n- Base suas analises EXCLUSIVAMENTE nos dados fornecidos\n- Se nao tem dados suficientes, diga claramente\n- Use markdown para formatar (negrito, listas, titulos)\n- Sempre que possivel, cite numeros especificos dos dados`
-
-      const response = await fetch('/api/chat-gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: messageToSend,
-          userEmail: 'admin@system.com',
-          context: {
-            nome: 'Analista de Performance',
-            especialidade: 'Analytics',
-            tipoPost: 'chat',
-            tomComunicacao: 'profissional e direto',
-            persona: fullSystemPrompt,
-            publicoAlvo: 'gestores',
-            doresDesejos: [],
-            problemasAudiencia: '',
-            desejoAudiencia: '',
-            transformacao: ''
-          }
-        })
-      })
-
-      const data = await response.json()
-
-      if (data.success && data.message) {
-        setChatMessages(prev => [...prev, { role: 'assistant', content: data.message }])
-      } else {
-        setChatMessages(prev => [...prev, { role: 'assistant', content: 'Desculpe, tive um problema ao processar sua solicitacao. Tente novamente.' }])
-      }
-    } catch (error) {
-      console.error('Chat error:', error)
-      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Erro de conexao. Verifique sua internet e tente novamente.' }])
-    } finally {
-      setIsChatLoading(false)
-    }
-  }, [chatInput, isChatLoading, buildChatContext])
 
   const chatSuggestions = useMemo(() => [
     'Gere um relatorio de performance dos closers',
@@ -1079,163 +1010,17 @@ ${filteredLeads.slice(0, 20).map(l => `${l.nome_completo}: ${l.status}, ${l.temp
           </div>
         </div>
 
+        {/* ── EMBEDDED AI CHAT ─────────────────────────────── */}
+        <EmbeddedAIChat
+          contextBuilder={buildChatContext}
+          systemPrompt="Voce e uma ANALISTA DE PERFORMANCE SENIOR especializada em metricas de vendas e closers. Analise os dados de performance fornecidos. Identifique closers de alta e baixa performance. Sugira melhorias nos processos de venda. Analise o pipeline e gargalos. Responda SEMPRE em portugues brasileiro. Base suas analises EXCLUSIVAMENTE nos dados fornecidos. Se nao tem dados suficientes, diga claramente. Use markdown para formatar (negrito, listas, titulos). Sempre que possivel, cite numeros especificos dos dados."
+          title="Analista de Performance IA"
+          subtitle="Pergunte sobre performance, closers e pipeline"
+          suggestions={chatSuggestions}
+          accentColor="violet"
+          defaultCollapsed={false}
+        />
       </div>
-
-      {/* ── FLOATING AI CHAT PANEL ─────────────────────────────── */}
-      {/* Floating toggle button */}
-      <button
-        onClick={() => setIsChatOpen(!isChatOpen)}
-        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xl ${
-          isChatOpen
-            ? 'bg-white/10 border border-white/[0.12] backdrop-blur-xl text-white/70 hover:text-white hover:bg-white/[0.15] shadow-black/40'
-            : 'bg-gradient-to-br from-purple-600 to-violet-700 text-white hover:from-purple-500 hover:to-violet-600 shadow-purple-500/30 hover:shadow-purple-500/40 hover:scale-105'
-        }`}
-      >
-        {isChatOpen ? (
-          <X className="h-5 w-5" />
-        ) : (
-          <Brain className="h-6 w-6" />
-        )}
-      </button>
-
-      {/* Chat panel overlay */}
-      {isChatOpen && (
-        <div className="fixed bottom-24 right-6 z-50 w-[420px] max-h-[600px] flex flex-col rounded-2xl overflow-hidden bg-[#141418] border border-white/[0.06] ring-1 ring-white/[0.06] shadow-2xl shadow-black/50 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-300">
-          {/* Chat header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] bg-gradient-to-r from-purple-600/10 to-violet-600/10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-violet-700 flex items-center justify-center shadow-lg shadow-purple-500/20">
-                <Brain className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  Analise de Performance IA
-                  <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-                </h3>
-                <p className="text-[10px] text-white/40">Pergunte sobre os dados de performance</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5">
-              {chatMessages.length > 0 && (
-                <button
-                  onClick={() => setChatMessages([])}
-                  className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.06] flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                  title="Limpar conversa"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
-              <button
-                onClick={() => setIsChatOpen(false)}
-                className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.06] flex items-center justify-center text-white/30 hover:text-white hover:bg-white/[0.1] transition-all"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Chat messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 max-h-[380px] min-h-[280px] scrollbar-thin scrollbar-thumb-white/10">
-            {chatMessages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-center px-6 py-8">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600/20 to-violet-600/20 border border-purple-500/20 flex items-center justify-center mb-4">
-                  <Bot className="h-7 w-7 text-purple-400" />
-                </div>
-                <h4 className="text-sm font-semibold text-white mb-1">Analista de Performance</h4>
-                <p className="text-xs text-white/40 mb-5 max-w-[300px]">
-                  Pergunte qualquer coisa sobre os dados desta tela. Tenho acesso a todas as metricas em tempo real.
-                </p>
-                <div className="space-y-2 w-full max-w-sm">
-                  {chatSuggestions.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      onClick={() => {
-                        sendChatMessage(suggestion)
-                      }}
-                      className="w-full text-left px-4 py-2.5 text-xs text-white/50 bg-white/[0.03] border border-white/[0.06] rounded-xl hover:bg-purple-500/10 hover:border-purple-500/20 hover:text-purple-300 transition-all"
-                    >
-                      <Sparkles className="h-3 w-3 inline mr-2 text-purple-400 opacity-50" />
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {chatMessages.map((msg, idx) => (
-              <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {msg.role === 'assistant' && (
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-violet-700 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Bot className="h-3.5 w-3.5 text-white" />
-                  </div>
-                )}
-                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                  msg.role === 'user'
-                    ? 'bg-gradient-to-br from-purple-600 to-violet-700 text-white rounded-br-md'
-                    : 'bg-white/[0.05] border border-white/[0.06] text-white/80 rounded-bl-md'
-                }`}>
-                  {msg.role === 'assistant' ? (
-                    <div className="prose prose-invert prose-sm max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_h1]:font-bold [&_h2]:font-semibold [&_h3]:font-medium [&_strong]:text-purple-300 [&_code]:text-emerald-400 [&_code]:bg-white/10 [&_code]:px-1 [&_code]:rounded">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
-                  ) : (
-                    <p>{msg.content}</p>
-                  )}
-                </div>
-                {msg.role === 'user' && (
-                  <div className="w-7 h-7 rounded-lg bg-white/[0.08] border border-white/[0.06] flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <User className="h-3.5 w-3.5 text-white/60" />
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {isChatLoading && (
-              <div className="flex gap-3 justify-start">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-violet-700 flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-3.5 w-3.5 text-white" />
-                </div>
-                <div className="bg-white/[0.05] border border-white/[0.06] rounded-2xl rounded-bl-md px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 text-purple-400 animate-spin" />
-                    <span className="text-xs text-white/40">Analisando dados...</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Chat input */}
-          <div className="p-4 border-t border-white/[0.06] bg-[#111115]">
-            <div className="flex items-end gap-2">
-              <textarea
-                ref={chatInputRef}
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    sendChatMessage()
-                  }
-                }}
-                placeholder="Pergunte sobre os dados..."
-                rows={1}
-                className="flex-1 resize-none bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/30 transition-all max-h-32"
-                style={{ minHeight: '44px' }}
-              />
-              <button
-                onClick={() => sendChatMessage()}
-                disabled={!chatInput.trim() || isChatLoading}
-                className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-600 to-violet-700 text-white flex items-center justify-center hover:from-purple-500 hover:to-violet-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-500/20"
-              >
-                <Send className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Lead Detail Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>

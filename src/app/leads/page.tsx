@@ -113,11 +113,8 @@ export default function LeadsPage() {
 
   // Filtros calculados para os hooks
   const leadFilters = useMemo(() => {
-    const filters: Record<string, any> = {}
-
-    // Filtrar por organização ativa
-    if (activeOrganizationId) {
-      filters.organization_id = activeOrganizationId
+    const filters: Record<string, any> = {
+      organization_id: activeOrganizationId || null
     }
 
     if (statusFilter !== 'todos') {

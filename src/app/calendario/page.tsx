@@ -170,10 +170,16 @@ export default function CalendarioPage() {
 
   const loadLeads = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('leads')
         .select('id, nome_completo')
         .order('nome_completo')
+
+      if (organizationId) {
+        query = query.eq('organization_id', organizationId)
+      }
+
+      const { data, error } = await query
       if (!error && data) {
         setLeads(data.map((lead: any) => ({
           id: lead.id,
@@ -187,10 +193,16 @@ export default function CalendarioPage() {
 
   const loadMentorados = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('mentorados')
         .select('id, nome_completo')
         .order('nome_completo')
+
+      if (organizationId) {
+        query = query.eq('organization_id', organizationId)
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
 

@@ -39,6 +39,12 @@ export function useStableData<T = any>({
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const fetchData = useCallback(async (isInitialLoad = false) => {
+    // Não buscar se tem filtro organization_id mas valor é vazio (org ainda não carregou)
+    if ('organization_id' in filters && !filters.organization_id) {
+      console.log(`⏳ Aguardando organization_id para ${tableName}...`)
+      return
+    }
+
     // Cancelar fetch anterior
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -47,7 +53,7 @@ export function useStableData<T = any>({
     // Criar novo controller
     const abortController = new AbortController()
     abortControllerRef.current = abortController
-    
+
     const fetchId = ++lastFetchId.current
 
     try {
@@ -63,7 +69,28 @@ export function useStableData<T = any>({
       // Aplicar filtros
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== null && value !== undefined && value !== '' && value !== 'todos' && value !== 'todas') {
-          query = query.eq(key, value)
+          // Suporte a operadores especiais (gte., lte., not.in., etc)
+          if (typeof value === 'string' && value.includes('.')) {
+            const dotIndex = value.indexOf('.')
+            const op = value.substring(0, dotIndex)
+            const val = value.substring(dotIndex + 1)
+
+            if (op === 'gte') {
+              query = query.gte(key, val)
+            } else if (op === 'lte') {
+              query = query.lte(key, val)
+            } else if (op === 'not') {
+              // not.in.(val1,val2)
+              if (val.startsWith('in.')) {
+                const values = val.replace('in.(', '').replace(')', '').split(',')
+                query = query.not(key, 'in', `(${values.join(',')})`)
+              }
+            } else {
+              query = query.eq(key, value)
+            }
+          } else {
+            query = query.eq(key, value)
+          }
         }
       })
 
