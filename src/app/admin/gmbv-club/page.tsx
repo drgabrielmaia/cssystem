@@ -2,11 +2,32 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, Target, TrendingUp, DollarSign, BarChart3, Building2, Shield, Clock, MessageCircle, ChevronRight } from 'lucide-react'
+import {
+  Users,
+  Target,
+  TrendingUp,
+  DollarSign,
+  BarChart3,
+  Building2,
+  Clock,
+  MessageCircle,
+  ChevronRight,
+  Shield,
+  Activity
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/auth'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { Header } from '@/components/header'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 interface OrganizationStats {
   id: string
@@ -22,7 +43,6 @@ interface OrganizationStats {
 export default function GMBVClubPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const pathname = usePathname()
   const [organizations, setOrganizations] = useState<OrganizationStats[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedOrg, setSelectedOrg] = useState<OrganizationStats | null>(null)
@@ -34,7 +54,7 @@ export default function GMBVClubPage() {
   const loadOrganizations = async () => {
     try {
       setLoading(true)
-      
+
       // Execute all queries in parallel for better performance
       const [
         { data: orgsData, error: orgsError },
@@ -48,35 +68,35 @@ export default function GMBVClubPage() {
           .from('organizations')
           .select('id, name, created_at')
           .order('created_at', { ascending: false }),
-        
+
         // Get leads stats aggregated by organization
         supabase
           .from('leads')
           .select('organization_id, possui_comissao')
           .not('organization_id', 'is', null),
-        
+
         // Get mentorados stats
         supabase
           .from('mentorado_atividades')
           .select('organization_id, mentorado_id')
           .not('organization_id', 'is', null),
-        
+
         // Get faturamento stats
         supabase
           .from('leads')
           .select('organization_id, valor_vendido')
           .not('organization_id', 'is', null)
           .not('valor_vendido', 'is', null),
-        
+
         // Get atividades stats
         supabase
           .from('mentorado_atividades')
           .select('organization_id')
           .not('organization_id', 'is', null)
       ])
-      
+
       if (orgsError) {
-        console.error('Erro ao carregar organizações:', orgsError)
+        console.error('Erro ao carregar organizacoes:', orgsError)
         return
       }
 
@@ -110,7 +130,7 @@ export default function GMBVClubPage() {
 
       setOrganizations(organizationsWithStats)
     } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error)
+      console.error('Erro ao carregar estatisticas:', error)
     } finally {
       setLoading(false)
     }
@@ -137,7 +157,7 @@ export default function GMBVClubPage() {
     return Math.round(growth * 10) / 10
   }
 
-  // Estatísticas gerais
+  // Estatisticas gerais
   const totalOrganizations = organizations.length
   const totalLeads = organizations.reduce((sum, org) => sum + org.leads_count, 0)
   const totalMentorados = organizations.reduce((sum, org) => sum + org.mentorados_count, 0)
@@ -147,143 +167,186 @@ export default function GMBVClubPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 border-t-transparent border-r-transparent"></div>
+      <div className="min-h-screen bg-[#0A0A0A]">
+        <Header title="GMBV Club" subtitle="Visao administrativa de todas as organizacoes" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+          {/* Skeleton KPI cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06]">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-2 h-2 rounded-full bg-white/10 animate-pulse" />
+                  <div className="h-3 w-24 bg-white/[0.06] rounded animate-pulse" />
+                </div>
+                <div className="h-8 w-20 bg-white/[0.06] rounded animate-pulse mb-2" />
+                <div className="h-3 w-32 bg-white/[0.04] rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+          {/* Skeleton org list */}
+          <div className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] overflow-hidden">
+            <div className="px-6 py-5 border-b border-white/[0.06]">
+              <div className="h-5 w-56 bg-white/[0.06] rounded animate-pulse mb-2" />
+              <div className="h-3 w-72 bg-white/[0.04] rounded animate-pulse" />
+            </div>
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="px-6 py-5 border-b border-white/[0.04]">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <div className="h-5 w-40 bg-white/[0.06] rounded animate-pulse mb-2" />
+                    <div className="h-3 w-28 bg-white/[0.04] rounded animate-pulse" />
+                  </div>
+                  <div className="h-5 w-5 bg-white/[0.04] rounded animate-pulse" />
+                </div>
+                <div className="grid grid-cols-4 gap-4">
+                  {[...Array(4)].map((_, j) => (
+                    <div key={j} className="text-center">
+                      <div className="h-6 w-12 bg-white/[0.06] rounded animate-pulse mx-auto mb-1" />
+                      <div className="h-3 w-14 bg-white/[0.04] rounded animate-pulse mx-auto" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-900 via-blue-800 to-gray-900 p-6 border-b border-gray-700">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white mb-2">🏆 GMBV Club</h1>
-              <p className="text-blue-200 text-sm">Visão administrativa de todas as organizações</p>
-            </div>
-            <button
-              onClick={() => router.push('/admin')}
-              className="text-blue-200 hover:text-white transition-colors"
-            >
-              ← Voltar ao Admin
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#0A0A0A]">
+      <Header title="GMBV Club" subtitle="Visao administrativa de todas as organizacoes" />
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Estatísticas Gerais */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white">Total de Organizações</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-blue-400">{totalOrganizations}</div>
-              <p className="text-gray-400 text-sm mt-1">Organizações ativas</p>
-            </CardContent>
-          </Card>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Total Organizacoes */}
+          <div className="group relative bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] hover:ring-blue-500/20 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-blue-400" />
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Organizacoes</p>
+              </div>
+              <p className="text-3xl font-bold text-white tabular-nums">{totalOrganizations}</p>
+              <p className="text-xs text-white/30 mt-1">Organizacoes ativas</p>
+            </div>
+          </div>
 
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Total de Leads
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-green-400">{totalLeads}</div>
-              <p className="text-gray-400 text-sm mt-1">Média: {avgLeadsPorOrg.toFixed(1)} leads/org</p>
-            </CardContent>
-          </Card>
+          {/* Total Leads */}
+          <div className="group relative bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] hover:ring-emerald-500/20 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-emerald-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Total de Leads</p>
+              </div>
+              <p className="text-3xl font-bold text-white tabular-nums">{totalLeads}</p>
+              <p className="text-xs text-white/30 mt-1">Media: {avgLeadsPorOrg.toFixed(1)} leads/org</p>
+            </div>
+          </div>
 
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                Total de Mentorados
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-purple-400">{totalMentorados}</div>
-              <p className="text-gray-400 text-sm mt-1">Média: {(totalMentorados / totalOrganizations).toFixed(1)} mentorados/org</p>
-            </CardContent>
-          </Card>
+          {/* Total Mentorados */}
+          <div className="group relative bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] hover:ring-purple-500/20 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-purple-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-purple-400" />
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Total de Mentorados</p>
+              </div>
+              <p className="text-3xl font-bold text-white tabular-nums">{totalMentorados}</p>
+              <p className="text-xs text-white/30 mt-1">
+                Media: {totalOrganizations > 0 ? (totalMentorados / totalOrganizations).toFixed(1) : '0'} mentorados/org
+              </p>
+            </div>
+          </div>
 
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Faturamento Total
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-yellow-400">{formatCurrency(totalFaturamento)}</div>
-              <p className="text-gray-400 text-sm mt-1">Média: {formatCurrency(avgFaturamentoPorOrg)}/org</p>
-            </CardContent>
-          </Card>
+          {/* Faturamento Total */}
+          <div className="group relative bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] hover:ring-yellow-500/20 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-yellow-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Faturamento Total</p>
+              </div>
+              <p className="text-3xl font-bold text-white tabular-nums">{formatCurrency(totalFaturamento)}</p>
+              <p className="text-xs text-white/30 mt-1">Media: {formatCurrency(avgFaturamentoPorOrg)}/org</p>
+            </div>
+          </div>
         </div>
 
-        {/* Lista de Organizações */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-700">
-            <h2 className="text-xl font-bold text-white mb-4">📊 Organizações e Estatísticas</h2>
-            <p className="text-gray-400 text-sm mb-4">Clique em uma organização para ver detalhes</p>
+        {/* Lista de Organizacoes */}
+        <div className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] overflow-hidden">
+          <div className="px-6 py-5 border-b border-white/[0.06]">
+            <div className="flex items-center gap-2 mb-1">
+              <BarChart3 className="h-5 w-5 text-white/40" />
+              <h2 className="text-lg font-semibold text-white">Organizacoes e Estatisticas</h2>
+            </div>
+            <p className="text-sm text-white/40">Clique em uma organizacao para ver detalhes</p>
           </div>
 
           {organizations.length === 0 ? (
-            <div className="p-12 text-center">
-              <MessageCircle className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-              <p className="text-gray-400">Nenhuma organização encontrada</p>
+            <div className="p-16 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-white/[0.04] flex items-center justify-center mx-auto mb-4">
+                <MessageCircle className="h-6 w-6 text-white/20" />
+              </div>
+              <p className="text-white/40 text-sm">Nenhuma organizacao encontrada</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-700">
+            <div className="divide-y divide-white/[0.04]">
               {organizations.map((org) => (
                 <div
                   key={org.id}
                   onClick={() => setSelectedOrg(org)}
                   className={cn(
-                    'p-4 cursor-pointer transition-all duration-200 hover:bg-gray-700/50',
-                    selectedOrg?.id === org.id && 'bg-gray-700'
+                    'px-6 py-5 cursor-pointer transition-all duration-200 hover:bg-white/[0.02]',
+                    selectedOrg?.id === org.id && 'bg-white/[0.04]'
                   )}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-white mb-1">{org.name}</h3>
-                      <p className="text-gray-400 text-xs">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-semibold text-white truncate">{org.name}</h3>
+                      <p className="text-xs text-white/30 mt-0.5">
                         Criada em {formatDate(org.created_at)}
                       </p>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-gray-500" />
+                    <ChevronRight className="h-4 w-4 text-white/20 flex-shrink-0 ml-4" />
                   </div>
 
-                  {/* Estatísticas Compactas */}
-                  <div className="grid grid-cols-4 gap-4 mt-4">
-                    <div className="text-center">
-                      <Users className="h-6 w-6 text-blue-400 mx-auto mb-1" />
-                      <div className="text-2xl font-bold text-white">{org.leads_count}</div>
-                      <p className="text-gray-400 text-xs">Leads</p>
+                  {/* Estatisticas Compactas */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="flex items-center gap-3 bg-white/[0.02] rounded-xl px-3 py-2.5">
+                      <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-lg font-bold text-white tabular-nums">{org.leads_count}</p>
+                        <p className="text-[11px] text-white/30 uppercase tracking-wider">Leads</p>
+                      </div>
                     </div>
 
-                    <div className="text-center">
-                      <Target className="h-6 w-6 text-purple-400 mx-auto mb-1" />
-                      <div className="text-2xl font-bold text-white">{org.mentorados_count}</div>
-                      <p className="text-gray-400 text-xs">Mentorados</p>
+                    <div className="flex items-center gap-3 bg-white/[0.02] rounded-xl px-3 py-2.5">
+                      <div className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-lg font-bold text-white tabular-nums">{org.mentorados_count}</p>
+                        <p className="text-[11px] text-white/30 uppercase tracking-wider">Mentorados</p>
+                      </div>
                     </div>
 
-                    <div className="text-center">
-                      <DollarSign className="h-6 w-6 text-yellow-400 mx-auto mb-1" />
-                      <div className="text-2xl font-bold text-white">{formatCurrency(org.faturamento_total)}</div>
-                      <p className="text-gray-400 text-xs">Faturamento</p>
+                    <div className="flex items-center gap-3 bg-white/[0.02] rounded-xl px-3 py-2.5">
+                      <div className="w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-lg font-bold text-white tabular-nums truncate">{formatCurrency(org.faturamento_total)}</p>
+                        <p className="text-[11px] text-white/30 uppercase tracking-wider">Faturamento</p>
+                      </div>
                     </div>
 
-                    <div className="text-center">
-                      <BarChart3 className="h-6 w-6 text-green-400 mx-auto mb-1" />
-                      <div className="text-2xl font-bold text-white">{org.ativos_count}</div>
-                      <p className="text-gray-400 text-xs">Atividades</p>
+                    <div className="flex items-center gap-3 bg-white/[0.02] rounded-xl px-3 py-2.5">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-lg font-bold text-white tabular-nums">{org.ativos_count}</p>
+                        <p className="text-[11px] text-white/30 uppercase tracking-wider">Atividades</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -292,204 +355,194 @@ export default function GMBVClubPage() {
           )}
         </div>
 
-        {/* Modal de Detalhes da Organização */}
-        {selectedOrg && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-gray-800 border border-gray-600 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
-              <div className="flex items-center justify-between p-4 border-b border-gray-700">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Building2 className="h-6 w-6" />
-                  {selectedOrg.name}
-                </h2>
-                <button
-                  onClick={() => setSelectedOrg(null)}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  ✕
-                </button>
+        {/* Modal de Detalhes da Organizacao - using shadcn Dialog */}
+        <Dialog open={!!selectedOrg} onOpenChange={(open) => { if (!open) setSelectedOrg(null) }}>
+          <DialogContent className="bg-[#141418] border-white/[0.06] ring-1 ring-white/[0.06] text-white max-w-4xl max-h-[90vh] overflow-hidden p-0">
+            <DialogHeader className="px-6 pt-6 pb-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                  <Building2 className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-bold text-white">
+                    {selectedOrg?.name}
+                  </DialogTitle>
+                  <DialogDescription className="text-white/40 text-sm">
+                    Detalhes e metricas da organizacao
+                  </DialogDescription>
+                </div>
               </div>
+            </DialogHeader>
 
-              <div className="p-6 overflow-y-auto">
-                {/* Grid de Estatísticas Detalhadas */}
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Leads */}
-                  <Card className="bg-gray-900 border-gray-700">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center gap-2">
-                        <Users className="h-5 w-5" />
-                        Leads Detalhados
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Total de Leads:</span>
-                          <span className="text-xl font-bold text-blue-400">{selectedOrg.leads_count}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Leads por Dia (média):</span>
-                          <span className="text-xl font-bold text-blue-400">
-                            {selectedOrg.leads_count > 0 
-                              ? (selectedOrg.leads_count / 30).toFixed(1) 
-                              : '0'}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Mentorados */}
-                  <Card className="bg-gray-900 border-gray-700">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center gap-2">
-                        <Target className="h-5 w-5" />
-                        Mentorados Ativos
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Total de Mentorados:</span>
-                          <span className="text-xl font-bold text-purple-400">{selectedOrg.mentorados_count}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Mentorados por Org (média):</span>
-                          <span className="text-xl font-bold text-purple-400">
-                            {totalOrganizations > 0 
-                              ? (selectedOrg.mentorados_count / totalOrganizations).toFixed(1) 
-                              : '0'}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Faturamento */}
-                  <Card className="bg-gray-900 border-gray-700">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center gap-2">
-                        <DollarSign className="h-5 w-5" />
-                        Faturamento
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Faturamento Total:</span>
-                          <span className="text-xl font-bold text-yellow-400">{formatCurrency(selectedOrg.faturamento_total)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Ticket Médio:</span>
-                          <span className="text-xl font-bold text-yellow-400">
-                            {selectedOrg.leads_count > 0 
-                              ? formatCurrency(selectedOrg.faturamento_total / selectedOrg.leads_count) 
-                              : 'R$ 0,00'}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Comissões */}
-                  <Card className="bg-gray-900 border-gray-700">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5" />
-                        Comissões
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Leads com Comissão:</span>
-                          <span className="text-xl font-bold text-green-400">{selectedOrg.comissoes_count}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Taxa de Conversão:</span>
-                          <span className="text-xl font-bold text-green-400">
-                            {selectedOrg.leads_count > 0 && selectedOrg.comissoes_count > 0 
-                              ? ((selectedOrg.comissoes_count / selectedOrg.leads_count) * 100).toFixed(1) + '%'
-                              : '0%'}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Atividades */}
-                  <Card className="bg-gray-900 border-gray-700">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center gap-2">
-                        <Clock className="h-5 w-5" />
-                        Atividades Recentes
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Atividades Registradas:</span>
-                          <span className="text-xl font-bold text-orange-400">{selectedOrg.ativos_count}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Engajamento Médio:</span>
-                          <span className="text-xl font-bold text-orange-400">
-                            {selectedOrg.mentorados_count > 0 && selectedOrg.ativos_count > 0 
-                              ? (selectedOrg.ativos_count / selectedOrg.mentorados_count).toFixed(1) + ' atividades/mentorado'
-                              : 'N/A'}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Performance */}
-                  <Card className="bg-gray-900 border-gray-700">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center gap-2">
-                        <BarChart3 className="h-5 w-5" />
-                        Performance da Org
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Posição no Ranking:</span>
-                          <span className="text-xl font-bold text-cyan-400">
-                            #{organizations.findIndex(o => o.id === selectedOrg.id) + 1} de {totalOrganizations}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Score de Saúde:</span>
-                          <span className="text-xl font-bold text-cyan-400">
-                            {selectedOrg.leads_count > 10 ? 'Excelente' : 
-                             selectedOrg.leads_count > 5 ? 'Bom' : 
-                             selectedOrg.leads_count > 0 ? 'Em Desenvolvimento' : 'Sem Dados'}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+            <div className="px-6 pb-6 pt-4 overflow-y-auto max-h-[calc(90vh-180px)] space-y-4">
+              {/* Grid de Estatisticas Detalhadas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Leads */}
+                <div className="bg-[#0A0A0A] rounded-xl p-4 ring-1 ring-white/[0.06]">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-blue-400" />
+                    <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Leads Detalhados</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/40">Total de Leads</span>
+                      <span className="text-lg font-bold text-white tabular-nums">{selectedOrg?.leads_count}</span>
+                    </div>
+                    <div className="h-px bg-white/[0.04]" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/40">Leads por Dia (media)</span>
+                      <span className="text-lg font-bold text-white tabular-nums">
+                        {selectedOrg && selectedOrg.leads_count > 0
+                          ? (selectedOrg.leads_count / 30).toFixed(1)
+                          : '0'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Footer do Modal */}
-                <div className="flex justify-end gap-2 p-4 border-t border-gray-700">
-                  <button
-                    onClick={() => router.push(`/admin/organizations/${selectedOrg.id}`)}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors"
-                  >
-                    Ver Dashboard Completo
-                  </button>
-                  <button
-                    onClick={() => setSelectedOrg(null)}
-                    className="px-4 py-3 text-gray-400 hover:text-white rounded-lg font-semibold transition-colors"
-                  >
-                    Fechar
-                  </button>
+                {/* Mentorados */}
+                <div className="bg-[#0A0A0A] rounded-xl p-4 ring-1 ring-white/[0.06]">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-purple-400" />
+                    <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Mentorados Ativos</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/40">Total de Mentorados</span>
+                      <span className="text-lg font-bold text-white tabular-nums">{selectedOrg?.mentorados_count}</span>
+                    </div>
+                    <div className="h-px bg-white/[0.04]" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/40">Mentorados por Org (media)</span>
+                      <span className="text-lg font-bold text-white tabular-nums">
+                        {selectedOrg && totalOrganizations > 0
+                          ? (selectedOrg.mentorados_count / totalOrganizations).toFixed(1)
+                          : '0'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Faturamento */}
+                <div className="bg-[#0A0A0A] rounded-xl p-4 ring-1 ring-white/[0.06]">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                    <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Faturamento</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/40">Faturamento Total</span>
+                      <span className="text-lg font-bold text-white tabular-nums">{selectedOrg ? formatCurrency(selectedOrg.faturamento_total) : 'R$ 0,00'}</span>
+                    </div>
+                    <div className="h-px bg-white/[0.04]" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/40">Ticket Medio</span>
+                      <span className="text-lg font-bold text-white tabular-nums">
+                        {selectedOrg && selectedOrg.leads_count > 0
+                          ? formatCurrency(selectedOrg.faturamento_total / selectedOrg.leads_count)
+                          : 'R$ 0,00'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Comissoes */}
+                <div className="bg-[#0A0A0A] rounded-xl p-4 ring-1 ring-white/[0.06]">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Comissoes</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/40">Leads com Comissao</span>
+                      <span className="text-lg font-bold text-white tabular-nums">{selectedOrg?.comissoes_count}</span>
+                    </div>
+                    <div className="h-px bg-white/[0.04]" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/40">Taxa de Conversao</span>
+                      <span className="text-lg font-bold text-white tabular-nums">
+                        {selectedOrg && selectedOrg.leads_count > 0 && selectedOrg.comissoes_count > 0
+                          ? ((selectedOrg.comissoes_count / selectedOrg.leads_count) * 100).toFixed(1) + '%'
+                          : '0%'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Atividades */}
+                <div className="bg-[#0A0A0A] rounded-xl p-4 ring-1 ring-white/[0.06]">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-orange-400" />
+                    <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Atividades Recentes</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/40">Atividades Registradas</span>
+                      <span className="text-lg font-bold text-white tabular-nums">{selectedOrg?.ativos_count}</span>
+                    </div>
+                    <div className="h-px bg-white/[0.04]" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/40">Engajamento Medio</span>
+                      <span className="text-lg font-bold text-white tabular-nums">
+                        {selectedOrg && selectedOrg.mentorados_count > 0 && selectedOrg.ativos_count > 0
+                          ? (selectedOrg.ativos_count / selectedOrg.mentorados_count).toFixed(1) + ' ativ/ment'
+                          : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance */}
+                <div className="bg-[#0A0A0A] rounded-xl p-4 ring-1 ring-white/[0.06]">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-cyan-400" />
+                    <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Performance da Org</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/40">Posicao no Ranking</span>
+                      <span className="text-lg font-bold text-white tabular-nums">
+                        #{selectedOrg ? organizations.findIndex(o => o.id === selectedOrg.id) + 1 : '-'} de {totalOrganizations}
+                      </span>
+                    </div>
+                    <div className="h-px bg-white/[0.04]" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/40">Score de Saude</span>
+                      <span className="text-sm font-semibold">
+                        {selectedOrg && selectedOrg.leads_count > 10 ? (
+                          <span className="text-emerald-400">Excelente</span>
+                        ) : selectedOrg && selectedOrg.leads_count > 5 ? (
+                          <span className="text-blue-400">Bom</span>
+                        ) : selectedOrg && selectedOrg.leads_count > 0 ? (
+                          <span className="text-yellow-400">Em Desenvolvimento</span>
+                        ) : (
+                          <span className="text-white/30">Sem Dados</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+
+            {/* Footer do Modal */}
+            <DialogFooter className="px-6 py-4 border-t border-white/[0.06] flex flex-row gap-3 sm:justify-between">
+              <Button
+                variant="ghost"
+                onClick={() => setSelectedOrg(null)}
+                className="text-white/40 hover:text-white hover:bg-white/[0.06]"
+              >
+                Fechar
+              </Button>
+              <Button
+                onClick={() => selectedOrg && router.push(`/admin/organizations/${selectedOrg.id}`)}
+                className="bg-white text-black hover:bg-white/90 font-semibold"
+              >
+                Ver Dashboard Completo
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

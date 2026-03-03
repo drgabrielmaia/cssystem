@@ -39,6 +39,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
 import ReactMarkdown from 'react-markdown'
+import ProtectedRoute from '@/components/auth/ProtectedRoute'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -660,6 +661,7 @@ REGRAS:
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
+    <ProtectedRoute>
     <div className="min-h-screen bg-[#0a0a0c]">
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="sticky top-0 z-30 bg-[#0a0a0c]/80 backdrop-blur-xl border-b border-white/[0.06]">
@@ -1538,5 +1540,6 @@ REGRAS:
         </div>
       )}
     </div>
+    </ProtectedRoute>
   )
 }

@@ -355,7 +355,7 @@ function SortableField({
 // ─── Main Component ──────────────────────────────────────────────────
 export default function FormBuilderPage() {
   const { user } = useAuth()
-  const { organization } = useOrganization(user?.id || null)
+  const { organization } = useOrganization(user?.id || null, user?.email)
   const [templates, setTemplates] = useState<FormTemplate[]>([])
   const [currentTemplate, setCurrentTemplate] = useState<FormTemplate>({
     name: '', description: '', slug: '', form_type: 'lead', fields: [], style: defaultStyle,

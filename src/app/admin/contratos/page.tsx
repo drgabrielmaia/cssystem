@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -19,10 +18,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { 
-  Plus, 
-  FileText, 
-  Send, 
+import {
+  Plus,
+  FileText,
+  Send,
   Eye,
   Edit,
   Copy,
@@ -33,10 +32,12 @@ import {
   Users,
   Settings,
   Trash2,
-  Download
+  Download,
+  AlertTriangle
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { sendContractAfterCreation } from '@/lib/contract-whatsapp'
+import { Header } from '@/components/header'
 
 interface ContractTemplate {
   id: string
@@ -83,7 +84,7 @@ export default function ContractsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('contracts')
-  
+
   // Modals
   const [showTemplateModal, setShowTemplateModal] = useState(false)
   const [showContractModal, setShowContractModal] = useState(false)
@@ -106,7 +107,7 @@ export default function ContractsPage() {
   })
 
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  
+
   // View contract modal
   const [showViewModal, setShowViewModal] = useState(false)
   const [viewingContract, setViewingContract] = useState<Contract | null>(null)
@@ -332,26 +333,26 @@ export default function ContractsPage() {
       if (error) throw error
 
       const contractId = data
-      
+
       // Try to send WhatsApp notification automatically
       if (contractId && recipientPhone) {
         try {
-          console.log('📱 Enviando contrato via WhatsApp automaticamente...')
+          console.log('Enviando contrato via WhatsApp automaticamente...')
           const whatsappSent = await sendContractAfterCreation(contractId)
-          
+
           if (whatsappSent) {
-            alert('Contrato criado e enviado via WhatsApp com sucesso! 📱')
+            alert('Contrato criado e enviado via WhatsApp com sucesso!')
           } else {
-            alert('Contrato criado com sucesso! ⚠️ Não foi possível enviar via WhatsApp - você pode copiar o link manualmente.')
+            alert('Contrato criado com sucesso! Nao foi possivel enviar via WhatsApp - voce pode copiar o link manualmente.')
           }
         } catch (whatsappError) {
           console.error('Erro no WhatsApp:', whatsappError)
-          alert('Contrato criado com sucesso! ⚠️ Erro ao enviar via WhatsApp - você pode copiar o link manualmente.')
+          alert('Contrato criado com sucesso! Erro ao enviar via WhatsApp - voce pode copiar o link manualmente.')
         }
       } else {
-        alert('Contrato criado com sucesso! ℹ️ Sem telefone cadastrado - envie o link manualmente.')
+        alert('Contrato criado com sucesso! Sem telefone cadastrado - envie o link manualmente.')
       }
-      
+
       setShowContractModal(false)
       resetContractForm()
       loadData()
@@ -372,11 +373,11 @@ export default function ContractsPage() {
 
       if (error) throw error
 
-      alert('Template padrão criado com sucesso!')
+      alert('Template padrao criado com sucesso!')
       loadData()
     } catch (error) {
-      console.error('Erro ao criar template padrão:', error)
-      alert('Erro ao criar template padrão')
+      console.error('Erro ao criar template padrao:', error)
+      alert('Erro ao criar template padrao')
     }
   }
 
@@ -407,28 +408,21 @@ export default function ContractsPage() {
   }
 
   const getStatusBadge = (status: string) => {
-    const variants = {
-      pending: { className: 'bg-yellow-900/20 text-yellow-400 border-yellow-400/30', icon: Clock },
-      signed: { className: 'bg-green-900/20 text-green-400 border-green-400/30', icon: CheckCircle },
-      expired: { className: 'bg-red-900/20 text-red-400 border-red-400/30', icon: XCircle },
-      cancelled: { className: 'bg-gray-900/20 text-gray-400 border-gray-400/30', icon: XCircle }
-    }
-    
-    const labels = {
-      pending: 'Pendente',
-      signed: 'Assinado',
-      expired: 'Expirado',
-      cancelled: 'Cancelado'
+    const variants: Record<string, { className: string; icon: typeof Clock; label: string }> = {
+      pending: { className: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: Clock, label: 'Pendente' },
+      signed: { className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: CheckCircle, label: 'Assinado' },
+      expired: { className: 'bg-red-500/10 text-red-400 border-red-500/20', icon: XCircle, label: 'Expirado' },
+      cancelled: { className: 'bg-white/[0.06] text-white/40 border-white/[0.08]', icon: XCircle, label: 'Cancelado' }
     }
 
-    const config = variants[status as keyof typeof variants]
+    const config = variants[status] || variants.pending
     const Icon = config.icon
 
     return (
-      <Badge className={config.className}>
-        <Icon className="h-3 w-3 mr-1" />
-        {labels[status as keyof typeof labels]}
-      </Badge>
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${config.className}`}>
+        <Icon className="h-3 w-3" />
+        {config.label}
+      </span>
     )
   }
 
@@ -439,21 +433,21 @@ export default function ContractsPage() {
   const copySigningUrl = (contractId: string) => {
     const url = getSigningUrl(contractId)
     navigator.clipboard.writeText(url)
-    alert('Link copiado para a área de transferência!')
+    alert('Link copiado para a area de transferencia!')
   }
 
   const sendContractWhatsApp = async (contractId: string) => {
     try {
       const success = await sendContractAfterCreation(contractId)
       if (success) {
-        alert('✅ Contrato reenviado via WhatsApp com sucesso!')
+        alert('Contrato reenviado via WhatsApp com sucesso!')
         loadData() // Refresh to show updated whatsapp_sent_at
       } else {
-        alert('❌ Erro ao enviar contrato via WhatsApp. Verifique se o telefone está correto.')
+        alert('Erro ao enviar contrato via WhatsApp. Verifique se o telefone esta correto.')
       }
     } catch (error) {
       console.error('Erro ao reenviar contrato:', error)
-      alert('❌ Erro ao enviar contrato via WhatsApp')
+      alert('Erro ao enviar contrato via WhatsApp')
     }
   }
 
@@ -468,7 +462,7 @@ export default function ContractsPage() {
 
       if (data && data.length > 0) {
         let content = data[0].content
-        
+
         // Get organization signature settings to process signatures
         const { data: orgSignature } = await supabase
           .from('organization_signature_settings')
@@ -487,7 +481,7 @@ ___________________
 ${orgSignature.signature_name}
 ${orgSignature.signature_title || ''}
 ${orgSignature.signature_document || ''}
-INSTITUTO DE MENTORIA MÉDICA GABRIEL MAIA LTDA
+INSTITUTO DE MENTORIA MEDICA GABRIEL MAIA LTDA
 CNPJ: 56.267.958/0001-60`
 
           content = content.replace(/\[ASSINATURA_CONTRATADA\]/g, orgSignatureBlock)
@@ -509,7 +503,7 @@ ${clientSigImg}
 ___________________
 ${contract.recipient_name}
 Assinatura Digital
-Assinado em: ${contract.signed_at ? new Date(contract.signed_at).toLocaleDateString('pt-BR') : 'Data não disponível'}`
+Assinado em: ${contract.signed_at ? new Date(contract.signed_at).toLocaleDateString('pt-BR') : 'Data nao disponivel'}`
 
           content = content.replace(/\[ASSINATURA_CONTRATANTE\]/g, clientSignatureBlock)
           content = content.replace(/\[SIGNATURE\]/g, clientSignatureBlock)
@@ -519,16 +513,16 @@ Assinado em: ${contract.signed_at ? new Date(contract.signed_at).toLocaleDateStr
 ___________________
 ${contract.recipient_name}
 Assinatura do Contratante`
-          
+
           content = content.replace(/\[ASSINATURA_CONTRATANTE\]/g, clientSignatureBlock)
           content = content.replace(/\[SIGNATURE\]/g, clientSignatureBlock)
         }
-        
+
         setContractContent(content)
         setViewingContract(contract)
         setShowViewModal(true)
       } else {
-        alert('Conteúdo do contrato não encontrado')
+        alert('Conteudo do contrato nao encontrado')
       }
     } catch (error) {
       console.error('Erro ao carregar contrato:', error)
@@ -537,7 +531,7 @@ Assinatura do Contratante`
   }
 
   const handleDeleteContract = async (contractId: string, contractName: string) => {
-    if (!confirm(`Tem certeza que deseja excluir o contrato de "${contractName}"?\nEsta ação não pode ser desfeita.`)) {
+    if (!confirm(`Tem certeza que deseja excluir o contrato de "${contractName}"?\nEsta acao nao pode ser desfeita.`)) {
       return
     }
 
@@ -549,7 +543,7 @@ Assinatura do Contratante`
 
       if (error) throw error
 
-      alert('Contrato excluído com sucesso!')
+      alert('Contrato excluido com sucesso!')
       loadData()
     } catch (error) {
       console.error('Erro ao excluir contrato:', error)
@@ -591,18 +585,24 @@ Assinatura do Contratante`
         setSignatureSettings(data)
       }
 
-      alert('Configurações de assinatura salvas com sucesso!')
+      alert('Configuracoes de assinatura salvas com sucesso!')
       loadData()
     } catch (error) {
-      console.error('Erro ao salvar configurações:', error)
-      alert('Erro ao salvar configurações')
+      console.error('Erro ao salvar configuracoes:', error)
+      alert('Erro ao salvar configuracoes')
     }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D4AF37]"></div>
+      <div className="min-h-screen bg-[#0A0A0A]">
+        <Header title="Contratos" subtitle="Gerencie modelos e envie contratos" />
+        <div className="flex items-center justify-center h-64">
+          <div className="flex flex-col items-center gap-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-white/10 border-t-white/60"></div>
+            <p className="text-sm text-white/40">Carregando contratos...</p>
+          </div>
+        </div>
       </div>
     )
   }
@@ -611,301 +611,307 @@ Assinatura do Contratante`
   const totalContracts = contracts.length
   const pendingContracts = contracts.filter(c => c.status === 'pending').length
   const signedContracts = contracts.filter(c => c.status === 'signed').length
+  const expiredContracts = contracts.filter(c => c.status === 'expired').length
   const activeTemplates = templates.filter(t => t.is_active).length
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Gestão de Contratos</h1>
-          <p className="text-gray-400">Gerencie templates e contratos eletrônicos</p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#0A0A0A]">
+      <Header title="Contratos" subtitle="Gerencie modelos e envie contratos" />
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-gray-400 flex items-center">
-              <FileText className="h-4 w-4 mr-2" />
-              Templates Ativos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">{activeTemplates}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-gray-400 flex items-center">
-              <Clock className="h-4 w-4 mr-2" />
-              Contratos Pendentes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-400">{pendingContracts}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-gray-400 flex items-center">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Contratos Assinados
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-400">{signedContracts}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-gray-400">
-              Total Contratos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">{totalContracts}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-gray-800 border-gray-700">
-          <TabsTrigger value="contracts" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-black">
-            Contratos
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-black">
-            Templates
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-black">
-            Configurações
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Contracts Tab */}
-        <TabsContent value="contracts" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="flex gap-3">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48 bg-gray-800 border-gray-700 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
-                  <SelectItem value="all" className="text-white">Todos os status</SelectItem>
-                  <SelectItem value="pending" className="text-white">Pendentes</SelectItem>
-                  <SelectItem value="signed" className="text-white">Assinados</SelectItem>
-                  <SelectItem value="expired" className="text-white">Expirados</SelectItem>
-                </SelectContent>
-              </Select>
+      <div className="p-6 space-y-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Total Contratos */}
+          <div className="bg-[#141418] border border-white/[0.06] rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-white/40 text-sm font-medium">Total Contratos</span>
+              <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center">
+                <FileText className="h-4 w-4 text-white/50" />
+              </div>
             </div>
+            <p className="text-3xl font-bold text-white tracking-tight">{totalContracts}</p>
+            <p className="text-xs text-white/30 mt-1">{activeTemplates} templates ativos</p>
+          </div>
 
-            <Dialog open={showContractModal} onOpenChange={setShowContractModal}>
-              <DialogTrigger asChild>
-                <Button className="bg-[#D4AF37] hover:bg-[#B8860B]">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Contrato
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-gray-900 border-gray-700 max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle className="text-white">Criar Novo Contrato</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleCreateContract} className="space-y-4">
-                  <div>
-                    <Label className="text-white">Template *</Label>
-                    <Select
-                      value={contractForm.template_id}
-                      onValueChange={(value) => setContractForm(prev => ({ ...prev, template_id: value }))}
-                      required
-                    >
-                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                        <SelectValue placeholder="Selecione um template" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-700">
-                        {templates.filter(t => t.is_active).map((template) => (
-                          <SelectItem key={template.id} value={template.id} className="text-white">
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+          {/* Assinados */}
+          <div className="bg-[#141418] border border-white/[0.06] rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-white/40 text-sm font-medium">Assinados</span>
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                <CheckCircle className="h-4 w-4 text-emerald-400" />
+              </div>
+            </div>
+            <p className="text-3xl font-bold text-emerald-400 tracking-tight">{signedContracts}</p>
+            <p className="text-xs text-white/30 mt-1">
+              {totalContracts > 0 ? Math.round((signedContracts / totalContracts) * 100) : 0}% do total
+            </p>
+          </div>
 
-                  <div>
-                    <Label className="text-white">Destinatário</Label>
-                    <Select
-                      value={contractForm.recipient_type}
-                      onValueChange={(value) => setContractForm(prev => ({ ...prev, recipient_type: value }))}
-                    >
-                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-700">
-                        <SelectItem value="lead" className="text-white">Lead Existente</SelectItem>
-                        <SelectItem value="custom" className="text-white">Pessoa Externa</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+          {/* Pendentes */}
+          <div className="bg-[#141418] border border-white/[0.06] rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-white/40 text-sm font-medium">Pendentes</span>
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                <Clock className="h-4 w-4 text-amber-400" />
+              </div>
+            </div>
+            <p className="text-3xl font-bold text-amber-400 tracking-tight">{pendingContracts}</p>
+            <p className="text-xs text-white/30 mt-1">Aguardando assinatura</p>
+          </div>
 
-                  {contractForm.recipient_type === 'lead' ? (
-                    <div>
-                      <Label className="text-white">Lead *</Label>
+          {/* Expirados */}
+          <div className="bg-[#141418] border border-white/[0.06] rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-white/40 text-sm font-medium">Expirados</span>
+              <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center">
+                <AlertTriangle className="h-4 w-4 text-red-400" />
+              </div>
+            </div>
+            <p className="text-3xl font-bold text-red-400 tracking-tight">{expiredContracts}</p>
+            <p className="text-xs text-white/30 mt-1">Prazo expirado</p>
+          </div>
+        </div>
+
+        {/* Main Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="bg-[#141418] border border-white/[0.06] p-1 rounded-xl">
+            <TabsTrigger
+              value="contracts"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-white/40 data-[state=active]:bg-white/[0.08] data-[state=active]:text-white transition-all"
+            >
+              Contratos
+            </TabsTrigger>
+            <TabsTrigger
+              value="templates"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-white/40 data-[state=active]:bg-white/[0.08] data-[state=active]:text-white transition-all"
+            >
+              Templates
+            </TabsTrigger>
+            <TabsTrigger
+              value="settings"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-white/40 data-[state=active]:bg-white/[0.08] data-[state=active]:text-white transition-all"
+            >
+              Configuracoes
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Contracts Tab */}
+          <TabsContent value="contracts" className="space-y-4 mt-4">
+            <div className="flex justify-between items-center">
+              <div className="flex gap-3">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-48 bg-[#111113] border-white/[0.08] text-white rounded-xl h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#141418] border-white/[0.08]">
+                    <SelectItem value="all" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Todos os status</SelectItem>
+                    <SelectItem value="pending" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Pendentes</SelectItem>
+                    <SelectItem value="signed" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Assinados</SelectItem>
+                    <SelectItem value="expired" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Expirados</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Dialog open={showContractModal} onOpenChange={setShowContractModal}>
+                <DialogTrigger asChild>
+                  <Button className="bg-white text-black hover:bg-white/90 rounded-xl h-10 px-5 font-medium text-sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Novo Contrato
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-[#141418] border border-white/[0.08] max-w-2xl rounded-2xl">
+                  <DialogHeader>
+                    <DialogTitle className="text-white text-lg font-semibold">Criar Novo Contrato</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleCreateContract} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label className="text-white/60 text-sm">Template *</Label>
                       <Select
-                        value={contractForm.lead_id}
-                        onValueChange={(value) => setContractForm(prev => ({ ...prev, lead_id: value }))}
+                        value={contractForm.template_id}
+                        onValueChange={(value) => setContractForm(prev => ({ ...prev, template_id: value }))}
                         required
                       >
-                        <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                          <SelectValue placeholder="Selecione um lead" />
+                        <SelectTrigger className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10">
+                          <SelectValue placeholder="Selecione um template" />
                         </SelectTrigger>
-                        <SelectContent className="bg-gray-800 border-gray-700">
-                          {leads.map((lead) => (
-                            <SelectItem key={lead.id} value={lead.id} className="text-white">
-                              {lead.nome_completo} ({lead.email})
+                        <SelectContent className="bg-[#141418] border-white/[0.08]">
+                          {templates.filter(t => t.is_active).map((template) => (
+                            <SelectItem key={template.id} value={template.id} className="text-white/70 focus:bg-white/[0.06] focus:text-white">
+                              {template.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
-                  ) : (
-                    <>
-                      <div>
-                        <Label className="text-white">Nome Completo *</Label>
-                        <Input
-                          value={contractForm.custom_name}
-                          onChange={(e) => setContractForm(prev => ({ ...prev, custom_name: e.target.value }))}
-                          className="bg-gray-800 border-gray-700 text-white"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-white">Email *</Label>
-                        <Input
-                          type="email"
-                          value={contractForm.custom_email}
-                          onChange={(e) => setContractForm(prev => ({ ...prev, custom_email: e.target.value }))}
-                          className="bg-gray-800 border-gray-700 text-white"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-white">Telefone</Label>
-                        <Input
-                          value={contractForm.custom_phone}
-                          onChange={(e) => setContractForm(prev => ({ ...prev, custom_phone: e.target.value }))}
-                          className="bg-gray-800 border-gray-700 text-white"
-                        />
-                      </div>
-                    </>
-                  )}
 
-                  <div className="flex gap-3">
-                    <Button type="button" variant="outline" onClick={() => setShowContractModal(false)}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit" className="bg-[#D4AF37] hover:bg-[#B8860B]">
-                      Criar Contrato
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
+                    <div className="space-y-2">
+                      <Label className="text-white/60 text-sm">Destinatario</Label>
+                      <Select
+                        value={contractForm.recipient_type}
+                        onValueChange={(value) => setContractForm(prev => ({ ...prev, recipient_type: value }))}
+                      >
+                        <SelectTrigger className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#141418] border-white/[0.08]">
+                          <SelectItem value="lead" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Lead Existente</SelectItem>
+                          <SelectItem value="custom" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Pessoa Externa</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-          {/* Contracts Table */}
-          <Card className="bg-gray-800 border-gray-700">
-            <CardContent className="p-0">
+                    {contractForm.recipient_type === 'lead' ? (
+                      <div className="space-y-2">
+                        <Label className="text-white/60 text-sm">Lead *</Label>
+                        <Select
+                          value={contractForm.lead_id}
+                          onValueChange={(value) => setContractForm(prev => ({ ...prev, lead_id: value }))}
+                          required
+                        >
+                          <SelectTrigger className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10">
+                            <SelectValue placeholder="Selecione um lead" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#141418] border-white/[0.08]">
+                            {leads.map((lead) => (
+                              <SelectItem key={lead.id} value={lead.id} className="text-white/70 focus:bg-white/[0.06] focus:text-white">
+                                {lead.nome_completo} ({lead.email})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-white/60 text-sm">Nome Completo *</Label>
+                          <Input
+                            value={contractForm.custom_name}
+                            onChange={(e) => setContractForm(prev => ({ ...prev, custom_name: e.target.value }))}
+                            className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10 placeholder:text-white/20"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-white/60 text-sm">Email *</Label>
+                          <Input
+                            type="email"
+                            value={contractForm.custom_email}
+                            onChange={(e) => setContractForm(prev => ({ ...prev, custom_email: e.target.value }))}
+                            className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10 placeholder:text-white/20"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-white/60 text-sm">Telefone</Label>
+                          <Input
+                            value={contractForm.custom_phone}
+                            onChange={(e) => setContractForm(prev => ({ ...prev, custom_phone: e.target.value }))}
+                            className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10 placeholder:text-white/20"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-3 pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowContractModal(false)}
+                        className="border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white rounded-xl"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="submit" className="bg-white text-black hover:bg-white/90 rounded-xl font-medium">
+                        Criar Contrato
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Contracts Table */}
+            <div className="bg-[#141418] border border-white/[0.06] rounded-2xl overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-gray-700">
-                    <TableHead className="text-gray-300">Destinatário</TableHead>
-                    <TableHead className="text-gray-300">Template</TableHead>
-                    <TableHead className="text-gray-300">Status</TableHead>
-                    <TableHead className="text-gray-300">Criado</TableHead>
-                    <TableHead className="text-gray-300">Expira</TableHead>
-                    <TableHead className="text-gray-300">WhatsApp</TableHead>
-                    <TableHead className="text-gray-300">Ações</TableHead>
+                  <TableRow className="border-white/[0.06] hover:bg-transparent">
+                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Destinatario</TableHead>
+                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Template</TableHead>
+                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Status</TableHead>
+                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Criado</TableHead>
+                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Expira</TableHead>
+                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">WhatsApp</TableHead>
+                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Acoes</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {contracts.map((contract) => (
-                    <TableRow key={contract.id} className="border-gray-700">
+                    <TableRow key={contract.id} className="border-white/[0.04] hover:bg-white/[0.02] transition-colors">
                       <TableCell>
                         <div>
-                          <div className="font-medium text-white">{contract.recipient_name}</div>
-                          <div className="text-sm text-gray-400">{contract.recipient_email}</div>
+                          <div className="font-medium text-white text-sm">{contract.recipient_name}</div>
+                          <div className="text-xs text-white/30 mt-0.5">{contract.recipient_email}</div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-gray-300">{contract.template_name}</TableCell>
+                      <TableCell className="text-white/60 text-sm">{contract.template_name}</TableCell>
                       <TableCell>{getStatusBadge(contract.status)}</TableCell>
-                      <TableCell className="text-gray-300">
+                      <TableCell className="text-white/50 text-sm">
                         {new Date(contract.created_at).toLocaleDateString('pt-BR')}
                       </TableCell>
-                      <TableCell className="text-gray-300">
+                      <TableCell className="text-white/50 text-sm">
                         {new Date(contract.expires_at).toLocaleDateString('pt-BR')}
                       </TableCell>
                       <TableCell>
                         {contract.whatsapp_sent_at ? (
-                          <div className="text-xs">
-                            <Badge className="bg-green-900/20 text-green-400 border-green-400/30">
-                              <MessageCircle className="h-3 w-3 mr-1" />
+                          <div>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                              <MessageCircle className="h-3 w-3" />
                               Enviado
-                            </Badge>
-                            <p className="text-gray-500 mt-1">
+                            </span>
+                            <p className="text-white/20 text-xs mt-1">
                               {new Date(contract.whatsapp_sent_at).toLocaleDateString('pt-BR')}
                             </p>
                           </div>
                         ) : (
-                          <Badge className="bg-gray-900/20 text-gray-400 border-gray-400/30">
-                            Não enviado
-                          </Badge>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border bg-white/[0.04] text-white/30 border-white/[0.06]">
+                            Nao enviado
+                          </span>
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1.5">
                           {contract.status === 'pending' && (
                             <>
-                              <Button
-                                size="sm"
+                              <button
                                 onClick={() => copySigningUrl(contract.id)}
-                                className="bg-blue-600 hover:bg-blue-700"
+                                className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 hover:bg-blue-500/20 transition-colors"
                                 title="Copiar link"
                               >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
+                                <Copy className="h-3.5 w-3.5" />
+                              </button>
+                              <button
                                 onClick={() => sendContractWhatsApp(contract.id)}
-                                className="bg-green-600 hover:bg-green-700"
+                                className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 hover:bg-emerald-500/20 transition-colors"
                                 title="Enviar/Reenviar via WhatsApp"
                               >
-                                <MessageCircle className="h-4 w-4" />
-                              </Button>
+                                <MessageCircle className="h-3.5 w-3.5" />
+                              </button>
                             </>
                           )}
-                          <Button
-                            size="sm"
-                            variant="outline"
+                          <button
                             onClick={() => handleViewContract(contract)}
-                            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                            className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white/50 hover:bg-white/[0.08] hover:text-white/80 transition-colors"
                             title="Visualizar contrato"
                           >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                          <button
                             onClick={() => handleDeleteContract(contract.id, contract.recipient_name)}
-                            className="border-red-600 text-red-400 hover:bg-red-700/20"
+                            className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 hover:bg-red-500/20 transition-colors"
                             title="Excluir contrato"
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -914,173 +920,178 @@ Assinatura do Contratante`
               </Table>
 
               {contracts.length === 0 && (
-                <div className="text-center py-8 text-gray-400">
-                  Nenhum contrato encontrado
+                <div className="text-center py-16">
+                  <div className="w-12 h-12 rounded-2xl bg-white/[0.04] flex items-center justify-center mx-auto mb-4">
+                    <FileText className="h-6 w-6 text-white/20" />
+                  </div>
+                  <p className="text-white/40 text-sm">Nenhum contrato encontrado</p>
+                  <p className="text-white/20 text-xs mt-1">Crie um novo contrato para comecar</p>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </TabsContent>
 
-        {/* Templates Tab */}
-        <TabsContent value="templates" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <Button
-              variant="outline"
-              onClick={handleCreateDefaultTemplate}
-              className="border-gray-600 text-gray-300 hover:bg-gray-700"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Criar Template Padrão
-            </Button>
+          {/* Templates Tab */}
+          <TabsContent value="templates" className="space-y-4 mt-4">
+            <div className="flex justify-between items-center">
+              <Button
+                variant="outline"
+                onClick={handleCreateDefaultTemplate}
+                className="border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white rounded-xl h-10"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Criar Template Padrao
+              </Button>
 
-            <Dialog open={showTemplateModal} onOpenChange={setShowTemplateModal}>
-              <DialogTrigger asChild>
-                <Button className="bg-[#D4AF37] hover:bg-[#B8860B]">
-                  <Plus className="h-4 w-4 mr-2" />
-                  {editingTemplate ? 'Editar Template' : 'Novo Template'}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-gray-900 border-gray-700 max-w-4xl">
-                <DialogHeader>
-                  <DialogTitle className="text-white">
-                    {editingTemplate ? 'Editar Template' : 'Criar Novo Template'}
-                  </DialogTitle>
-                </DialogHeader>
-                <form onSubmit={editingTemplate ? handleUpdateTemplate : handleCreateTemplate} className="space-y-4">
-                  <div>
-                    <Label className="text-white">Nome do Template *</Label>
-                    <Input
-                      value={templateForm.name}
-                      onChange={(e) => setTemplateForm(prev => ({ ...prev, name: e.target.value }))}
-                      className="bg-gray-800 border-gray-700 text-white"
-                      required
-                    />
-                  </div>
+              <Dialog open={showTemplateModal} onOpenChange={setShowTemplateModal}>
+                <DialogTrigger asChild>
+                  <Button className="bg-white text-black hover:bg-white/90 rounded-xl h-10 px-5 font-medium text-sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    {editingTemplate ? 'Editar Template' : 'Novo Template'}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-[#141418] border border-white/[0.08] max-w-4xl rounded-2xl">
+                  <DialogHeader>
+                    <DialogTitle className="text-white text-lg font-semibold">
+                      {editingTemplate ? 'Editar Template' : 'Criar Novo Template'}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={editingTemplate ? handleUpdateTemplate : handleCreateTemplate} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label className="text-white/60 text-sm">Nome do Template *</Label>
+                      <Input
+                        value={templateForm.name}
+                        onChange={(e) => setTemplateForm(prev => ({ ...prev, name: e.target.value }))}
+                        className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10 placeholder:text-white/20"
+                        required
+                      />
+                    </div>
 
-                  <div>
-                    <Label className="text-white">Conteúdo do Contrato *</Label>
-                    <p className="text-xs text-gray-400 mb-2">
-                      Use placeholders como [NOME_COMPLETO], [DATA], [CPF], [ENDERECO] que serão substituídos automaticamente.
-                    </p>
-                    <Textarea
-                      value={templateForm.content}
-                      onChange={(e) => setTemplateForm(prev => ({ ...prev, content: e.target.value }))}
-                      className="bg-gray-800 border-gray-700 text-white min-h-[400px]"
-                      required
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label className="text-white/60 text-sm">Conteudo do Contrato *</Label>
+                      <p className="text-xs text-white/30">
+                        Use placeholders como [NOME_COMPLETO], [DATA], [CPF], [ENDERECO] que serao substituidos automaticamente.
+                      </p>
+                      <Textarea
+                        value={templateForm.content}
+                        onChange={(e) => setTemplateForm(prev => ({ ...prev, content: e.target.value }))}
+                        className="bg-[#111113] border-white/[0.08] text-white min-h-[400px] rounded-xl placeholder:text-white/20"
+                        required
+                      />
+                    </div>
 
-                  <div className="flex gap-3">
-                    <Button type="button" variant="outline" onClick={resetTemplateForm}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit" className="bg-[#D4AF37] hover:bg-[#B8860B]">
-                      {editingTemplate ? 'Atualizar Template' : 'Criar Template'}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
+                    <div className="flex gap-3 pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={resetTemplateForm}
+                        className="border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white rounded-xl"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="submit" className="bg-white text-black hover:bg-white/90 rounded-xl font-medium">
+                        {editingTemplate ? 'Atualizar Template' : 'Criar Template'}
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
 
-          {/* Templates List */}
-          <div className="grid gap-4">
-            {templates.map((template) => (
-              <Card key={template.id} className="bg-gray-800 border-gray-700">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
+            {/* Templates List */}
+            <div className="grid gap-4">
+              {templates.map((template) => (
+                <div key={template.id} className="bg-[#141418] border border-white/[0.06] rounded-2xl p-5">
+                  <div className="flex justify-between items-start mb-3">
                     <div>
-                      <CardTitle className="text-white">{template.name}</CardTitle>
-                      <p className="text-sm text-gray-400">
+                      <h3 className="text-white font-semibold text-base">{template.name}</h3>
+                      <p className="text-sm text-white/30 mt-0.5">
                         Criado em {new Date(template.created_at).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <Badge variant={template.is_active ? 'default' : 'secondary'}>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border ${
+                        template.is_active
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : 'bg-white/[0.04] text-white/30 border-white/[0.06]'
+                      }`}>
                         {template.is_active ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                      <Button
-                        size="sm"
-                        variant="outline"
+                      </span>
+                      <button
                         onClick={() => startEditTemplate(template)}
-                        className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                        className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white/50 hover:bg-white/[0.08] hover:text-white/80 transition-colors"
                       >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                        <Edit className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm text-gray-300 max-h-32 overflow-hidden">
+                  <div className="text-sm text-white/40 leading-relaxed line-clamp-3">
                     {template.content.substring(0, 200)}...
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                </div>
+              ))}
+            </div>
 
-          {templates.length === 0 && (
-            <Card className="bg-gray-800 border-gray-700">
-              <CardContent className="text-center py-8 text-gray-400">
-                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Nenhum template encontrado</p>
-                <p className="text-sm">Crie seu primeiro template para começar a enviar contratos</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
+            {templates.length === 0 && (
+              <div className="bg-[#141418] border border-white/[0.06] rounded-2xl p-12 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-white/[0.04] flex items-center justify-center mx-auto mb-4">
+                  <FileText className="h-6 w-6 text-white/20" />
+                </div>
+                <p className="text-white/40 text-sm">Nenhum template encontrado</p>
+                <p className="text-white/20 text-xs mt-1">Crie seu primeiro template para comecar a enviar contratos</p>
+              </div>
+            )}
+          </TabsContent>
 
-        {/* Settings Tab */}
-        <TabsContent value="settings" className="space-y-4">
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white">Configurações de Assinatura</CardTitle>
-              <p className="text-gray-400">Configure os dados que aparecerão na assinatura dos contratos</p>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSaveSignatureSettings} className="space-y-4">
-                <div>
-                  <Label className="text-white">Nome do Responsável *</Label>
+          {/* Settings Tab */}
+          <TabsContent value="settings" className="space-y-4 mt-4">
+            <div className="bg-[#141418] border border-white/[0.06] rounded-2xl p-6">
+              <div className="mb-6">
+                <h3 className="text-white font-semibold text-base">Configuracoes de Assinatura</h3>
+                <p className="text-white/40 text-sm mt-1">Configure os dados que aparecerao na assinatura dos contratos</p>
+              </div>
+              <form onSubmit={handleSaveSignatureSettings} className="space-y-5">
+                <div className="space-y-2">
+                  <Label className="text-white/60 text-sm">Nome do Responsavel *</Label>
                   <Input
                     value={signatureForm.signature_name}
                     onChange={(e) => setSignatureForm(prev => ({ ...prev, signature_name: e.target.value }))}
-                    className="bg-gray-800 border-gray-700 text-white"
+                    className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10 placeholder:text-white/20"
                     placeholder="Ex: Gabriel Maia"
                     required
                   />
                 </div>
 
-                <div>
-                  <Label className="text-white">Cargo/Título</Label>
+                <div className="space-y-2">
+                  <Label className="text-white/60 text-sm">Cargo/Titulo</Label>
                   <Input
                     value={signatureForm.signature_title}
                     onChange={(e) => setSignatureForm(prev => ({ ...prev, signature_title: e.target.value }))}
-                    className="bg-gray-800 border-gray-700 text-white"
+                    className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10 placeholder:text-white/20"
                     placeholder="Ex: Diretor Executivo"
                   />
                 </div>
 
-                <div>
-                  <Label className="text-white">Documento (CPF/CNPJ)</Label>
+                <div className="space-y-2">
+                  <Label className="text-white/60 text-sm">Documento (CPF/CNPJ)</Label>
                   <Input
                     value={signatureForm.signature_document}
                     onChange={(e) => setSignatureForm(prev => ({ ...prev, signature_document: e.target.value }))}
-                    className="bg-gray-800 border-gray-700 text-white"
+                    className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10 placeholder:text-white/20"
                     placeholder="Ex: CPF: XXX.XXX.XXX-XX"
                   />
                 </div>
 
                 {/* Drawn Signature */}
-                <div>
-                  <Label className="text-white">Assinatura Desenhada da Contratada</Label>
-                  <p className="text-gray-400 text-xs mb-2">Desenhe a assinatura que aparecerá nos contratos como contratada</p>
-                  <div className="border-2 border-dashed border-gray-600 rounded-lg p-3 max-w-md">
+                <div className="space-y-2">
+                  <Label className="text-white/60 text-sm">Assinatura Desenhada da Contratada</Label>
+                  <p className="text-white/30 text-xs">Desenhe a assinatura que aparecera nos contratos como contratada</p>
+                  <div className="border-2 border-dashed border-white/[0.08] rounded-xl p-3 max-w-md">
                     <canvas
                       ref={orgSigCanvasRef}
                       width={360}
                       height={150}
-                      className="w-full border rounded bg-white cursor-crosshair"
+                      className="w-full border border-white/[0.06] rounded-lg bg-white cursor-crosshair"
                       style={{ touchAction: 'none' }}
                       onMouseDown={orgSigStart}
                       onMouseMove={orgSigDraw}
@@ -1093,8 +1104,8 @@ Assinatura do Contratante`
                   </div>
                   {signatureForm.signature_image && !orgSigHasDrawn && (
                     <div className="mt-2">
-                      <p className="text-gray-400 text-xs mb-1">Assinatura salva:</p>
-                      <img src={signatureForm.signature_image} alt="Assinatura" className="h-12 bg-white rounded p-1" />
+                      <p className="text-white/30 text-xs mb-1">Assinatura salva:</p>
+                      <img src={signatureForm.signature_image} alt="Assinatura" className="h-12 bg-white rounded-lg p-1" />
                     </div>
                   )}
                   <Button
@@ -1102,34 +1113,32 @@ Assinatura do Contratante`
                     variant="outline"
                     size="sm"
                     onClick={orgSigClear}
-                    className="mt-2 border-gray-600 text-gray-300 hover:bg-gray-700"
+                    className="mt-2 border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white rounded-lg"
                   >
                     Limpar Assinatura
                   </Button>
                 </div>
 
-                <Button type="submit" className="bg-[#D4AF37] hover:bg-[#B8860B]">
+                <Button type="submit" className="bg-white text-black hover:bg-white/90 rounded-xl font-medium h-10 px-5">
                   <Settings className="h-4 w-4 mr-2" />
-                  Salvar Configurações
+                  Salvar Configuracoes
                 </Button>
               </form>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Preview da Assinatura */}
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white">Prévia da Assinatura</CardTitle>
-              <p className="text-gray-400">Como aparecerá nos contratos:</p>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-white p-6 rounded-lg">
+            {/* Signature Preview */}
+            <div className="bg-[#141418] border border-white/[0.06] rounded-2xl p-6">
+              <div className="mb-4">
+                <h3 className="text-white font-semibold text-base">Previa da Assinatura</h3>
+                <p className="text-white/40 text-sm mt-1">Como aparecera nos contratos:</p>
+              </div>
+              <div className="bg-white p-6 rounded-xl">
                 <div className="text-center space-y-2">
                   {signatureForm.signature_image && (
                     <img src={signatureForm.signature_image} alt="Assinatura" className="h-14 mx-auto mb-2" />
                   )}
                   <div className="border-b border-gray-300 pb-2 mb-4">
-                    <p className="text-gray-900 font-semibold">{signatureForm.signature_name || '[Nome do Responsável]'}</p>
+                    <p className="text-gray-900 font-semibold">{signatureForm.signature_name || '[Nome do Responsavel]'}</p>
                   </div>
                   {signatureForm.signature_title && (
                     <p className="text-gray-700 text-sm">{signatureForm.signature_title}</p>
@@ -1137,97 +1146,97 @@ Assinatura do Contratante`
                   {signatureForm.signature_document && (
                     <p className="text-gray-700 text-sm">{signatureForm.signature_document}</p>
                   )}
-                  <p className="text-gray-700 text-sm">INSTITUTO DE MENTORIA MÉDICA GABRIEL MAIA LTDA</p>
+                  <p className="text-gray-700 text-sm">INSTITUTO DE MENTORIA MEDICA GABRIEL MAIA LTDA</p>
                   <p className="text-gray-700 text-xs">CNPJ: 56.267.958/0001-60</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </div>
+          </TabsContent>
+        </Tabs>
 
-      {/* View Contract Modal */}
-      <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
-        <DialogContent className="bg-gray-900 border-gray-700 max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle className="text-white">
-              Visualizar Contrato - {viewingContract?.recipient_name}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {viewingContract && (
-            <div className="space-y-4">
-              {/* Contract Info */}
-              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-800 rounded-lg">
-                <div>
-                  <Label className="text-gray-400">Status</Label>
-                  <div className="mt-1">
-                    {getStatusBadge(viewingContract.status)}
+        {/* View Contract Modal */}
+        <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+          <DialogContent className="bg-[#141418] border border-white/[0.08] max-w-4xl max-h-[90vh] rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-white text-lg font-semibold">
+                Visualizar Contrato - {viewingContract?.recipient_name}
+              </DialogTitle>
+            </DialogHeader>
+
+            {viewingContract && (
+              <div className="space-y-4">
+                {/* Contract Info */}
+                <div className="grid grid-cols-2 gap-4 p-4 bg-[#111113] border border-white/[0.06] rounded-xl">
+                  <div>
+                    <p className="text-white/40 text-xs uppercase tracking-wider mb-1">Status</p>
+                    <div className="mt-1">
+                      {getStatusBadge(viewingContract.status)}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-white/40 text-xs uppercase tracking-wider mb-1">Criado em</p>
+                    <p className="text-white text-sm">
+                      {new Date(viewingContract.created_at).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-white/40 text-xs uppercase tracking-wider mb-1">Expira em</p>
+                    <p className="text-white text-sm">
+                      {new Date(viewingContract.expires_at).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-white/40 text-xs uppercase tracking-wider mb-1">Email</p>
+                    <p className="text-white text-sm">{viewingContract.recipient_email}</p>
                   </div>
                 </div>
-                <div>
-                  <Label className="text-gray-400">Criado em</Label>
-                  <p className="text-white mt-1">
-                    {new Date(viewingContract.created_at).toLocaleDateString('pt-BR')}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-400">Expira em</Label>
-                  <p className="text-white mt-1">
-                    {new Date(viewingContract.expires_at).toLocaleDateString('pt-BR')}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-400">Email</Label>
-                  <p className="text-white mt-1">{viewingContract.recipient_email}</p>
-                </div>
-              </div>
 
-              {/* Contract Content */}
-              <div className="max-h-[60vh] overflow-y-auto p-4 bg-white rounded-lg border border-gray-300">
-                <div 
-                  className="prose max-w-none text-gray-900"
-                  dangerouslySetInnerHTML={{ __html: contractContent.replace(/\n/g, '<br>') }}
-                />
-              </div>
+                {/* Contract Content */}
+                <div className="max-h-[60vh] overflow-y-auto p-4 bg-white rounded-xl border border-white/[0.06]">
+                  <div
+                    className="prose max-w-none text-gray-900"
+                    dangerouslySetInnerHTML={{ __html: contractContent.replace(/\n/g, '<br>') }}
+                  />
+                </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    const w = window.open('', '_blank')
-                    if (!w) return
-                    w.document.write(`<!DOCTYPE html><html><head><title>Contrato - ${viewingContract.recipient_name}</title><style>body{font-family:Arial,sans-serif;padding:20px;line-height:1.6;max-width:800px;margin:0 auto}@media print{body{margin:0;padding:15px}}</style></head><body><div style="white-space:pre-wrap;font-size:14px;">${contractContent.replace(/\n/g, '<br>')}</div></body></html>`)
-                    w.document.close()
-                    w.focus()
-                    setTimeout(() => w.print(), 500)
-                  }}
-                  className="bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Baixar PDF
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => copySigningUrl(viewingContract.id)}
-                  className="bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copiar Link
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowViewModal(false)}
-                  className="bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
-                >
-                  Fechar
-                </Button>
+                {/* Action Buttons */}
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const w = window.open('', '_blank')
+                      if (!w) return
+                      w.document.write(`<!DOCTYPE html><html><head><title>Contrato - ${viewingContract.recipient_name}</title><style>body{font-family:Arial,sans-serif;padding:20px;line-height:1.6;max-width:800px;margin:0 auto}@media print{body{margin:0;padding:15px}}</style></head><body><div style="white-space:pre-wrap;font-size:14px;">${contractContent.replace(/\n/g, '<br>')}</div></body></html>`)
+                      w.document.close()
+                      w.focus()
+                      setTimeout(() => w.print(), 500)
+                    }}
+                    className="border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white rounded-xl"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar PDF
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => copySigningUrl(viewingContract.id)}
+                    className="border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white rounded-xl"
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copiar Link
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowViewModal(false)}
+                    className="border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white rounded-xl"
+                  >
+                    Fechar
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   )
 }

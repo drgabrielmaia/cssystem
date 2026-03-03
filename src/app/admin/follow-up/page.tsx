@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -11,8 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Separator } from '@/components/ui/separator'
-import { 
+import {
   Plus,
   Clock,
   Play,
@@ -42,11 +40,14 @@ import {
   Upload,
   FileText,
   Image as ImageIcon,
-  Video
+  Video,
+  TrendingUp,
+  Activity
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
 import { toast } from 'sonner'
+import { Header } from '@/components/header'
 import {
   LeadFollowupSequence,
   FollowupStep,
@@ -115,7 +116,6 @@ const STEP_TEMPLATES = {
     delay_minutes: 0,
     tipo_acao: 'whatsapp'
   },
-  // Novos templates
   follow_up_daily: {
     titulo: "Follow-up Diario",
     conteudo: "Olá {{nome}}! Como está o andamento da nossa proposta? Tem alguma dúvida que posso esclarecer?",
@@ -227,7 +227,7 @@ export default function FollowUpConfigPage() {
 
     // Agregar estatísticas
     const statsMap = new Map<string, SequenceStats>()
-    
+
     execData?.forEach(exec => {
       const seqId = exec.sequence_id
       if (!statsMap.has(seqId)) {
@@ -243,7 +243,7 @@ export default function FollowUpConfigPage() {
       }
 
       const stats = statsMap.get(seqId)!
-      
+
       switch (exec.status) {
         case 'active':
           stats.leads_ativos++
@@ -424,7 +424,7 @@ export default function FollowUpConfigPage() {
         taxa_resposta: 0,
         taxa_conversao: 0
       }
-      
+
       delete (newSequence as any).id
       delete (newSequence as any).created_at
       delete (newSequence as any).updated_at
@@ -467,7 +467,7 @@ export default function FollowUpConfigPage() {
   }
 
   const updateStep = (index: number, updatedStep: Partial<FollowupStep>) => {
-    const newSteps = formData.steps.map((step, i) => 
+    const newSteps = formData.steps.map((step, i) =>
       i === index ? { ...step, ...updatedStep } : step
     )
     setFormData({ ...formData, steps: newSteps })
@@ -645,12 +645,12 @@ export default function FollowUpConfigPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800'
-      case 'paused': return 'bg-yellow-100 text-yellow-800'
-      case 'completed': return 'bg-blue-100 text-blue-800'
-      case 'cancelled': return 'bg-red-100 text-red-800'
-      case 'responded': return 'bg-purple-100 text-purple-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'active': return 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/20'
+      case 'paused': return 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/20'
+      case 'completed': return 'bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/20'
+      case 'cancelled': return 'bg-red-500/15 text-red-400 ring-1 ring-red-500/20'
+      case 'responded': return 'bg-purple-500/15 text-purple-400 ring-1 ring-purple-500/20'
+      default: return 'bg-white/[0.06] text-white/40 ring-1 ring-white/[0.06]'
     }
   }
 
@@ -658,197 +658,353 @@ export default function FollowUpConfigPage() {
     const now = new Date()
     const execDate = new Date(date)
     const diffHours = Math.round((execDate.getTime() - now.getTime()) / (1000 * 60 * 60))
-    
+
     if (diffHours < 0) return 'Atrasado'
     if (diffHours < 24) return `Em ${diffHours}h`
     const diffDays = Math.round(diffHours / 24)
     return `Em ${diffDays}d`
   }
 
+  // KPI calculations
+  const totalSequences = sequences.length
+  const activeSequences = sequences.filter(s => s.ativo).length
+  const totalLeadsInFollowup = sequenceStats.reduce((sum, s) => sum + s.leads_ativos, 0)
+  const avgResponseRate = sequenceStats.length > 0
+    ? sequenceStats.reduce((sum, s) => sum + s.taxa_resposta, 0) / sequenceStats.length
+    : 0
+  const avgConversionRate = sequenceStats.length > 0
+    ? sequenceStats.reduce((sum, s) => sum + s.taxa_conversao, 0) / sequenceStats.length
+    : 0
+  const totalActiveExecutions = executions.length
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-blue-500/15 flex items-center justify-center ring-1 ring-blue-500/20">
+            <RefreshCw className="h-6 w-6 animate-spin text-blue-400" />
+          </div>
+          <p className="text-white/40 text-sm">Carregando follow-ups...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Follow-up Automatizado</h1>
-          <p className="text-gray-600 mt-1">
-            Configure sequências de follow-up personalizadas e acompanhe o desempenho
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <Button onClick={loadData} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Atualizar
-          </Button>
-          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Sequência
-              </Button>
-            </DialogTrigger>
-          </Dialog>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#0A0A0A]">
+      <Header title="Follow-up Automatico" subtitle="Configure sequências de follow-up automatizadas" />
 
-      <Tabs defaultValue="sequences" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="sequences">Sequências</TabsTrigger>
-          <TabsTrigger value="activate">Ativar Follow-up</TabsTrigger>
-          <TabsTrigger value="executions">Execuções Ativas</TabsTrigger>
-          <TabsTrigger value="stats">Estatísticas</TabsTrigger>
-        </TabsList>
+      <div className="p-6 space-y-6">
+        {/* KPI Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          {/* Total Sequences */}
+          <div className="relative overflow-hidden bg-[#141418] p-5 rounded-2xl ring-1 ring-white/[0.06] group hover:ring-blue-500/20 transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.07] via-transparent to-transparent pointer-events-none" />
+            <div className="absolute -top-8 -right-8 w-24 h-24 bg-blue-500/[0.04] rounded-full blur-2xl pointer-events-none" />
+            <div className="relative flex items-center justify-between">
+              <div>
+                <p className="text-xs text-white/40 mb-1">Total Sequências</p>
+                <p className="text-2xl font-bold text-white tracking-tight">{totalSequences}</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center ring-1 ring-blue-500/20">
+                <Zap className="w-5 h-5 text-blue-400" />
+              </div>
+            </div>
+          </div>
 
-        <TabsContent value="sequences" className="space-y-4">
-          {/* Sequences List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sequences.map((sequence) => (
-              <Card key={sequence.id} className="relative">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">{sequence.nome_sequencia}</CardTitle>
-                    <div className="flex items-center gap-1">
-                      <Switch 
-                        checked={sequence.ativo}
-                        onCheckedChange={(checked) => toggleSequenceActive(sequence.id, checked)}
-                      />
-                      <Badge variant={sequence.ativo ? 'default' : 'secondary'}>
-                        {sequence.ativo ? 'Ativa' : 'Inativa'}
-                      </Badge>
+          {/* Active Sequences */}
+          <div className="relative overflow-hidden bg-[#141418] p-5 rounded-2xl ring-1 ring-white/[0.06] group hover:ring-emerald-500/20 transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.07] via-transparent to-transparent pointer-events-none" />
+            <div className="absolute -top-8 -right-8 w-24 h-24 bg-emerald-500/[0.04] rounded-full blur-2xl pointer-events-none" />
+            <div className="relative flex items-center justify-between">
+              <div>
+                <p className="text-xs text-white/40 mb-1">Ativas</p>
+                <p className="text-2xl font-bold text-white tracking-tight">{activeSequences}</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center ring-1 ring-emerald-500/20">
+                <Play className="w-5 h-5 text-emerald-400" />
+              </div>
+            </div>
+          </div>
+
+          {/* Leads in Follow-up */}
+          <div className="relative overflow-hidden bg-[#141418] p-5 rounded-2xl ring-1 ring-white/[0.06] group hover:ring-purple-500/20 transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.07] via-transparent to-transparent pointer-events-none" />
+            <div className="absolute -top-8 -right-8 w-24 h-24 bg-purple-500/[0.04] rounded-full blur-2xl pointer-events-none" />
+            <div className="relative flex items-center justify-between">
+              <div>
+                <p className="text-xs text-white/40 mb-1">Leads em Follow-up</p>
+                <p className="text-2xl font-bold text-white tracking-tight">{totalLeadsInFollowup}</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-purple-500/15 flex items-center justify-center ring-1 ring-purple-500/20">
+                <Users className="w-5 h-5 text-purple-400" />
+              </div>
+            </div>
+          </div>
+
+          {/* Active Executions */}
+          <div className="relative overflow-hidden bg-[#141418] p-5 rounded-2xl ring-1 ring-white/[0.06] group hover:ring-amber-500/20 transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.07] via-transparent to-transparent pointer-events-none" />
+            <div className="absolute -top-8 -right-8 w-24 h-24 bg-amber-500/[0.04] rounded-full blur-2xl pointer-events-none" />
+            <div className="relative flex items-center justify-between">
+              <div>
+                <p className="text-xs text-white/40 mb-1">Execuções Ativas</p>
+                <p className="text-2xl font-bold text-white tracking-tight">{totalActiveExecutions}</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center ring-1 ring-amber-500/20">
+                <Activity className="w-5 h-5 text-amber-400" />
+              </div>
+            </div>
+          </div>
+
+          {/* Avg Response Rate */}
+          <div className="relative overflow-hidden bg-[#141418] p-5 rounded-2xl ring-1 ring-white/[0.06] group hover:ring-cyan-500/20 transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.07] via-transparent to-transparent pointer-events-none" />
+            <div className="absolute -top-8 -right-8 w-24 h-24 bg-cyan-500/[0.04] rounded-full blur-2xl pointer-events-none" />
+            <div className="relative flex items-center justify-between">
+              <div>
+                <p className="text-xs text-white/40 mb-1">Taxa Resposta</p>
+                <p className="text-2xl font-bold text-white tracking-tight">{avgResponseRate.toFixed(1)}%</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/15 flex items-center justify-center ring-1 ring-cyan-500/20">
+                <MessageCircle className="w-5 h-5 text-cyan-400" />
+              </div>
+            </div>
+          </div>
+
+          {/* Avg Conversion Rate */}
+          <div className="relative overflow-hidden bg-[#141418] p-5 rounded-2xl ring-1 ring-white/[0.06] group hover:ring-rose-500/20 transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-rose-500/[0.07] via-transparent to-transparent pointer-events-none" />
+            <div className="absolute -top-8 -right-8 w-24 h-24 bg-rose-500/[0.04] rounded-full blur-2xl pointer-events-none" />
+            <div className="relative flex items-center justify-between">
+              <div>
+                <p className="text-xs text-white/40 mb-1">Taxa Conversão</p>
+                <p className="text-2xl font-bold text-white tracking-tight">{avgConversionRate.toFixed(1)}%</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-rose-500/15 flex items-center justify-center ring-1 ring-rose-500/20">
+                <TrendingUp className="w-5 h-5 text-rose-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Bar */}
+        <div className="flex items-center justify-between">
+          <div /> {/* spacer */}
+          <div className="flex gap-3">
+            <Button
+              onClick={loadData}
+              variant="outline"
+              size="sm"
+              className="bg-transparent border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white hover:border-white/[0.12] transition-all duration-200"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Atualizar
+            </Button>
+            <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  onClick={resetForm}
+                  className="bg-blue-600 hover:bg-blue-500 text-white border-0 transition-all duration-200"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Sequência
+                </Button>
+              </DialogTrigger>
+            </Dialog>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <Tabs defaultValue="sequences" className="w-full">
+          <TabsList className="bg-[#141418] border border-white/[0.06] rounded-xl p-1 h-auto">
+            <TabsTrigger
+              value="sequences"
+              className="rounded-lg px-4 py-2.5 text-sm text-white/40 data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-none transition-all duration-200"
+            >
+              Sequências
+            </TabsTrigger>
+            <TabsTrigger
+              value="activate"
+              className="rounded-lg px-4 py-2.5 text-sm text-white/40 data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-none transition-all duration-200"
+            >
+              Ativar Follow-up
+            </TabsTrigger>
+            <TabsTrigger
+              value="executions"
+              className="rounded-lg px-4 py-2.5 text-sm text-white/40 data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-none transition-all duration-200"
+            >
+              Execuções Ativas
+            </TabsTrigger>
+            <TabsTrigger
+              value="stats"
+              className="rounded-lg px-4 py-2.5 text-sm text-white/40 data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-none transition-all duration-200"
+            >
+              Estatísticas
+            </TabsTrigger>
+          </TabsList>
+
+          {/* =================== SEQUENCES TAB =================== */}
+          <TabsContent value="sequences" className="space-y-4 mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {sequences.map((sequence) => (
+                <div
+                  key={sequence.id}
+                  className="relative bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] hover:ring-white/[0.12] transition-all duration-300 group"
+                >
+                  {/* Card Header */}
+                  <div className="p-5 pb-3">
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="text-base font-semibold text-white truncate pr-2">
+                        {sequence.nome_sequencia}
+                      </h3>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Switch
+                          checked={sequence.ativo}
+                          onCheckedChange={(checked) => toggleSequenceActive(sequence.id, checked)}
+                        />
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          sequence.ativo
+                            ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/20'
+                            : 'bg-white/[0.06] text-white/40 ring-1 ring-white/[0.06]'
+                        }`}>
+                          {sequence.ativo ? 'Ativa' : 'Inativa'}
+                        </span>
+                      </div>
+                    </div>
+                    {sequence.descricao && (
+                      <p className="text-sm text-white/40 line-clamp-2">{sequence.descricao}</p>
+                    )}
+                  </div>
+
+                  {/* Card Stats */}
+                  <div className="px-5 pb-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-white/[0.03] rounded-xl p-3">
+                        <p className="text-[11px] text-white/30 uppercase tracking-wider mb-0.5">Steps</p>
+                        <p className="text-lg font-semibold text-white">{sequence.steps.length}</p>
+                      </div>
+                      <div className="bg-white/[0.03] rounded-xl p-3">
+                        <p className="text-[11px] text-white/30 uppercase tracking-wider mb-0.5">Leads</p>
+                        <p className="text-lg font-semibold text-white">{sequence.leads_atingidos}</p>
+                      </div>
+                      <div className="bg-white/[0.03] rounded-xl p-3">
+                        <p className="text-[11px] text-white/30 uppercase tracking-wider mb-0.5">Resposta</p>
+                        <p className="text-lg font-semibold text-cyan-400">{sequence.taxa_resposta.toFixed(1)}%</p>
+                      </div>
+                      <div className="bg-white/[0.03] rounded-xl p-3">
+                        <p className="text-[11px] text-white/30 uppercase tracking-wider mb-0.5">Conversão</p>
+                        <p className="text-lg font-semibold text-emerald-400">{sequence.taxa_conversao.toFixed(1)}%</p>
+                      </div>
                     </div>
                   </div>
-                  {sequence.descricao && (
-                    <CardDescription>{sequence.descricao}</CardDescription>
-                  )}
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-gray-600">Steps</p>
-                      <p className="font-medium">{sequence.steps.length}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Leads</p>
-                      <p className="font-medium">{sequence.leads_atingidos}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Taxa Resposta</p>
-                      <p className="font-medium">{sequence.taxa_resposta.toFixed(1)}%</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Conversão</p>
-                      <p className="font-medium">{sequence.taxa_conversao.toFixed(1)}%</p>
-                    </div>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
+
+                  {/* Card Actions */}
+                  <div className="border-t border-white/[0.06] px-5 py-3 flex items-center gap-1">
+                    <button
                       onClick={() => openEditModal(sequence)}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-all duration-200"
                     >
                       <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
+                    </button>
+                    <button
                       onClick={() => duplicateSequence(sequence)}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-all duration-200"
                     >
                       <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
+                    </button>
+                    <button
                       onClick={() => deleteSequence(sequence.id)}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
                     >
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {sequences.length === 0 && (
+                <div className="col-span-full bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] p-12">
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-blue-500/10 flex items-center justify-center ring-1 ring-blue-500/20">
+                      <Zap className="h-8 w-8 text-blue-400" />
+                    </div>
+                    <p className="text-white/60 text-base mb-1">Nenhuma sequência configurada</p>
+                    <p className="text-white/30 text-sm mb-6">Crie sua primeira sequência de follow-up automatizado</p>
+                    <Button
+                      onClick={() => setIsCreateModalOpen(true)}
+                      className="bg-blue-600 hover:bg-blue-500 text-white border-0"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Criar primeira sequência
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
 
-            {sequences.length === 0 && (
-              <Card className="col-span-full">
-                <CardContent className="text-center py-8">
-                  <Zap className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-500">Nenhuma sequência configurada</p>
-                  <Button 
-                    onClick={() => setIsCreateModalOpen(true)} 
-                    className="mt-4"
-                    variant="outline"
-                  >
-                    Criar primeira sequência
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </TabsContent>
+          {/* =================== ACTIVATE TAB =================== */}
+          <TabsContent value="activate" className="space-y-4 mt-6">
+            <ActivateFollowupTab sequences={sequences} onActivated={loadData} />
+          </TabsContent>
 
-        <TabsContent value="activate" className="space-y-4">
-          {/* Activate Follow-up */}
-          <ActivateFollowupTab sequences={sequences} onActivated={loadData} />
-        </TabsContent>
+          {/* =================== EXECUTIONS TAB =================== */}
+          <TabsContent value="executions" className="space-y-4 mt-6">
+            <div className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06]">
+              {/* Card Header */}
+              <div className="p-6 pb-4 border-b border-white/[0.06]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center ring-1 ring-amber-500/20">
+                    <Clock className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">Execuções Ativas ({executions.length})</h2>
+                    <p className="text-sm text-white/40">Follow-ups que serão executados em breve</p>
+                  </div>
+                </div>
+              </div>
 
-        <TabsContent value="executions" className="space-y-4">
-          {/* Active Executions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Execuções Ativas ({executions.length})</CardTitle>
-              <CardDescription>
-                Follow-ups que serão executados em breve
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+              {/* Table */}
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2">Lead</th>
-                      <th className="text-left p-2">Sequência</th>
-                      <th className="text-left p-2">Step Atual</th>
-                      <th className="text-left p-2">Próxima Execução</th>
-                      <th className="text-left p-2">Status</th>
+                    <tr className="border-b border-white/[0.06]">
+                      <th className="text-left p-4 text-xs font-medium text-white/40 uppercase tracking-wider">Lead</th>
+                      <th className="text-left p-4 text-xs font-medium text-white/40 uppercase tracking-wider">Sequência</th>
+                      <th className="text-left p-4 text-xs font-medium text-white/40 uppercase tracking-wider">Step Atual</th>
+                      <th className="text-left p-4 text-xs font-medium text-white/40 uppercase tracking-wider">Próxima Execução</th>
+                      <th className="text-left p-4 text-xs font-medium text-white/40 uppercase tracking-wider">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {executions.map((execution) => (
-                      <tr key={execution.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3">
+                      <tr key={execution.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150">
+                        <td className="p-4">
                           <div>
-                            <p className="font-medium">Lead ID: {execution.lead_id}</p>
-                            <p className="text-sm text-gray-500">Status: {execution.status}</p>
+                            <p className="font-medium text-white text-sm">Lead ID: {execution.lead_id}</p>
+                            <p className="text-xs text-white/30 mt-0.5">Status: {execution.status}</p>
                           </div>
                         </td>
-                        <td className="p-3">
-                          <p className="text-sm">Sequence ID: {execution.sequence_id}</p>
+                        <td className="p-4">
+                          <p className="text-sm text-white/60">Sequence ID: {execution.sequence_id}</p>
                         </td>
-                        <td className="p-3">
-                          <p className="text-sm">{execution.step_atual + 1}</p>
+                        <td className="p-4">
+                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-blue-500/15 text-blue-400 text-sm font-medium ring-1 ring-blue-500/20">
+                            {execution.step_atual + 1}
+                          </span>
                         </td>
-                        <td className="p-3">
+                        <td className="p-4">
                           {execution.proxima_execucao && (
-                            <p className="text-sm">
+                            <span className="text-sm text-white/60">
                               {formatNextExecution(execution.proxima_execucao)}
-                            </p>
+                            </span>
                           )}
                         </td>
-                        <td className="p-3">
-                          <Badge className={getStatusColor(execution.status)}>
+                        <td className="p-4">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(execution.status)}`}>
                             {execution.status}
-                          </Badge>
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -857,499 +1013,504 @@ export default function FollowUpConfigPage() {
               </div>
 
               {executions.length === 0 && (
-                <div className="text-center py-8">
-                  <Clock className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-500">Nenhuma execução ativa no momento</p>
+                <div className="text-center py-16">
+                  <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-white/[0.04] flex items-center justify-center ring-1 ring-white/[0.06]">
+                    <Clock className="h-7 w-7 text-white/20" />
+                  </div>
+                  <p className="text-white/40 text-sm">Nenhuma execução ativa no momento</p>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="stats" className="space-y-4">
-          {/* Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sequenceStats.map((stats) => (
-              <Card key={stats.id}>
-                <CardHeader>
-                  <CardTitle className="text-lg">{stats.nome_sequencia}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-sm text-gray-600">Leads Ativos</p>
-                      <p className="text-2xl font-bold text-green-600">{stats.leads_ativos}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Completados</p>
-                      <p className="text-2xl font-bold text-blue-600">{stats.leads_completados}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Taxa de Resposta</span>
-                      <span className="font-medium">{stats.taxa_resposta.toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full"
-                        style={{ width: `${Math.min(100, stats.taxa_resposta)}%` }}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Taxa de Conversão</span>
-                      <span className="font-medium">{stats.taxa_conversao.toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-green-600 h-2 rounded-full"
-                        style={{ width: `${Math.min(100, stats.taxa_conversao)}%` }}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Create/Edit Sequence Modal */}
-      <Dialog open={isCreateModalOpen || isEditModalOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsCreateModalOpen(false)
-          setIsEditModalOpen(false)
-          resetForm()
-          setSelectedSequence(null)
-        }
-      }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedSequence ? 'Editar' : 'Criar'} Sequência de Follow-up
-            </DialogTitle>
-            <DialogDescription>
-              Configure uma sequência automatizada de contatos para nutrir seus leads
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-6">
-            {/* Basic Information */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Nome da Sequência *</Label>
-                  <Input
-                    value={formData.nome_sequencia}
-                    onChange={(e) => setFormData({...formData, nome_sequencia: e.target.value})}
-                    placeholder="Ex: Nurturing Leads Frios"
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={formData.ativo}
-                    onCheckedChange={(checked) => setFormData({...formData, ativo: checked})}
-                  />
-                  <Label>Sequência ativa</Label>
-                </div>
-              </div>
-              
-              <div>
-                <Label>Descrição</Label>
-                <Textarea
-                  value={formData.descricao}
-                  onChange={(e) => setFormData({...formData, descricao: e.target.value})}
-                  placeholder="Descreva o objetivo desta sequência..."
-                  rows={2}
-                />
-              </div>
             </div>
+          </TabsContent>
 
-            {/* Schedule Settings */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Configurações de Horário</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Horário de Início</Label>
-                  <Input
-                    type="time"
-                    value={formData.horario_envio_inicio}
-                    onChange={(e) => setFormData({...formData, horario_envio_inicio: e.target.value})}
-                  />
+          {/* =================== STATS TAB =================== */}
+          <TabsContent value="stats" className="space-y-4 mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {sequenceStats.map((stats) => (
+                <div key={stats.id} className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] hover:ring-white/[0.12] transition-all duration-300">
+                  <div className="p-6 pb-4 border-b border-white/[0.06]">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-500/15 flex items-center justify-center ring-1 ring-blue-500/20">
+                        <BarChart3 className="w-4 h-4 text-blue-400" />
+                      </div>
+                      <h3 className="text-base font-semibold text-white truncate">{stats.nome_sequencia}</h3>
+                    </div>
+                  </div>
+                  <div className="p-6 space-y-5">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-white/30 uppercase tracking-wider mb-1">Leads Ativos</p>
+                        <p className="text-2xl font-bold text-emerald-400">{stats.leads_ativos}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-white/30 uppercase tracking-wider mb-1">Completados</p>
+                        <p className="text-2xl font-bold text-blue-400">{stats.leads_completados}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex justify-between text-sm mb-1.5">
+                          <span className="text-white/40">Taxa de Resposta</span>
+                          <span className="font-medium text-white">{stats.taxa_resposta.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full bg-white/[0.06] rounded-full h-1.5">
+                          <div
+                            className="bg-gradient-to-r from-blue-500 to-cyan-400 h-1.5 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(100, stats.taxa_resposta)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-sm mb-1.5">
+                          <span className="text-white/40">Taxa de Conversão</span>
+                          <span className="font-medium text-white">{stats.taxa_conversao.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full bg-white/[0.06] rounded-full h-1.5">
+                          <div
+                            className="bg-gradient-to-r from-emerald-500 to-green-400 h-1.5 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(100, stats.taxa_conversao)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <Label>Horário de Fim</Label>
-                  <Input
-                    type="time"
-                    value={formData.horario_envio_fim}
-                    onChange={(e) => setFormData({...formData, horario_envio_fim: e.target.value})}
-                  />
+              ))}
+
+              {sequenceStats.length === 0 && (
+                <div className="col-span-full bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] p-12">
+                  <div className="text-center">
+                    <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-white/[0.04] flex items-center justify-center ring-1 ring-white/[0.06]">
+                      <BarChart3 className="h-7 w-7 text-white/20" />
+                    </div>
+                    <p className="text-white/40 text-sm">Nenhuma estatística disponível ainda</p>
+                    <p className="text-white/25 text-xs mt-1">As estatísticas aparecerão quando houver execuções registradas</p>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="flex items-center gap-6">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={formData.pausar_fim_semana}
-                    onCheckedChange={(checked) => setFormData({...formData, pausar_fim_semana: checked})}
-                  />
-                  <Label>Pausar nos finais de semana</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={formData.pausar_feriados}
-                    onCheckedChange={(checked) => setFormData({...formData, pausar_feriados: checked})}
-                  />
-                  <Label>Pausar nos feriados</Label>
-                </div>
-              </div>
+              )}
             </div>
+          </TabsContent>
+        </Tabs>
 
-            {/* Templates */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Templates Pré-definidos</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => applyTemplate('sequencia_completa')}
-                  className="text-left justify-start h-auto p-3"
-                >
-                  <div>
-                    <div className="font-medium">🎯 Sequência Completa</div>
-                    <div className="text-xs text-gray-500">4 steps balanceados</div>
-                  </div>
-                </Button>
-                
-                <Button
-                  type="button"
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => applyDailyTemplate()}
-                  className="text-left justify-start h-auto p-3"
-                >
-                  <div>
-                    <div className="font-medium">📅 Follow-up Diário</div>
-                    <div className="text-xs text-gray-500">Contato a cada 1 dia</div>
-                  </div>
-                </Button>
-                
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm" 
-                  onClick={() => apply3DaysTemplate()}
-                  className="text-left justify-start h-auto p-3"
-                >
-                  <div>
-                    <div className="font-medium">⏰ A cada 3 dias</div>
-                    <div className="text-xs text-gray-500">Follow-up espaçado</div>
-                  </div>
-                </Button>
-                
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => applyWeeklyTemplate()}
-                  className="text-left justify-start h-auto p-3"
-                >
-                  <div>
-                    <div className="font-medium">📆 Semanal</div>
-                    <div className="text-xs text-gray-500">1x por semana</div>
-                  </div>
-                </Button>
-                
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => applyUrgencyTemplate()}
-                  className="text-left justify-start h-auto p-3"
-                >
-                  <div>
-                    <div className="font-medium">🚨 Urgência</div>
-                    <div className="text-xs text-gray-500">Para leads quentes</div>
-                  </div>
-                </Button>
-                
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setFormData({...formData, steps: []})}
-                  className="text-left justify-start h-auto p-3 border-red-200 text-red-600"
-                >
-                  <div>
-                    <div className="font-medium">🗑️ Limpar</div>
-                    <div className="text-xs text-gray-500">Remover tudo</div>
-                  </div>
-                </Button>
-              </div>
-            </div>
+        {/* =================== CREATE/EDIT MODAL =================== */}
+        <Dialog open={isCreateModalOpen || isEditModalOpen} onOpenChange={(open) => {
+          if (!open) {
+            setIsCreateModalOpen(false)
+            setIsEditModalOpen(false)
+            resetForm()
+            setSelectedSequence(null)
+          }
+        }}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[#141418] border border-white/[0.08] text-white">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold text-white">
+                {selectedSequence ? 'Editar' : 'Criar'} Sequência de Follow-up
+              </DialogTitle>
+              <DialogDescription className="text-white/40">
+                Configure uma sequência automatizada de contatos para nutrir seus leads
+              </DialogDescription>
+            </DialogHeader>
 
-            {/* Steps Configuration */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Steps da Sequência</h3>
-                <Button type="button" onClick={addStep} size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Step
-                </Button>
-              </div>
-              
+            <div className="space-y-6 mt-2">
+              {/* Basic Information */}
               <div className="space-y-4">
-                {formData.steps.map((step, index) => (
-                  <Card key={index} className="p-4">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">Step {step.step_numero}</h4>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeStep(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Tipo de Ação</Label>
-                          <Select
-                            value={step.tipo_acao}
-                            onValueChange={(value: any) => updateStep(index, { tipo_acao: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="email">📧 Email</SelectItem>
-                              <SelectItem value="whatsapp">📱 WhatsApp</SelectItem>
-                              <SelectItem value="ligacao">📞 Ligação</SelectItem>
-                              <SelectItem value="tarefa">✅ Tarefa Manual</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div>
-                          <Label>Intervalo de Tempo</Label>
-                          <div className="flex gap-2">
-                            <div className="flex-1">
-                              <Input
-                                type="number"
-                                min="0"
-                                placeholder="Dias"
-                                value={step.delay_days}
-                                onChange={(e) => updateStep(index, { delay_days: parseInt(e.target.value) || 0 })}
-                              />
-                              <span className="text-xs text-gray-500 mt-0.5 block text-center">dias</span>
-                            </div>
-                            <div className="flex-1">
-                              <Input
-                                type="number"
-                                min="0"
-                                max="23"
-                                placeholder="Horas"
-                                value={step.delay_hours || 0}
-                                onChange={(e) => updateStep(index, { delay_hours: parseInt(e.target.value) || 0 })}
-                              />
-                              <span className="text-xs text-gray-500 mt-0.5 block text-center">horas</span>
-                            </div>
-                            <div className="flex-1">
-                              <Input
-                                type="number"
-                                min="0"
-                                max="59"
-                                placeholder="Min"
-                                value={step.delay_minutes || 0}
-                                onChange={(e) => updateStep(index, { delay_minutes: parseInt(e.target.value) || 0 })}
-                              />
-                              <span className="text-xs text-gray-500 mt-0.5 block text-center">minutos</span>
-                            </div>
-                          </div>
-
-                          {/* Presets rapidos */}
-                          <div className="flex gap-1 mt-2 flex-wrap">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateStep(index, { delay_days: 0, delay_hours: 0, delay_minutes: 30 })}
-                            >
-                              30min
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateStep(index, { delay_days: 0, delay_hours: 1, delay_minutes: 0 })}
-                            >
-                              1h
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateStep(index, { delay_days: 0, delay_hours: 2, delay_minutes: 0 })}
-                            >
-                              2h
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateStep(index, { delay_days: 1, delay_hours: 0, delay_minutes: 0 })}
-                            >
-                              1 dia
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateStep(index, { delay_days: 3, delay_hours: 0, delay_minutes: 0 })}
-                            >
-                              3 dias
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateStep(index, { delay_days: 7, delay_hours: 0, delay_minutes: 0 })}
-                            >
-                              1 semana
-                            </Button>
-                          </div>
-
-                          {/* Preview do timing */}
-                          {(step.delay_days > 0 || (step.delay_hours || 0) > 0 || (step.delay_minutes || 0) > 0) && (
-                            <div className="text-xs text-blue-600 mt-1">
-                              Executar em: {step.delay_days > 0 ? `${step.delay_days}d ` : ''}
-                              {(step.delay_hours || 0) > 0 ? `${step.delay_hours || 0}h ` : ''}
-                              {(step.delay_minutes || 0) > 0 ? `${step.delay_minutes || 0}min` : ''}
-                              {step.delay_days === 0 && (step.delay_hours || 0) === 0 && (step.delay_minutes || 0) === 0 ? 'Imediatamente' : ''}
-                            </div>
-                          )}
-                          {step.delay_days === 0 && (step.delay_hours || 0) === 0 && (step.delay_minutes || 0) === 0 && (
-                            <div className="text-xs text-blue-600 mt-1">
-                              Executar: Imediatamente
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <Label>Título do Step</Label>
-                        <Input
-                          value={step.titulo}
-                          onChange={(e) => updateStep(index, { titulo: e.target.value })}
-                          placeholder="Ex: Primeiro contato - Introdução"
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label>Conteúdo da Mensagem</Label>
-                        <Textarea
-                          value={step.conteudo}
-                          onChange={(e) => updateStep(index, { conteudo: e.target.value })}
-                          placeholder="Use variáveis como {{nome}}, {{empresa}}, {{valor_potencial}}"
-                          rows={3}
-                        />
-                      </div>
-
-                      {/* Mídia (foto/vídeo/documento) */}
-                      {step.tipo_acao === 'whatsapp' && (
-                        <div>
-                          <Label className="text-xs">Anexar Mídia (opcional)</Label>
-                          {step.media_url ? (
-                            <div className="flex items-center gap-3 mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border">
-                              {step.media_type === 'image' ? (
-                                <img src={step.media_url} alt="" className="w-12 h-12 rounded object-cover" />
-                              ) : step.media_type === 'video' ? (
-                                <div className="w-12 h-12 rounded bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                                  <Video className="w-5 h-5 text-blue-600" />
-                                </div>
-                              ) : (
-                                <div className="w-12 h-12 rounded bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
-                                  <FileText className="w-5 h-5 text-orange-600" />
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium truncate">{step.media_filename}</p>
-                                <p className="text-[10px] text-gray-500">{step.media_type}</p>
-                              </div>
-                              <Button variant="ghost" size="sm" onClick={() => removeMedia(index)} className="text-red-500 hover:text-red-700 h-7 w-7 p-0">
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <label className="flex items-center gap-2 mt-1 px-3 py-2 border border-dashed rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors">
-                              <Upload className="w-4 h-4 text-gray-400" />
-                              <span className="text-xs text-gray-500">Foto, vídeo ou documento</span>
-                              <input
-                                type="file"
-                                className="hidden"
-                                accept="image/*,video/*,.pdf,.doc,.docx"
-                                onChange={(e) => {
-                                  if (e.target.files?.[0]) handleMediaUpload(index, e.target.files[0])
-                                  e.target.value = ''
-                                }}
-                              />
-                            </label>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                ))}
-                
-                {formData.steps.length === 0 && (
-                  <div className="text-center py-8 border border-dashed rounded-lg">
-                    <ArrowDown className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                    <p className="text-gray-500">Adicione steps para sua sequência</p>
-                    <p className="text-sm text-gray-400">
-                      Cada step será executado automaticamente de acordo com o timing configurado
-                    </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-white/60">Nome da Sequência *</Label>
+                    <Input
+                      value={formData.nome_sequencia}
+                      onChange={(e) => setFormData({...formData, nome_sequencia: e.target.value})}
+                      placeholder="Ex: Nurturing Leads Frios"
+                      className="bg-[#111113] border-white/[0.08] text-white placeholder:text-white/20 focus:border-blue-500/50 focus:ring-blue-500/20"
+                    />
                   </div>
-                )}
+                  <div className="flex items-center space-x-3 pt-6">
+                    <Switch
+                      checked={formData.ativo}
+                      onCheckedChange={(checked) => setFormData({...formData, ativo: checked})}
+                    />
+                    <Label className="text-sm text-white/60">Sequência ativa</Label>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm text-white/60">Descrição</Label>
+                  <Textarea
+                    value={formData.descricao}
+                    onChange={(e) => setFormData({...formData, descricao: e.target.value})}
+                    placeholder="Descreva o objetivo desta sequência..."
+                    rows={2}
+                    className="bg-[#111113] border-white/[0.08] text-white placeholder:text-white/20 focus:border-blue-500/50 focus:ring-blue-500/20 resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Schedule Settings */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center ring-1 ring-amber-500/20">
+                    <Clock className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <h3 className="text-base font-semibold text-white">Configurações de Horário</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-white/60">Horário de Início</Label>
+                    <Input
+                      type="time"
+                      value={formData.horario_envio_inicio}
+                      onChange={(e) => setFormData({...formData, horario_envio_inicio: e.target.value})}
+                      className="bg-[#111113] border-white/[0.08] text-white focus:border-blue-500/50 focus:ring-blue-500/20"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm text-white/60">Horário de Fim</Label>
+                    <Input
+                      type="time"
+                      value={formData.horario_envio_fim}
+                      onChange={(e) => setFormData({...formData, horario_envio_fim: e.target.value})}
+                      className="bg-[#111113] border-white/[0.08] text-white focus:border-blue-500/50 focus:ring-blue-500/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={formData.pausar_fim_semana}
+                      onCheckedChange={(checked) => setFormData({...formData, pausar_fim_semana: checked})}
+                    />
+                    <Label className="text-sm text-white/60">Pausar nos finais de semana</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={formData.pausar_feriados}
+                      onCheckedChange={(checked) => setFormData({...formData, pausar_feriados: checked})}
+                    />
+                    <Label className="text-sm text-white/60">Pausar nos feriados</Label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Templates */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center ring-1 ring-purple-500/20">
+                    <Zap className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <h3 className="text-base font-semibold text-white">Templates Pré-definidos</h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => applyTemplate('sequencia_completa')}
+                    className="text-left p-3 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06] hover:ring-blue-500/30 hover:bg-blue-500/[0.04] transition-all duration-200"
+                  >
+                    <div className="font-medium text-sm text-white">Sequência Completa</div>
+                    <div className="text-xs text-white/30 mt-0.5">4 steps balanceados</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => applyDailyTemplate()}
+                    className="text-left p-3 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06] hover:ring-cyan-500/30 hover:bg-cyan-500/[0.04] transition-all duration-200"
+                  >
+                    <div className="font-medium text-sm text-white">Follow-up Diário</div>
+                    <div className="text-xs text-white/30 mt-0.5">Contato a cada 1 dia</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => apply3DaysTemplate()}
+                    className="text-left p-3 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06] hover:ring-amber-500/30 hover:bg-amber-500/[0.04] transition-all duration-200"
+                  >
+                    <div className="font-medium text-sm text-white">A cada 3 dias</div>
+                    <div className="text-xs text-white/30 mt-0.5">Follow-up espaçado</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => applyWeeklyTemplate()}
+                    className="text-left p-3 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06] hover:ring-emerald-500/30 hover:bg-emerald-500/[0.04] transition-all duration-200"
+                  >
+                    <div className="font-medium text-sm text-white">Semanal</div>
+                    <div className="text-xs text-white/30 mt-0.5">1x por semana</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => applyUrgencyTemplate()}
+                    className="text-left p-3 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06] hover:ring-orange-500/30 hover:bg-orange-500/[0.04] transition-all duration-200"
+                  >
+                    <div className="font-medium text-sm text-white">Urgência</div>
+                    <div className="text-xs text-white/30 mt-0.5">Para leads quentes</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData({...formData, steps: []})}
+                    className="text-left p-3 bg-white/[0.03] rounded-xl ring-1 ring-red-500/20 hover:ring-red-500/40 hover:bg-red-500/[0.04] transition-all duration-200"
+                  >
+                    <div className="font-medium text-sm text-red-400">Limpar</div>
+                    <div className="text-xs text-white/30 mt-0.5">Remover tudo</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Steps Configuration */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center ring-1 ring-blue-500/20">
+                      <Settings className="w-4 h-4 text-blue-400" />
+                    </div>
+                    <h3 className="text-base font-semibold text-white">Steps da Sequência</h3>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={addStep}
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-500 text-white border-0"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Step
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  {formData.steps.map((step, index) => (
+                    <div key={index} className="bg-[#111113] rounded-xl ring-1 ring-white/[0.06] p-5">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-blue-500/15 text-blue-400 text-xs font-bold ring-1 ring-blue-500/20">
+                              {step.step_numero}
+                            </span>
+                            <h4 className="font-medium text-white text-sm">Step {step.step_numero}</h4>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeStep(index)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm text-white/60">Tipo de Ação</Label>
+                            <Select
+                              value={step.tipo_acao}
+                              onValueChange={(value: any) => updateStep(index, { tipo_acao: value })}
+                            >
+                              <SelectTrigger className="bg-[#0A0A0A] border-white/[0.08] text-white focus:border-blue-500/50">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#1a1a1e] border-white/[0.08]">
+                                <SelectItem value="email" className="text-white hover:bg-white/[0.06]">Email</SelectItem>
+                                <SelectItem value="whatsapp" className="text-white hover:bg-white/[0.06]">WhatsApp</SelectItem>
+                                <SelectItem value="ligacao" className="text-white hover:bg-white/[0.06]">Ligação</SelectItem>
+                                <SelectItem value="tarefa" className="text-white hover:bg-white/[0.06]">Tarefa Manual</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-sm text-white/60">Intervalo de Tempo</Label>
+                            <div className="flex gap-2">
+                              <div className="flex-1">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  placeholder="Dias"
+                                  value={step.delay_days}
+                                  onChange={(e) => updateStep(index, { delay_days: parseInt(e.target.value) || 0 })}
+                                  className="bg-[#0A0A0A] border-white/[0.08] text-white placeholder:text-white/20 focus:border-blue-500/50"
+                                />
+                                <span className="text-[10px] text-white/30 mt-0.5 block text-center">dias</span>
+                              </div>
+                              <div className="flex-1">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="23"
+                                  placeholder="Horas"
+                                  value={step.delay_hours || 0}
+                                  onChange={(e) => updateStep(index, { delay_hours: parseInt(e.target.value) || 0 })}
+                                  className="bg-[#0A0A0A] border-white/[0.08] text-white placeholder:text-white/20 focus:border-blue-500/50"
+                                />
+                                <span className="text-[10px] text-white/30 mt-0.5 block text-center">horas</span>
+                              </div>
+                              <div className="flex-1">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="59"
+                                  placeholder="Min"
+                                  value={step.delay_minutes || 0}
+                                  onChange={(e) => updateStep(index, { delay_minutes: parseInt(e.target.value) || 0 })}
+                                  className="bg-[#0A0A0A] border-white/[0.08] text-white placeholder:text-white/20 focus:border-blue-500/50"
+                                />
+                                <span className="text-[10px] text-white/30 mt-0.5 block text-center">minutos</span>
+                              </div>
+                            </div>
+
+                            {/* Quick presets */}
+                            <div className="flex gap-1 mt-2 flex-wrap">
+                              {[
+                                { label: '30min', d: 0, h: 0, m: 30 },
+                                { label: '1h', d: 0, h: 1, m: 0 },
+                                { label: '2h', d: 0, h: 2, m: 0 },
+                                { label: '1 dia', d: 1, h: 0, m: 0 },
+                                { label: '3 dias', d: 3, h: 0, m: 0 },
+                                { label: '1 semana', d: 7, h: 0, m: 0 },
+                              ].map((preset) => (
+                                <button
+                                  key={preset.label}
+                                  type="button"
+                                  onClick={() => updateStep(index, { delay_days: preset.d, delay_hours: preset.h, delay_minutes: preset.m })}
+                                  className="px-2.5 py-1 text-xs rounded-lg bg-white/[0.04] text-white/50 ring-1 ring-white/[0.06] hover:bg-white/[0.08] hover:text-white hover:ring-white/[0.12] transition-all duration-200"
+                                >
+                                  {preset.label}
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Timing preview */}
+                            {(step.delay_days > 0 || (step.delay_hours || 0) > 0 || (step.delay_minutes || 0) > 0) && (
+                              <div className="text-xs text-blue-400 mt-1">
+                                Executar em: {step.delay_days > 0 ? `${step.delay_days}d ` : ''}
+                                {(step.delay_hours || 0) > 0 ? `${step.delay_hours || 0}h ` : ''}
+                                {(step.delay_minutes || 0) > 0 ? `${step.delay_minutes || 0}min` : ''}
+                                {step.delay_days === 0 && (step.delay_hours || 0) === 0 && (step.delay_minutes || 0) === 0 ? 'Imediatamente' : ''}
+                              </div>
+                            )}
+                            {step.delay_days === 0 && (step.delay_hours || 0) === 0 && (step.delay_minutes || 0) === 0 && (
+                              <div className="text-xs text-blue-400 mt-1">
+                                Executar: Imediatamente
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-sm text-white/60">Título do Step</Label>
+                          <Input
+                            value={step.titulo}
+                            onChange={(e) => updateStep(index, { titulo: e.target.value })}
+                            placeholder="Ex: Primeiro contato - Introdução"
+                            className="bg-[#0A0A0A] border-white/[0.08] text-white placeholder:text-white/20 focus:border-blue-500/50"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-sm text-white/60">Conteúdo da Mensagem</Label>
+                          <Textarea
+                            value={step.conteudo}
+                            onChange={(e) => updateStep(index, { conteudo: e.target.value })}
+                            placeholder="Use variáveis como {{nome}}, {{empresa}}, {{valor_potencial}}"
+                            rows={3}
+                            className="bg-[#0A0A0A] border-white/[0.08] text-white placeholder:text-white/20 focus:border-blue-500/50 resize-none"
+                          />
+                        </div>
+
+                        {/* Media (photo/video/document) */}
+                        {step.tipo_acao === 'whatsapp' && (
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-white/40">Anexar Mídia (opcional)</Label>
+                            {step.media_url ? (
+                              <div className="flex items-center gap-3 p-3 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06]">
+                                {step.media_type === 'image' ? (
+                                  <img src={step.media_url} alt="" className="w-12 h-12 rounded-lg object-cover ring-1 ring-white/[0.1]" />
+                                ) : step.media_type === 'video' ? (
+                                  <div className="w-12 h-12 rounded-lg bg-blue-500/15 flex items-center justify-center ring-1 ring-blue-500/20">
+                                    <Video className="w-5 h-5 text-blue-400" />
+                                  </div>
+                                ) : (
+                                  <div className="w-12 h-12 rounded-lg bg-orange-500/15 flex items-center justify-center ring-1 ring-orange-500/20">
+                                    <FileText className="w-5 h-5 text-orange-400" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium text-white truncate">{step.media_filename}</p>
+                                  <p className="text-[10px] text-white/30">{step.media_type}</p>
+                                </div>
+                                <button
+                                  onClick={() => removeMedia(index)}
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <label className="flex items-center gap-2 px-3 py-3 border border-dashed border-white/[0.1] rounded-xl cursor-pointer hover:border-blue-500/40 hover:bg-blue-500/[0.03] transition-all duration-200">
+                                <Upload className="w-4 h-4 text-white/30" />
+                                <span className="text-xs text-white/30">Foto, vídeo ou documento</span>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept="image/*,video/*,.pdf,.doc,.docx"
+                                  onChange={(e) => {
+                                    if (e.target.files?.[0]) handleMediaUpload(index, e.target.files[0])
+                                    e.target.value = ''
+                                  }}
+                                />
+                              </label>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {formData.steps.length === 0 && (
+                    <div className="text-center py-10 border border-dashed border-white/[0.08] rounded-xl">
+                      <ArrowDown className="h-8 w-8 mx-auto text-white/15 mb-2" />
+                      <p className="text-white/40 text-sm">Adicione steps para sua sequência</p>
+                      <p className="text-white/25 text-xs mt-1">
+                        Cada step será executado automaticamente de acordo com o timing configurado
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div className="flex justify-end gap-2 mt-6">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setIsCreateModalOpen(false)
-                setIsEditModalOpen(false)
-                resetForm()
-                setSelectedSequence(null)
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={selectedSequence ? updateSequence : createSequence}
-              disabled={!formData.nome_sequencia || formData.steps.length === 0}
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {selectedSequence ? 'Atualizar' : 'Criar'} Sequência
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/[0.06]">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsCreateModalOpen(false)
+                  setIsEditModalOpen(false)
+                  resetForm()
+                  setSelectedSequence(null)
+                }}
+                className="bg-transparent border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={selectedSequence ? updateSequence : createSequence}
+                disabled={!formData.nome_sequencia || formData.steps.length === 0}
+                className="bg-blue-600 hover:bg-blue-500 text-white border-0 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {selectedSequence ? 'Atualizar' : 'Criar'} Sequência
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   )
 }
 
-// Componente para ativar follow-up em leads
+// =================== ACTIVATE FOLLOWUP TAB COMPONENT ===================
 function ActivateFollowupTab({ sequences, onActivated }: {
   sequences: LeadFollowupSequence[]
   onActivated: () => void
@@ -1417,7 +1578,7 @@ function ActivateFollowupTab({ sequences, onActivated }: {
         organization_id: sequence.organization_id,
         status: 'active',
         step_atual: 0,
-        proxima_execucao: new Date().toISOString(), // Começar imediatamente
+        proxima_execucao: new Date().toISOString(),
         total_touchpoints: 0,
         steps_executados: [],
         respostas_recebidas: []
@@ -1441,123 +1602,136 @@ function ActivateFollowupTab({ sequences, onActivated }: {
     }
   }
 
+  const getLeadStatusColor = (status: string) => {
+    switch (status) {
+      case 'novo': return 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/20'
+      case 'contatado': return 'bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/20'
+      case 'interessado': return 'bg-purple-500/15 text-purple-400 ring-1 ring-purple-500/20'
+      default: return 'bg-white/[0.06] text-white/40 ring-1 ring-white/[0.06]'
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Ativar Follow-up Automático</h2>
-          <p className="text-gray-600">Selecione leads e aplique uma sequência de follow-up</p>
+          <h2 className="text-xl font-semibold text-white">Ativar Follow-up Automático</h2>
+          <p className="text-sm text-white/40 mt-1">Selecione leads e aplique uma sequência de follow-up</p>
         </div>
-        <Button onClick={loadLeads} variant="outline" disabled={loading}>
-          <RefreshCw className="h-4 w-4 mr-2" />
+        <Button
+          onClick={loadLeads}
+          variant="outline"
+          disabled={loading}
+          className="bg-transparent border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white hover:border-white/[0.12] transition-all duration-200"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
         </Button>
       </div>
 
-      {/* Controls */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div>
-              <Label>Sequência de Follow-up</Label>
-              <Select value={selectedSequence} onValueChange={setSelectedSequence}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Escolha uma sequência..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {sequences.filter(s => s.ativo).map(sequence => (
-                    <SelectItem key={sequence.id} value={sequence.id}>
-                      {sequence.nome_sequencia} ({sequence.steps.length} steps)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label>Pesquisar Leads</Label>
-              <Input
-                placeholder="Nome, email ou telefone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-              />
-            </div>
+      {/* Controls Card */}
+      <div className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="space-y-2">
+            <Label className="text-sm text-white/60">Sequência de Follow-up</Label>
+            <Select value={selectedSequence} onValueChange={setSelectedSequence}>
+              <SelectTrigger className="bg-[#111113] border-white/[0.08] text-white focus:border-blue-500/50">
+                <SelectValue placeholder="Escolha uma sequência..." />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a1e] border-white/[0.08]">
+                {sequences.filter(s => s.ativo).map(sequence => (
+                  <SelectItem key={sequence.id} value={sequence.id} className="text-white hover:bg-white/[0.06]">
+                    {sequence.nome_sequencia} ({sequence.steps.length} steps)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-600">
-              {selectedLeads.size} de {filteredLeads.length} leads selecionados
-            </p>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setSelectedLeads(new Set(filteredLeads.map(l => l.id)))}
-              >
-                Selecionar Todos
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setSelectedLeads(new Set())}
-              >
-                Limpar Seleção
-              </Button>
+          <div className="space-y-2">
+            <Label className="text-sm text-white/60">Pesquisar Leads</Label>
+            <Input
+              placeholder="Nome, email ou telefone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-[#111113] border-white/[0.08] text-white placeholder:text-white/20 focus:border-blue-500/50 w-full"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm text-white/40">
+            <span className="text-white font-medium">{selectedLeads.size}</span> de {filteredLeads.length} leads selecionados
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSelectedLeads(new Set(filteredLeads.map(l => l.id)))}
+              className="px-3 py-1.5 text-xs rounded-lg bg-white/[0.04] text-white/50 ring-1 ring-white/[0.06] hover:bg-white/[0.08] hover:text-white hover:ring-white/[0.12] transition-all duration-200"
+            >
+              Selecionar Todos
+            </button>
+            <button
+              onClick={() => setSelectedLeads(new Set())}
+              className="px-3 py-1.5 text-xs rounded-lg bg-white/[0.04] text-white/50 ring-1 ring-white/[0.06] hover:bg-white/[0.08] hover:text-white hover:ring-white/[0.12] transition-all duration-200"
+            >
+              Limpar Seleção
+            </button>
+          </div>
+        </div>
+
+        <Button
+          onClick={activateFollowup}
+          disabled={loading || !selectedSequence || selectedLeads.size === 0}
+          className="bg-emerald-600 hover:bg-emerald-500 text-white border-0 disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <Play className="h-4 w-4 mr-2" />
+          Ativar Follow-up para {selectedLeads.size} leads
+        </Button>
+      </div>
+
+      {/* Leads List Card */}
+      <div className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06]">
+        <div className="p-6 pb-4 border-b border-white/[0.06]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/15 flex items-center justify-center ring-1 ring-purple-500/20">
+              <Users className="w-5 h-5 text-purple-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">Leads Disponíveis ({filteredLeads.length})</h3>
+              <p className="text-xs text-white/30">Clique para selecionar os leads desejados</p>
             </div>
           </div>
-
-          <Button 
-            onClick={activateFollowup}
-            disabled={loading || !selectedSequence || selectedLeads.size === 0}
-            className="mb-4"
-          >
-            <Play className="h-4 w-4 mr-2" />
-            Ativar Follow-up para {selectedLeads.size} leads
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Leads List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Leads Disponíveis ({filteredLeads.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div className="p-6">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-              Carregando leads...
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="h-6 w-6 animate-spin text-blue-400 mr-3" />
+              <span className="text-white/40 text-sm">Carregando leads...</span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto pr-1">
               {filteredLeads.map(lead => (
-                <div 
+                <div
                   key={lead.id}
-                  className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                    selectedLeads.has(lead.id) 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-gray-200 hover:border-gray-300'
+                  className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 ring-1 ${
+                    selectedLeads.has(lead.id)
+                      ? 'ring-blue-500/40 bg-blue-500/[0.08]'
+                      : 'ring-white/[0.06] bg-white/[0.02] hover:ring-white/[0.12] hover:bg-white/[0.04]'
                   }`}
                   onClick={() => toggleLead(lead.id)}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">{lead.nome_completo}</p>
-                      <p className="text-sm text-gray-500">{lead.email}</p>
-                      <p className="text-sm text-gray-500">{lead.telefone}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-white text-sm truncate">{lead.nome_completo}</p>
+                      <p className="text-xs text-white/30 truncate mt-0.5">{lead.email}</p>
+                      <p className="text-xs text-white/30 truncate">{lead.telefone}</p>
                     </div>
-                    <div className="text-right">
-                      <Badge className={`text-xs ${
-                        lead.status === 'novo' ? 'bg-green-100 text-green-800' :
-                        lead.status === 'contatado' ? 'bg-blue-100 text-blue-800' :
-                        lead.status === 'interessado' ? 'bg-purple-100 text-purple-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
+                    <div className="text-right flex-shrink-0 ml-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${getLeadStatusColor(lead.status)}`}>
                         {lead.status}
-                      </Badge>
-                      <p className="text-xs text-gray-400 mt-1">{lead.origem}</p>
+                      </span>
+                      <p className="text-[10px] text-white/20 mt-1">{lead.origem}</p>
                     </div>
                   </div>
                 </div>
@@ -1566,13 +1740,15 @@ function ActivateFollowupTab({ sequences, onActivated }: {
           )}
 
           {filteredLeads.length === 0 && !loading && (
-            <div className="text-center py-8">
-              <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500">Nenhum lead encontrado</p>
+            <div className="text-center py-12">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-white/[0.04] flex items-center justify-center ring-1 ring-white/[0.06]">
+                <Users className="h-7 w-7 text-white/20" />
+              </div>
+              <p className="text-white/40 text-sm">Nenhum lead encontrado</p>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }

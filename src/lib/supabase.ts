@@ -303,8 +303,9 @@ export interface OrganizationUser {
 
 // Funções para gerenciar organizações
 export const organizationService = {
-  async getUserOrganization(userId: string) {
+  async getUserOrganization(userId: string, userEmail?: string) {
     try {
+      // Try by user_id first
       const { data, error } = await supabase
         .from('organization_users')
         .select(`
@@ -321,23 +322,48 @@ export const organizationService = {
         .eq('user_id', userId)
         .single()
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          console.log('User not found in any organization');
-          return null;
+      if (!error && data?.organizations) {
+        return {
+          organization: data.organizations as any as Organization,
+          role: data.role as string
         }
-        throw error;
       }
 
-      if (!data || !data.organizations) {
-        console.log('No organization data found for user');
-        return null;
+      // Fallback: try by email if user_id didn't match
+      if (userEmail) {
+        const { data: emailData, error: emailError } = await supabase
+          .from('organization_users')
+          .select(`
+            organization_id,
+            role,
+            organizations (
+              id,
+              name,
+              owner_email,
+              created_at,
+              updated_at
+            )
+          `)
+          .eq('email', userEmail)
+          .single()
+
+        if (!emailError && emailData?.organizations) {
+          // Update the user_id for future lookups
+          await supabase
+            .from('organization_users')
+            .update({ user_id: userId })
+            .eq('email', userEmail)
+            .is('user_id', null)
+
+          return {
+            organization: emailData.organizations as any as Organization,
+            role: emailData.role as string
+          }
+        }
       }
 
-      return {
-        organization: data.organizations as any as Organization,
-        role: data.role as string
-      }
+      console.log('User not found in any organization');
+      return null;
     } catch (error: any) {
       console.error('Error fetching user organization:', error);
       throw error;

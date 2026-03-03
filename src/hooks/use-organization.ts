@@ -23,7 +23,7 @@ interface UseOrganizationReturn {
   canManageOrganization: boolean
 }
 
-export function useOrganization(userId: string | null): UseOrganizationReturn {
+export function useOrganization(userId: string | null, userEmail?: string | null): UseOrganizationReturn {
   const [organization, setOrganization] = useState<Organization | null>(null)
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null)
   const [stats, setStats] = useState<OrganizationStats | null>(null)
@@ -41,7 +41,7 @@ export function useOrganization(userId: string | null): UseOrganizationReturn {
       setError(null)
 
       // Buscar organização do usuário
-      const result = await organizationService.getUserOrganization(userId)
+      const result = await organizationService.getUserOrganization(userId, userEmail || undefined)
       
       if (!result) {
         setOrganization(null)
@@ -67,7 +67,7 @@ export function useOrganization(userId: string | null): UseOrganizationReturn {
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [userId, userEmail])
 
   useEffect(() => {
     loadData()
