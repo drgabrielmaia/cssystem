@@ -4,24 +4,23 @@ import { ApiQueryBuilder, ApiRpcBuilder } from './api-query-builder'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-// Real Supabase client — used for auth, storage, and as fallback when no JWT
+// Real Supabase client — only used for storage/realtime. Auth is blocked.
 const _supabaseReal = createBrowserClient(supabaseUrl, supabaseKey, {
   auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false
   },
   global: {
     headers: {
       'x-application-name': 'cssystem'
     },
     fetch: (url, options = {}) => {
-      // Block Supabase auth token refresh when using custom JWT (Docker PostgreSQL)
-      // This prevents CORS errors from stale Supabase sessions
       const urlStr = typeof url === 'string' ? url : (url as Request)?.url || ''
-      if (hasCustomJwt() && (urlStr.includes('/auth/v1/token') || urlStr.includes('/auth/v1/user'))) {
+      // Block ALL Supabase auth requests — Supabase cloud is not used for auth
+      if (urlStr.includes('/auth/v1/')) {
         return Promise.resolve(new Response(
-          JSON.stringify({ error: 'session_not_found', error_description: 'Using custom JWT auth' }),
+          JSON.stringify({ error: 'session_not_found', error_description: 'Auth handled by api-cs' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
         ))
       }
@@ -30,9 +29,6 @@ const _supabaseReal = createBrowserClient(supabaseUrl, supabaseKey, {
         ...(options.signal && { signal: options.signal })
       }).catch((error: any) => {
         if (error.name === 'AbortError') {
-          throw error
-        }
-        if (error.message?.includes('Invalid Refresh') || error.message?.includes('refresh_token')) {
           throw error
         }
         throw error
@@ -48,12 +44,6 @@ const _supabaseReal = createBrowserClient(supabaseUrl, supabaseKey, {
     }
   }
 })
-
-// Check if custom JWT token exists (logged in via Docker PostgreSQL API)
-function hasCustomJwt(): boolean {
-  if (typeof window === 'undefined') return false
-  return !!localStorage.getItem('cs_auth_token')
-}
 
 // Data queries: use Docker PostgreSQL API (ApiQueryBuilder) always.
 // ApiQueryBuilder works with or without JWT - the api-cs handles auth.
@@ -91,9 +81,9 @@ export const supabaseReal = _supabaseReal
 
 export const createClient = () => createBrowserClient(supabaseUrl, supabaseKey, {
   auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false
   },
   global: {
     headers: {
@@ -101,9 +91,9 @@ export const createClient = () => createBrowserClient(supabaseUrl, supabaseKey, 
     },
     fetch: (url, options = {}) => {
       const urlStr = typeof url === 'string' ? url : (url as Request)?.url || ''
-      if (hasCustomJwt() && (urlStr.includes('/auth/v1/token') || urlStr.includes('/auth/v1/user'))) {
+      if (urlStr.includes('/auth/v1/')) {
         return Promise.resolve(new Response(
-          JSON.stringify({ error: 'session_not_found', error_description: 'Using custom JWT auth' }),
+          JSON.stringify({ error: 'session_not_found', error_description: 'Auth handled by api-cs' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
         ))
       }
