@@ -6,12 +6,13 @@ const DEFAULT_NPS_TEMPLATE_ID = 'default-nps-template'
 
 async function ensureTemplateExists() {
   try {
-    // Tentar buscar template existente
+    // Tentar buscar template existente (titulo ou name)
     const { data: existing } = await supabase
       .from('video_form_templates')
       .select('id')
-      .eq('name', 'default_nps_template')
-      .single()
+      .eq('tipo', 'nps')
+      .limit(1)
+      .maybeSingle()
 
     if (existing) {
       return existing.id
@@ -23,16 +24,17 @@ async function ensureTemplateExists() {
     const { data: newTemplate, error } = await serviceClient
       .from('video_form_templates')
       .insert({
-        name: 'default_nps_template',
         title: 'Avaliação NPS da Aula',
+        name: 'default_nps_template',
+        tipo: 'nps',
         form_type: 'nps',
-        trigger_event: 'lesson_completed',
-        questions: [{
+        campos: [{
           id: 'nps_score',
           type: 'nps',
           question: 'Como você avalia esta aula?',
           required: true
         }],
+        ativo: true,
         is_active: true
       })
       .select('id')
@@ -40,7 +42,7 @@ async function ensureTemplateExists() {
 
     if (error) {
       console.error('Failed to create template:', error)
-      return DEFAULT_NPS_TEMPLATE_ID // Usar ID fallback
+      return DEFAULT_NPS_TEMPLATE_ID
     }
 
     return newTemplate.id
@@ -92,9 +94,12 @@ export async function POST(request: NextRequest) {
       result = await supabase
         .from('video_form_responses')
         .update({
+          rating: nps_score,
           nps_score,
           satisfaction_score,
+          feedback: feedback_text || '',
           feedback_text,
+          respostas: { nps_score, feedback_text },
           updated_at: new Date().toISOString()
         })
         .eq('mentorado_id', mentorado_id)
@@ -106,11 +111,14 @@ export async function POST(request: NextRequest) {
         .insert({
           mentorado_id,
           lesson_id,
-          template_id, // Usar o template_id obtido
+          template_id,
+          rating: nps_score,
           nps_score,
           satisfaction_score,
+          feedback: feedback_text || '',
           feedback_text,
-          responses: { nps_score, feedback_text }, // Campo JSONB
+          respostas: { nps_score, feedback_text },
+          responses: { nps_score, feedback_text },
           created_at: new Date().toISOString()
         })
     }
@@ -128,9 +136,12 @@ export async function POST(request: NextRequest) {
           serviceResult = await serviceClient
             .from('video_form_responses')
             .update({
+              rating: nps_score,
               nps_score,
               satisfaction_score,
+              feedback: feedback_text || '',
               feedback_text,
+              respostas: { nps_score, feedback_text },
               updated_at: new Date().toISOString()
             })
             .eq('mentorado_id', mentorado_id)
@@ -141,10 +152,13 @@ export async function POST(request: NextRequest) {
             .insert({
               mentorado_id,
               lesson_id,
-              template_id, // Usar template_id
+              template_id,
+              rating: nps_score,
               nps_score,
               satisfaction_score,
+              feedback: feedback_text || '',
               feedback_text,
+              respostas: { nps_score, feedback_text },
               responses: { nps_score, feedback_text },
               created_at: new Date().toISOString()
             })

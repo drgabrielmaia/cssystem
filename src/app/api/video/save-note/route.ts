@@ -14,12 +14,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Try to insert note data
+    // Try to insert note data (content = coluna original, note_text = alias)
     let result = await supabase
       .from('lesson_notes')
       .insert({
         mentorado_id,
         lesson_id,
+        content: note_text.trim(),
         note_text: note_text.trim(),
         timestamp_seconds,
         note_type,
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
           .insert({
             mentorado_id,
             lesson_id,
+            content: note_text.trim(),
             note_text: note_text.trim(),
             timestamp_seconds,
             note_type,

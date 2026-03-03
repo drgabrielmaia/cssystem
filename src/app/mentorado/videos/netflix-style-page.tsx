@@ -237,15 +237,26 @@ export default function NetflixStyleVideosPage() {
     }
 
     try {
-      await supabase
+      const { error } = await supabase
         .from('lesson_progress')
-        .update({
+        .upsert({
+          mentorado_id: mentorado.id,
+          lesson_id: lessonId,
           completed_at: new Date().toISOString(),
           is_completed: true,
-          watch_time_minutes: selectedLesson?.duration_minutes || 0
+          completed: true,
+          started_at: new Date().toISOString(),
+          watch_time_minutes: selectedLesson?.duration_minutes || 0,
+          watch_time_seconds: (selectedLesson?.duration_minutes || 0) * 60
+        }, {
+          onConflict: 'mentorado_id,lesson_id'
         })
-        .eq('mentorado_id', mentorado.id)
-        .eq('lesson_id', lessonId)
+
+      if (error) {
+        console.error('❌ Erro ao concluir aula:', error)
+        alert('Erro ao marcar como concluída. Tente novamente.')
+        return
+      }
 
       console.log('✅ Aula concluída!')
       setShowVideoModal(false)
@@ -253,6 +264,7 @@ export default function NetflixStyleVideosPage() {
       alert('Parabéns! Aula concluída! 🎉')
     } catch (error) {
       console.error('❌ Erro ao concluir aula:', error)
+      alert('Erro ao marcar como concluída. Tente novamente.')
     }
   }
 
