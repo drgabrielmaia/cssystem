@@ -2,10 +2,10 @@
 
 import { ModularSidebar } from '@/components/ModularSidebar'
 import { AuthGuard } from '@/components/AuthGuard'
-import ChatBot from '@/components/chatbot/ChatBot'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getToken } from '@/lib/api'
 
 export function AppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -17,6 +17,13 @@ export function AppContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const checkUserRole = async () => {
       try {
+        // Custom JWT users (Docker PostgreSQL) are always admin, not mentorado
+        if (getToken()) {
+          setIsMentorado(false)
+          setIsLoading(false)
+          return
+        }
+
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user) {
           const userRole = session.user.user_metadata?.role
@@ -31,8 +38,10 @@ export function AppContent({ children }: { children: React.ReactNode }) {
 
     checkUserRole()
 
-    // Listen for auth state changes
+    // Listen for auth state changes (ignore when using custom JWT)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (getToken()) return
+
       if (session?.user) {
         const userRole = session.user.user_metadata?.role
         setIsMentorado(userRole === 'mentorado')
@@ -97,7 +106,6 @@ export function AppContent({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
-      <ChatBot />
     </div>
   )
 }

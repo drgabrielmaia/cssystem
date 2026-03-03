@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
+import { getToken, apiFetch } from '@/lib/api'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -11,10 +12,10 @@ interface ProtectedRouteProps {
   fallback?: React.ReactNode
 }
 
-export default function ProtectedRoute({ 
-  children, 
+export default function ProtectedRoute({
+  children,
   requiredRole,
-  fallback 
+  fallback
 }: ProtectedRouteProps) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [user, setUser] = useState<User | null>(null)
@@ -26,18 +27,38 @@ export default function ProtectedRoute({
 
     const validateAuth = async () => {
       try {
-        console.log('🔐 ProtectedRoute: Validando autenticação...')
+        console.log('ProtectedRoute: Validando autenticação...')
 
-        // 1. Verificar sessão ativa do Supabase
+        // 1. Check custom JWT first (Docker PostgreSQL auth)
+        const customToken = getToken()
+        if (customToken) {
+          try {
+            const res = await apiFetch('/auth/me')
+            if (res.ok) {
+              const data = await res.json()
+              console.log('ProtectedRoute: Custom JWT válido:', data.user?.email)
+              if (mounted) {
+                setIsAuthenticated(true)
+                setIsLoading(false)
+              }
+              return
+            }
+          } catch (e) {
+            console.error('ProtectedRoute: Custom JWT inválido:', e)
+          }
+          // JWT invalid — fall through to Supabase check
+        }
+
+        // 2. Verificar sessão ativa do Supabase
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        
+
         if (sessionError) {
-          console.error('❌ Erro ao verificar sessão:', sessionError)
+          console.error('Erro ao verificar sessão:', sessionError)
           throw new Error('Falha na verificação da sessão')
         }
 
         if (!session?.user) {
-          console.log('❌ Nenhuma sessão ativa encontrada')
+          console.log('Nenhuma sessão ativa encontrada')
           if (mounted) {
             setIsAuthenticated(false)
             setIsLoading(false)
@@ -47,9 +68,9 @@ export default function ProtectedRoute({
         }
 
         const currentUser = session.user
-        console.log('✅ Sessão ativa encontrada:', currentUser.email)
+        console.log('Sessão ativa encontrada:', currentUser.email)
 
-        // 2. Verificar se usuário está ativo na organização
+        // 3. Verificar se usuário está ativo na organização
         const { data: orgUser, error: orgError } = await supabase
           .from('organization_users')
           .select('is_active, role, organization_id')
@@ -57,12 +78,12 @@ export default function ProtectedRoute({
           .single()
 
         if (orgError) {
-          console.error('❌ Erro ao verificar organização:', orgError)
+          console.error('Erro ao verificar organização:', orgError)
           throw new Error('Usuário não encontrado na organização')
         }
 
         if (!orgUser.is_active) {
-          console.log('❌ Usuário inativo na organização')
+          console.log('Usuário inativo na organização')
           if (mounted) {
             setIsAuthenticated(false)
             setIsLoading(false)
@@ -71,9 +92,9 @@ export default function ProtectedRoute({
           return
         }
 
-        // 3. Verificar role se necessário
+        // 4. Verificar role se necessário
         if (requiredRole && orgUser.role !== requiredRole && orgUser.role !== 'admin') {
-          console.log('❌ Role insuficiente:', orgUser.role, 'requerido:', requiredRole)
+          console.log('Role insuficiente:', orgUser.role, 'requerido:', requiredRole)
           if (mounted) {
             setIsAuthenticated(false)
             setIsLoading(false)
@@ -82,8 +103,8 @@ export default function ProtectedRoute({
           return
         }
 
-        console.log('✅ Usuário autenticado e autorizado')
-        
+        console.log('Usuário autenticado e autorizado')
+
         if (mounted) {
           setUser(currentUser)
           setIsAuthenticated(true)
@@ -91,8 +112,8 @@ export default function ProtectedRoute({
         }
 
       } catch (error) {
-        console.error('❌ Erro na validação de auth:', error)
-        
+        console.error('Erro na validação de auth:', error)
+
         if (mounted) {
           setIsAuthenticated(false)
           setIsLoading(false)
@@ -103,11 +124,14 @@ export default function ProtectedRoute({
 
     validateAuth()
 
-    // Listener para mudanças de auth
+    // Listener para mudanças de auth (ignore when using custom JWT)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔄 Auth state changed:', event)
-        
+        // Ignore Supabase auth events when using custom JWT
+        if (getToken()) return
+
+        console.log('Auth state changed:', event)
+
         if (event === 'SIGNED_OUT' || !session) {
           if (mounted) {
             setIsAuthenticated(false)
@@ -116,7 +140,6 @@ export default function ProtectedRoute({
             router.push('/login')
           }
         } else if (event === 'SIGNED_IN' && session) {
-          // Re-validar quando login
           validateAuth()
         }
       }

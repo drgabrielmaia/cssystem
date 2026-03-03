@@ -3,6 +3,7 @@
 import { useAuth } from '@/contexts/auth'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getToken, apiFetch } from '@/lib/api'
 
 export function useSecureAuth() {
   const auth = useAuth()
@@ -17,27 +18,39 @@ export function useSecureAuth() {
     }
 
     try {
-      console.log('🔒 Validação de segurança server-side...')
-      
-      // 1. Verificar se sessão ainda é válida no servidor
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
-      if (sessionError || !session?.user) {
-        console.error('❌ Sessão inválida no servidor:', sessionError)
+      // If using custom JWT (Docker PostgreSQL), validate via API
+      const customToken = getToken()
+      if (customToken) {
+        try {
+          const res = await apiFetch('/auth/me')
+          if (res.ok) {
+            setValidationError(null)
+            setIsValidated(true)
+            return true
+          }
+        } catch (e) {
+          // JWT invalid
+        }
         setValidationError('Sessão expirada')
         setIsValidated(false)
         return false
       }
 
-      // 2. Verificar se user ID bate
+      // Supabase flow
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+      if (sessionError || !session?.user) {
+        setValidationError('Sessão expirada')
+        setIsValidated(false)
+        return false
+      }
+
       if (session.user.id !== auth.user.id) {
-        console.error('❌ User ID não confere')
         setValidationError('Dados de usuário inconsistentes')
         setIsValidated(false)
         return false
       }
 
-      // 3. Revalidar organização no servidor
       const { data: orgUser, error: orgError } = await supabase
         .from('organization_users')
         .select('is_active, organization_id, role, email')
@@ -46,27 +59,23 @@ export function useSecureAuth() {
         .single()
 
       if (orgError || !orgUser) {
-        console.error('❌ Usuário sem organização válida:', orgError)
         setValidationError('Usuário sem permissão')
         setIsValidated(false)
         return false
       }
 
-      // 4. Verificar se organização bate com contexto
       if (orgUser.organization_id !== auth.organizationId) {
-        console.error('❌ Organization ID não confere')
         setValidationError('Dados de organização inconsistentes')
         setIsValidated(false)
         return false
       }
 
-      console.log('✅ Validação de segurança passou')
       setValidationError(null)
       setIsValidated(true)
       return true
 
     } catch (error) {
-      console.error('❌ Erro na validação de segurança:', error)
+      console.error('Erro na validação de segurança:', error)
       setValidationError('Erro de validação')
       setIsValidated(false)
       return false
