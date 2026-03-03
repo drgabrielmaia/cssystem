@@ -57,12 +57,12 @@ export class ApiQueryBuilder {
   // --- Operations ---
 
   select(columns?: string, options?: { count?: string; head?: boolean }) {
-    if (this._operation !== 'select' && columns !== undefined) {
+    if (this._operation !== 'select') {
       // Called after insert/update/delete/upsert — means "return data"
       this._select = columns || '*'
       this._returning = true
     } else {
-      this._operation = 'select'
+      // Setting up a SELECT query
       if (columns !== undefined) this._select = columns
     }
     if (options?.count) this._count = options.count
@@ -226,17 +226,18 @@ export class ApiQueryBuilder {
       const result = await response.json()
 
       if (!response.ok) {
-        return { data: null, error: result.error || 'Request failed', count: null }
+        const msg = typeof result.error === 'string' ? result.error : result.error?.message || 'Request failed'
+        return { data: null, error: { message: msg, code: result.error?.code }, count: null }
       }
 
       return {
         data: result.data,
-        error: result.error || null,
+        error: result.error ? { message: typeof result.error === 'string' ? result.error : result.error.message || 'Unknown error', code: result.error?.code } : null,
         count: result.count ?? null,
       }
     } catch (err: any) {
       console.error(`[ApiQuery] Error on ${this._table}:`, err.message)
-      return { data: null, error: err.message, count: null }
+      return { data: null, error: { message: err.message || 'Network error' }, count: null }
     }
   }
 }
@@ -277,13 +278,14 @@ export class ApiRpcBuilder {
       const result = await response.json()
 
       if (!response.ok) {
-        return { data: null, error: result.error || 'RPC failed', count: null }
+        const msg = typeof result.error === 'string' ? result.error : result.error?.message || 'RPC failed'
+        return { data: null, error: { message: msg, code: result.error?.code }, count: null }
       }
 
-      return { data: result.data, error: result.error || null, count: null }
+      return { data: result.data, error: result.error ? { message: typeof result.error === 'string' ? result.error : result.error.message || 'Unknown error' } : null, count: null }
     } catch (err: any) {
       console.error(`[ApiRpc] Error on ${this._name}:`, err.message)
-      return { data: null, error: err.message, count: null }
+      return { data: null, error: { message: err.message || 'Network error' }, count: null }
     }
   }
 }
