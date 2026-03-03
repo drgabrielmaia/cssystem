@@ -16,14 +16,14 @@ interface UserOrganization {
   }
 }
 
-export function useUserOrganizations(userId: string | null) {
+export function useUserOrganizations(userId: string | null, userEmail?: string | null) {
   const [organizations, setOrganizations] = useState<UserOrganization[]>([])
   const [activeOrganizationId, setActiveOrganizationId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const loadUserOrganizations = useCallback(async () => {
-    if (!userId) {
+    if (!userId && !userEmail) {
       setLoading(false)
       return
     }
@@ -32,10 +32,7 @@ export function useUserOrganizations(userId: string | null) {
       setLoading(true)
       setError(null)
 
-      // Buscar todas as organizações onde o usuário é membro ativo
-      const { data, error: fetchError } = await supabase
-        .from('organization_users')
-        .select(`
+      const selectFields = `
           id,
           organization_id,
           role,
@@ -48,8 +45,32 @@ export function useUserOrganizations(userId: string | null) {
             owner_email,
             created_at
           )
-        `)
-        .eq('user_id', userId) // Apenas organizações onde já foi aceito
+        `
+
+      // Try by user_id first
+      let data: any[] | null = null
+      let fetchError: any = null
+
+      if (userId) {
+        const result = await supabase
+          .from('organization_users')
+          .select(selectFields)
+          .eq('user_id', userId)
+
+        data = result.data
+        fetchError = result.error
+      }
+
+      // If no results by user_id, try by email (JWT auth compatibility)
+      if ((!data || data.length === 0) && userEmail) {
+        const result = await supabase
+          .from('organization_users')
+          .select(selectFields)
+          .eq('email', userEmail)
+
+        data = result.data
+        fetchError = result.error
+      }
 
       if (fetchError) {
         throw new Error(fetchError.message)
@@ -86,7 +107,7 @@ export function useUserOrganizations(userId: string | null) {
     } finally {
       setLoading(false)
     }
-  }, [userId, activeOrganizationId])
+  }, [userId, userEmail, activeOrganizationId])
 
   useEffect(() => {
     loadUserOrganizations()

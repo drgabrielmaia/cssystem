@@ -62,11 +62,13 @@ const notifyAdminAboutNewEvent = async (eventData: any, organizationId: string) 
 
     if (eventData.lead_id) {
       try {
-        const response = await fetch('/routes/leads')
-        const data = await response.json()
-        if (data.success) {
-          const lead = data.leads.find((l: any) => l.id === eventData.lead_id)
-          leadName = lead?.nome_completo || ''
+        const { data, error } = await supabase
+          .from('leads')
+          .select('nome_completo')
+          .eq('id', eventData.lead_id)
+          .single()
+        if (!error && data) {
+          leadName = data.nome_completo || ''
         }
       } catch (error) {
         console.warn('Erro ao buscar lead:', error)
@@ -168,10 +170,12 @@ export default function CalendarioPage() {
 
   const loadLeads = async () => {
     try {
-      const response = await fetch('/routes/leads')
-      const data = await response.json()
-      if (data.success) {
-        setLeads(data.leads.map((lead: any) => ({
+      const { data, error } = await supabase
+        .from('leads')
+        .select('id, nome_completo')
+        .order('nome_completo')
+      if (!error && data) {
+        setLeads(data.map((lead: any) => ({
           id: lead.id,
           nome_completo: lead.nome_completo
         })))

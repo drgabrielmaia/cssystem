@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select'
 import { useDraggable } from '@/hooks/use-draggable'
 
-import { type Mentorado } from '@/lib/supabase'
+import { supabase, type Mentorado } from '@/lib/supabase'
 
 interface Lead {
   id: string
@@ -78,14 +78,12 @@ export function AddEventModal({ isOpen, onClose, onSuccess, initialDate, selecte
         }
 
         // Buscar leads
-        const leadsResponse = await fetch('/routes/leads', {
-          headers: {
-            'ngrok-skip-browser-warning': 'true'
-          }
-        })
-        const leadsData = await leadsResponse.json()
-        if (leadsData.success) {
-          setLeads(leadsData.leads || [])
+        const { data: leadsData, error: leadsError } = await supabase
+          .from('leads')
+          .select('id, nome_completo, email, telefone, empresa, status')
+          .order('nome_completo')
+        if (!leadsError) {
+          setLeads(leadsData || [])
         }
       } catch (error) {
         console.error('Erro ao buscar dados:', error)

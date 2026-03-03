@@ -35,7 +35,7 @@ const OrganizationContext = createContext<OrganizationContextType | undefined>(u
 export function OrganizationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
 
-  const organizationData = useUserOrganizations(user?.id || null)
+  const organizationData = useUserOrganizations(user?.id || null, user?.email || null)
 
   return (
     <OrganizationContext.Provider value={organizationData}>

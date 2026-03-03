@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { supabase } from '@/lib/supabase'
 
 interface Mentorado {
   id: string
@@ -88,14 +89,12 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
         }
 
         // Buscar leads
-        const leadsResponse = await fetch('/routes/leads', {
-          headers: {
-            'ngrok-skip-browser-warning': 'true'
-          }
-        })
-        const leadsData = await leadsResponse.json()
-        if (leadsData.success) {
-          setLeads(leadsData.leads || [])
+        const { data: leadsData, error: leadsError } = await supabase
+          .from('leads')
+          .select('id, nome_completo, email, telefone, empresa, status')
+          .order('nome_completo')
+        if (!leadsError) {
+          setLeads(leadsData || [])
         }
       } catch (error) {
         console.error('Erro ao buscar dados:', error)
