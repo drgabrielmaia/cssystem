@@ -95,13 +95,13 @@ export default function AdminVideosPage() {
   const [selectedLesson, setSelectedLesson] = useState<VideoLesson | null>(null)
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set())
   const [moduleForm, setModuleForm] = useState({ title: '', description: '', cover_image_url: '', order_index: 1, is_active: true })
-  const [lessonForm, setLessonForm] = useState({ 
-    title: '', 
-    description: '', 
-    panda_video_embed_url: '', 
-    duration_minutes: 0, 
-    order_index: 1, 
-    module_id: '', 
+  const [lessonForm, setLessonForm] = useState({
+    title: '',
+    description: '',
+    panda_video_embed_url: '',
+    duration_minutes: 0,
+    order_index: 1,
+    module_id: '',
     is_active: true,
     is_current: true  // Novas aulas começam como atuais
   })
@@ -287,7 +287,7 @@ export default function AdminVideosPage() {
   const handleToggleLessonStatus = async (lesson: VideoLesson) => {
     const newStatus = !lesson.is_current
     const actionText = newStatus ? 'marcar como atual' : 'arquivar'
-    
+
     if (!confirm(`Tem certeza que deseja ${actionText} a aula "${lesson.title}"?`)) {
       return
     }
@@ -296,7 +296,7 @@ export default function AdminVideosPage() {
       setIsLoadingData(true)
       const { error } = await supabase
         .from('video_lessons')
-        .update({ 
+        .update({
           is_current: newStatus,
           archived_at: newStatus ? null : new Date().toISOString(),
           archive_reason: newStatus ? null : 'Arquivado manualmente pelo admin'
@@ -571,24 +571,25 @@ export default function AdminVideosPage() {
     }
   }
 
+  // --- Column definitions (kept for DataTable, now dark-themed) ---
   const moduleColumns = [
     {
-      header: 'Módulo',
+      header: 'Modulo',
       render: (module: VideoModule) => (
         <div className="flex items-center gap-3">
           <button
             onClick={() => toggleModule(module.id)}
-            className="flex items-center justify-center w-6 h-6 rounded bg-[#F1F5F9] hover:bg-[#E2E8F0] transition-colors"
+            className="flex items-center justify-center w-6 h-6 rounded bg-white/[0.06] hover:bg-white/[0.1] transition-colors"
           >
             {expandedModules.has(module.id) ? (
-              <ChevronDown className="w-4 h-4 text-[#475569]" />
+              <ChevronDown className="w-4 h-4 text-gray-400" />
             ) : (
-              <ChevronRight className="w-4 h-4 text-[#475569]" />
+              <ChevronRight className="w-4 h-4 text-gray-400" />
             )}
           </button>
           <div>
-            <p className="font-medium text-[#0F172A]">{module.title}</p>
-            <p className="text-sm text-[#64748B]">{module.description}</p>
+            <p className="font-medium text-white">{module.title}</p>
+            <p className="text-sm text-gray-500">{module.description}</p>
           </div>
         </div>
       )
@@ -596,7 +597,7 @@ export default function AdminVideosPage() {
     {
       header: 'Ordem',
       render: (module: VideoModule) => (
-        <span className="font-medium">{module.order_index}</span>
+        <span className="font-medium text-gray-300">{module.order_index}</span>
       )
     },
     {
@@ -604,7 +605,7 @@ export default function AdminVideosPage() {
       render: (module: VideoModule) => (
         <div className="flex items-center gap-2">
           <Play className="w-4 h-4 text-[#D4AF37]" />
-          <span className="font-medium">{module.lessons_count || 0}</span>
+          <span className="font-medium text-gray-300">{module.lessons_count || 0}</span>
         </div>
       )
     },
@@ -620,26 +621,26 @@ export default function AdminVideosPage() {
     {
       header: 'Criado em',
       render: (module: VideoModule) => (
-        <span className="text-sm text-[#475569]">
+        <span className="text-sm text-gray-500">
           {formatDate(module.created_at)}
         </span>
       )
     },
     {
-      header: 'Ações',
+      header: 'Acoes',
       render: (module: VideoModule) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => handleEditModule(module)}
-            className="p-2 text-[#475569] hover:bg-[#F1F5F9] rounded-lg transition-colors"
-            title="Editar módulo"
+            className="p-2 text-gray-400 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+            title="Editar modulo"
           >
             <Edit className="w-4 h-4" />
           </button>
           <button
             onClick={() => handleDeleteModule(module)}
-            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-            title="Excluir módulo"
+            className="p-2 text-red-400/70 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            title="Excluir modulo"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -653,10 +654,10 @@ export default function AdminVideosPage() {
       header: 'Aula',
       render: (lesson: VideoLesson) => (
         <div>
-          <p className="font-medium text-[#0F172A]">{lesson.title}</p>
-          <p className="text-sm text-[#94A3B8]">{lesson.description}</p>
-          <p className="text-xs text-[#94A3B8] mt-1">
-            Módulo: {(lesson as any).video_modules?.title}
+          <p className="font-medium text-white">{lesson.title}</p>
+          <p className="text-sm text-gray-500">{lesson.description}</p>
+          <p className="text-xs text-gray-600 mt-1">
+            Modulo: {(lesson as any).video_modules?.title}
           </p>
         </div>
       )
@@ -664,15 +665,15 @@ export default function AdminVideosPage() {
     {
       header: 'Ordem',
       render: (lesson: VideoLesson) => (
-        <span className="font-medium">{lesson.order_index}</span>
+        <span className="font-medium text-gray-300">{lesson.order_index}</span>
       )
     },
     {
-      header: 'Duração',
+      header: 'Duracao',
       render: (lesson: VideoLesson) => (
         <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-[#F59E0B]" />
-          <span className="text-sm">{lesson.duration_minutes}min</span>
+          <Clock className="w-4 h-4 text-amber-400" />
+          <span className="text-sm text-gray-300">{lesson.duration_minutes}min</span>
         </div>
       )
     },
@@ -688,32 +689,32 @@ export default function AdminVideosPage() {
     {
       header: 'Criado em',
       render: (lesson: VideoLesson) => (
-        <span className="text-sm text-[#475569]">
+        <span className="text-sm text-gray-500">
           {formatDate(lesson.created_at)}
         </span>
       )
     },
     {
-      header: 'Ações',
+      header: 'Acoes',
       render: (lesson: VideoLesson) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => window.open(lesson.panda_video_embed_url, '_blank')}
-            className="p-2 text-[#D4AF37] hover:bg-[#FEF3C7] rounded-lg transition-colors"
-            title="Visualizar vídeo"
+            className="p-2 text-[#D4AF37]/70 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 rounded-lg transition-colors"
+            title="Visualizar video"
           >
             <Eye className="w-4 h-4" />
           </button>
           <button
             onClick={() => handleEditLesson(lesson)}
-            className="p-2 text-[#475569] hover:bg-[#F1F5F9] rounded-lg transition-colors"
+            className="p-2 text-gray-400 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
             title="Editar aula"
           >
             <Edit className="w-4 h-4" />
           </button>
           <button
             onClick={() => handleDeleteLesson(lesson)}
-            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            className="p-2 text-red-400/70 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
             title="Excluir aula"
           >
             <Trash2 className="w-4 h-4" />
@@ -723,98 +724,172 @@ export default function AdminVideosPage() {
     }
   ]
 
+  // --- Loading state ---
   if (loading) {
     return (
-      <PageLayout title="Gestão de Vídeos" subtitle="Carregando...">
-        <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#059669]"></div>
+      <PageLayout title="Gestao de Videos" subtitle="Carregando...">
+        <div className="flex flex-col items-center justify-center h-96 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-full border-2 border-white/[0.06]" />
+            <div className="absolute inset-0 w-16 h-16 rounded-full border-2 border-transparent border-t-[#D4AF37] animate-spin" />
+          </div>
+          <p className="text-sm text-gray-500">Carregando modulos e aulas...</p>
         </div>
       </PageLayout>
     )
   }
 
+  // Helper: total duration for a module
+  const getModuleTotalDuration = (moduleId: string) => {
+    return lessons
+      .filter(l => l.module_id === moduleId)
+      .reduce((sum, l) => sum + (l.duration_minutes || 0), 0)
+  }
+
+  // Helper: active lesson ratio for progress bar
+  const getModuleCompletionRatio = (moduleId: string) => {
+    const moduleLessons = lessons.filter(l => l.module_id === moduleId)
+    if (moduleLessons.length === 0) return 0
+    const activeLessons = moduleLessons.filter(l => l.is_active)
+    return (activeLessons.length / moduleLessons.length) * 100
+  }
+
   return (
-    <PageLayout title="Gestão de Vídeos" subtitle="Módulos e aulas para mentorados">
-      {/* Métricas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <MetricCard
-          title="Total de Módulos"
-          value={stats.total_modules.toString()}
-          change={5}
-          changeType="increase"
-          icon={BookOpen}
-          iconColor="blue"
-        />
-        <MetricCard
-          title="Total de Aulas"
-          value={stats.total_lessons.toString()}
-          change={8}
-          changeType="increase"
-          icon={Play}
-          iconColor="green"
-        />
-        <MetricCard
-          title="Alunos Ativos"
-          value={stats.total_students.toString()}
-          change={12}
-          changeType="increase"
-          icon={Users}
-          iconColor="purple"
-        />
-        <MetricCard
-          title="Taxa de Conclusão"
-          value={`${stats.completion_rate.toFixed(1)}%`}
-          change={2.3}
-          changeType="increase"
-          icon={TrendingUp}
-          iconColor="orange"
-        />
+    <PageLayout title="Gestao de Videos" subtitle="Modulos e aulas para mentorados">
+      {/* =============== STAT CARDS =============== */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {/* Modules */}
+        <div className="bg-[#141418] p-5 rounded-xl ring-1 ring-white/[0.06]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-400">Total de Modulos</p>
+              <p className="text-2xl font-bold text-white mt-1">{stats.total_modules}</p>
+            </div>
+            <div className="w-10 h-10 rounded-lg bg-blue-500/15 flex items-center justify-center">
+              <BookOpen className="w-5 h-5 text-blue-400" />
+            </div>
+          </div>
+        </div>
+
+        {/* Lessons */}
+        <div className="bg-[#141418] p-5 rounded-xl ring-1 ring-white/[0.06]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-400">Total de Aulas</p>
+              <p className="text-2xl font-bold text-emerald-400 mt-1">{stats.total_lessons}</p>
+            </div>
+            <div className="w-10 h-10 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+              <Play className="w-5 h-5 text-emerald-400" />
+            </div>
+          </div>
+        </div>
+
+        {/* Students */}
+        <div className="bg-[#141418] p-5 rounded-xl ring-1 ring-white/[0.06]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-400">Alunos Ativos</p>
+              <p className="text-2xl font-bold text-purple-400 mt-1">{stats.total_students}</p>
+            </div>
+            <div className="w-10 h-10 rounded-lg bg-purple-500/15 flex items-center justify-center">
+              <Users className="w-5 h-5 text-purple-400" />
+            </div>
+          </div>
+        </div>
+
+        {/* Completion Rate */}
+        <div className="bg-[#141418] p-5 rounded-xl ring-1 ring-white/[0.06]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-400">Taxa de Conclusao</p>
+              <p className="text-2xl font-bold text-[#D4AF37] mt-1">{stats.completion_rate.toFixed(1)}%</p>
+            </div>
+            <div className="w-10 h-10 rounded-lg bg-[#D4AF37]/15 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-[#D4AF37]" />
+            </div>
+          </div>
+          {/* Mini progress ring */}
+          <div className="mt-3">
+            <div className="w-full h-1.5 rounded-full bg-white/[0.06]">
+              <div
+                className="h-1.5 rounded-full bg-gradient-to-r from-[#D4AF37] to-[#F5D76E] transition-all duration-700"
+                style={{ width: `${Math.min(stats.completion_rate, 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Tabs e Controles */}
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] p-6 mb-8">
+      {/* =============== TABS + SEARCH + CONTROLS =============== */}
+      <div className="bg-[#141418] rounded-xl ring-1 ring-white/[0.06] p-5 mb-6">
         <div className="flex flex-col gap-4">
           {/* Tabs */}
-          <div className="flex gap-2 p-1 bg-[#F8FAFC] rounded-lg">
+          <div className="flex gap-1 p-1 bg-white/[0.03] rounded-lg ring-1 ring-white/[0.04] w-fit">
             <button
               onClick={() => setActiveTab('modules')}
-              className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${
+              className={`px-5 py-2 rounded-md font-medium text-sm transition-all ${
                 activeTab === 'modules'
-                  ? 'bg-white text-[#D4AF37] shadow-sm'
-                  : 'text-[#475569] hover:text-[#D4AF37]'
+                  ? 'bg-[#D4AF37]/15 text-[#D4AF37] ring-1 ring-[#D4AF37]/20'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
               }`}
             >
-              Módulos
+              <span className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4" />
+                Modulos
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                  activeTab === 'modules' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'bg-white/[0.06] text-gray-500'
+                }`}>
+                  {modules.length}
+                </span>
+              </span>
             </button>
             <button
               onClick={() => setActiveTab('lessons')}
-              className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${
+              className={`px-5 py-2 rounded-md font-medium text-sm transition-all ${
                 activeTab === 'lessons'
-                  ? 'bg-white text-[#D4AF37] shadow-sm'
-                  : 'text-[#475569] hover:text-[#D4AF37]'
+                  ? 'bg-[#D4AF37]/15 text-[#D4AF37] ring-1 ring-[#D4AF37]/20'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
               }`}
             >
-              Aulas
+              <span className="flex items-center gap-2">
+                <Play className="w-4 h-4" />
+                Aulas
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                  activeTab === 'lessons' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'bg-white/[0.06] text-gray-500'
+                }`}>
+                  {lessons.length}
+                </span>
+              </span>
             </button>
           </div>
 
-          {/* Controles */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#94A3B8] w-4 h-4" />
+          {/* Search + Actions */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
               <input
                 type="text"
-                placeholder={`Buscar ${activeTab === 'modules' ? 'módulos' : 'aulas'}...`}
+                placeholder={`Buscar ${activeTab === 'modules' ? 'modulos' : 'aulas'}...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
+                className="w-full pl-10 pr-4 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all"
               />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-            <div className="flex gap-3">
+
+            <div className="flex gap-2">
               <button
                 onClick={loadData}
-                className="p-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
+                className="p-2.5 text-gray-400 hover:text-white hover:bg-white/[0.06] rounded-lg ring-1 ring-white/[0.06] transition-colors"
                 disabled={isLoadingData}
+                title="Atualizar dados"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
               </button>
@@ -822,271 +897,505 @@ export default function AdminVideosPage() {
               {activeTab === 'lessons' && (
                 <a
                   href="/admin/videos/cadastrar"
-                  className="flex items-center gap-2 px-4 py-2 bg-[#E879F9] hover:bg-[#D865E8] text-white rounded-xl font-medium transition-colors"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 rounded-lg ring-1 ring-purple-500/20 font-medium text-sm transition-colors"
                 >
-                  <Plus className="w-4 h-4" />
-                  Criar Aula Fácil
+                  <Star className="w-4 h-4" />
+                  Criar Aula Facil
                 </a>
               )}
 
               <button
                 onClick={activeTab === 'modules' ? handleNewModule : handleNewLesson}
-                className="flex items-center gap-2 px-4 py-2 bg-[#D4AF37] hover:bg-[#B8860B] text-white rounded-xl font-medium transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 bg-[#D4AF37] hover:bg-[#c4a030] text-black rounded-lg font-medium text-sm transition-colors"
               >
                 <Plus className="w-4 h-4" />
-                {activeTab === 'modules' ? 'Novo Módulo' : 'Nova Aula'}
+                {activeTab === 'modules' ? 'Novo Modulo' : 'Nova Aula'}
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Tabela */}
+      {/* =============== CONTENT AREA =============== */}
       <div className="space-y-4">
         {activeTab === 'modules' ? (
-          <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#E2E8F0]">
-              <h3 className="text-lg font-semibold text-[#0F172A]">Módulos de Vídeo</h3>
-            </div>
-            <div className="p-6">
-              {filteredModules.length === 0 ? (
-                <div className="text-center py-8 text-[#64748B]">
-                  Nenhum módulo encontrado
+          <>
+            {filteredModules.length === 0 ? (
+              /* Empty State - Modules */
+              <div className="bg-[#141418] rounded-xl ring-1 ring-white/[0.06] p-12">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.06] flex items-center justify-center mb-5">
+                    <BookOpen className="w-7 h-7 text-gray-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    {searchTerm ? 'Nenhum modulo encontrado' : 'Nenhum modulo cadastrado'}
+                  </h3>
+                  <p className="text-sm text-gray-500 max-w-sm mb-6">
+                    {searchTerm
+                      ? `Nenhum resultado para "${searchTerm}". Tente uma busca diferente.`
+                      : 'Comece criando seu primeiro modulo de video para organizar suas aulas.'
+                    }
+                  </p>
+                  {!searchTerm && (
+                    <button
+                      onClick={handleNewModule}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-[#D4AF37] hover:bg-[#c4a030] text-black rounded-lg font-medium text-sm transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Criar Primeiro Modulo
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredModules.map((module) => {
-                    const moduleLessons = lessons.filter(l => l.module_id === module.id)
-                    const isExpanded = expandedModules.has(module.id)
+              </div>
+            ) : (
+              /* Module Cards */
+              <div className="space-y-3">
+                {filteredModules.map((module) => {
+                  const moduleLessons = lessons.filter(l => l.module_id === module.id)
+                  const isExpanded = expandedModules.has(module.id)
+                  const totalDuration = getModuleTotalDuration(module.id)
+                  const completionRatio = getModuleCompletionRatio(module.id)
+                  const activeLessonCount = moduleLessons.filter(l => l.is_active).length
+                  const archivedCount = moduleLessons.filter(l => l.is_current === false).length
+                  const hasPdfs = moduleLessons.some(l => l.pdf_url)
 
-                    return (
-                      <div key={module.id} className="border border-[#E2E8F0] rounded-xl overflow-hidden">
-                        <div className="p-4 bg-[#F8FAFC]">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <button
-                                onClick={() => toggleModule(module.id)}
-                                className="flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-[#E2E8F0] hover:bg-[#F1F5F9] transition-colors"
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="w-4 h-4 text-[#475569]" />
-                                ) : (
-                                  <ChevronRight className="w-4 h-4 text-[#475569]" />
-                                )}
-                              </button>
-                              <div>
-                                <h4 className="font-semibold text-[#0F172A]">{module.title}</h4>
-                                <p className="text-sm text-[#64748B]">{module.description}</p>
-                                <div className="flex items-center gap-4 mt-2">
-                                  <span className="text-xs text-[#64748B]">Ordem: {module.order_index}</span>
-                                  <div className="flex items-center gap-1">
-                                    <Play className="w-3 h-3 text-[#D4AF37]" />
-                                    <span className="text-xs text-[#64748B]">{module.lessons_count} aulas</span>
-                                  </div>
-                                  <StatusBadge
-                                    status={module.is_active ? 'confirmed' : 'cancelled'}
-                                    label={module.is_active ? 'Ativo' : 'Inativo'}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => handleEditModule(module)}
-                                className="p-2 text-[#475569] hover:bg-white rounded-lg transition-colors"
-                                title="Editar módulo"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteModule(module)}
-                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Excluir módulo"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {isExpanded && (
-                          <div className="border-t border-[#E2E8F0]">
-                            {moduleLessons.length === 0 ? (
-                              <div className="p-4 text-center text-[#64748B]">
-                                Nenhuma aula neste módulo
+                  return (
+                    <div
+                      key={module.id}
+                      className="bg-[#141418] rounded-xl ring-1 ring-white/[0.06] overflow-hidden transition-all"
+                    >
+                      {/* Module Header */}
+                      <div className="p-5">
+                        <div className="flex items-start gap-4">
+                          {/* Cover image / placeholder */}
+                          <div className="relative flex-shrink-0">
+                            {module.cover_image_url ? (
+                              <div className="w-20 h-14 rounded-lg overflow-hidden ring-1 ring-white/[0.06]">
+                                <img
+                                  src={module.cover_image_url}
+                                  alt={module.title}
+                                  className="w-full h-full object-cover"
+                                />
                               </div>
                             ) : (
-                              <div className="divide-y divide-[#E2E8F0]">
-                                {moduleLessons.map((lesson) => (
-                                  <div key={lesson.id} className={`p-4 flex items-center justify-between hover:bg-[#F8FAFC] ${
-                                    lesson.is_current === false ? 'bg-orange-50 border-l-4 border-orange-400' : ''
-                                  }`}>
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <h5 className="font-medium text-[#0F172A]">{lesson.title}</h5>
-                                        {lesson.is_current === false ? (
-                                          <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">
-                                            <Archive className="w-3 h-3" />
+                              <div className="w-20 h-14 rounded-lg bg-gradient-to-br from-[#D4AF37]/20 to-[#D4AF37]/5 ring-1 ring-white/[0.06] flex items-center justify-center">
+                                <Play className="w-5 h-5 text-[#D4AF37]/60" />
+                              </div>
+                            )}
+                            {/* Order badge */}
+                            <div className="absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full bg-[#D4AF37] text-black text-xs font-bold flex items-center justify-center ring-2 ring-[#141418]">
+                              {module.order_index}
+                            </div>
+                          </div>
+
+                          {/* Module info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-white truncate">{module.title}</h4>
+                              {!module.is_active && (
+                                <span className="flex-shrink-0 text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 ring-1 ring-red-500/20">
+                                  Inativo
+                                </span>
+                              )}
+                            </div>
+                            {module.description && (
+                              <p className="text-sm text-gray-500 line-clamp-1 mb-2">{module.description}</p>
+                            )}
+
+                            {/* Meta chips */}
+                            <div className="flex flex-wrap items-center gap-2">
+                              {/* Lesson count badge */}
+                              <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-white/[0.04] text-gray-300 ring-1 ring-white/[0.06]">
+                                <Play className="w-3 h-3 text-[#D4AF37]" />
+                                {module.lessons_count || 0} {(module.lessons_count || 0) === 1 ? 'aula' : 'aulas'}
+                              </span>
+
+                              {/* Total duration */}
+                              {totalDuration > 0 && (
+                                <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-white/[0.04] text-gray-300 ring-1 ring-white/[0.06]">
+                                  <Clock className="w-3 h-3 text-amber-400" />
+                                  {totalDuration >= 60
+                                    ? `${Math.floor(totalDuration / 60)}h ${totalDuration % 60}min`
+                                    : `${totalDuration}min`
+                                  }
+                                </span>
+                              )}
+
+                              {/* PDF indicator */}
+                              {hasPdfs && (
+                                <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20">
+                                  <FileText className="w-3 h-3" />
+                                  PDF
+                                </span>
+                              )}
+
+                              {/* Archived count */}
+                              {archivedCount > 0 && (
+                                <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-400 ring-1 ring-orange-500/20">
+                                  <Archive className="w-3 h-3" />
+                                  {archivedCount} arquivada{archivedCount > 1 ? 's' : ''}
+                                </span>
+                              )}
+
+                              {/* Created date */}
+                              <span className="text-xs text-gray-600">
+                                Criado em {formatDate(module.created_at)}
+                              </span>
+                            </div>
+
+                            {/* Module progress bar */}
+                            {moduleLessons.length > 0 && (
+                              <div className="mt-3 flex items-center gap-3">
+                                <div className="flex-1 h-1.5 rounded-full bg-white/[0.06]">
+                                  <div
+                                    className="h-1.5 rounded-full bg-emerald-500 transition-all duration-500"
+                                    style={{ width: `${completionRatio}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs text-gray-500 flex-shrink-0">
+                                  {activeLessonCount}/{moduleLessons.length} ativas
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              onClick={() => handleEditModule(module)}
+                              className="p-2 text-gray-500 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+                              title="Editar modulo"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteModule(module)}
+                              className="p-2 text-red-400/50 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                              title="Excluir modulo"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => toggleModule(module.id)}
+                              className={`p-2 rounded-lg transition-all ${
+                                isExpanded
+                                  ? 'text-[#D4AF37] bg-[#D4AF37]/10'
+                                  : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.06]'
+                              }`}
+                              title={isExpanded ? 'Recolher aulas' : 'Expandir aulas'}
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="w-4 h-4" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Expanded Lessons List */}
+                      {isExpanded && (
+                        <div className="border-t border-white/[0.06]">
+                          {moduleLessons.length === 0 ? (
+                            /* Empty lessons state */
+                            <div className="p-8 flex flex-col items-center justify-center text-center">
+                              <div className="w-12 h-12 rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06] flex items-center justify-center mb-3">
+                                <Play className="w-5 h-5 text-gray-600" />
+                              </div>
+                              <p className="text-sm text-gray-500 mb-3">Nenhuma aula neste modulo</p>
+                              <button
+                                onClick={() => {
+                                  setLessonForm(prev => ({ ...prev, module_id: module.id }))
+                                  handleNewLesson()
+                                }}
+                                className="text-sm text-[#D4AF37] hover:text-[#F5D76E] transition-colors flex items-center gap-1.5"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                Adicionar aula
+                              </button>
+                            </div>
+                          ) : (
+                            <div>
+                              {moduleLessons.map((lesson, index) => {
+                                const isArchived = lesson.is_current === false
+                                return (
+                                  <div
+                                    key={lesson.id}
+                                    className={`flex items-center gap-4 px-5 py-3.5 transition-colors group ${
+                                      isArchived
+                                        ? 'bg-orange-500/[0.03] hover:bg-orange-500/[0.06]'
+                                        : 'hover:bg-white/[0.02]'
+                                    } ${index > 0 ? 'border-t border-white/[0.04]' : ''}`}
+                                  >
+                                    {/* Lesson number */}
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-semibold ${
+                                      isArchived
+                                        ? 'bg-orange-500/10 text-orange-400 ring-1 ring-orange-500/20'
+                                        : 'bg-white/[0.04] text-gray-400 ring-1 ring-white/[0.06]'
+                                    }`}>
+                                      {lesson.order_index}
+                                    </div>
+
+                                    {/* Lesson info */}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-0.5">
+                                        <h5 className={`font-medium truncate ${isArchived ? 'text-gray-400' : 'text-white'}`}>
+                                          {lesson.title}
+                                        </h5>
+                                        {/* Version / archive badge */}
+                                        {isArchived ? (
+                                          <span className="flex-shrink-0 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 ring-1 ring-orange-500/20">
+                                            <Archive className="w-2.5 h-2.5" />
                                             Arquivada {lesson.version ? `(${lesson.version})` : ''}
-                                          </div>
+                                          </span>
                                         ) : (
-                                          <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                                            <CheckCircle className="w-3 h-3" />
-                                            Atual {lesson.version ? `(${lesson.version})` : '(v1.0)'}
-                                          </div>
+                                          <span className="flex-shrink-0 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20">
+                                            <CheckCircle className="w-2.5 h-2.5" />
+                                            Atual {lesson.version ? `(${lesson.version})` : ''}
+                                          </span>
+                                        )}
+                                        {/* PDF indicator */}
+                                        {lesson.pdf_url && (
+                                          <span className="flex-shrink-0 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20">
+                                            <FileText className="w-2.5 h-2.5" />
+                                            PDF
+                                          </span>
+                                        )}
+                                        {!lesson.is_active && (
+                                          <span className="flex-shrink-0 text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 ring-1 ring-red-500/20">
+                                            Inativo
+                                          </span>
                                         )}
                                       </div>
-                                      <p className="text-sm text-[#64748B] mt-1">{lesson.description}</p>
-                                      <div className="flex items-center gap-4 mt-2">
-                                        <span className="text-xs text-[#64748B]">Ordem: {lesson.order_index}</span>
-                                        <div className="flex items-center gap-1">
-                                          <Clock className="w-3 h-3 text-[#F59E0B]" />
-                                          <span className="text-xs text-[#64748B]">{lesson.duration_minutes}min</span>
-                                        </div>
-                                        <StatusBadge
-                                          status={lesson.is_active ? 'confirmed' : 'cancelled'}
-                                          label={lesson.is_active ? 'Ativo' : 'Inativo'}
-                                        />
-                                      </div>
+                                      {lesson.description && (
+                                        <p className="text-xs text-gray-500 truncate">{lesson.description}</p>
+                                      )}
                                     </div>
-                                    <div className="flex items-center gap-2 ml-4">
+
+                                    {/* Duration */}
+                                    <div className="flex items-center gap-1.5 text-xs text-gray-500 flex-shrink-0">
+                                      <Clock className="w-3 h-3 text-amber-400/70" />
+                                      {lesson.duration_minutes}min
+                                    </div>
+
+                                    {/* Lesson actions */}
+                                    <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                       <button
                                         onClick={() => window.open(lesson.panda_video_embed_url, '_blank')}
-                                        className="p-2 text-[#D4AF37] hover:bg-[#FEF3C7] rounded-lg transition-colors"
-                                        title="Visualizar vídeo"
+                                        className="p-1.5 text-[#D4AF37]/60 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 rounded-md transition-colors"
+                                        title="Visualizar video"
                                       >
-                                        <Eye className="w-4 h-4" />
+                                        <Eye className="w-3.5 h-3.5" />
                                       </button>
                                       <button
                                         onClick={() => handleEditLesson(lesson)}
-                                        className="p-2 text-[#475569] hover:bg-[#F1F5F9] rounded-lg transition-colors"
+                                        className="p-1.5 text-gray-500 hover:text-white hover:bg-white/[0.06] rounded-md transition-colors"
                                         title="Editar aula"
                                       >
-                                        <Edit className="w-4 h-4" />
+                                        <Edit className="w-3.5 h-3.5" />
                                       </button>
                                       <button
                                         onClick={() => handleToggleLessonStatus(lesson)}
-                                        className={`p-2 rounded-lg transition-colors ${
-                                          lesson.is_current === false 
-                                            ? 'text-green-600 hover:bg-green-50' 
-                                            : 'text-orange-600 hover:bg-orange-50'
+                                        className={`p-1.5 rounded-md transition-colors ${
+                                          isArchived
+                                            ? 'text-emerald-500/60 hover:text-emerald-400 hover:bg-emerald-500/10'
+                                            : 'text-orange-500/60 hover:text-orange-400 hover:bg-orange-500/10'
                                         }`}
-                                        title={lesson.is_current === false ? 'Marcar como atual' : 'Arquivar aula'}
+                                        title={isArchived ? 'Marcar como atual' : 'Arquivar aula'}
                                       >
-                                        {lesson.is_current === false ? (
-                                          <CheckCircle className="w-4 h-4" />
+                                        {isArchived ? (
+                                          <CheckCircle className="w-3.5 h-3.5" />
                                         ) : (
-                                          <Archive className="w-4 h-4" />
+                                          <Archive className="w-3.5 h-3.5" />
                                         )}
                                       </button>
                                       <button
                                         onClick={() => handleDeleteLesson(lesson)}
-                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                        className="p-1.5 text-red-400/40 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
                                         title="Excluir aula"
                                       >
-                                        <Trash2 className="w-4 h-4" />
+                                        <Trash2 className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
                                   </div>
-                                ))}
+                                )
+                              })}
+                              {/* Add lesson inline */}
+                              <div className="border-t border-white/[0.04] px-5 py-2.5">
+                                <button
+                                  onClick={() => {
+                                    setLessonForm(prev => ({ ...prev, module_id: module.id }))
+                                    handleNewLesson()
+                                  }}
+                                  className="text-xs text-gray-500 hover:text-[#D4AF37] transition-colors flex items-center gap-1.5"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                  Adicionar aula a este modulo
+                                </button>
                               </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
         ) : (
-          <DataTable
-            columns={lessonColumns}
-            data={filteredLessons}
-            title="Aulas de Vídeo"
-          />
+          /* ---- Lessons Tab (DataTable) ---- */
+          <>
+            {filteredLessons.length === 0 ? (
+              <div className="bg-[#141418] rounded-xl ring-1 ring-white/[0.06] p-12">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.06] flex items-center justify-center mb-5">
+                    <Play className="w-7 h-7 text-gray-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    {searchTerm ? 'Nenhuma aula encontrada' : 'Nenhuma aula cadastrada'}
+                  </h3>
+                  <p className="text-sm text-gray-500 max-w-sm mb-6">
+                    {searchTerm
+                      ? `Nenhum resultado para "${searchTerm}". Tente uma busca diferente.`
+                      : 'Crie modulos primeiro e depois adicione aulas a eles.'
+                    }
+                  </p>
+                  {!searchTerm && (
+                    <button
+                      onClick={handleNewLesson}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-[#D4AF37] hover:bg-[#c4a030] text-black rounded-lg font-medium text-sm transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Criar Primeira Aula
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <DataTable
+                columns={lessonColumns}
+                data={filteredLessons}
+                title="Aulas de Video"
+              />
+            )}
+          </>
         )}
       </div>
 
-      {/* Modal para Módulos */}
+      {/* =============== MODULE MODAL =============== */}
       {showModuleModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowModuleModal(false)}
+          />
+          {/* Modal */}
           <div
             ref={draggableModuleRef}
-            className={`bg-white rounded-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto ${isModuleDragging ? 'select-none' : ''}`}
+            className={`relative bg-[#141418] rounded-xl ring-1 ring-white/[0.06] w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col ${isModuleDragging ? 'select-none' : ''}`}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+              <div
                 data-drag-handle="module-modal"
-                className="text-lg font-semibold text-[#0F172A] cursor-move flex items-center gap-2"
+                className="flex items-center gap-3 cursor-move flex-1"
               >
-                <span className="text-gray-400">⋮⋮</span>
-                {selectedModule ? 'Editar Módulo' : 'Novo Módulo'}
-              </h3>
+                <div className="w-9 h-9 rounded-lg bg-[#D4AF37]/15 flex items-center justify-center">
+                  <BookOpen className="w-4 h-4 text-[#D4AF37]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">
+                    {selectedModule ? 'Editar Modulo' : 'Novo Modulo'}
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    {selectedModule ? 'Atualize as informacoes do modulo' : 'Preencha os dados do novo modulo'}
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowModuleModal(false)}
-                className="p-2 text-[#64748B] hover:bg-[#F1F5F9] rounded-lg transition-colors"
+                className="p-2 text-gray-500 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#374151] mb-2">Título</label>
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Title */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-300">
+                  Titulo <span className="text-red-400">*</span>
+                </label>
                 <input
                   type="text"
                   value={moduleForm.title}
                   onChange={(e) => setModuleForm(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
-                  placeholder="Nome do módulo"
+                  className="w-full px-3.5 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all text-sm"
+                  placeholder="Nome do modulo"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-[#374151] mb-2">Descrição</label>
+              {/* Description */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-300">Descricao</label>
                 <textarea
                   value={moduleForm.description}
                   onChange={(e) => setModuleForm(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
-                  placeholder="Descrição do módulo"
+                  className="w-full px-3.5 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all text-sm resize-none"
+                  placeholder="Descricao do modulo"
                   rows={3}
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-[#374151] mb-2">URL da Imagem de Capa</label>
+              {/* Cover Image URL */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-300">URL da Imagem de Capa</label>
                 <input
                   type="url"
                   value={moduleForm.cover_image_url}
                   onChange={(e) => setModuleForm(prev => ({ ...prev, cover_image_url: e.target.value }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
+                  className="w-full px-3.5 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all text-sm"
                   placeholder="https://exemplo.com/imagem-capa.jpg"
                 />
-                <p className="text-xs text-[#64748B] mt-1">
-                  Esta imagem será exibida como capa do módulo na página de vídeos
+                {moduleForm.cover_image_url && (
+                  <div className="mt-2 rounded-lg overflow-hidden ring-1 ring-white/[0.06] h-32">
+                    <img
+                      src={moduleForm.cover_image_url}
+                      alt="Preview da capa"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none'
+                      }}
+                    />
+                  </div>
+                )}
+                <p className="text-xs text-gray-600">
+                  Esta imagem sera exibida como capa do modulo na pagina de videos
                 </p>
               </div>
 
+              {/* Order + Status */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#374151] mb-2">Ordem</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-300">Ordem</label>
                   <input
                     type="number"
                     value={moduleForm.order_index}
                     onChange={(e) => setModuleForm(prev => ({ ...prev, order_index: parseInt(e.target.value) || 1 }))}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
+                    className="w-full px-3.5 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all text-sm"
                     min="1"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[#374151] mb-2">Status</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-300">Status</label>
                   <select
                     value={moduleForm.is_active.toString()}
                     onChange={(e) => setModuleForm(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
+                    className="w-full px-3.5 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all text-sm appearance-none"
                   >
                     <option value="true">Ativo</option>
                     <option value="false">Inativo</option>
@@ -1095,146 +1404,184 @@ export default function AdminVideosPage() {
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            {/* Footer */}
+            <div className="flex gap-3 px-6 py-4 border-t border-white/[0.06]">
               <button
                 onClick={() => setShowModuleModal(false)}
-                className="flex-1 px-4 py-2 border border-[#E2E8F0] text-[#64748B] rounded-lg hover:bg-[#F8FAFC] transition-colors"
+                className="flex-1 px-4 py-2.5 text-gray-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] ring-1 ring-white/[0.06] rounded-lg transition-colors text-sm font-medium"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveModule}
                 disabled={isLoadingData || !moduleForm.title.trim()}
-                className="flex-1 px-4 py-2 bg-[#D4AF37] text-white rounded-lg hover:bg-[#B8860B] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 bg-[#D4AF37] hover:bg-[#c4a030] text-black rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
               >
-                <Save className="w-4 h-4" />
-                {isLoadingData ? 'Salvando...' : 'Salvar'}
+                {isLoadingData ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Salvar Modulo
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal para Aulas */}
+      {/* =============== LESSON MODAL =============== */}
       {showLessonModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowLessonModal(false)}
+          />
+          {/* Modal */}
           <div
             ref={draggableLessonRef}
-            className={`bg-white rounded-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto ${isLessonDragging ? 'select-none' : ''}`}
+            className={`relative bg-[#141418] rounded-xl ring-1 ring-white/[0.06] w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col ${isLessonDragging ? 'select-none' : ''}`}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+              <div
                 data-drag-handle="lesson-modal"
-                className="text-lg font-semibold text-[#0F172A] cursor-move flex items-center gap-2"
+                className="flex items-center gap-3 cursor-move flex-1"
               >
-                <span className="text-gray-400">⋮⋮</span>
-                {selectedLesson ? 'Editar Aula' : 'Nova Aula'}
-              </h3>
+                <div className="w-9 h-9 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                  <Play className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">
+                    {selectedLesson ? 'Editar Aula' : 'Nova Aula'}
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    {selectedLesson ? 'Atualize as informacoes da aula' : 'Preencha os dados da nova aula'}
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowLessonModal(false)}
-                className="p-2 text-[#64748B] hover:bg-[#F1F5F9] rounded-lg transition-colors"
+                className="p-2 text-gray-500 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#374151] mb-2">Módulo</label>
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Module select */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-300">
+                  Modulo <span className="text-red-400">*</span>
+                </label>
                 <select
                   value={lessonForm.module_id}
                   onChange={(e) => setLessonForm(prev => ({ ...prev, module_id: e.target.value }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
+                  className="w-full px-3.5 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all text-sm appearance-none"
                 >
-                  <option value="">Selecione um módulo</option>
+                  <option value="">Selecione um modulo</option>
                   {modules.map(module => (
                     <option key={module.id} value={module.id}>{module.title}</option>
                   ))}
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-[#374151] mb-2">Título</label>
+              {/* Title */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-300">
+                  Titulo <span className="text-red-400">*</span>
+                </label>
                 <input
                   type="text"
                   value={lessonForm.title}
                   onChange={(e) => setLessonForm(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
+                  className="w-full px-3.5 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all text-sm"
                   placeholder="Nome da aula"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-[#374151] mb-2">Descrição</label>
+              {/* Description */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-300">Descricao</label>
                 <textarea
                   value={lessonForm.description}
                   onChange={(e) => setLessonForm(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
-                  placeholder="Descrição da aula"
+                  className="w-full px-3.5 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all text-sm resize-none"
+                  placeholder="Descricao da aula"
                   rows={2}
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-[#374151] mb-2">URL do Vídeo (Panda)</label>
+              {/* Video URL */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-300">URL do Video (Panda)</label>
                 <input
                   type="url"
                   value={lessonForm.panda_video_embed_url}
                   onChange={(e) => setLessonForm(prev => ({ ...prev, panda_video_embed_url: e.target.value }))}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
+                  className="w-full px-3.5 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all text-sm"
                   placeholder="https://player.pandavideo.com.br/embed/?v=..."
                 />
               </div>
 
-              {/* Seção de Upload/Gerenciamento de PDF */}
-              <div className="border-t border-[#E2E8F0] pt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-[#374151]">Materiais de Apoio (PDFs)</label>
-                  <span className="text-xs text-[#64748B]">
-                    {lessonPdfs.length > 0 ? `${lessonPdfs.length} arquivo(s)` : 'Nenhum arquivo'}
+              {/* PDF Materials Section */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                      <FileText className="w-3.5 h-3.5 text-blue-400" />
+                    </div>
+                    <label className="text-sm font-medium text-gray-300">Materiais de Apoio (PDFs)</label>
+                  </div>
+                  <span className="text-xs text-gray-600 px-2 py-0.5 rounded-full bg-white/[0.04] ring-1 ring-white/[0.06]">
+                    {lessonPdfs.length > 0 ? `${lessonPdfs.length} arquivo${lessonPdfs.length > 1 ? 's' : ''}` : 'Nenhum'}
                   </span>
                 </div>
 
-                {/* Lista de PDFs existentes */}
+                {/* Existing PDFs */}
                 {loadingPdfs ? (
-                  <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="p-3 rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06]">
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                      <span className="text-sm text-gray-600">Carregando PDFs...</span>
+                      <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm text-gray-500">Carregando PDFs...</span>
                     </div>
                   </div>
                 ) : (
                   lessonPdfs.map((pdf, index) => (
-                    <div key={pdf.id} className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div key={pdf.id} className="p-3 rounded-lg bg-emerald-500/[0.05] ring-1 ring-emerald-500/20">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-green-600" />
-                          <div className="flex flex-col">
-                            <span className="text-sm text-green-800 font-medium">
-                              {pdf.filename}
-                            </span>
-                            <div className="flex items-center gap-2 text-xs text-green-600">
-                              <span>({Math.round(pdf.size_bytes / 1024)} KB)</span>
-                              <span>•</span>
-                              <span>PDF {index + 1}</span>
-                            </div>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+                            <FileText className="w-4 h-4 text-emerald-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm text-emerald-300 font-medium truncate">{pdf.filename}</p>
+                            <p className="text-xs text-emerald-500/70">
+                              {Math.round(pdf.size_bytes / 1024)} KB  --  PDF {index + 1}
+                            </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           <button
                             onClick={() => window.open(pdf.url, '_blank')}
-                            className="text-green-600 hover:text-green-800 transition-colors p-1"
+                            className="p-1.5 text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-md transition-colors"
                             title="Visualizar PDF"
                           >
-                            <Download className="w-4 h-4" />
+                            <Download className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleRemoveSpecificPdf(pdf.id, pdf.url)}
-                            className="text-red-600 hover:text-red-800 transition-colors p-1"
+                            className="p-1.5 text-red-400/50 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
                             title="Remover PDF"
                             disabled={loadingPdfs}
                           >
-                            <X className="w-4 h-4" />
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -1242,8 +1589,8 @@ export default function AdminVideosPage() {
                   ))
                 )}
 
-                {/* Upload de novo PDF */}
-                <div className="flex items-center gap-3">
+                {/* Upload new PDF */}
+                <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="file"
                     accept="application/pdf"
@@ -1253,104 +1600,119 @@ export default function AdminVideosPage() {
                   />
                   <label
                     htmlFor="pdf-upload"
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer text-sm"
+                    className="flex items-center gap-2 px-3.5 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg ring-1 ring-blue-500/20 cursor-pointer text-sm transition-colors"
                   >
-                    <Upload className="w-4 h-4" />
-                    {lessonPdfs.length > 0 ? '+ Adicionar outro PDF' : 'Adicionar PDF'}
+                    <Upload className="w-3.5 h-3.5" />
+                    {lessonPdfs.length > 0 ? 'Adicionar outro PDF' : 'Adicionar PDF'}
                   </label>
 
                   {selectedFile && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-[#64748B]">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="text-sm text-gray-400 truncate">
                         {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
                       </span>
                       <button
                         onClick={handleUploadPdf}
                         disabled={uploadingPdf || !selectedLesson}
-                        className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
+                        className="px-3 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 ring-1 ring-emerald-500/20 rounded-md text-xs font-medium transition-colors disabled:opacity-40 flex-shrink-0"
                       >
                         {uploadingPdf ? 'Enviando...' : 'Enviar'}
                       </button>
                       <button
                         onClick={() => setSelectedFile(null)}
-                        className="text-red-600 hover:text-red-800 transition-colors"
+                        className="p-1 text-gray-500 hover:text-red-400 transition-colors flex-shrink-0"
                       >
                         <X className="w-3 h-3" />
                       </button>
                     </div>
                   )}
                 </div>
-
-                <p className="text-xs text-[#64748B] mt-2">
-                  Adicione quantos PDFs de apoio desejar (máximo 50MB por arquivo)
+                <p className="text-xs text-gray-600">
+                  Adicione quantos PDFs de apoio desejar (maximo 50MB por arquivo)
                 </p>
               </div>
 
+              {/* Duration + Order */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#374151] mb-2">Duração (min)</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-300">Duracao (min)</label>
                   <input
                     type="number"
                     value={lessonForm.duration_minutes}
                     onChange={(e) => setLessonForm(prev => ({ ...prev, duration_minutes: parseInt(e.target.value) || 0 }))}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
+                    className="w-full px-3.5 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all text-sm"
                     min="0"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[#374151] mb-2">Ordem</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-300">Ordem</label>
                   <input
                     type="number"
                     value={lessonForm.order_index}
                     onChange={(e) => setLessonForm(prev => ({ ...prev, order_index: parseInt(e.target.value) || 1 }))}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
+                    className="w-full px-3.5 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all text-sm"
                     min="1"
                   />
                 </div>
               </div>
 
-              {/* Status Fields */}
+              {/* Status + Version */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#374151] mb-2">Status da Aula</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-300">Status da Aula</label>
                   <select
                     value={lessonForm.is_active.toString()}
                     onChange={(e) => setLessonForm(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
+                    className="w-full px-3.5 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all text-sm appearance-none"
                   >
                     <option value="true">Ativo</option>
                     <option value="false">Inativo</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#374151] mb-2">Versão</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-300">Versao</label>
                   <select
                     value={lessonForm.is_current.toString()}
                     onChange={(e) => setLessonForm(prev => ({ ...prev, is_current: e.target.value === 'true' }))}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-[#0F172A]"
+                    className="w-full px-3.5 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 transition-all text-sm appearance-none"
                   >
-                    <option value="true">✅ Atual</option>
-                    <option value="false">📦 Arquivada</option>
+                    <option value="true">Atual</option>
+                    <option value="false">Arquivada</option>
                   </select>
+                  {lessonForm.is_current === false && (
+                    <div className="flex items-center gap-1.5 p-2 rounded-md bg-orange-500/[0.06] ring-1 ring-orange-500/20">
+                      <AlertCircle className="w-3 h-3 text-orange-400 flex-shrink-0" />
+                      <span className="text-xs text-orange-400">Esta aula sera marcada como versao arquivada</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            {/* Footer */}
+            <div className="flex gap-3 px-6 py-4 border-t border-white/[0.06]">
               <button
                 onClick={() => setShowLessonModal(false)}
-                className="flex-1 px-4 py-2 border border-[#E2E8F0] text-[#64748B] rounded-lg hover:bg-[#F8FAFC] transition-colors"
+                className="flex-1 px-4 py-2.5 text-gray-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] ring-1 ring-white/[0.06] rounded-lg transition-colors text-sm font-medium"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveLesson}
                 disabled={isLoadingData || !lessonForm.title.trim() || !lessonForm.module_id}
-                className="flex-1 px-4 py-2 bg-[#D4AF37] text-white rounded-lg hover:bg-[#B8860B] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 bg-[#D4AF37] hover:bg-[#c4a030] text-black rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
               >
-                <Save className="w-4 h-4" />
-                {isLoadingData ? 'Salvando...' : 'Salvar'}
+                {isLoadingData ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Salvar Aula
+                  </>
+                )}
               </button>
             </div>
           </div>

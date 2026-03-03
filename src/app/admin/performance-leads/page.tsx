@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useStableData } from '@/hooks/use-stable-data'
 import { useStableMutation } from '@/hooks/use-stable-mutation'
 import { Button } from '@/components/ui/button'
@@ -14,9 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
-import { 
-  Search, 
-  Filter, 
+import {
+  Search,
+  Filter,
   Users,
   TrendingUp,
   TrendingDown,
@@ -43,19 +43,27 @@ import {
   AlertTriangle,
   XCircle,
   User,
-  Building
+  Building,
+  Send,
+  Bot,
+  Sparkles,
+  Loader2,
+  X,
+  Trash2
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
-import { 
-  LeadExtendido, 
-  LeadInteraction, 
+import {
+  LeadExtendido,
+  LeadInteraction,
   LeadQualificationDetails,
   PerformanceMetrics,
   CloserPerformance,
   OrganizationLeadsOverview,
   CreateLeadInteractionData
 } from '@/types/commission'
+import ReactMarkdown from 'react-markdown'
+import ProtectedRoute from '@/components/auth/ProtectedRoute'
 
 interface DashboardStats {
   totalLeads: number;
@@ -96,19 +104,30 @@ export default function AdvancedPerformanceLeadsPage() {
   const [selectedTemperatura, setSelectedTemperatura] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [dateRange, setDateRange] = useState<string>('month')
-  
+
   // Modal states
   const [selectedLead, setSelectedLead] = useState<LeadDetailed | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isInteractionModalOpen, setIsInteractionModalOpen] = useState(false)
   const [interactionForm, setInteractionForm] = useState<Partial<CreateLeadInteractionData>>({})
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState('leads')
+
+  // AI Chat panel states
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [isChatLoading, setIsChatLoading] = useState(false)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<HTMLTextAreaElement>(null)
+
   // Calculate date filter for stable hooks
   const dateFilter = useMemo(() => {
     const now = new Date()
     const year = now.getFullYear()
     const month = now.getMonth()
-    
+
     switch (dateRange) {
       case '7_days':
         const date = new Date()
@@ -163,7 +182,7 @@ export default function AdvancedPerformanceLeadsPage() {
         situacao_atual, empresa_nome
       )
     `,
-    filters: selectedCloser !== 'all' ? { 
+    filters: selectedCloser !== 'all' ? {
       closer_id: selectedCloser,
       created_at: `gte.${dateFilter}`,
       status: `not.in.(excluido,vazado)`
@@ -187,7 +206,7 @@ export default function AdvancedPerformanceLeadsPage() {
       leads:leads!inner(id, status, valor_potencial, created_at),
       interactions:lead_interactions(id, data_interacao)
     `,
-    filters: { 
+    filters: {
       status_contrato: 'ativo'
     },
     dependencies: [],
@@ -202,15 +221,15 @@ export default function AdvancedPerformanceLeadsPage() {
     return rawLeads.map(lead => {
       const interactions = lead.interactions || []
       const qualification = lead.qualification?.[0]
-      
+
       const createdDate = new Date(lead.created_at)
       const diasNoPipeline = Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24))
-      
+
       const scoreBant = qualification?.qualification_score || 0
-      const ultimaInteracao = interactions.sort((a: any, b: any) => 
+      const ultimaInteracao = interactions.sort((a: any, b: any) =>
         new Date(b.data_interacao).getTime() - new Date(a.data_interacao).getTime()
       )[0]
-      
+
       // Calculate real probability based on interactions and qualification
       let probabilidadeReal = lead.probabilidade_fechamento || 0
       if (ultimaInteracao?.probabilidade_fechamento_percebida) {
@@ -238,33 +257,33 @@ export default function AdvancedPerformanceLeadsPage() {
     return rawClosers.map(closer => {
       const leads = (closer.leads || []).filter((l: any) => !['excluido', 'vazado'].includes(l.status))
       const interactions = closer.interactions || []
-      
-      const leadsAtivos = leads.filter((l: any) => 
+
+      const leadsAtivos = leads.filter((l: any) =>
         !['vendido', 'perdido', 'churn', 'cancelado', 'excluido', 'vazado'].includes(l.status)
       ).length
-      
+
       const conversoesMes = leads.filter((l: any) => {
         const createdThisMonth = new Date(l.created_at) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1)
         return l.status === 'vendido' && createdThisMonth
       }).length
-      
-      const taxaConversao = leads.length > 0 ? 
+
+      const taxaConversao = leads.length > 0 ?
         (leads.filter((l: any) => l.status === 'vendido').length / leads.length) * 100 : 0
-      
+
       const valorPipeline = leads
         .filter((l: any) => !['vendido', 'perdido', 'churn', 'cancelado', 'excluido', 'vazado'].includes(l.status))
         .reduce((sum: number, l: any) => sum + (l.valor_potencial || 0), 0)
-      
+
       const interacoesUltimos7Dias = interactions.filter((i: any) => {
         const interactionDate = new Date(i.data_interacao)
         const weekAgo = new Date()
         weekAgo.setDate(weekAgo.getDate() - 7)
         return interactionDate >= weekAgo
       }).length
-      
+
       const atividadeMediaDia = interacoesUltimos7Dias / 7
 
-      const ultimaInteracao = interactions.sort((a: any, b: any) => 
+      const ultimaInteracao = interactions.sort((a: any, b: any) =>
         new Date(b.data_interacao).getTime() - new Date(a.data_interacao).getTime()
       )[0]
 
@@ -320,14 +339,14 @@ export default function AdvancedPerformanceLeadsPage() {
     'insert',
     {
       onSuccess: async () => {
-        toast.success('Interação registrada com sucesso!')
+        toast.success('Interacao registrada com sucesso!')
         setIsInteractionModalOpen(false)
         setInteractionForm({})
         await refetchLeads()
       },
       onError: (error: any) => {
         console.error('Error creating interaction:', error)
-        toast.error('Erro ao registrar interação')
+        toast.error('Erro ao registrar interacao')
       },
       debounceMs: 200
     }
@@ -335,7 +354,7 @@ export default function AdvancedPerformanceLeadsPage() {
 
   const handleCreateInteraction = useCallback(async () => {
     if (!selectedLead || !interactionForm.resumo) {
-      toast.error('Preencha os campos obrigatórios')
+      toast.error('Preencha os campos obrigatorios')
       return
     }
 
@@ -367,29 +386,29 @@ export default function AdvancedPerformanceLeadsPage() {
 
   const getTemperaturaColor = useCallback((temperatura?: string) => {
     switch (temperatura) {
-      case 'elite': return 'bg-purple-600 text-white'
-      case 'quente': return 'bg-red-500 text-white'
-      case 'morno': return 'bg-yellow-500 text-white'
-      case 'frio': return 'bg-blue-500 text-white'
-      default: return 'bg-gray-400 text-white'
+      case 'elite': return 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+      case 'quente': return 'bg-red-500/20 text-red-300 border border-red-500/30'
+      case 'morno': return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+      case 'frio': return 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+      default: return 'bg-white/[0.05] text-white/40 border border-white/[0.08]'
     }
   }, [])
 
   const getStatusColor = useCallback((status: string) => {
     switch (status) {
-      case 'vendido': return 'bg-green-500 text-white'
-      case 'perdido': return 'bg-red-500 text-white'
-      case 'churn': return 'bg-gray-500 text-white'
-      case 'negociacao': return 'bg-purple-500 text-white'
-      case 'proposta_enviada': return 'bg-orange-500 text-white'
-      default: return 'bg-blue-500 text-white'
+      case 'vendido': return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+      case 'perdido': return 'bg-red-500/20 text-red-300 border border-red-500/30'
+      case 'churn': return 'bg-white/[0.05] text-white/40 border border-white/[0.08]'
+      case 'negociacao': return 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+      case 'proposta_enviada': return 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+      default: return 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
     }
   }, [])
 
   const getProbabilityIcon = useCallback((probability: number) => {
-    if (probability >= 80) return <ArrowUp className="h-4 w-4 text-green-600" />
-    if (probability >= 50) return <Minus className="h-4 w-4 text-yellow-600" />
-    return <ArrowDown className="h-4 w-4 text-red-600" />
+    if (probability >= 80) return <ArrowUp className="h-4 w-4 text-emerald-400" />
+    if (probability >= 50) return <Minus className="h-4 w-4 text-yellow-400" />
+    return <ArrowDown className="h-4 w-4 text-red-400" />
   }, [])
 
   // Memoized filtered leads
@@ -399,7 +418,7 @@ export default function AdvancedPerformanceLeadsPage() {
         lead.nome_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.empresa?.toLowerCase().includes(searchTerm.toLowerCase())
-      
+
       const matchesCloser = selectedCloser === 'all' || lead.closer_id === selectedCloser
       const matchesTemperatura = selectedTemperatura === 'all' || lead.temperatura === selectedTemperatura
       const matchesStatus = selectedStatus === 'all' || lead.status === selectedStatus
@@ -408,6 +427,100 @@ export default function AdvancedPerformanceLeadsPage() {
     })
   }, [leads, searchTerm, selectedCloser, selectedTemperatura, selectedStatus])
 
+  // AI Chat auto-scroll
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages])
+
+  // AI Chat context builder
+  const buildChatContext = useCallback(() => {
+    const statusCounts = leads.reduce((acc, l) => {
+      acc[l.status] = (acc[l.status] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+    const statusList = Object.entries(statusCounts).map(([k, v]) => `${k}: ${v}`).join(', ')
+
+    const closerStatsList = closers.map(c =>
+      `${c.nome_completo} (${c.tipo_closer || 'closer'}): ${c.leads_ativos} ativos, ${c.conversoes_mes} conversoes, ${c.taxa_conversao.toFixed(1)}% taxa, R$ ${(c.valor_pipeline / 1000).toFixed(0)}k pipeline`
+    ).join('\n')
+
+    return `
+PERFORMANCE AVANCADA DE LEADS:
+- Total: ${stats.totalLeads}
+- Qualificados: ${stats.leadsQualificados} (${stats.taxaQualificacao.toFixed(1)}%)
+- Convertidos: ${stats.leadsConvertidos} (${stats.taxaConversao.toFixed(1)}%)
+- Pipeline: R$ ${(stats.valorPipeline / 1000).toFixed(0)}k
+- Fechado: R$ ${(stats.valorFechado / 1000).toFixed(0)}k
+- Ticket medio: R$ ${(stats.ticketMedio / 1000).toFixed(0)}k
+- Ciclo vendas medio: ${stats.cicloVendasMedio.toFixed(0)} dias
+
+STATUS: ${statusList}
+
+CLOSERS:
+${closerStatsList}
+
+LEADS DETALHADOS (top 20):
+${filteredLeads.slice(0, 20).map(l => `${l.nome_completo}: ${l.status}, ${l.temperatura || 'N/A'}, ${l.total_interacoes} interacoes, ${l.dias_no_pipeline} dias, prob: ${l.probabilidade_real}%`).join('\n')}
+`
+  }, [leads, closers, stats, filteredLeads])
+
+  // AI Chat send message
+  const sendChatMessage = useCallback(async (overrideMessage?: string) => {
+    const messageToSend = overrideMessage || chatInput.trim()
+    if (!messageToSend || isChatLoading) return
+
+    if (!overrideMessage) setChatInput('')
+    setChatMessages(prev => [...prev, { role: 'user', content: messageToSend }])
+    setIsChatLoading(true)
+
+    try {
+      const analyticsContext = buildChatContext()
+      const sysPrompt = `Voce e uma ANALISTA DE PERFORMANCE SENIOR especializada em metricas de vendas e closers. Analise os dados de performance fornecidos. Identifique closers de alta e baixa performance. Sugira melhorias nos processos de venda. Analise o pipeline e gargalos.`
+      const fullSystemPrompt = `${sysPrompt}\n\nDADOS DISPONIVEIS:\n${analyticsContext}\n\nREGRAS:\n- Responda SEMPRE em portugues brasileiro\n- Base suas analises EXCLUSIVAMENTE nos dados fornecidos\n- Se nao tem dados suficientes, diga claramente\n- Use markdown para formatar (negrito, listas, titulos)\n- Sempre que possivel, cite numeros especificos dos dados`
+
+      const response = await fetch('/api/chat-gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: messageToSend,
+          userEmail: 'admin@system.com',
+          context: {
+            nome: 'Analista de Performance',
+            especialidade: 'Analytics',
+            tipoPost: 'chat',
+            tomComunicacao: 'profissional e direto',
+            persona: fullSystemPrompt,
+            publicoAlvo: 'gestores',
+            doresDesejos: [],
+            problemasAudiencia: '',
+            desejoAudiencia: '',
+            transformacao: ''
+          }
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.message) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: data.message }])
+      } else {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: 'Desculpe, tive um problema ao processar sua solicitacao. Tente novamente.' }])
+      }
+    } catch (error) {
+      console.error('Chat error:', error)
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Erro de conexao. Verifique sua internet e tente novamente.' }])
+    } finally {
+      setIsChatLoading(false)
+    }
+  }, [chatInput, isChatLoading, buildChatContext])
+
+  const chatSuggestions = useMemo(() => [
+    'Gere um relatorio de performance dos closers',
+    'Onde estao os gargalos do funil?',
+    'Qual closer esta performando melhor?',
+    'Como reduzir o ciclo de vendas?',
+  ], [])
+
   // Stable refresh function
   const loadDashboardData = useCallback(async () => {
     await refetchLeads()
@@ -415,133 +528,164 @@ export default function AdvancedPerformanceLeadsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-5">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-lg shadow-purple-500/20">
+              <RefreshCw className="h-7 w-7 animate-spin text-white" />
+            </div>
+          </div>
+          <p className="text-sm font-medium text-white">Carregando dados...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Performance Avançada - Leads</h1>
-          <p className="text-gray-600 mt-1">
-            Dashboard completo de tracking e análise de leads com dados do closer/SDR
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <Button onClick={loadDashboardData} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Atualizar
-          </Button>
+    <ProtectedRoute>
+    <div className="min-h-screen bg-[#0a0a0c]">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-30 bg-[#0a0a0c]/80 backdrop-blur-xl border-b border-white/[0.06]">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                <Activity className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white tracking-tight">Performance Avancada</h1>
+                <p className="text-xs text-white/40 mt-0.5">Dashboard de tracking e analise de leads</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={loadDashboardData}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.05] border border-white/[0.08] text-white/60 hover:text-white hover:bg-white/[0.08] transition-all duration-200 text-sm"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Atualizar
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Users className="h-8 w-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Leads</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalLeads}</p>
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Overview Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Total Leads */}
+          <div className="group relative bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06] ring-1 ring-white/[0.06] hover:border-blue-500/20 hover:ring-blue-500/10 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                  <Users className="h-5 w-5 text-white" />
+                </div>
               </div>
+              <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Total Leads</p>
+              <p className="text-3xl font-bold text-white mt-1 tabular-nums">{stats.totalLeads}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Target className="h-8 w-8 text-purple-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Qualificados</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.leadsQualificados}</p>
-                <p className="text-xs text-purple-600">{stats.taxaQualificacao.toFixed(1)}%</p>
+          {/* Qualificados */}
+          <div className="group relative bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06] ring-1 ring-white/[0.06] hover:border-purple-500/20 hover:ring-purple-500/10 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-purple-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                  <Target className="h-5 w-5 text-white" />
+                </div>
               </div>
+              <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Qualificados</p>
+              <p className="text-3xl font-bold text-white mt-1 tabular-nums">{stats.leadsQualificados}</p>
+              <p className="text-xs text-purple-400 mt-1">{stats.taxaQualificacao.toFixed(1)}%</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Convertidos</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.leadsConvertidos}</p>
-                <p className="text-xs text-green-600">{stats.taxaConversao.toFixed(1)}%</p>
+          {/* Convertidos */}
+          <div className="group relative bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06] ring-1 ring-white/[0.06] hover:border-emerald-500/20 hover:ring-emerald-500/10 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-emerald-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                  <CheckCircle className="h-5 w-5 text-white" />
+                </div>
               </div>
+              <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Convertidos</p>
+              <p className="text-3xl font-bold text-white mt-1 tabular-nums">{stats.leadsConvertidos}</p>
+              <p className="text-xs text-emerald-400 mt-1">{stats.taxaConversao.toFixed(1)}%</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <DollarSign className="h-8 w-8 text-yellow-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pipeline</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  R$ {(stats.valorPipeline / 1000).toFixed(0)}k
-                </p>
+          {/* Pipeline */}
+          <div className="group relative bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06] ring-1 ring-white/[0.06] hover:border-yellow-500/20 hover:ring-yellow-500/10 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-yellow-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-500 to-yellow-700 flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                  <DollarSign className="h-5 w-5 text-white" />
+                </div>
               </div>
+              <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Pipeline</p>
+              <p className="text-3xl font-bold text-white mt-1 tabular-nums">
+                R$ {(stats.valorPipeline / 1000).toFixed(0)}k
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Award className="h-8 w-8 text-orange-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Ticket Médio</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  R$ {(stats.ticketMedio / 1000).toFixed(0)}k
-                </p>
+          {/* Ticket Medio */}
+          <div className="group relative bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06] ring-1 ring-white/[0.06] hover:border-orange-500/20 hover:ring-orange-500/10 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-orange-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center shadow-lg shadow-orange-500/20">
+                  <Award className="h-5 w-5 text-white" />
+                </div>
               </div>
+              <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Ticket Medio</p>
+              <p className="text-3xl font-bold text-white mt-1 tabular-nums">
+                R$ {(stats.ticketMedio / 1000).toFixed(0)}k
+              </p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4">
+        {/* Filters */}
+        <div className="bg-[#1a1a1e] rounded-2xl border border-white/[0.06] ring-1 ring-white/[0.06] p-4">
+          <div className="flex flex-wrap gap-4 items-center">
             <div className="flex-1 min-w-64">
-              <Input
-                placeholder="Buscar por nome, email ou empresa..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-              />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/25" />
+                <input
+                  placeholder="Buscar por nome, email ou empresa..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/30 transition-all"
+                />
+              </div>
             </div>
-            
+
             <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-48 bg-white/[0.05] border-white/[0.08] text-white/70 rounded-xl hover:bg-white/[0.08] transition-all [&>svg]:text-white/40">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7_days">Últimos 7 dias</SelectItem>
-                <SelectItem value="30_days">Últimos 30 dias</SelectItem>
-                <SelectItem value="90_days">Últimos 90 dias</SelectItem>
-                <SelectItem value="month">Mês Atual</SelectItem>
+              <SelectContent className="bg-[#1a1a1e] border-white/[0.08] text-white">
+                <SelectItem value="7_days">Ultimos 7 dias</SelectItem>
+                <SelectItem value="30_days">Ultimos 30 dias</SelectItem>
+                <SelectItem value="90_days">Ultimos 90 dias</SelectItem>
+                <SelectItem value="month">Mes Atual</SelectItem>
                 <SelectItem value="quarter">Trimestre Atual</SelectItem>
                 <SelectItem value="semester">Semestre Atual</SelectItem>
-                <SelectItem value="ytd">Ano até hoje</SelectItem>
+                <SelectItem value="ytd">Ano ate hoje</SelectItem>
                 <SelectItem value="year">Ano Atual</SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={selectedCloser} onValueChange={setSelectedCloser}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-48 bg-white/[0.05] border-white/[0.08] text-white/70 rounded-xl hover:bg-white/[0.08] transition-all [&>svg]:text-white/40">
                 <SelectValue placeholder="Closer" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-[#1a1a1e] border-white/[0.08] text-white">
                 <SelectItem value="all">Todos os Closers</SelectItem>
                 {closers.map(closer => (
                   <SelectItem key={closer.id} value={closer.id}>
@@ -552,10 +696,10 @@ export default function AdvancedPerformanceLeadsPage() {
             </Select>
 
             <Select value={selectedTemperatura} onValueChange={setSelectedTemperatura}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-48 bg-white/[0.05] border-white/[0.08] text-white/70 rounded-xl hover:bg-white/[0.08] transition-all [&>svg]:text-white/40">
                 <SelectValue placeholder="Temperatura" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-[#1a1a1e] border-white/[0.08] text-white">
                 <SelectItem value="all">Todas</SelectItem>
                 <SelectItem value="quente">Quente</SelectItem>
                 <SelectItem value="morno">Morno</SelectItem>
@@ -563,392 +707,655 @@ export default function AdvancedPerformanceLeadsPage() {
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      <Tabs defaultValue="leads" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="leads">Leads Detalhados</TabsTrigger>
-          <TabsTrigger value="closers">Performance Closers</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics Avançado</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="leads" className="space-y-4">
-          {/* Detailed Leads Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                Leads Detalhados ({filteredLeads.length})
-              </CardTitle>
-              <CardDescription>
-                Informações completas sobre qualificação, interações e performance
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2">Lead</th>
-                      <th className="text-left p-2">Score/Temperatura</th>
-                      <th className="text-left p-2">Closer/SDR</th>
-                      <th className="text-left p-2">Atividade</th>
-                      <th className="text-left p-2">Qualificação</th>
-                      <th className="text-left p-2">Pipeline</th>
-                      <th className="text-center p-2">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredLeads.map((lead) => (
-                      <tr key={lead.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3">
-                          <div>
-                            <p className="font-medium">{lead.nome_completo}</p>
-                            <p className="text-sm text-gray-500">{lead.email}</p>
-                            {lead.empresa && (
-                              <p className="text-xs text-gray-400 flex items-center">
-                                <Building className="h-3 w-3 mr-1" />
-                                {lead.empresa}
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="space-y-1">
-                            <Badge className={getTemperaturaColor(lead.temperatura)}>
-                              {lead.temperatura || 'N/A'}
-                            </Badge>
-                            {lead.score_bant && (
-                              <div className="flex items-center text-sm">
-                                <Brain className="h-3 w-3 mr-1" />
-                                Score: {lead.score_bant}/100
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="space-y-1 text-sm">
-                            {lead.closer && (
-                              <div className="flex items-center">
-                                <User className="h-3 w-3 mr-1 text-blue-600" />
-                                {lead.closer.nome_completo}
-                              </div>
-                            )}
-                            {lead.sdr && (
-                              <div className="flex items-center">
-                                <Phone className="h-3 w-3 mr-1 text-green-600" />
-                                {lead.sdr.nome_completo}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="space-y-1 text-sm">
-                            <div className="flex items-center">
-                              <Activity className="h-3 w-3 mr-1" />
-                              {lead.total_interacoes} interações
-                            </div>
-                            <div className="flex items-center">
-                              <Clock className="h-3 w-3 mr-1" />
-                              {lead.dias_no_pipeline} dias
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="space-y-1">
-                            <div className="flex items-center text-sm">
-                              {getProbabilityIcon(lead.probabilidade_real)}
-                              <span className="ml-1">{lead.probabilidade_real}%</span>
-                            </div>
-                            <Badge className={getStatusColor(lead.status)}>
-                              {lead.status}
-                            </Badge>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          {lead.valor_potencial && (
-                            <div className="flex items-center text-sm">
-                              <DollarSign className="h-3 w-3 mr-1 text-green-600" />
-                              R$ {lead.valor_potencial.toLocaleString('pt-BR')}
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openDetailModal(lead)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openInteractionModal(lead)}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {filteredLeads.length === 0 && (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-500">Nenhum lead encontrado</p>
-                </div>
+        {/* Tabs */}
+        <div className="bg-[#1a1a1e] rounded-2xl border border-white/[0.06] ring-1 ring-white/[0.06] overflow-hidden">
+          {/* Tab headers */}
+          <div className="flex border-b border-white/[0.06] bg-[#141418]/50">
+            <button
+              onClick={() => setActiveTab('leads')}
+              className={`flex-1 px-6 py-3.5 text-sm font-medium transition-all duration-200 relative ${
+                activeTab === 'leads'
+                  ? 'text-white bg-white/[0.06]'
+                  : 'text-white/40 hover:text-white/60 hover:bg-white/[0.03]'
+              }`}
+            >
+              {activeTab === 'leads' && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-gradient-to-r from-purple-500 to-violet-500 rounded-full" />
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="closers" className="space-y-4">
-          {/* Closers Performance */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Performance dos Closers</CardTitle>
-              <CardDescription>
-                Métricas detalhadas de performance individual
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {closers.map((closer) => (
-                  <Card key={closer.id} className="bg-gradient-to-br from-white to-gray-50">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{closer.nome_completo}</CardTitle>
-                        <Badge variant={closer.tipo_closer === 'closer_senior' ? 'default' : 'secondary'}>
-                          {closer.tipo_closer}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-sm text-gray-600">Leads Ativos</p>
-                          <p className="text-2xl font-bold text-blue-600">{closer.leads_ativos}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Conversões</p>
-                          <p className="text-2xl font-bold text-green-600">{closer.conversoes_mes}</p>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <p className="text-sm text-gray-600">Taxa de Conversão</p>
-                          <p className="text-sm font-medium">{closer.taxa_conversao.toFixed(1)}%</p>
-                        </div>
-                        <Progress value={closer.taxa_conversao} className="h-2" />
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <p className="text-gray-600">Atividade/dia</p>
-                          <p className="font-medium">{closer.atividade_media_dia.toFixed(1)}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">Pipeline</p>
-                          <p className="font-medium">R$ {(closer.valor_pipeline / 1000).toFixed(0)}k</p>
-                        </div>
-                      </div>
-                      
-                      <Separator />
-                      
-                      <div className="text-xs text-gray-500">
-                        Última atividade: {closer.ultima_atividade !== 'N/A' ? 
-                          new Date(closer.ultima_atividade).toLocaleDateString('pt-BR') : 'N/A'}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+              <div className="flex items-center justify-center gap-2">
+                <Users className="h-4 w-4" />
+                Leads Detalhados
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="analytics" className="space-y-4">
-          {/* Advanced Analytics */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Funil de Conversão</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {['novo', 'contatado', 'qualificado', 'proposta_enviada', 'vendido'].map((stage, index) => {
-                    const stageLeads = leads.filter(l => l.status === stage).length
-                    const percentage = leads.length > 0 ? (stageLeads / leads.length) * 100 : 0
-                    
-                    return (
-                      <div key={stage} className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="capitalize">{stage.replace('_', ' ')}</span>
-                          <span className="text-sm text-gray-600">
-                            {stageLeads} leads ({percentage.toFixed(1)}%)
-                          </span>
-                        </div>
-                        <Progress value={percentage} className="h-3" />
-                      </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Distribuição por Fonte</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {Array.from(new Set(leads.map(l => l.origem || 'Não especificado')))
-                    .map(fonte => {
-                      const fonteLeads = leads.filter(l => (l.origem || 'Não especificado') === fonte)
-                      const percentage = leads.length > 0 ? (fonteLeads.length / leads.length) * 100 : 0
-                      const conversoes = fonteLeads.filter(l => l.status === 'vendido').length
-                      const taxaConversao = fonteLeads.length > 0 ? (conversoes / fonteLeads.length) * 100 : 0
-                      
-                      return (
-                        <div key={fonte} className="p-3 border rounded-lg">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="font-medium">{fonte}</span>
-                            <span className="text-sm text-gray-600">{fonteLeads.length} leads</span>
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            Taxa de conversão: {taxaConversao.toFixed(1)}%
-                          </div>
-                          <Progress value={percentage} className="h-2 mt-2" />
-                        </div>
-                      )
-                    })}
-                </div>
-              </CardContent>
-            </Card>
+            </button>
+            <button
+              onClick={() => setActiveTab('closers')}
+              className={`flex-1 px-6 py-3.5 text-sm font-medium transition-all duration-200 relative ${
+                activeTab === 'closers'
+                  ? 'text-white bg-white/[0.06]'
+                  : 'text-white/40 hover:text-white/60 hover:bg-white/[0.03]'
+              }`}
+            >
+              {activeTab === 'closers' && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-gradient-to-r from-purple-500 to-violet-500 rounded-full" />
+              )}
+              <div className="flex items-center justify-center gap-2">
+                <Star className="h-4 w-4" />
+                Performance Closers
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`flex-1 px-6 py-3.5 text-sm font-medium transition-all duration-200 relative ${
+                activeTab === 'analytics'
+                  ? 'text-white bg-white/[0.06]'
+                  : 'text-white/40 hover:text-white/60 hover:bg-white/[0.03]'
+              }`}
+            >
+              {activeTab === 'analytics' && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-gradient-to-r from-purple-500 to-violet-500 rounded-full" />
+              )}
+              <div className="flex items-center justify-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Analytics Avancado
+              </div>
+            </button>
           </div>
-        </TabsContent>
-      </Tabs>
+
+          {/* Tab content */}
+          <div className="p-6">
+            {/* ── LEADS TAB ────────────────────────────────────── */}
+            {activeTab === 'leads' && (
+              <div className="space-y-4">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">Leads Detalhados ({filteredLeads.length})</h2>
+                    <p className="text-sm text-white/40">Informacoes completas sobre qualificacao, interacoes e performance</p>
+                  </div>
+                </div>
+
+                {/* Dark Table */}
+                <div className="overflow-x-auto rounded-xl border border-white/[0.04]">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                        <th className="text-left p-3.5 text-[11px] font-semibold text-white/50 uppercase tracking-widest">Lead</th>
+                        <th className="text-left p-3.5 text-[11px] font-semibold text-white/50 uppercase tracking-widest">Score/Temperatura</th>
+                        <th className="text-left p-3.5 text-[11px] font-semibold text-white/50 uppercase tracking-widest">Closer/SDR</th>
+                        <th className="text-left p-3.5 text-[11px] font-semibold text-white/50 uppercase tracking-widest">Atividade</th>
+                        <th className="text-left p-3.5 text-[11px] font-semibold text-white/50 uppercase tracking-widest">Qualificacao</th>
+                        <th className="text-left p-3.5 text-[11px] font-semibold text-white/50 uppercase tracking-widest">Pipeline</th>
+                        <th className="text-center p-3.5 text-[11px] font-semibold text-white/50 uppercase tracking-widest">Acoes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredLeads.map((lead) => (
+                        <tr key={lead.id} className="border-b border-white/[0.04] hover:bg-white/[0.04] transition-colors duration-200 group/row">
+                          <td className="p-3">
+                            <div>
+                              <p className="font-medium text-white">{lead.nome_completo}</p>
+                              <p className="text-sm text-white/40">{lead.email}</p>
+                              {lead.empresa && (
+                                <p className="text-xs text-white/30 flex items-center mt-0.5">
+                                  <Building className="h-3 w-3 mr-1 text-white/20" />
+                                  {lead.empresa}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="space-y-1.5">
+                              <Badge className={getTemperaturaColor(lead.temperatura)}>
+                                {lead.temperatura || 'N/A'}
+                              </Badge>
+                              {lead.score_bant && (
+                                <div className="flex items-center text-sm text-white/50">
+                                  <Brain className="h-3 w-3 mr-1 text-purple-400" />
+                                  Score: {lead.score_bant}/100
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="space-y-1 text-sm">
+                              {lead.closer && (
+                                <div className="flex items-center text-white/60">
+                                  <User className="h-3 w-3 mr-1.5 text-blue-400" />
+                                  {lead.closer.nome_completo}
+                                </div>
+                              )}
+                              {lead.sdr && (
+                                <div className="flex items-center text-white/60">
+                                  <Phone className="h-3 w-3 mr-1.5 text-emerald-400" />
+                                  {lead.sdr.nome_completo}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="space-y-1 text-sm">
+                              <div className="flex items-center text-white/50">
+                                <Activity className="h-3 w-3 mr-1.5 text-purple-400" />
+                                {lead.total_interacoes} interacoes
+                              </div>
+                              <div className="flex items-center text-white/50">
+                                <Clock className="h-3 w-3 mr-1.5 text-white/30" />
+                                {lead.dias_no_pipeline} dias
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="space-y-1.5">
+                              <div className="flex items-center text-sm text-white/60">
+                                {getProbabilityIcon(lead.probabilidade_real)}
+                                <span className="ml-1">{lead.probabilidade_real}%</span>
+                              </div>
+                              <Badge className={getStatusColor(lead.status)}>
+                                {lead.status}
+                              </Badge>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            {lead.valor_potencial && (
+                              <div className="flex items-center text-sm text-emerald-400 font-medium">
+                                <DollarSign className="h-3 w-3 mr-1" />
+                                R$ {lead.valor_potencial.toLocaleString('pt-BR')}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => openDetailModal(lead)}
+                                className="p-2 rounded-lg hover:bg-white/[0.06] text-white/40 hover:text-white transition-all"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => openInteractionModal(lead)}
+                                className="p-2 rounded-lg hover:bg-purple-500/10 text-white/40 hover:text-purple-400 transition-all"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {filteredLeads.length === 0 && (
+                  <div className="text-center py-16">
+                    <div className="w-16 h-16 rounded-2xl bg-white/[0.05] flex items-center justify-center mx-auto mb-4">
+                      <Users className="h-8 w-8 text-white/20" />
+                    </div>
+                    <p className="text-white/40 text-sm">Nenhum lead encontrado</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── CLOSERS TAB ──────────────────────────────────── */}
+            {activeTab === 'closers' && (
+              <div className="space-y-4">
+                {/* Header */}
+                <div className="mb-2">
+                  <h2 className="text-lg font-semibold text-white">Performance dos Closers</h2>
+                  <p className="text-sm text-white/40">Metricas detalhadas de performance individual</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {closers.map((closer) => (
+                    <div key={closer.id} className="group relative bg-[#141417] rounded-2xl border border-white/[0.06] hover:border-purple-500/20 transition-all duration-300 overflow-hidden">
+                      {/* Decorative gradient */}
+                      <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-purple-500/[0.04] to-transparent rounded-bl-full" />
+
+                      {/* Header */}
+                      <div className="relative p-5 pb-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-base font-semibold text-white">{closer.nome_completo}</h3>
+                          <Badge className={
+                            closer.tipo_closer === 'closer_senior'
+                              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                              : 'bg-white/[0.05] text-white/50 border border-white/[0.08]'
+                          }>
+                            {closer.tipo_closer}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Content */}
+                      <div className="relative px-5 pb-5 space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-white/[0.03] rounded-xl p-3">
+                            <p className="text-xs text-white/30 uppercase tracking-wider mb-1">Leads Ativos</p>
+                            <p className="text-2xl font-bold text-blue-400">{closer.leads_ativos}</p>
+                          </div>
+                          <div className="bg-white/[0.03] rounded-xl p-3">
+                            <p className="text-xs text-white/30 uppercase tracking-wider mb-1">Conversoes</p>
+                            <p className="text-2xl font-bold text-emerald-400">{closer.conversoes_mes}</p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between items-center mb-2">
+                            <p className="text-xs text-white/40">Taxa de Conversao</p>
+                            <p className="text-xs font-medium text-white/70">{closer.taxa_conversao.toFixed(1)}%</p>
+                          </div>
+                          <div className="h-2 bg-white/[0.05] rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full transition-all duration-500"
+                              style={{ width: `${Math.min(closer.taxa_conversao, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-xs text-white/30">Atividade/dia</p>
+                            <p className="font-medium text-white/70">{closer.atividade_media_dia.toFixed(1)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/30">Pipeline</p>
+                            <p className="font-medium text-white/70">R$ {(closer.valor_pipeline / 1000).toFixed(0)}k</p>
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-white/[0.06]">
+                          <p className="text-xs text-white/25">
+                            Ultima atividade: {closer.ultima_atividade !== 'N/A' ?
+                              new Date(closer.ultima_atividade).toLocaleDateString('pt-BR') : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── ANALYTICS TAB ────────────────────────────────── */}
+            {activeTab === 'analytics' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Funil de Conversao */}
+                  <div className="bg-[#141417] rounded-2xl border border-white/[0.06] p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-700/20 flex items-center justify-center border border-purple-500/20">
+                        <TrendingUp className="h-4 w-4 text-purple-400" />
+                      </div>
+                      <h3 className="text-base font-semibold text-white">Funil de Conversao</h3>
+                    </div>
+                    <div className="space-y-5">
+                      {['novo', 'contatado', 'qualificado', 'proposta_enviada', 'vendido'].map((stage, index) => {
+                        const stageLeads = leads.filter(l => l.status === stage).length
+                        const percentage = leads.length > 0 ? (stageLeads / leads.length) * 100 : 0
+                        const stageColors = [
+                          'from-blue-500 to-blue-600',
+                          'from-cyan-500 to-cyan-600',
+                          'from-purple-500 to-purple-600',
+                          'from-orange-500 to-orange-600',
+                          'from-emerald-500 to-emerald-600',
+                        ]
+
+                        return (
+                          <div key={stage} className="space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-sm text-white/60 capitalize">{stage.replace('_', ' ')}</span>
+                              <span className="text-sm text-white/40">
+                                {stageLeads} leads ({percentage.toFixed(1)}%)
+                              </span>
+                            </div>
+                            <div className="h-2.5 bg-white/[0.05] rounded-full overflow-hidden">
+                              <div
+                                className={`h-full bg-gradient-to-r ${stageColors[index]} rounded-full transition-all duration-700`}
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Distribuicao por Fonte */}
+                  <div className="bg-[#141417] rounded-2xl border border-white/[0.06] p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-700/20 flex items-center justify-center border border-blue-500/20">
+                        <BarChart3 className="h-4 w-4 text-blue-400" />
+                      </div>
+                      <h3 className="text-base font-semibold text-white">Distribuicao por Fonte</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {Array.from(new Set(leads.map(l => l.origem || 'Nao especificado')))
+                        .map(fonte => {
+                          const fonteLeads = leads.filter(l => (l.origem || 'Nao especificado') === fonte)
+                          const percentage = leads.length > 0 ? (fonteLeads.length / leads.length) * 100 : 0
+                          const conversoes = fonteLeads.filter(l => l.status === 'vendido').length
+                          const taxaConversao = fonteLeads.length > 0 ? (conversoes / fonteLeads.length) * 100 : 0
+
+                          return (
+                            <div key={fonte} className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl hover:border-white/[0.1] transition-all">
+                              <div className="flex justify-between items-center mb-1.5">
+                                <span className="font-medium text-white/80 text-sm">{fonte}</span>
+                                <span className="text-xs text-white/40">{fonteLeads.length} leads</span>
+                              </div>
+                              <div className="text-xs text-white/30 mb-2">
+                                Taxa de conversao: {taxaConversao.toFixed(1)}%
+                              </div>
+                              <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-500"
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Extra row: key metrics */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-[#141417] rounded-2xl border border-white/[0.06] p-5">
+                    <p className="text-xs text-white/30 uppercase tracking-wider mb-1">Valor Fechado</p>
+                    <p className="text-2xl font-bold text-emerald-400">R$ {(stats.valorFechado / 1000).toFixed(0)}k</p>
+                  </div>
+                  <div className="bg-[#141417] rounded-2xl border border-white/[0.06] p-5">
+                    <p className="text-xs text-white/30 uppercase tracking-wider mb-1">Ciclo Vendas Medio</p>
+                    <p className="text-2xl font-bold text-purple-400">{stats.cicloVendasMedio.toFixed(0)} dias</p>
+                  </div>
+                  <div className="bg-[#141417] rounded-2xl border border-white/[0.06] p-5">
+                    <p className="text-xs text-white/30 uppercase tracking-wider mb-1">Taxa Qualificacao</p>
+                    <p className="text-2xl font-bold text-blue-400">{stats.taxaQualificacao.toFixed(1)}%</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── FLOATING AI CHAT PANEL ─────────────────────────────── */}
+      {/* Floating toggle button */}
+      <button
+        onClick={() => setIsChatOpen(!isChatOpen)}
+        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xl ${
+          isChatOpen
+            ? 'bg-white/10 border border-white/[0.12] backdrop-blur-xl text-white/70 hover:text-white hover:bg-white/[0.15] shadow-black/40'
+            : 'bg-gradient-to-br from-purple-600 to-violet-700 text-white hover:from-purple-500 hover:to-violet-600 shadow-purple-500/30 hover:shadow-purple-500/40 hover:scale-105'
+        }`}
+      >
+        {isChatOpen ? (
+          <X className="h-5 w-5" />
+        ) : (
+          <Brain className="h-6 w-6" />
+        )}
+      </button>
+
+      {/* Chat panel overlay */}
+      {isChatOpen && (
+        <div className="fixed bottom-24 right-6 z-50 w-[420px] max-h-[600px] flex flex-col rounded-2xl overflow-hidden bg-[#141418] border border-white/[0.06] ring-1 ring-white/[0.06] shadow-2xl shadow-black/50 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-300">
+          {/* Chat header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] bg-gradient-to-r from-purple-600/10 to-violet-600/10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-violet-700 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                <Brain className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  Analise de Performance IA
+                  <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+                </h3>
+                <p className="text-[10px] text-white/40">Pergunte sobre os dados de performance</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {chatMessages.length > 0 && (
+                <button
+                  onClick={() => setChatMessages([])}
+                  className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.06] flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                  title="Limpar conversa"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <button
+                onClick={() => setIsChatOpen(false)}
+                className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.06] flex items-center justify-center text-white/30 hover:text-white hover:bg-white/[0.1] transition-all"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Chat messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 max-h-[380px] min-h-[280px] scrollbar-thin scrollbar-thumb-white/10">
+            {chatMessages.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full text-center px-6 py-8">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600/20 to-violet-600/20 border border-purple-500/20 flex items-center justify-center mb-4">
+                  <Bot className="h-7 w-7 text-purple-400" />
+                </div>
+                <h4 className="text-sm font-semibold text-white mb-1">Analista de Performance</h4>
+                <p className="text-xs text-white/40 mb-5 max-w-[300px]">
+                  Pergunte qualquer coisa sobre os dados desta tela. Tenho acesso a todas as metricas em tempo real.
+                </p>
+                <div className="space-y-2 w-full max-w-sm">
+                  {chatSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onClick={() => {
+                        sendChatMessage(suggestion)
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-xs text-white/50 bg-white/[0.03] border border-white/[0.06] rounded-xl hover:bg-purple-500/10 hover:border-purple-500/20 hover:text-purple-300 transition-all"
+                    >
+                      <Sparkles className="h-3 w-3 inline mr-2 text-purple-400 opacity-50" />
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {chatMessages.map((msg, idx) => (
+              <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.role === 'assistant' && (
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-violet-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Bot className="h-3.5 w-3.5 text-white" />
+                  </div>
+                )}
+                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-gradient-to-br from-purple-600 to-violet-700 text-white rounded-br-md'
+                    : 'bg-white/[0.05] border border-white/[0.06] text-white/80 rounded-bl-md'
+                }`}>
+                  {msg.role === 'assistant' ? (
+                    <div className="prose prose-invert prose-sm max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_h1]:font-bold [&_h2]:font-semibold [&_h3]:font-medium [&_strong]:text-purple-300 [&_code]:text-emerald-400 [&_code]:bg-white/10 [&_code]:px-1 [&_code]:rounded">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p>{msg.content}</p>
+                  )}
+                </div>
+                {msg.role === 'user' && (
+                  <div className="w-7 h-7 rounded-lg bg-white/[0.08] border border-white/[0.06] flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <User className="h-3.5 w-3.5 text-white/60" />
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {isChatLoading && (
+              <div className="flex gap-3 justify-start">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-violet-700 flex items-center justify-center flex-shrink-0">
+                  <Bot className="h-3.5 w-3.5 text-white" />
+                </div>
+                <div className="bg-white/[0.05] border border-white/[0.06] rounded-2xl rounded-bl-md px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 text-purple-400 animate-spin" />
+                    <span className="text-xs text-white/40">Analisando dados...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Chat input */}
+          <div className="p-4 border-t border-white/[0.06] bg-[#111115]">
+            <div className="flex items-end gap-2">
+              <textarea
+                ref={chatInputRef}
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    sendChatMessage()
+                  }
+                }}
+                placeholder="Pergunte sobre os dados..."
+                rows={1}
+                className="flex-1 resize-none bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/30 transition-all max-h-32"
+                style={{ minHeight: '44px' }}
+              />
+              <button
+                onClick={() => sendChatMessage()}
+                disabled={!chatInput.trim() || isChatLoading}
+                className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-600 to-violet-700 text-white flex items-center justify-center hover:from-purple-500 hover:to-violet-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-500/20"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lead Detail Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-[#141417] border-white/[0.08] text-white">
           <DialogHeader>
-            <DialogTitle>Detalhes do Lead - {selectedLead?.nome_completo}</DialogTitle>
+            <DialogTitle className="text-white text-lg">Detalhes do Lead - {selectedLead?.nome_completo}</DialogTitle>
           </DialogHeader>
-          
+
           {selectedLead && (
             <div className="space-y-6">
               {/* Lead Overview */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Informações Básicas</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div><strong>Email:</strong> {selectedLead.email}</div>
-                    <div><strong>Telefone:</strong> {selectedLead.telefone}</div>
-                    <div><strong>Empresa:</strong> {selectedLead.empresa}</div>
-                    <div><strong>Cargo:</strong> {selectedLead.cargo}</div>
-                    <div><strong>Origem:</strong> {selectedLead.origem}</div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Pipeline</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div><strong>Status:</strong> 
-                      <Badge className={getStatusColor(selectedLead.status) + " ml-2"}>
+                <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-5">
+                  <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                    <User className="h-4 w-4 text-purple-400" />
+                    Informacoes Basicas
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="text-white/50"><span className="text-white/70 font-medium">Email:</span> {selectedLead.email}</div>
+                    <div className="text-white/50"><span className="text-white/70 font-medium">Telefone:</span> {selectedLead.telefone}</div>
+                    <div className="text-white/50"><span className="text-white/70 font-medium">Empresa:</span> {selectedLead.empresa}</div>
+                    <div className="text-white/50"><span className="text-white/70 font-medium">Cargo:</span> {selectedLead.cargo}</div>
+                    <div className="text-white/50"><span className="text-white/70 font-medium">Origem:</span> {selectedLead.origem}</div>
+                  </div>
+                </div>
+
+                <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-5">
+                  <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-emerald-400" />
+                    Pipeline
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="text-white/50 flex items-center gap-2">
+                      <span className="text-white/70 font-medium">Status:</span>
+                      <Badge className={getStatusColor(selectedLead.status)}>
                         {selectedLead.status}
                       </Badge>
                     </div>
-                    <div><strong>Temperatura:</strong>
-                      <Badge className={getTemperaturaColor(selectedLead.temperatura) + " ml-2"}>
+                    <div className="text-white/50 flex items-center gap-2">
+                      <span className="text-white/70 font-medium">Temperatura:</span>
+                      <Badge className={getTemperaturaColor(selectedLead.temperatura)}>
                         {selectedLead.temperatura}
                       </Badge>
                     </div>
-                    <div><strong>Valor:</strong> R$ {selectedLead.valor_potencial?.toLocaleString('pt-BR')}</div>
-                    <div><strong>Probabilidade:</strong> {selectedLead.probabilidade_real}%</div>
-                    <div><strong>Dias no pipeline:</strong> {selectedLead.dias_no_pipeline}</div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Atividade</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div><strong>Total interações:</strong> {selectedLead.total_interacoes}</div>
-                    <div><strong>Score BANT:</strong> {selectedLead.score_bant}/100</div>
-                    <div><strong>Closer:</strong> {selectedLead.closer?.nome_completo}</div>
-                    <div><strong>SDR:</strong> {selectedLead.sdr?.nome_completo}</div>
-                  </CardContent>
-                </Card>
+                    <div className="text-white/50"><span className="text-white/70 font-medium">Valor:</span> R$ {selectedLead.valor_potencial?.toLocaleString('pt-BR')}</div>
+                    <div className="text-white/50"><span className="text-white/70 font-medium">Probabilidade:</span> {selectedLead.probabilidade_real}%</div>
+                    <div className="text-white/50"><span className="text-white/70 font-medium">Dias no pipeline:</span> {selectedLead.dias_no_pipeline}</div>
+                  </div>
+                </div>
+
+                <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-5">
+                  <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-blue-400" />
+                    Atividade
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="text-white/50"><span className="text-white/70 font-medium">Total interacoes:</span> {selectedLead.total_interacoes}</div>
+                    <div className="text-white/50"><span className="text-white/70 font-medium">Score BANT:</span> {selectedLead.score_bant}/100</div>
+                    <div className="text-white/50"><span className="text-white/70 font-medium">Closer:</span> {selectedLead.closer?.nome_completo}</div>
+                    <div className="text-white/50"><span className="text-white/70 font-medium">SDR:</span> {selectedLead.sdr?.nome_completo}</div>
+                  </div>
+                </div>
               </div>
 
               {/* Interactions History */}
               {selectedLead.interactions && selectedLead.interactions.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Histórico de Interações</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {selectedLead.interactions.slice(0, 5).map((interaction: any, index) => (
-                        <div key={index} className="p-3 border rounded-lg">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-medium capitalize">
-                                {interaction.tipo_interacao} - {interaction.resultado}
-                              </p>
-                              <p className="text-sm text-gray-600 mt-1">
-                                {interaction.resumo || 'Sem resumo'}
-                              </p>
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {new Date(interaction.data_interacao).toLocaleDateString('pt-BR')}
-                            </div>
+                <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-5">
+                  <h4 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-purple-400" />
+                    Historico de Interacoes
+                  </h4>
+                  <div className="space-y-3">
+                    {selectedLead.interactions.slice(0, 5).map((interaction: any, index) => (
+                      <div key={index} className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium text-white/80 capitalize text-sm">
+                              {interaction.tipo_interacao} - {interaction.resultado}
+                            </p>
+                            <p className="text-sm text-white/40 mt-1">
+                              {interaction.resumo || 'Sem resumo'}
+                            </p>
                           </div>
-                          
-                          {interaction.nivel_interesse && (
-                            <div className="mt-2 flex items-center gap-4 text-sm">
-                              <span>Interesse: {interaction.nivel_interesse}/5</span>
-                              {interaction.probabilidade_fechamento_percebida && (
-                                <span>Probabilidade: {interaction.probabilidade_fechamento_percebida}%</span>
-                              )}
-                            </div>
-                          )}
+                          <div className="text-xs text-white/30 whitespace-nowrap ml-4">
+                            {new Date(interaction.data_interacao).toLocaleDateString('pt-BR')}
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+
+                        {interaction.nivel_interesse && (
+                          <div className="mt-2 flex items-center gap-4 text-xs text-white/40">
+                            <span>Interesse: {interaction.nivel_interesse}/5</span>
+                            {interaction.probabilidade_fechamento_percebida && (
+                              <span>Probabilidade: {interaction.probabilidade_fechamento_percebida}%</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
 
               {/* Qualification Details */}
               {selectedLead.qualification && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Qualificação BANT</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p><strong>Budget confirmado:</strong> {selectedLead.qualification.budget_confirmado ? 'Sim' : 'Não'}</p>
-                      <p><strong>Autoridade:</strong> {selectedLead.qualification.authority_nivel}</p>
+                <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-5">
+                  <h4 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                    <Brain className="h-4 w-4 text-purple-400" />
+                    Qualificacao BANT
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-2">
+                      <p className="text-white/50"><span className="text-white/70 font-medium">Budget confirmado:</span> {selectedLead.qualification.budget_confirmado ? 'Sim' : 'Nao'}</p>
+                      <p className="text-white/50"><span className="text-white/70 font-medium">Autoridade:</span> {selectedLead.qualification.authority_nivel}</p>
                     </div>
-                    <div>
-                      <p><strong>Score urgência:</strong> {selectedLead.qualification.need_urgencia_score}/10</p>
-                      <p><strong>Meta implementação:</strong> {selectedLead.qualification.timeline_meta_implementacao}</p>
+                    <div className="space-y-2">
+                      <p className="text-white/50"><span className="text-white/70 font-medium">Score urgencia:</span> {selectedLead.qualification.need_urgencia_score}/10</p>
+                      <p className="text-white/50"><span className="text-white/70 font-medium">Meta implementacao:</span> {selectedLead.qualification.timeline_meta_implementacao}</p>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -957,42 +1364,42 @@ export default function AdvancedPerformanceLeadsPage() {
 
       {/* Create Interaction Modal */}
       <Dialog open={isInteractionModalOpen} onOpenChange={setIsInteractionModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-[#141417] border-white/[0.08] text-white">
           <DialogHeader>
-            <DialogTitle>Nova Interação - {selectedLead?.nome_completo}</DialogTitle>
+            <DialogTitle className="text-white text-lg">Nova Interacao - {selectedLead?.nome_completo}</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Tipo de Interação</Label>
-                <Select 
-                  value={interactionForm.tipo_interacao} 
+                <Label className="text-white/60 text-sm">Tipo de Interacao</Label>
+                <Select
+                  value={interactionForm.tipo_interacao}
                   onValueChange={(value: any) => setInteractionForm({...interactionForm, tipo_interacao: value})}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white/[0.05] border-white/[0.08] text-white/70 mt-1.5 rounded-xl [&>svg]:text-white/40">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ligacao">Ligação</SelectItem>
+                  <SelectContent className="bg-[#1a1a1e] border-white/[0.08] text-white">
+                    <SelectItem value="ligacao">Ligacao</SelectItem>
                     <SelectItem value="whatsapp">WhatsApp</SelectItem>
                     <SelectItem value="email">Email</SelectItem>
-                    <SelectItem value="reuniao">Reunião</SelectItem>
+                    <SelectItem value="reuniao">Reuniao</SelectItem>
                     <SelectItem value="demo">Demo</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div>
-                <Label>Resultado</Label>
-                <Select 
-                  value={interactionForm.resultado} 
+                <Label className="text-white/60 text-sm">Resultado</Label>
+                <Select
+                  value={interactionForm.resultado}
                   onValueChange={(value: any) => setInteractionForm({...interactionForm, resultado: value})}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white/[0.05] border-white/[0.08] text-white/70 mt-1.5 rounded-xl [&>svg]:text-white/40">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#1a1a1e] border-white/[0.08] text-white">
                     <SelectItem value="contato_realizado">Contato Realizado</SelectItem>
                     <SelectItem value="sem_resposta">Sem Resposta</SelectItem>
                     <SelectItem value="agendamento_feito">Agendamento Feito</SelectItem>
@@ -1001,52 +1408,62 @@ export default function AdvancedPerformanceLeadsPage() {
                 </Select>
               </div>
             </div>
-            
+
             <div>
-              <Label>Resumo da Interação *</Label>
+              <Label className="text-white/60 text-sm">Resumo da Interacao *</Label>
               <Textarea
                 value={interactionForm.resumo || ''}
                 onChange={(e) => setInteractionForm({...interactionForm, resumo: e.target.value})}
-                placeholder="Descreva o que aconteceu nesta interação..."
+                placeholder="Descreva o que aconteceu nesta interacao..."
                 rows={3}
+                className="bg-white/[0.05] border-white/[0.08] text-white placeholder-white/25 mt-1.5 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/30"
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Nível de Interesse (1-5)</Label>
+                <Label className="text-white/60 text-sm">Nivel de Interesse (1-5)</Label>
                 <Input
                   type="number"
                   min="1"
                   max="5"
                   value={interactionForm.nivel_interesse || 3}
                   onChange={(e) => setInteractionForm({...interactionForm, nivel_interesse: parseInt(e.target.value)})}
+                  className="bg-white/[0.05] border-white/[0.08] text-white mt-1.5 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/30"
                 />
               </div>
-              
+
               <div>
-                <Label>Probabilidade de Fechamento (%)</Label>
+                <Label className="text-white/60 text-sm">Probabilidade de Fechamento (%)</Label>
                 <Input
                   type="number"
                   min="0"
                   max="100"
                   value={interactionForm.probabilidade_fechamento_percebida || 0}
                   onChange={(e) => setInteractionForm({...interactionForm, probabilidade_fechamento_percebida: parseInt(e.target.value)})}
+                  className="bg-white/[0.05] border-white/[0.08] text-white mt-1.5 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/30"
                 />
               </div>
             </div>
           </div>
-          
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setIsInteractionModalOpen(false)}>
+
+          <div className="flex justify-end gap-3 mt-4">
+            <button
+              onClick={() => setIsInteractionModalOpen(false)}
+              className="px-4 py-2 rounded-xl bg-white/[0.05] border border-white/[0.08] text-white/60 hover:text-white hover:bg-white/[0.08] transition-all text-sm"
+            >
               Cancelar
-            </Button>
-            <Button onClick={handleCreateInteraction}>
-              Registrar Interação
-            </Button>
+            </button>
+            <button
+              onClick={handleCreateInteraction}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 text-white text-sm font-medium hover:from-purple-500 hover:to-purple-600 transition-all shadow-lg shadow-purple-500/20"
+            >
+              Registrar Interacao
+            </button>
           </div>
         </DialogContent>
       </Dialog>
     </div>
+    </ProtectedRoute>
   )
 }

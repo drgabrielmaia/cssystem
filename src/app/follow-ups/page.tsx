@@ -610,7 +610,12 @@ export default function FollowUpsPage() {
     return (
       <PageLayout title="Follow-ups" subtitle="Carregando...">
         <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center">
+              <RefreshCw className="w-6 h-6 text-emerald-400 animate-spin" />
+            </div>
+            <p className="text-sm text-white/40">Carregando follow-ups...</p>
+          </div>
         </div>
       </PageLayout>
     )
@@ -618,224 +623,244 @@ export default function FollowUpsPage() {
 
   return (
     <PageLayout title="Follow-ups" subtitle="Gestão de acompanhamentos e tarefas">
-      {/* KPI Cards - Grid responsivo */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <KPICardVibrant
-          title="Total Follow-ups"
-          value={stats.total_followups.toString()}
-          subtitle="Este mês"
-          percentage={12}
-          trend="up"
-          color="blue"
-          icon={Calendar}
-          sparklineData={[
-            { value: 10 }, { value: 15 }, { value: 18 }, { value: 22 },
-            { value: 25 }, { value: 28 }, { value: 32 }, { value: stats.total_followups }
-          ]}
-        />
-        <MetricCard
-          title="Pendentes"
-          value={stats.pendentes.toString()}
-          change={-5}
-          changeType="decrease"
-          icon={Clock}
-          iconColor="orange"
-        />
-        <MetricCard
-          title="Concluídos"
-          value={stats.concluidos.toString()}
-          change={8}
-          changeType="increase"
-          icon={CheckCircle}
-          iconColor="green"
-        />
-        <MetricCard
-          title="Taxa de Conclusão"
-          value={`${stats.taxa_conclusao.toFixed(1)}%`}
-          change={3.2}
-          changeType="increase"
-          icon={TrendingUp}
-          iconColor="purple"
-        />
+      {/* Loading Overlay */}
+      {isLoadingData && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-[#1a1a1e] rounded-2xl p-6 shadow-2xl border border-white/[0.06] flex items-center gap-3">
+            <RefreshCw className="w-5 h-5 animate-spin text-emerald-400" />
+            <span className="text-sm font-medium text-white/70">Atualizando dados...</span>
+          </div>
+        </div>
+      )}
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+        {/* Total Follow-ups */}
+        <div className="group relative bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] hover:ring-emerald-500/20 transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-gradient-to-bl from-emerald-500/[0.06] to-transparent rounded-bl-full transition-all group-hover:from-emerald-500/[0.1]" />
+          <div className="relative">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-emerald-400" />
+              </div>
+            </div>
+            <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Total Follow-ups</p>
+            <p className="text-3xl font-bold text-white mt-1 tabular-nums">{stats.total_followups}</p>
+            <p className="text-xs text-white/30 mt-1">Este mes</p>
+          </div>
+        </div>
+
+        {/* Pendentes */}
+        <div className="group relative bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] hover:ring-amber-500/20 transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-gradient-to-bl from-amber-500/[0.06] to-transparent rounded-bl-full transition-all group-hover:from-amber-500/[0.1]" />
+          <div className="relative">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center">
+                <Clock className="w-5 h-5 text-amber-400" />
+              </div>
+            </div>
+            <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Pendentes</p>
+            <p className="text-3xl font-bold text-white mt-1 tabular-nums">{stats.pendentes}</p>
+            <p className="text-xs text-white/30 mt-1">Aguardando acao</p>
+          </div>
+        </div>
+
+        {/* Concluidos */}
+        <div className="group relative bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] hover:ring-emerald-500/20 transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-gradient-to-bl from-emerald-500/[0.06] to-transparent rounded-bl-full transition-all group-hover:from-emerald-500/[0.1]" />
+          <div className="relative">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-emerald-400" />
+              </div>
+            </div>
+            <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Concluidos</p>
+            <p className="text-3xl font-bold text-white mt-1 tabular-nums">{stats.concluidos}</p>
+            <p className="text-xs text-emerald-400/70 mt-1 flex items-center gap-1">
+              <TrendingUp className="w-3 h-3" />
+              Finalizados
+            </p>
+          </div>
+        </div>
+
+        {/* Taxa de Conclusao */}
+        <div className="group relative bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] hover:ring-violet-500/20 transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-gradient-to-bl from-violet-500/[0.06] to-transparent rounded-bl-full transition-all group-hover:from-violet-500/[0.1]" />
+          <div className="relative">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-violet-400" />
+              </div>
+            </div>
+            <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Taxa Conclusao</p>
+            <p className="text-3xl font-bold text-white mt-1 tabular-nums">{stats.taxa_conclusao.toFixed(1)}%</p>
+            <div className="mt-2 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-violet-500 to-violet-400 rounded-full transition-all duration-700"
+                style={{ width: `${Math.min(stats.taxa_conclusao, 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Alertas para follow-ups importantes */}
+      {/* Alert Banners - Dark Theme */}
       {stats.atrasados > 0 && (
-        <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-2xl p-4 mb-6">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-orange-500" />
+        <div className="relative bg-[#141418] rounded-2xl p-4 mb-6 ring-1 ring-red-500/20 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-red-500/[0.08] to-transparent" />
+          <div className="relative flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center flex-shrink-0 animate-pulse">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+            </div>
             <div>
-              <p className="font-semibold text-orange-800">Atenção!</p>
-              <p className="text-sm text-orange-700">
-                Você tem {stats.atrasados} follow-up{stats.atrasados > 1 ? 's' : ''} atrasado{stats.atrasados > 1 ? 's' : ''}
+              <p className="text-sm font-semibold text-red-300">Atencao - Follow-ups Atrasados</p>
+              <p className="text-xs text-red-400/70 mt-0.5">
+                Voce tem <span className="font-bold text-red-300">{stats.atrasados}</span> follow-up{stats.atrasados > 1 ? 's' : ''} atrasado{stats.atrasados > 1 ? 's' : ''} que precisa{stats.atrasados > 1 ? 'm' : ''} de atencao
               </p>
+            </div>
+            <div className="ml-auto flex-shrink-0">
+              <span className="px-3 py-1 rounded-full bg-red-500/15 text-xs font-bold text-red-300 tabular-nums">
+                {stats.atrasados}
+              </span>
             </div>
           </div>
         </div>
       )}
 
       {stats.hoje > 0 && (
-        <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-2xl p-4 mb-6">
-          <div className="flex items-center gap-3">
-            <Calendar className="w-5 h-5 text-blue-500" />
+        <div className="relative bg-[#141418] rounded-2xl p-4 mb-6 ring-1 ring-blue-500/20 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/[0.08] to-transparent" />
+          <div className="relative flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center flex-shrink-0">
+              <Calendar className="w-5 h-5 text-blue-400" />
+            </div>
             <div>
-              <p className="font-semibold text-blue-800">Agenda de Hoje</p>
-              <p className="text-sm text-blue-700">
-                Você tem {stats.hoje} follow-up{stats.hoje > 1 ? 's' : ''} agendado{stats.hoje > 1 ? 's' : ''} para hoje
+              <p className="text-sm font-semibold text-blue-300">Agenda de Hoje</p>
+              <p className="text-xs text-blue-400/70 mt-0.5">
+                Voce tem <span className="font-bold text-blue-300">{stats.hoje}</span> follow-up{stats.hoje > 1 ? 's' : ''} agendado{stats.hoje > 1 ? 's' : ''} para hoje
               </p>
+            </div>
+            <div className="ml-auto flex-shrink-0">
+              <span className="px-3 py-1 rounded-full bg-blue-500/15 text-xs font-bold text-blue-300 tabular-nums">
+                {stats.hoje}
+              </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Gráficos - Grid responsivo */}
+      {/* Charts - Dark Theme */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Gráfico de Evolução Semanal */}
-        <ChartCard title="Evolução Semanal" subtitle="Follow-ups criados vs concluídos">
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis dataKey="week" stroke="#94A3B8" fontSize={12} />
-                <YAxis stroke="#94A3B8" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #E2E8F0',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
-                  }}
-                />
-                <Bar dataKey="criados" fill="#059669" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="concluidos" fill="#10B981" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+        <div className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] overflow-hidden">
+          <div className="px-6 py-4 border-b border-white/[0.06]">
+            <h3 className="text-sm font-semibold text-white">Evolucao Semanal</h3>
+            <p className="text-xs text-white/40 mt-0.5">Follow-ups criados vs concluidos</p>
           </div>
-        </ChartCard>
+          <div className="p-6">
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={weeklyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                  <XAxis dataKey="week" stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1a1a1e',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '12px',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                      color: '#fff'
+                    }}
+                    labelStyle={{ color: 'rgba(255,255,255,0.6)' }}
+                    itemStyle={{ color: '#fff' }}
+                  />
+                  <Bar dataKey="criados" fill="#059669" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="concluidos" fill="#10B981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
 
-        {/* Gráfico de Distribuição por Tipo */}
-        <ChartCard title="Distribuição por Tipo" subtitle="Tipos de follow-up">
-          <div className="h-80 flex flex-col items-center justify-center">
-            <ResponsiveContainer width="100%" height="70%">
-              <BarChart data={tipoDistribution} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis type="number" stroke="#94A3B8" fontSize={12} />
-                <YAxis dataKey="name" type="category" stroke="#94A3B8" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #E2E8F0',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
-                  }}
-                />
-                <Bar dataKey="value" radius={[0, 2, 2, 0]}>
-                  {tipoDistribution.map((entry, index) => (
-                    <Cell key={index} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+        <div className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] overflow-hidden">
+          <div className="px-6 py-4 border-b border-white/[0.06]">
+            <h3 className="text-sm font-semibold text-white">Distribuicao por Tipo</h3>
+            <p className="text-xs text-white/40 mt-0.5">Tipos de follow-up</p>
           </div>
-        </ChartCard>
+          <div className="p-6">
+            <div className="h-72 flex flex-col items-center justify-center">
+              <ResponsiveContainer width="100%" height="70%">
+                <BarChart data={tipoDistribution} layout="horizontal">
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                  <XAxis type="number" stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis dataKey="name" type="category" stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1a1a1e',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '12px',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                      color: '#fff'
+                    }}
+                    labelStyle={{ color: 'rgba(255,255,255,0.6)' }}
+                    itemStyle={{ color: '#fff' }}
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    {tipoDistribution.map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Ações e Filtros - Responsivo */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-0 mb-6">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+      {/* Search + Actions Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        <div className="flex items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
             <input
               type="text"
               placeholder="Buscar follow-ups..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all w-full sm:w-80"
+              className="pl-10 pr-4 py-2.5 bg-[#141418] ring-1 ring-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-emerald-500/40 transition-all w-full sm:w-80"
             />
           </div>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 bg-background border border-border rounded-xl text-sm font-medium text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all"
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              showFilters
+                ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30'
+                : 'bg-[#141418] text-white/60 ring-1 ring-white/[0.06] hover:ring-white/[0.1] hover:text-white/80'
+            }`}
           >
-            <option value="todos">Todos os Status</option>
-            <option value="pendente">Pendente</option>
-            <option value="concluido">Concluído</option>
-            <option value="cancelado">Cancelado</option>
-          </select>
-
-          <select
-            value={tipoFilter}
-            onChange={(e) => setTipoFilter(e.target.value)}
-            className="px-4 py-2 bg-background border border-border rounded-xl text-sm font-medium text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all"
-          >
-            <option value="todos">Todos os Tipos</option>
-            <option value="ligacao">Ligação</option>
-            <option value="email">Email</option>
-            <option value="whatsapp">WhatsApp</option>
-            <option value="reuniao">Reunião</option>
-          </select>
-
-          <select
-            value={prioridadeFilter}
-            onChange={(e) => setPrioridadeFilter(e.target.value)}
-            className="px-4 py-2 bg-background border border-border rounded-xl text-sm font-medium text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all"
-          >
-            <option value="todas">Todas Prioridades</option>
-            <option value="baixa">Baixa</option>
-            <option value="media">Média</option>
-            <option value="alta">Alta</option>
-          </select>
-
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="px-4 py-2 bg-background border border-border rounded-xl text-sm font-medium text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all"
-          >
-            <option value="todos">Todas as Datas</option>
-            <option value="mes_atual">Mês Atual</option>
-            <option value="semana_atual">Semana Atual</option>
-            <option value="semana_passada">Última Semana</option>
-            <option value="mes_passado">Mês Passado</option>
-            <option value="personalizado">Personalizado</option>
-          </select>
-
-          {dateFilter === 'personalizado' && (
-            <>
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all"
-                placeholder="Data inicial"
-              />
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-primary transition-all"
-                placeholder="Data final"
-              />
-            </>
-          )}
+            <Filter className="w-4 h-4" />
+            Filtros
+            {(statusFilter !== 'todos' || tipoFilter !== 'todos' || prioridadeFilter !== 'todas' || dateFilter !== 'mes_atual') && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            )}
+          </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={loadFollowUps}
-            className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.08] ring-1 ring-white/[0.06] rounded-xl text-sm font-medium text-white/60 hover:text-white transition-all"
           >
             <RefreshCw className="w-4 h-4" />
-            Atualizar
+            <span className="hidden sm:inline">Atualizar</span>
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.08] ring-1 ring-white/[0.06] rounded-xl text-sm font-medium text-white/60 hover:text-white transition-all">
             <Download className="w-4 h-4" />
-            Exportar
+            <span className="hidden sm:inline">Exportar</span>
           </button>
           <button
             onClick={handleNewFollowUp}
-            className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-xl text-sm font-semibold shadow-lg shadow-emerald-500/20 transition-all"
           >
             <Plus className="w-4 h-4" />
             Novo Follow-up
@@ -843,210 +868,474 @@ export default function FollowUpsPage() {
         </div>
       </div>
 
-      {/* Loading indicator para filtros */}
-      {isLoadingData && (
-        <div className="flex items-center justify-center py-4 mb-6">
-          <div className="flex items-center gap-3 px-4 py-2 bg-background rounded-xl shadow-sm border border-border">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-            <span className="text-sm text-muted-foreground">Atualizando filtros...</span>
+      {/* Collapsible Filters Panel */}
+      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${showFilters ? 'max-h-96 opacity-100 mb-6' : 'max-h-0 opacity-0'}`}>
+        <div className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {/* Status Filter - Pill Style */}
+            <div>
+              <label className="block text-xs font-medium text-white/40 mb-2.5 uppercase tracking-wider">Status</label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { value: 'todos', label: 'Todos' },
+                  { value: 'pendente', label: 'Pendente' },
+                  { value: 'concluido', label: 'Concluido' },
+                  { value: 'cancelado', label: 'Cancelado' }
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setStatusFilter(option.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      statusFilter === option.value
+                        ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30'
+                        : 'bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white/70'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tipo Filter - Pill Style */}
+            <div>
+              <label className="block text-xs font-medium text-white/40 mb-2.5 uppercase tracking-wider">Tipo</label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { value: 'todos', label: 'Todos' },
+                  { value: 'ligacao', label: 'Ligacao' },
+                  { value: 'email', label: 'Email' },
+                  { value: 'whatsapp', label: 'WhatsApp' },
+                  { value: 'reuniao', label: 'Reuniao' }
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setTipoFilter(option.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      tipoFilter === option.value
+                        ? 'bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30'
+                        : 'bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white/70'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Prioridade Filter - Pill Style */}
+            <div>
+              <label className="block text-xs font-medium text-white/40 mb-2.5 uppercase tracking-wider">Prioridade</label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { value: 'todas', label: 'Todas' },
+                  { value: 'baixa', label: 'Baixa', color: 'emerald' },
+                  { value: 'media', label: 'Media', color: 'amber' },
+                  { value: 'alta', label: 'Alta', color: 'red' }
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setPrioridadeFilter(option.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      prioridadeFilter === option.value
+                        ? option.color === 'emerald' ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30'
+                          : option.color === 'amber' ? 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30'
+                          : option.color === 'red' ? 'bg-red-500/15 text-red-400 ring-1 ring-red-500/30'
+                          : 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30'
+                        : 'bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white/70'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Date Filter */}
+            <div>
+              <label className="block text-xs font-medium text-white/40 mb-2.5 uppercase tracking-wider">Periodo</label>
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-white/[0.04] ring-1 ring-white/[0.06] rounded-lg text-xs text-white/70 focus:outline-none focus:ring-emerald-500/40 transition-all appearance-none cursor-pointer [&>option]:bg-[#1a1a1e] [&>option]:text-white"
+              >
+                <option value="todos">Todas as Datas</option>
+                <option value="mes_atual">Mes Atual</option>
+                <option value="semana_atual">Semana Atual</option>
+                <option value="semana_passada">Ultima Semana</option>
+                <option value="mes_passado">Mes Passado</option>
+                <option value="personalizado">Personalizado</option>
+              </select>
+
+              {dateFilter === 'personalizado' && (
+                <div className="flex gap-2 mt-2">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-white/[0.04] ring-1 ring-white/[0.06] rounded-lg text-xs text-white/70 focus:outline-none focus:ring-emerald-500/40 transition-all"
+                  />
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-white/[0.04] ring-1 ring-white/[0.06] rounded-lg text-xs text-white/70 focus:outline-none focus:ring-emerald-500/40 transition-all"
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Tabela de Follow-ups */}
-      <DataTable
-        title="Lista de Follow-ups"
-        columns={[
-          {
-            header: 'Título',
-            render: (followUp) => (
-              <div>
-                <p className="font-semibold text-foreground">{followUp.titulo}</p>
-                <p className="text-sm text-muted-foreground truncate max-w-xs">
-                  {followUp.descricao || 'Sem descrição'}
-                </p>
-              </div>
-            )
-          },
-          {
-            header: 'Lead',
-            render: (followUp) => (
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#059669] to-[#10B981] flex items-center justify-center text-white font-semibold text-xs">
-                  {followUp.leads?.nome_completo?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'ND'}
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">{followUp.leads?.nome_completo || 'Lead não encontrado'}</p>
-                  <p className="text-sm text-muted-foreground">{followUp.leads?.empresa || '-'}</p>
-                </div>
-              </div>
-            )
-          },
-          {
-            header: 'Tipo',
-            render: (followUp) => (
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#F1F5F9] text-muted-foreground">
-                {followUp.tipo?.charAt(0).toUpperCase() + followUp.tipo?.slice(1) || 'N/A'}
-              </span>
-            )
-          },
-          {
-            header: 'Prioridade',
-            render: (followUp) => (
-              <span
-                className="px-3 py-1 rounded-full text-xs font-semibold text-white"
-                style={{ backgroundColor: (prioridadeColors as any)[followUp.prioridade] || '#94A3B8' }}
-              >
-                {followUp.prioridade?.charAt(0).toUpperCase() + followUp.prioridade?.slice(1) || 'N/A'}
-              </span>
-            )
-          },
-          {
-            header: 'Data Agendada',
-            render: (followUp) => (
-              <div className={`${isOverdue(followUp.data_agendada, followUp.status) ? 'text-red-600' : 'text-muted-foreground'}`}>
-                <p className="text-sm font-medium">{formatDate(followUp.data_agendada)}</p>
-                <p className="text-xs">{new Date(followUp.data_agendada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-              </div>
-            )
-          },
-          {
-            header: 'Status',
-            render: (followUp) => <StatusBadge status={(statusMap as any)[followUp.status] || 'pending'} />
-          },
-          {
-            header: 'Ações',
-            render: (followUp) => (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleViewFollowUp(followUp)}
-                  className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                  title="Ver detalhes"
-                >
-                  <Eye className="w-4 h-4 text-muted-foreground group-hover:text-muted-foreground" />
-                </button>
-                <button
-                  onClick={() => handleEditFollowUp(followUp)}
-                  className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                  title="Editar"
-                >
-                  <Edit className="w-4 h-4 text-muted-foreground group-hover:text-[#059669]" />
-                </button>
-                {followUp.status === 'pendente' && (
-                  <button
-                    onClick={() => handleMarkAsCompleted(followUp.id)}
-                    className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                    title="Marcar como concluído"
-                  >
-                    <CheckCircle className="w-4 h-4 text-muted-foreground group-hover:text-[#10B981]" />
-                  </button>
-                )}
-                {followUp.leads?.telefone && (
-                  <button
-                    className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                    title="Ligar"
-                  >
-                    <Phone className="w-4 h-4 text-muted-foreground group-hover:text-[#059669]" />
-                  </button>
-                )}
-                {followUp.leads?.email && (
-                  <button
-                    className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                    title="Enviar email"
-                  >
-                    <Mail className="w-4 h-4 text-muted-foreground group-hover:text-[#059669]" />
-                  </button>
-                )}
-                <button
-                  onClick={() => handleDeleteFollowUp(followUp.id)}
-                  className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                  title="Excluir"
-                >
-                  <Trash2 className="w-4 h-4 text-muted-foreground group-hover:text-[#EF4444]" />
-                </button>
-              </div>
-            )
-          }
-        ]}
-        data={filteredFollowUps}
-      />
+      {/* Follow-ups Table - Modern Dark */}
+      <div className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] overflow-hidden">
+        {/* Table Header */}
+        <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-semibold text-white">Lista de Follow-ups</h3>
+            <span className="px-2 py-0.5 rounded-full bg-white/[0.04] text-[10px] font-semibold text-gray-500 tabular-nums">
+              {filteredFollowUps.length}
+            </span>
+          </div>
+        </div>
 
-      {/* Modal de Visualização */}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-white/[0.06]">
+                <th className="text-left py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Titulo</th>
+                <th className="text-left py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Lead</th>
+                <th className="text-left py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                <th className="text-left py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Prioridade</th>
+                <th className="text-left py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Data Agendada</th>
+                <th className="text-left py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="text-right py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Acoes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.04]">
+              {filteredFollowUps.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-16 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-14 h-14 rounded-2xl bg-white/[0.04] flex items-center justify-center">
+                        <Calendar className="w-7 h-7 text-white/15" />
+                      </div>
+                      <p className="text-sm text-white/40 font-medium">Nenhum follow-up encontrado</p>
+                      <p className="text-xs text-white/20">Tente ajustar os filtros ou crie um novo follow-up</p>
+                      <button
+                        onClick={handleNewFollowUp}
+                        className="mt-2 flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl text-xs font-medium hover:bg-emerald-500/20 transition-colors ring-1 ring-emerald-500/20"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Criar Follow-up
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredFollowUps.map((followUp) => {
+                  const overdue = isOverdue(followUp.data_agendada, followUp.status)
+                  return (
+                    <tr
+                      key={followUp.id}
+                      className={`hover:bg-white/[0.02] transition-colors group ${overdue ? 'bg-red-500/[0.03]' : ''}`}
+                    >
+                      {/* Titulo */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          {overdue && (
+                            <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)] flex-shrink-0 animate-pulse" />
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-white truncate max-w-xs">{followUp.titulo}</p>
+                            <p className="text-xs text-white/30 truncate max-w-xs mt-0.5">
+                              {followUp.descricao || 'Sem descricao'}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Lead */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-emerald-700/20 ring-1 ring-emerald-500/20 flex items-center justify-center text-emerald-400 font-semibold text-[10px]">
+                            {followUp.leads?.nome_completo?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'ND'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm text-white/80 font-medium truncate">{followUp.leads?.nome_completo || 'Lead nao encontrado'}</p>
+                            <p className="text-xs text-white/30 truncate">{followUp.leads?.empresa || '-'}</p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Tipo */}
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] text-xs font-medium text-white/60">
+                          {followUp.tipo === 'ligacao' || followUp.tipo === 'call' ? (
+                            <Phone className="w-3 h-3 text-emerald-400" />
+                          ) : followUp.tipo === 'email' ? (
+                            <Mail className="w-3 h-3 text-blue-400" />
+                          ) : followUp.tipo === 'whatsapp' ? (
+                            <MessageCircle className="w-3 h-3 text-green-400" />
+                          ) : followUp.tipo === 'reuniao' ? (
+                            <Users className="w-3 h-3 text-amber-400" />
+                          ) : null}
+                          {followUp.tipo?.charAt(0).toUpperCase() + followUp.tipo?.slice(1) || 'N/A'}
+                        </span>
+                      </td>
+
+                      {/* Prioridade */}
+                      <td className="px-6 py-4">
+                        {followUp.prioridade === 'alta' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 text-xs font-semibold text-red-400 ring-1 ring-red-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                            Alta
+                          </span>
+                        ) : followUp.prioridade === 'media' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-xs font-semibold text-amber-400 ring-1 ring-amber-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            Media
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-xs font-semibold text-emerald-400 ring-1 ring-emerald-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            Baixa
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Data Agendada */}
+                      <td className="px-6 py-4">
+                        <div className={overdue ? '' : ''}>
+                          {overdue ? (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 ring-1 ring-red-500/20">
+                              <AlertCircle className="w-3 h-3 text-red-400" />
+                              <span className="text-xs font-semibold text-red-400">{formatDate(followUp.data_agendada)}</span>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-sm text-white/70 font-medium tabular-nums">{formatDate(followUp.data_agendada)}</p>
+                              <p className="text-[10px] text-white/30 tabular-nums mt-0.5">
+                                {new Date(followUp.data_agendada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Status - Dot Indicator */}
+                      <td className="px-6 py-4">
+                        {followUp.status === 'pendente' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-xs font-medium text-amber-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            Pendente
+                          </span>
+                        ) : followUp.status === 'concluido' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-xs font-medium text-emerald-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            Concluido
+                          </span>
+                        ) : followUp.status === 'cancelado' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 text-xs font-medium text-red-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                            Cancelado
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] text-xs font-medium text-white/40">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white/30" />
+                            {followUp.status}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Acoes */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleViewFollowUp(followUp)}
+                            className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+                            title="Ver detalhes"
+                          >
+                            <Eye className="w-4 h-4 text-white/30 hover:text-white/60" />
+                          </button>
+                          <button
+                            onClick={() => handleEditFollowUp(followUp)}
+                            className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+                            title="Editar"
+                          >
+                            <Edit className="w-4 h-4 text-white/30 hover:text-emerald-400" />
+                          </button>
+                          {followUp.status === 'pendente' && (
+                            <button
+                              onClick={() => handleMarkAsCompleted(followUp.id)}
+                              className="p-1.5 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                              title="Marcar como concluido"
+                            >
+                              <CheckCircle className="w-4 h-4 text-white/30 hover:text-emerald-400" />
+                            </button>
+                          )}
+                          {followUp.leads?.telefone && (
+                            <button
+                              className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+                              title="Ligar"
+                            >
+                              <Phone className="w-4 h-4 text-white/30 hover:text-emerald-400" />
+                            </button>
+                          )}
+                          {followUp.leads?.email && (
+                            <button
+                              className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+                              title="Enviar email"
+                            >
+                              <Mail className="w-4 h-4 text-white/30 hover:text-blue-400" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteFollowUp(followUp.id)}
+                            className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors"
+                            title="Excluir"
+                          >
+                            <Trash2 className="w-4 h-4 text-white/30 hover:text-red-400" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* View Modal - Glass-morphism Dark */}
       <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-[#141418]/95 backdrop-blur-xl border-white/[0.06] ring-1 ring-white/[0.06] shadow-2xl shadow-black/40">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Eye className="w-5 h-5 text-blue-600" />
+            <DialogTitle className="flex items-center gap-3 text-white">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center">
+                <Eye className="w-5 h-5 text-blue-400" />
               </div>
               Detalhes do Follow-up
             </DialogTitle>
           </DialogHeader>
 
           {selectedFollowUp && (
-            <div className="space-y-6 py-4">
+            <div className="space-y-5 py-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-muted-foreground">Lead</Label>
-                  <div className="p-3 bg-[#F8FAFC] rounded-lg border">
-                    <p className="font-medium text-foreground">{selectedFollowUp.leads?.nome_completo}</p>
-                    <p className="text-sm text-muted-foreground">{selectedFollowUp.leads?.email}</p>
-                    {selectedFollowUp.leads?.telefone && (
-                      <p className="text-sm text-muted-foreground">{selectedFollowUp.leads?.telefone}</p>
-                    )}
+                  <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Lead</label>
+                  <div className="p-3.5 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06]">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-emerald-700/20 ring-1 ring-emerald-500/20 flex items-center justify-center text-emerald-400 font-semibold text-[10px]">
+                        {selectedFollowUp.leads?.nome_completo?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'ND'}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-white">{selectedFollowUp.leads?.nome_completo}</p>
+                        <p className="text-xs text-white/40">{selectedFollowUp.leads?.email}</p>
+                        {selectedFollowUp.leads?.telefone && (
+                          <p className="text-xs text-white/40">{selectedFollowUp.leads?.telefone}</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-muted-foreground">Data Agendada</Label>
-                  <div className="p-3 bg-[#F8FAFC] rounded-lg border">
-                    <p className="font-medium text-foreground">
+                  <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Data Agendada</label>
+                  <div className="p-3.5 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06]">
+                    <p className="text-sm font-medium text-white tabular-nums">
                       {new Date(selectedFollowUp.data_agendada).toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: '2-digit',
                         year: 'numeric'
                       })}
                     </p>
+                    {isOverdue(selectedFollowUp.data_agendada, selectedFollowUp.status) && (
+                      <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md bg-red-500/10 text-[10px] font-semibold text-red-400 ring-1 ring-red-500/20">
+                        <AlertCircle className="w-3 h-3" />
+                        Atrasado
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-muted-foreground">Título</Label>
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border">
-                  <p className="font-medium text-foreground">{selectedFollowUp.titulo}</p>
+                <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Titulo</label>
+                <div className="p-3.5 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06]">
+                  <p className="text-sm font-medium text-white">{selectedFollowUp.titulo}</p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-muted-foreground">Descrição</Label>
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border min-h-[100px]">
-                  <p className="text-muted-foreground">{selectedFollowUp.descricao}</p>
+                <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Descricao</label>
+                <div className="p-3.5 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06] min-h-[80px]">
+                  <p className="text-sm text-white/60">{selectedFollowUp.descricao || 'Sem descricao'}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-muted-foreground">Tipo</Label>
-                  <div className="p-3 bg-[#F8FAFC] rounded-lg border">
-                    <p className="font-medium text-foreground">{selectedFollowUp.tipo}</p>
+                  <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Tipo</label>
+                  <div className="p-3.5 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06]">
+                    <span className="inline-flex items-center gap-1.5 text-sm text-white/80">
+                      {selectedFollowUp.tipo === 'ligacao' || selectedFollowUp.tipo === 'call' ? (
+                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : selectedFollowUp.tipo === 'email' ? (
+                        <Mail className="w-3.5 h-3.5 text-blue-400" />
+                      ) : selectedFollowUp.tipo === 'whatsapp' ? (
+                        <MessageCircle className="w-3.5 h-3.5 text-green-400" />
+                      ) : selectedFollowUp.tipo === 'reuniao' ? (
+                        <Users className="w-3.5 h-3.5 text-amber-400" />
+                      ) : null}
+                      {selectedFollowUp.tipo?.charAt(0).toUpperCase() + selectedFollowUp.tipo?.slice(1)}
+                    </span>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-muted-foreground">Prioridade</Label>
-                  <div className="p-3 bg-[#F8FAFC] rounded-lg border">
-                    <p className="font-medium text-foreground">{selectedFollowUp.prioridade}</p>
+                  <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Prioridade</label>
+                  <div className="p-3.5 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06]">
+                    {selectedFollowUp.prioridade === 'alta' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 text-xs font-semibold text-red-400 ring-1 ring-red-500/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                        Alta
+                      </span>
+                    ) : selectedFollowUp.prioridade === 'media' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-xs font-semibold text-amber-400 ring-1 ring-amber-500/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                        Media
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-xs font-semibold text-emerald-400 ring-1 ring-emerald-500/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        Baixa
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-muted-foreground">Status</Label>
-                  <div className="p-3 bg-[#F8FAFC] rounded-lg border">
-                    <StatusBadge status={
-                      selectedFollowUp.status === 'pendente' ? 'pending' :
-                      selectedFollowUp.status === 'concluido' ? 'completed' : 'cancelled'
-                    } />
+                  <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Status</label>
+                  <div className="p-3.5 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06]">
+                    {selectedFollowUp.status === 'pendente' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-xs font-medium text-amber-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                        Pendente
+                      </span>
+                    ) : selectedFollowUp.status === 'concluido' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-xs font-medium text-emerald-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        Concluido
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 text-xs font-medium text-red-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                        Cancelado
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1055,64 +1344,66 @@ export default function FollowUpsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Edição */}
+      {/* Edit Modal - Glass-morphism Dark */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-[#141418]/95 backdrop-blur-xl border-white/[0.06] ring-1 ring-white/[0.06] shadow-2xl shadow-black/40">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <div className="p-2 bg-primary rounded-lg">
-                <Edit className="w-5 h-5 text-white" />
+            <DialogTitle className="flex items-center gap-3 text-white">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                <Edit className="w-5 h-5 text-emerald-400" />
               </div>
               Editar Follow-up
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6 py-4">
+          <div className="space-y-5 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-titulo">Título</Label>
+                <Label htmlFor="edit-titulo" className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Titulo</Label>
                 <Input
                   id="edit-titulo"
                   value={editForm.titulo}
                   onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })}
-                  placeholder="Título do follow-up"
+                  placeholder="Titulo do follow-up"
+                  className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/20 focus:border-emerald-500/40 focus:ring-emerald-500/20"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-data">Data Agendada</Label>
+                <Label htmlFor="edit-data" className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Data Agendada</Label>
                 <Input
                   id="edit-data"
                   type="date"
                   value={editForm.data_agendada}
                   onChange={(e) => setEditForm({ ...editForm, data_agendada: e.target.value })}
+                  className="bg-white/[0.03] border-white/[0.06] text-white focus:border-emerald-500/40 focus:ring-emerald-500/20"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-descricao">Descrição</Label>
+              <Label htmlFor="edit-descricao" className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Descricao</Label>
               <Textarea
                 id="edit-descricao"
                 value={editForm.descricao}
                 onChange={(e) => setEditForm({ ...editForm, descricao: e.target.value })}
-                placeholder="Descrição do follow-up"
-                className="min-h-[100px]"
+                placeholder="Descricao do follow-up"
+                className="min-h-[100px] bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/20 focus:border-emerald-500/40 focus:ring-emerald-500/20"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Tipo</Label>
+                <Label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Tipo</Label>
                 <Select value={editForm.tipo} onValueChange={(value) => setEditForm({ ...editForm, tipo: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white focus:ring-emerald-500/20">
                     <SelectValue placeholder="Selecionar tipo" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ligacao">Ligação</SelectItem>
+                  <SelectContent className="bg-[#1a1a1e] border-white/[0.06]">
+                    <SelectItem value="ligacao">Ligacao</SelectItem>
                     <SelectItem value="email">E-mail</SelectItem>
                     <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                    <SelectItem value="reuniao">Reunião</SelectItem>
+                    <SelectItem value="reuniao">Reuniao</SelectItem>
                     <SelectItem value="proposta">Proposta</SelectItem>
                     <SelectItem value="contrato">Contrato</SelectItem>
                   </SelectContent>
@@ -1120,14 +1411,14 @@ export default function FollowUpsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Prioridade</Label>
+                <Label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Prioridade</Label>
                 <Select value={editForm.prioridade} onValueChange={(value) => setEditForm({ ...editForm, prioridade: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white focus:ring-emerald-500/20">
                     <SelectValue placeholder="Selecionar prioridade" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#1a1a1e] border-white/[0.06]">
                     <SelectItem value="baixa">Baixa</SelectItem>
-                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="media">Media</SelectItem>
                     <SelectItem value="alta">Alta</SelectItem>
                     <SelectItem value="urgente">Urgente</SelectItem>
                   </SelectContent>
@@ -1135,32 +1426,32 @@ export default function FollowUpsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Status</Label>
+                <Label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Status</Label>
                 <Select value={editForm.status} onValueChange={(value) => setEditForm({ ...editForm, status: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white focus:ring-emerald-500/20">
                     <SelectValue placeholder="Selecionar status" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#1a1a1e] border-white/[0.06]">
                     <SelectItem value="pendente">Pendente</SelectItem>
                     <SelectItem value="em_andamento">Em Andamento</SelectItem>
-                    <SelectItem value="concluido">Concluído</SelectItem>
+                    <SelectItem value="concluido">Concluido</SelectItem>
                     <SelectItem value="cancelado">Cancelado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t">
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/[0.06]">
               <button
                 onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors"
+                className="px-4 py-2.5 text-sm text-white/50 hover:text-white/80 hover:bg-white/[0.04] rounded-xl transition-all"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleUpdateFollowUp}
                 disabled={isLoadingData}
-                className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-xl text-sm font-semibold shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoadingData ? (
                   <>
@@ -1170,7 +1461,7 @@ export default function FollowUpsPage() {
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4" />
-                    Salvar Alterações
+                    Salvar Alteracoes
                   </>
                 )}
               </button>
@@ -1179,31 +1470,31 @@ export default function FollowUpsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Criação */}
+      {/* Create Modal - Glass-morphism Dark */}
       <Dialog open={showNewModal} onOpenChange={setShowNewModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-[#141418]/95 backdrop-blur-xl border-white/[0.06] ring-1 ring-white/[0.06] shadow-2xl shadow-black/40">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <div className="p-2 bg-primary rounded-lg">
-                <Plus className="w-5 h-5 text-white" />
+            <DialogTitle className="flex items-center gap-3 text-white">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                <Plus className="w-5 h-5 text-emerald-400" />
               </div>
               Criar Novo Follow-up
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6 py-4">
+          <div className="space-y-5 py-4">
             <div className="space-y-2">
-              <Label>Lead *</Label>
+              <Label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Lead *</Label>
               <Select value={newForm.lead_id} onValueChange={(value) => {
                 setNewForm({ ...newForm, lead_id: value })
                 if (newFormErrors.lead_id) {
                   setNewFormErrors({ ...newFormErrors, lead_id: '' })
                 }
               }}>
-                <SelectTrigger className={`${newFormErrors.lead_id ? 'border-red-500' : ''}`}>
+                <SelectTrigger className={`bg-white/[0.03] border-white/[0.06] text-white focus:ring-emerald-500/20 ${newFormErrors.lead_id ? 'border-red-500/50 ring-1 ring-red-500/20' : ''}`}>
                   <SelectValue placeholder="Selecionar lead" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-[#1a1a1e] border-white/[0.06] max-h-60">
                   {leads.map((lead) => (
                     <SelectItem key={lead.id} value={lead.id}>
                       {lead.nome_completo} ({lead.email})
@@ -1212,13 +1503,16 @@ export default function FollowUpsPage() {
                 </SelectContent>
               </Select>
               {newFormErrors.lead_id && (
-                <p className="text-sm text-red-600">{newFormErrors.lead_id}</p>
+                <p className="text-xs text-red-400 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {newFormErrors.lead_id}
+                </p>
               )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="new-titulo">Título *</Label>
+                <Label htmlFor="new-titulo" className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Titulo *</Label>
                 <Input
                   id="new-titulo"
                   value={newForm.titulo}
@@ -1228,16 +1522,19 @@ export default function FollowUpsPage() {
                       setNewFormErrors({ ...newFormErrors, titulo: '' })
                     }
                   }}
-                  placeholder="Título do follow-up"
-                  className={`${newFormErrors.titulo ? 'border-red-500 focus:ring-red-500' : ''}`}
+                  placeholder="Titulo do follow-up"
+                  className={`bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/20 focus:border-emerald-500/40 focus:ring-emerald-500/20 ${newFormErrors.titulo ? 'border-red-500/50 ring-1 ring-red-500/20' : ''}`}
                 />
                 {newFormErrors.titulo && (
-                  <p className="text-sm text-red-600">{newFormErrors.titulo}</p>
+                  <p className="text-xs text-red-400 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {newFormErrors.titulo}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="new-data">Data Agendada *</Label>
+                <Label htmlFor="new-data" className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Data Agendada *</Label>
                 <Input
                   id="new-data"
                   type="date"
@@ -1248,37 +1545,40 @@ export default function FollowUpsPage() {
                       setNewFormErrors({ ...newFormErrors, data_agendada: '' })
                     }
                   }}
-                  className={`${newFormErrors.data_agendada ? 'border-red-500 focus:ring-red-500' : ''}`}
+                  className={`bg-white/[0.03] border-white/[0.06] text-white focus:border-emerald-500/40 focus:ring-emerald-500/20 ${newFormErrors.data_agendada ? 'border-red-500/50 ring-1 ring-red-500/20' : ''}`}
                 />
                 {newFormErrors.data_agendada && (
-                  <p className="text-sm text-red-600">{newFormErrors.data_agendada}</p>
+                  <p className="text-xs text-red-400 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {newFormErrors.data_agendada}
+                  </p>
                 )}
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-descricao">Descrição</Label>
+              <Label htmlFor="new-descricao" className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Descricao</Label>
               <Textarea
                 id="new-descricao"
                 value={newForm.descricao}
                 onChange={(e) => setNewForm({ ...newForm, descricao: e.target.value })}
-                placeholder="Descrição do follow-up"
-                className="min-h-[100px]"
+                placeholder="Descricao do follow-up"
+                className="min-h-[100px] bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/20 focus:border-emerald-500/40 focus:ring-emerald-500/20"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Tipo</Label>
+                <Label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Tipo</Label>
                 <Select value={newForm.tipo} onValueChange={(value) => setNewForm({ ...newForm, tipo: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white focus:ring-emerald-500/20">
                     <SelectValue placeholder="Selecionar tipo" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ligacao">Ligação</SelectItem>
+                  <SelectContent className="bg-[#1a1a1e] border-white/[0.06]">
+                    <SelectItem value="ligacao">Ligacao</SelectItem>
                     <SelectItem value="email">E-mail</SelectItem>
                     <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                    <SelectItem value="reuniao">Reunião</SelectItem>
+                    <SelectItem value="reuniao">Reuniao</SelectItem>
                     <SelectItem value="proposta">Proposta</SelectItem>
                     <SelectItem value="contrato">Contrato</SelectItem>
                   </SelectContent>
@@ -1286,14 +1586,14 @@ export default function FollowUpsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Prioridade</Label>
+                <Label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Prioridade</Label>
                 <Select value={newForm.prioridade} onValueChange={(value) => setNewForm({ ...newForm, prioridade: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white focus:ring-emerald-500/20">
                     <SelectValue placeholder="Selecionar prioridade" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#1a1a1e] border-white/[0.06]">
                     <SelectItem value="baixa">Baixa</SelectItem>
-                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="media">Media</SelectItem>
                     <SelectItem value="alta">Alta</SelectItem>
                     <SelectItem value="urgente">Urgente</SelectItem>
                   </SelectContent>
@@ -1301,32 +1601,32 @@ export default function FollowUpsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Status</Label>
+                <Label className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Status</Label>
                 <Select value={newForm.status} onValueChange={(value) => setNewForm({ ...newForm, status: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white focus:ring-emerald-500/20">
                     <SelectValue placeholder="Selecionar status" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#1a1a1e] border-white/[0.06]">
                     <SelectItem value="pendente">Pendente</SelectItem>
                     <SelectItem value="em_andamento">Em Andamento</SelectItem>
-                    <SelectItem value="concluido">Concluído</SelectItem>
+                    <SelectItem value="concluido">Concluido</SelectItem>
                     <SelectItem value="cancelado">Cancelado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t">
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/[0.06]">
               <button
                 onClick={() => setShowNewModal(false)}
-                className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors"
+                className="px-4 py-2.5 text-sm text-white/50 hover:text-white/80 hover:bg-white/[0.04] rounded-xl transition-all"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreateFollowUp}
                 disabled={isLoadingData}
-                className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-xl text-sm font-semibold shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoadingData ? (
                   <>

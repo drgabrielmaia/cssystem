@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Search, Users, Eye, EyeOff, CheckCircle, XCircle, Plus, Shield, RefreshCw } from 'lucide-react'
+import { Search, Users, Eye, EyeOff, CheckCircle, XCircle, Plus, Shield, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface Mentorado {
   id: string
@@ -43,6 +43,7 @@ export default function PortalAccessPage() {
   const [resultadoSimulacao, setResultadoSimulacao] = useState<any>(null)
   const [resultadoExecucao, setResultadoExecucao] = useState<any>(null)
   const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkExpanded, setBulkExpanded] = useState(false)
 
   useEffect(() => {
     carregarDados()
@@ -157,7 +158,7 @@ export default function PortalAccessPage() {
     setBulkLoading(true)
     try {
       console.log('🚀 Iniciando liberação universal de acesso aos módulos...')
-      
+
       const response = await fetch('/api/admin/grant-all-access', {
         method: 'POST',
         headers: {
@@ -210,7 +211,7 @@ export default function PortalAccessPage() {
       })
 
       const result = await response.json()
-      
+
       if (result.success) {
         setResultadoSimulacao(result.stats)
         console.log('✅ Simulação concluída:', result.stats)
@@ -228,12 +229,12 @@ export default function PortalAccessPage() {
 
   const executarLiberacaoUniversal = async () => {
     if (bulkLoading) return
-    
+
     const confirmacao = confirm(
       'Tem certeza que deseja liberar acesso a todos os módulos para todos os mentorados ativos?\n\n' +
       'Esta ação não pode ser desfeita facilmente.'
     )
-    
+
     if (!confirmacao) return
 
     setBulkLoading(true)
@@ -248,7 +249,7 @@ export default function PortalAccessPage() {
       })
 
       const result = await response.json()
-      
+
       if (result.success) {
         setResultadoExecucao(result.stats)
         await carregarDados() // Recarregar dados para ver mudanças
@@ -289,54 +290,110 @@ export default function PortalAccessPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-white/10 border-t-white/60"></div>
+          <p className="text-gray-400 text-sm">Carregando dados...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-[#0A0A0A] p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Controle de Acesso ao Portal</h1>
-          <p className="text-gray-600 mt-2">
-            Gerencie quais mentorados têm acesso ao portal de vídeos
+          <h1 className="text-3xl font-bold text-white">Controle de Acesso ao Portal</h1>
+          <p className="text-gray-400 mt-2">
+            Gerencie quais mentorados tem acesso ao portal de videos
           </p>
         </div>
 
-        {/* Ações em Lote */}
-        <Card className="border-orange-200 bg-orange-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-orange-800">
-              <Shield className="w-5 h-5" />
-              Liberação Universal de Acesso aos Módulos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-4">
-              <p className="text-sm text-orange-700">
-                Use estas ferramentas para liberar o acesso a todos os módulos de vídeo para todos os mentorados ativos.
-                Esta ação afeta apenas o acesso aos <strong>módulos específicos</strong>, não o acesso geral ao portal.
+        {/* Estatisticas */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-[#141418] p-6 rounded-xl ring-1 ring-white/[0.06]">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400">Total de Mentorados</p>
+                <p className="text-3xl font-bold text-white mt-1">{stats.total}</p>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <Users className="w-6 h-6 text-blue-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#141418] p-6 rounded-xl ring-1 ring-white/[0.06]">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400">Com Acesso</p>
+                <p className="text-3xl font-bold text-emerald-400 mt-1">{stats.withAccess}</p>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                <Eye className="w-6 h-6 text-emerald-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#141418] p-6 rounded-xl ring-1 ring-white/[0.06]">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400">Sem Acesso</p>
+                <p className="text-3xl font-bold text-red-400 mt-1">{stats.withoutAccess}</p>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
+                <EyeOff className="w-6 h-6 text-red-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Liberacao Universal - Collapsible */}
+        <div className="bg-[#141418] rounded-xl ring-1 ring-white/[0.06] overflow-hidden">
+          <button
+            onClick={() => setBulkExpanded(!bulkExpanded)}
+            className="w-full flex items-center justify-between p-5 text-left hover:bg-white/[0.02] transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-amber-500/10 flex items-center justify-center">
+                <Shield className="w-4 h-4 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-white">Liberacao Universal de Acesso aos Modulos</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Ferramentas para liberar acesso em lote</p>
+              </div>
+            </div>
+            {bulkExpanded ? (
+              <ChevronUp className="w-4 h-4 text-gray-500" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-gray-500" />
+            )}
+          </button>
+
+          {bulkExpanded && (
+            <div className="px-5 pb-5 space-y-4 border-t border-white/[0.06]">
+              <p className="text-sm text-gray-400 pt-4">
+                Use estas ferramentas para liberar o acesso a todos os modulos de video para todos os mentorados ativos.
+                Esta acao afeta apenas o acesso aos <strong className="text-gray-300">modulos especificos</strong>, nao o acesso geral ao portal.
               </p>
-              
+
               <div className="flex flex-wrap gap-3">
                 <Button
                   onClick={simularLiberacaoUniversal}
                   disabled={bulkLoading}
                   variant="outline"
-                  className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                  className="border-white/[0.08] bg-white/[0.03] text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/20 hover:text-blue-300"
                 >
                   {bulkLoading ? (
                     <>
                       <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Processando...
+                      Simulando...
                     </>
                   ) : (
                     <>
                       <Eye className="w-4 h-4 mr-2" />
-                      Simular Liberação
+                      Simular Liberacao
                     </>
                   )}
                 </Button>
@@ -344,7 +401,7 @@ export default function PortalAccessPage() {
                 <Button
                   onClick={liberarAcessoUniversal}
                   disabled={bulkLoading}
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white border-0"
                 >
                   {bulkLoading ? (
                     <>
@@ -358,284 +415,273 @@ export default function PortalAccessPage() {
                     </>
                   )}
                 </Button>
-              </div>
 
-              <div className="text-xs text-orange-600 bg-orange-100 p-3 rounded border">
-                <strong>⚠️ Importante:</strong> A simulação mostra o que seria feito sem fazer alterações. 
-                Use-a primeiro para verificar o impacto antes de executar a liberação real.
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total de Mentorados</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
-                </div>
-                <Users className="w-8 h-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Com Acesso</p>
-                  <p className="text-3xl font-bold text-green-600">{stats.withAccess}</p>
-                </div>
-                <Eye className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Sem Acesso</p>
-                  <p className="text-3xl font-bold text-red-600">{stats.withoutAccess}</p>
-                </div>
-                <EyeOff className="w-8 h-8 text-red-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Liberação Universal de Acesso */}
-        <Card className="border-orange-200 bg-orange-50">
-          <CardHeader>
-            <CardTitle className="text-orange-800">🔓 Liberação Universal de Acesso aos Módulos</CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <p className="text-sm text-orange-700">
-                <strong>⚠️ Atenção:</strong> Esta ação irá conceder acesso a todos os módulos de vídeo para todos os mentorados ativos.
-              </p>
-              <div className="flex gap-4">
-                <Button
-                  onClick={simularLiberacaoUniversal}
-                  variant="outline"
-                  disabled={bulkLoading}
-                  className="border-orange-300 text-orange-700 hover:bg-orange-100"
-                >
-                  {bulkLoading ? 'Simulando...' : '🧪 Simular Liberação'}
-                </Button>
                 <Button
                   onClick={executarLiberacaoUniversal}
-                  className="bg-orange-600 hover:bg-orange-700 text-white"
                   disabled={bulkLoading}
+                  className="bg-amber-600 hover:bg-amber-700 text-white border-0"
                 >
-                  {bulkLoading ? 'Processando...' : '🚀 Liberar Acesso Universal'}
+                  {bulkLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="w-4 h-4 mr-2" />
+                      Executar Liberacao
+                    </>
+                  )}
                 </Button>
               </div>
+
+              <div className="text-xs text-amber-400/70 bg-amber-500/[0.06] p-3 rounded-lg ring-1 ring-amber-500/10">
+                <strong>Importante:</strong> A simulacao mostra o que seria feito sem fazer alteracoes.
+                Use-a primeiro para verificar o impacto antes de executar a liberacao real.
+              </div>
+
               {resultadoSimulacao && (
-                <div className="mt-4 p-3 bg-white rounded border border-orange-200">
-                  <h4 className="font-medium text-orange-800 mb-2">Resultado da Simulação:</h4>
-                  <div className="text-sm text-gray-700 space-y-1">
-                    <p>• Mentorados ativos: {resultadoSimulacao.mentoradosProcessed}</p>
-                    <p>• Módulos encontrados: {resultadoSimulacao.modulesFound}</p>
-                    <p>• Novos acessos a criar: {resultadoSimulacao.newAccessRecords}</p>
-                    <p>• Acessos a restaurar: {resultadoSimulacao.accessRecordsToUpdate}</p>
-                    <p>• Total a processar: {resultadoSimulacao.totalProcessed}</p>
+                <div className="p-4 bg-white/[0.03] rounded-lg ring-1 ring-white/[0.06]">
+                  <h4 className="font-medium text-white mb-3 text-sm">Resultado da Simulacao:</h4>
+                  <div className="text-sm text-gray-400 space-y-1.5">
+                    <p>Mentorados ativos: <span className="text-white">{resultadoSimulacao.mentoradosProcessed}</span></p>
+                    <p>Modulos encontrados: <span className="text-white">{resultadoSimulacao.modulesFound}</span></p>
+                    <p>Novos acessos a criar: <span className="text-emerald-400">{resultadoSimulacao.newAccessRecords}</span></p>
+                    <p>Acessos a restaurar: <span className="text-blue-400">{resultadoSimulacao.accessRecordsToUpdate}</span></p>
+                    <p>Total a processar: <span className="text-white font-medium">{resultadoSimulacao.totalProcessed}</span></p>
                   </div>
                 </div>
               )}
+
               {resultadoExecucao && (
-                <div className="mt-4 p-3 bg-green-50 rounded border border-green-200">
-                  <h4 className="font-medium text-green-800 mb-2">✅ Liberação Concluída!</h4>
-                  <div className="text-sm text-green-700 space-y-1">
-                    <p>• Novos acessos criados: {resultadoExecucao.newAccessRecordsCreated}</p>
-                    <p>• Acessos restaurados: {resultadoExecucao.accessRecordsUpdated}</p>
-                    <p>• Total processado: {resultadoExecucao.totalProcessed}</p>
+                <div className="p-4 bg-emerald-500/[0.06] rounded-lg ring-1 ring-emerald-500/10">
+                  <h4 className="font-medium text-emerald-400 mb-3 text-sm flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    Liberacao Concluida!
+                  </h4>
+                  <div className="text-sm text-gray-400 space-y-1.5">
+                    <p>Novos acessos criados: <span className="text-emerald-400">{resultadoExecucao.newAccessRecordsCreated}</span></p>
+                    <p>Acessos restaurados: <span className="text-blue-400">{resultadoExecucao.accessRecordsUpdated}</span></p>
+                    <p>Total processado: <span className="text-white font-medium">{resultadoExecucao.totalProcessed}</span></p>
                   </div>
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </div>
 
         {/* Controles de Filtro */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="flex items-center gap-4 w-full md:w-auto">
-                <div className="relative flex-1 md:w-80">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    placeholder="Buscar mentorado..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant={filter === 'all' ? 'default' : 'outline'}
-                  onClick={() => setFilter('all')}
-                  size="sm"
-                >
-                  Todos
-                </Button>
-                <Button
-                  variant={filter === 'with_access' ? 'default' : 'outline'}
-                  onClick={() => setFilter('with_access')}
-                  size="sm"
-                >
-                  Com Acesso
-                </Button>
-                <Button
-                  variant={filter === 'without_access' ? 'default' : 'outline'}
-                  onClick={() => setFilter('without_access')}
-                  size="sm"
-                >
-                  Sem Acesso
-                </Button>
+        <div className="bg-[#141418] rounded-xl ring-1 ring-white/[0.06] p-5">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="relative flex-1 md:w-80">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input
+                  placeholder="Buscar mentorado..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-[#1a1a1e] border-white/[0.06] text-white placeholder-gray-500 focus:ring-white/10 focus:border-white/10"
+                />
               </div>
             </div>
-          </CardContent>
-        </Card>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFilter('all')}
+                className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  filter === 'all'
+                    ? 'bg-white/10 text-white ring-1 ring-white/20'
+                    : 'text-gray-400 hover:text-gray-300 hover:bg-white/[0.04]'
+                }`}
+              >
+                Todos ({stats.total})
+              </button>
+              <button
+                onClick={() => setFilter('with_access')}
+                className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  filter === 'with_access'
+                    ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/20'
+                    : 'text-gray-400 hover:text-gray-300 hover:bg-white/[0.04]'
+                }`}
+              >
+                Com Acesso ({stats.withAccess})
+              </button>
+              <button
+                onClick={() => setFilter('without_access')}
+                className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  filter === 'without_access'
+                    ? 'bg-red-500/15 text-red-400 ring-1 ring-red-500/20'
+                    : 'text-gray-400 hover:text-gray-300 hover:bg-white/[0.04]'
+                }`}
+              >
+                Sem Acesso ({stats.withoutAccess})
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* Lista de Mentorados */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Mentorados ({mentoradosFiltrados.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Mentorado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Contato
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status Login
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Acesso Portal
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {mentoradosFiltrados.map((mentorado) => {
-                    const accessInfo = getAccessInfo(mentorado.id)
-                    const hasAccess = !!accessInfo
+        <div className="bg-[#141418] rounded-xl ring-1 ring-white/[0.06] overflow-hidden">
+          <div className="px-6 py-4 border-b border-white/[0.06]">
+            <h2 className="text-sm font-semibold text-white">
+              Mentorados <span className="text-gray-500 font-normal ml-1">({mentoradosFiltrados.length})</span>
+            </h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-white/[0.06]">
+                  <th className="px-6 py-3 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+                    Mentorado
+                  </th>
+                  <th className="px-6 py-3 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+                    Contato
+                  </th>
+                  <th className="px-6 py-3 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+                    Status Login
+                  </th>
+                  <th className="px-6 py-3 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+                    Acesso Portal
+                  </th>
+                  <th className="px-6 py-3 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+                    Acoes
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {mentoradosFiltrados.map((mentorado) => {
+                  const accessInfo = getAccessInfo(mentorado.id)
+                  const hasAccess = !!accessInfo
+                  const isVip = accessInfo?.access_level === 'vip'
 
-                    return (
-                      <tr key={mentorado.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {mentorado.nome_completo}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              Entrada: {new Date(mentorado.data_entrada).toLocaleDateString('pt-BR')}
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{mentorado.email}</div>
-                          <div className="text-sm text-gray-500">{mentorado.telefone}</div>
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Badge
-                            variant={mentorado.status_login === 'ativo' ? 'default' : 'secondary'}
-                            className={
-                              mentorado.status_login === 'ativo' ? 'bg-green-100 text-green-700' :
-                              mentorado.status_login === 'bloqueado' ? 'bg-red-100 text-red-700' :
-                              'bg-gray-100 text-gray-700'
-                            }
-                          >
-                            {mentorado.status_login}
-                          </Badge>
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {hasAccess ? (
-                            <div className="flex items-center gap-2">
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                              <span className="text-sm text-green-600">Ativo</span>
-                              <Badge variant="outline" className="ml-2">
-                                {accessInfo.access_level || 'basic'}
-                              </Badge>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <XCircle className="w-4 h-4 text-red-500" />
-                              <span className="text-sm text-red-600">Sem acesso</span>
-                            </div>
-                          )}
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            {hasAccess ? (
-                              <Button
-                                onClick={() => revogarAcesso(mentorado.id)}
-                                variant="destructive"
-                                size="sm"
-                              >
-                                <EyeOff className="w-4 h-4 mr-1" />
-                                Revogar
-                              </Button>
-                            ) : (
-                              <div className="flex gap-1">
-                                <Button
-                                  onClick={() => concederAcesso(mentorado.id, 'basic')}
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  <Plus className="w-4 h-4 mr-1" />
-                                  Básico
-                                </Button>
-                                <Button
-                                  onClick={() => concederAcesso(mentorado.id, 'premium')}
-                                  variant="default"
-                                  size="sm"
-                                >
-                                  <Plus className="w-4 h-4 mr-1" />
-                                  Premium
-                                </Button>
-                              </div>
+                  return (
+                    <tr key={mentorado.id} className="hover:bg-white/[0.03] transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-white flex items-center gap-2">
+                            {mentorado.nome_completo}
+                            {isVip && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/20">
+                                VIP
+                              </span>
                             )}
                           </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            Entrada: {new Date(mentorado.data_entrada).toLocaleDateString('pt-BR')}
+                          </div>
+                        </div>
+                      </td>
 
-              {mentoradosFiltrados.length === 0 && (
-                <div className="text-center py-12">
-                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-600 mb-2">
-                    Nenhum mentorado encontrado
-                  </h3>
-                  <p className="text-gray-500">
-                    Ajuste os filtros ou termo de busca
-                  </p>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-300">{mentorado.email}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{mentorado.telefone}</div>
+                      </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium ${
+                            mentorado.status_login === 'ativo'
+                              ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20'
+                              : mentorado.status_login === 'bloqueado'
+                              ? 'bg-red-500/10 text-red-400 ring-1 ring-red-500/20'
+                              : 'bg-white/[0.06] text-gray-400 ring-1 ring-white/[0.08]'
+                          }`}
+                        >
+                          {mentorado.status_login}
+                        </span>
+                      </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {hasAccess ? (
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-emerald-400" />
+                            <span className="text-sm text-emerald-400">Ativo</span>
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ml-1 ${
+                                accessInfo.access_level === 'vip'
+                                  ? 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/20'
+                                  : accessInfo.access_level === 'premium'
+                                  ? 'bg-purple-500/15 text-purple-400 ring-1 ring-purple-500/20'
+                                  : 'bg-white/[0.06] text-gray-400 ring-1 ring-white/[0.08]'
+                              }`}
+                            >
+                              {accessInfo.access_level || 'basic'}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <XCircle className="w-4 h-4 text-red-400/70" />
+                            <span className="text-sm text-gray-500">Sem acesso</span>
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          {hasAccess ? (
+                            <Button
+                              onClick={() => revogarAcesso(mentorado.id)}
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-8 px-3 text-xs"
+                            >
+                              <EyeOff className="w-3.5 h-3.5 mr-1.5" />
+                              Revogar
+                            </Button>
+                          ) : (
+                            <div className="flex gap-1.5">
+                              <Button
+                                onClick={() => concederAcesso(mentorado.id, 'basic')}
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-400 hover:text-white hover:bg-white/[0.06] h-8 px-3 text-xs ring-1 ring-white/[0.06]"
+                              >
+                                <Plus className="w-3.5 h-3.5 mr-1" />
+                                Basico
+                              </Button>
+                              <Button
+                                onClick={() => concederAcesso(mentorado.id, 'premium')}
+                                variant="ghost"
+                                size="sm"
+                                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 h-8 px-3 text-xs ring-1 ring-purple-500/20"
+                              >
+                                <Plus className="w-3.5 h-3.5 mr-1" />
+                                Premium
+                              </Button>
+                              <Button
+                                onClick={() => concederAcesso(mentorado.id, 'vip')}
+                                variant="ghost"
+                                size="sm"
+                                className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 h-8 px-3 text-xs ring-1 ring-amber-500/20"
+                              >
+                                <Plus className="w-3.5 h-3.5 mr-1" />
+                                VIP
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+
+            {mentoradosFiltrados.length === 0 && (
+              <div className="text-center py-16">
+                <div className="w-14 h-14 rounded-full bg-white/[0.04] flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-7 h-7 text-gray-600" />
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                <h3 className="text-base font-medium text-gray-400 mb-1">
+                  Nenhum mentorado encontrado
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Ajuste os filtros ou termo de busca
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

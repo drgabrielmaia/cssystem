@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { PageLayout } from '@/components/ui/page-layout'
 import { MetricCard } from '@/components/ui/metric-card'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { 
+import {
   Plus,
   Video,
   Users,
@@ -80,11 +80,11 @@ interface EventStatistics {
 }
 
 const eventTypes = {
-  call_group: { label: 'Call em Grupo', color: 'bg-blue-500' },
-  webinar: { label: 'Webinar', color: 'bg-green-500' },
-  workshop: { label: 'Workshop', color: 'bg-purple-500' },
-  masterclass: { label: 'Masterclass', color: 'bg-orange-500' },
-  evento_especial: { label: 'Evento Especial', color: 'bg-red-500' }
+  call_group: { label: 'Call em Grupo', color: 'bg-blue-500', accent: 'text-blue-400', ring: 'ring-blue-500/20', bgSoft: 'bg-blue-500/10', icon: Phone },
+  webinar: { label: 'Webinar', color: 'bg-emerald-500', accent: 'text-emerald-400', ring: 'ring-emerald-500/20', bgSoft: 'bg-emerald-500/10', icon: Video },
+  workshop: { label: 'Workshop', color: 'bg-purple-500', accent: 'text-purple-400', ring: 'ring-purple-500/20', bgSoft: 'bg-purple-500/10', icon: Users },
+  masterclass: { label: 'Masterclass', color: 'bg-amber-500', accent: 'text-amber-400', ring: 'ring-amber-500/20', bgSoft: 'bg-amber-500/10', icon: Target },
+  evento_especial: { label: 'Evento Especial', color: 'bg-rose-500', accent: 'text-rose-400', ring: 'ring-rose-500/20', bgSoft: 'bg-rose-500/10', icon: Calendar }
 }
 
 const attendanceStatusColors = {
@@ -102,6 +102,9 @@ const conversionStatusColors = {
   converted: 'bg-green-500',
   lost: 'bg-red-500'
 }
+
+type FilterTab = 'all' | 'call_group' | 'webinar' | 'workshop' | 'masterclass' | 'evento_especial'
+type ViewMode = 'list' | 'calendar'
 
 export default function CallsEventosPage() {
   const { user, organizationId } = useAuth()
@@ -124,6 +127,8 @@ export default function CallsEventosPage() {
   const [showAddParticipantModal, setShowAddParticipantModal] = useState(false)
   const [showConvertModal, setShowConvertModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<EventParticipant | null>(null)
+  const [activeFilter, setActiveFilter] = useState<FilterTab>('all')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
 
   // New event form state
   const [newEvent, setNewEvent] = useState({
@@ -377,11 +382,83 @@ export default function CallsEventosPage() {
     setShowParticipantsModal(true)
   }
 
+  // Filtered events based on active tab
+  const filteredEvents = useMemo(() => {
+    if (activeFilter === 'all') return events
+    return events.filter(e => e.type === activeFilter)
+  }, [events, activeFilter])
+
+  // Calendar data: group events by date
+  const calendarData = useMemo(() => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const firstDayOfWeek = new Date(year, month, 1).getDay()
+
+    const days: Array<{ date: number; events: GroupEvent[]; isToday: boolean }> = []
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      const dayEvents = filteredEvents.filter(e => {
+        const eventDate = new Date(e.date_time)
+        return eventDate.toISOString().slice(0, 10) === dateStr
+      })
+      days.push({
+        date: d,
+        events: dayEvents,
+        isToday: d === now.getDate()
+      })
+    }
+
+    return { days, firstDayOfWeek, monthName: now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) }
+  }, [filteredEvents])
+
+  // Filter tab counts
+  const filterCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: events.length }
+    for (const e of events) {
+      counts[e.type] = (counts[e.type] || 0) + 1
+    }
+    return counts
+  }, [events])
+
+  const filterTabs: { key: FilterTab; label: string; icon: React.ElementType }[] = [
+    { key: 'all', label: 'Todos', icon: BarChart3 },
+    { key: 'call_group', label: 'Calls', icon: Phone },
+    { key: 'webinar', label: 'Webinars', icon: Video },
+    { key: 'workshop', label: 'Workshops', icon: Users },
+    { key: 'masterclass', label: 'Masterclass', icon: Target },
+    { key: 'evento_especial', label: 'Especiais', icon: Calendar },
+  ]
+
+  // Status rendering
+  const getStatusConfig = (status: GroupEvent['status']) => {
+    switch (status) {
+      case 'live':
+        return { label: 'Ao Vivo', dotColor: 'bg-blue-400', textColor: 'text-blue-400', bgColor: 'bg-blue-500/10', borderColor: 'border-blue-500/20', animated: true }
+      case 'scheduled':
+        return { label: 'Agendado', dotColor: 'bg-amber-400', textColor: 'text-amber-400', bgColor: 'bg-amber-500/10', borderColor: 'border-amber-500/20', animated: false }
+      case 'completed':
+        return { label: 'Concluido', dotColor: 'bg-emerald-400', textColor: 'text-emerald-400', bgColor: 'bg-emerald-500/10', borderColor: 'border-emerald-500/20', animated: false }
+      case 'cancelled':
+        return { label: 'Cancelado', dotColor: 'bg-red-400', textColor: 'text-red-400', bgColor: 'bg-red-500/10', borderColor: 'border-red-500/20', animated: false }
+    }
+  }
+
   if (loading) {
     return (
       <PageLayout title="Calls em Grupo e Eventos">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="flex items-center justify-center h-96">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full border-2 border-white/[0.06] border-t-blue-500 animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Video className="w-5 h-5 text-blue-400" />
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 animate-pulse">Carregando eventos...</p>
+          </div>
         </div>
       </PageLayout>
     )
@@ -389,209 +466,448 @@ export default function CallsEventosPage() {
 
   return (
     <PageLayout title="Calls em Grupo e Eventos">
-      {/* Header with Actions */}
-      <div className="flex items-center justify-between mb-6">
+      {/* ── Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <p className="text-gray-400">
-            Gerencie seus eventos, acompanhe participantes e monitore conversões
+          <p className="text-gray-500 text-sm leading-relaxed max-w-lg">
+            Gerencie seus eventos, acompanhe participantes e monitore conversoes em tempo real.
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button onClick={loadData} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={loadData}
+            variant="outline"
+            size="sm"
+            className="border-white/[0.06] bg-[#141418] text-gray-400 hover:text-white hover:bg-white/[0.04]"
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-2" />
             Atualizar
           </Button>
-          <Button onClick={() => setShowNewEventModal(true)} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
+          <Button
+            onClick={() => setShowNewEventModal(true)}
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20"
+          >
+            <Plus className="h-3.5 w-3.5 mr-2" />
             Novo Evento
           </Button>
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <MetricCard
-          title="Total de Eventos"
-          value={statistics.total_events.toString()}
-          icon={Calendar}
-          iconColor="blue"
-        />
-        <MetricCard
-          title="Participantes"
-          value={statistics.total_participants.toString()}
-          icon={Users}
-          iconColor="green"
-        />
-        <MetricCard
-          title="Taxa de Presença"
-          value={`${statistics.attendance_rate.toFixed(1)}%`}
-          icon={CheckCircle2}
-          iconColor="orange"
-        />
-        <MetricCard
-          title="Taxa de Conversão"
-          value={`${statistics.conversion_rate.toFixed(1)}%`}
-          icon={Target}
-          iconColor="purple"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <MetricCard
-          title="Receita Total"
-          value={`R$ ${statistics.total_conversion_value.toLocaleString('pt-BR')}`}
-          icon={DollarSign}
-          iconColor="green"
-        />
-        <MetricCard
-          title="Ticket Médio"
-          value={`R$ ${statistics.avg_conversion_value.toLocaleString('pt-BR')}`}
-          icon={BarChart3}
-          iconColor="blue"
-        />
-      </div>
-
-      {/* Events List */}
-      <div className="bg-gray-800 rounded-lg shadow-lg">
-        <div className="p-6 border-b border-gray-700">
-          <h3 className="text-lg font-semibold text-white">Eventos Recentes</h3>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-700">
-              <tr>
-                <th className="text-left py-3 px-6 text-gray-300 text-sm font-medium">Evento</th>
-                <th className="text-left py-3 px-6 text-gray-300 text-sm font-medium">Tipo</th>
-                <th className="text-left py-3 px-6 text-gray-300 text-sm font-medium">Data</th>
-                <th className="text-left py-3 px-6 text-gray-300 text-sm font-medium">Participantes</th>
-                <th className="text-left py-3 px-6 text-gray-300 text-sm font-medium">Conversões</th>
-                <th className="text-left py-3 px-6 text-gray-300 text-sm font-medium">Status</th>
-                <th className="text-left py-3 px-6 text-gray-300 text-sm font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((event) => (
-                <tr key={event.id} className="hover:bg-gray-700 transition-colors border-b border-gray-700">
-                  <td className="py-4 px-6">
-                    <div>
-                      <p className="font-medium text-white">{event.name}</p>
-                      {event.description && (
-                        <p className="text-sm text-gray-400 mt-1">{event.description}</p>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <Badge className={`${eventTypes[event.type].color} text-white`}>
-                      {eventTypes[event.type].label}
-                    </Badge>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="text-sm">
-                      <p className="text-white">
-                        {new Date(event.date_time).toLocaleDateString('pt-BR')}
-                      </p>
-                      <p className="text-gray-400">
-                        {new Date(event.date_time).toLocaleTimeString('pt-BR', { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="text-sm">
-                      <p className="text-white">{event.participant_count || 0} inscritos</p>
-                      <p className="text-gray-400">{event.attendee_count || 0} presentes</p>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="text-sm">
-                      <p className="text-green-400">{event.conversion_count || 0} conversões</p>
-                      <p className="text-gray-400">
-                        R$ {(event.conversion_value || 0).toLocaleString('pt-BR')}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <Badge 
-                      variant="outline" 
-                      className={`
-                        ${event.status === 'completed' ? 'text-green-400 border-green-400' : 
-                          event.status === 'live' ? 'text-blue-400 border-blue-400' :
-                          event.status === 'cancelled' ? 'text-red-400 border-red-400' :
-                          'text-yellow-400 border-yellow-400'}
-                      `}
-                    >
-                      {event.status === 'scheduled' ? 'Agendado' :
-                       event.status === 'live' ? 'Ao Vivo' :
-                       event.status === 'completed' ? 'Concluído' : 'Cancelado'}
-                    </Badge>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openParticipantsModal(event)}
-                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/20"
-                      >
-                        <Users className="h-4 w-4" />
-                      </Button>
-                      {event.meeting_link && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => window.open(event.meeting_link, '_blank')}
-                          className="text-green-400 hover:text-green-300 hover:bg-green-900/20"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {events.length === 0 && (
-            <div className="p-8 text-center">
-              <Video className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-400 text-lg">Nenhum evento encontrado</p>
-              <p className="text-gray-500 text-sm">Crie seu primeiro evento para começar</p>
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-8">
+        {/* Total de Eventos */}
+        <div className="bg-[#141418] rounded-2xl p-4 ring-1 ring-white/[0.06] hover:ring-white/[0.1] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-xl bg-blue-500/10">
+              <Calendar className="w-4 h-4 text-blue-400" />
             </div>
-          )}
+          </div>
+          <p className="text-2xl font-bold text-white tracking-tight">{statistics.total_events}</p>
+          <p className="text-xs text-gray-500 mt-1">Total de Eventos</p>
+        </div>
+
+        {/* Participantes */}
+        <div className="bg-[#141418] rounded-2xl p-4 ring-1 ring-white/[0.06] hover:ring-white/[0.1] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-xl bg-emerald-500/10">
+              <Users className="w-4 h-4 text-emerald-400" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-white tracking-tight">{statistics.total_participants}</p>
+          <p className="text-xs text-gray-500 mt-1">Participantes</p>
+        </div>
+
+        {/* Presentes */}
+        <div className="bg-[#141418] rounded-2xl p-4 ring-1 ring-white/[0.06] hover:ring-white/[0.1] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-xl bg-cyan-500/10">
+              <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-white tracking-tight">{statistics.attendance_rate.toFixed(1)}%</p>
+          <p className="text-xs text-gray-500 mt-1">Taxa de Presenca</p>
+        </div>
+
+        {/* Conversao */}
+        <div className="bg-[#141418] rounded-2xl p-4 ring-1 ring-white/[0.06] hover:ring-white/[0.1] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-xl bg-purple-500/10">
+              <Target className="w-4 h-4 text-purple-400" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-white tracking-tight">{statistics.conversion_rate.toFixed(1)}%</p>
+          <p className="text-xs text-gray-500 mt-1">Taxa de Conversao</p>
+        </div>
+
+        {/* Receita */}
+        <div className="bg-[#141418] rounded-2xl p-4 ring-1 ring-white/[0.06] hover:ring-white/[0.1] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-xl bg-emerald-500/10">
+              <DollarSign className="w-4 h-4 text-emerald-400" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-white tracking-tight">
+            R$ {statistics.total_conversion_value.toLocaleString('pt-BR')}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">Receita Total</p>
+        </div>
+
+        {/* Ticket Medio */}
+        <div className="bg-[#141418] rounded-2xl p-4 ring-1 ring-white/[0.06] hover:ring-white/[0.1] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-xl bg-amber-500/10">
+              <BarChart3 className="w-4 h-4 text-amber-400" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-white tracking-tight">
+            R$ {statistics.avg_conversion_value.toLocaleString('pt-BR')}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">Ticket Medio</p>
         </div>
       </div>
 
-      {/* New Event Modal */}
+      {/* ── Filters + View Toggle ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-1 p-1 bg-[#141418] rounded-xl ring-1 ring-white/[0.06] overflow-x-auto">
+          {filterTabs.map((tab) => {
+            const TabIcon = tab.icon
+            const isActive = activeFilter === tab.key
+            const count = filterCounts[tab.key] || 0
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveFilter(tab.key)}
+                className={`
+                  flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-200
+                  ${isActive
+                    ? 'bg-white/[0.08] text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.03]'
+                  }
+                `}
+              >
+                <TabIcon className="w-3.5 h-3.5" />
+                {tab.label}
+                {count > 0 && (
+                  <span className={`
+                    ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none
+                    ${isActive ? 'bg-white/[0.12] text-white' : 'bg-white/[0.04] text-gray-600'}
+                  `}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* View Toggle */}
+        <div className="flex items-center gap-1 p-1 bg-[#141418] rounded-xl ring-1 ring-white/[0.06] self-start sm:self-auto">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`
+              flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200
+              ${viewMode === 'list'
+                ? 'bg-white/[0.08] text-white'
+                : 'text-gray-500 hover:text-gray-300'
+              }
+            `}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            Lista
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`
+              flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200
+              ${viewMode === 'calendar'
+                ? 'bg-white/[0.08] text-white'
+                : 'text-gray-500 hover:text-gray-300'
+              }
+            `}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            Calendario
+          </button>
+        </div>
+      </div>
+
+      {/* ── Calendar View ── */}
+      {viewMode === 'calendar' && (
+        <div className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] overflow-hidden mb-6">
+          <div className="px-6 py-4 border-b border-white/[0.06]">
+            <h3 className="text-sm font-semibold text-white capitalize">{calendarData.monthName}</h3>
+          </div>
+          <div className="p-4">
+            {/* Week header */}
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'].map(day => (
+                <div key={day} className="text-center text-[10px] font-medium text-gray-600 uppercase tracking-wider py-1">
+                  {day}
+                </div>
+              ))}
+            </div>
+            {/* Calendar grid */}
+            <div className="grid grid-cols-7 gap-1">
+              {/* Empty cells for offset */}
+              {Array.from({ length: calendarData.firstDayOfWeek }).map((_, i) => (
+                <div key={`empty-${i}`} className="aspect-square" />
+              ))}
+              {/* Day cells */}
+              {calendarData.days.map(day => (
+                <div
+                  key={day.date}
+                  className={`
+                    aspect-square rounded-xl p-1 flex flex-col items-center justify-start relative transition-all duration-200
+                    ${day.isToday ? 'ring-1 ring-blue-500/40 bg-blue-500/5' : 'hover:bg-white/[0.02]'}
+                    ${day.events.length > 0 ? 'cursor-pointer' : ''}
+                  `}
+                >
+                  <span className={`
+                    text-xs font-medium mt-0.5
+                    ${day.isToday ? 'text-blue-400' : day.events.length > 0 ? 'text-white' : 'text-gray-600'}
+                  `}>
+                    {day.date}
+                  </span>
+                  {day.events.length > 0 && (
+                    <div className="flex gap-0.5 mt-1 flex-wrap justify-center">
+                      {day.events.slice(0, 3).map((evt, idx) => (
+                        <div
+                          key={idx}
+                          className={`w-1.5 h-1.5 rounded-full ${eventTypes[evt.type].color}`}
+                          title={evt.name}
+                        />
+                      ))}
+                      {day.events.length > 3 && (
+                        <span className="text-[8px] text-gray-500 leading-none">+{day.events.length - 3}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Events Table / List View ── */}
+      {viewMode === 'list' && (
+        <div className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] overflow-hidden">
+          {/* Table Header */}
+          <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h3 className="text-sm font-semibold text-white">Eventos</h3>
+              <span className="px-2 py-0.5 rounded-full bg-white/[0.04] text-[10px] font-semibold text-gray-500 tabular-nums">
+                {filteredEvents.length}
+              </span>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-white/[0.06]">
+                  <th className="text-left py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Evento</th>
+                  <th className="text-left py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                  <th className="text-left py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                  <th className="text-left py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Participantes</th>
+                  <th className="text-left py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Conversoes</th>
+                  <th className="text-left py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="text-right py-3 px-6 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Acoes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {filteredEvents.map((event) => {
+                  const statusConfig = getStatusConfig(event.status)
+                  const TypeIcon = eventTypes[event.type].icon
+                  return (
+                    <tr
+                      key={event.id}
+                      className="group hover:bg-white/[0.02] transition-colors duration-150"
+                    >
+                      {/* Event Name */}
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${eventTypes[event.type].bgSoft} flex-shrink-0`}>
+                            <TypeIcon className={`w-4 h-4 ${eventTypes[event.type].accent}`} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{event.name}</p>
+                            {event.description && (
+                              <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[200px]">{event.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Type Badge */}
+                      <td className="py-4 px-6">
+                        <span className={`
+                          inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium
+                          ${eventTypes[event.type].bgSoft} ${eventTypes[event.type].accent}
+                        `}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${eventTypes[event.type].color}`} />
+                          {eventTypes[event.type].label}
+                        </span>
+                      </td>
+
+                      {/* Date */}
+                      <td className="py-4 px-6">
+                        <div className="flex flex-col">
+                          <span className="text-sm text-white">
+                            {new Date(event.date_time).toLocaleDateString('pt-BR')}
+                          </span>
+                          <span className="text-xs text-gray-500 mt-0.5">
+                            {new Date(event.date_time).toLocaleTimeString('pt-BR', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                            {' '}&middot;{' '}
+                            {event.duration_minutes}min
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Participants */}
+                      <td className="py-4 px-6">
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-white tabular-nums">
+                              {event.participant_count || 0}
+                            </span>
+                            <span className="text-xs text-gray-600">inscritos</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <div className="w-16 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-emerald-500/60 transition-all duration-500"
+                                style={{
+                                  width: `${event.participant_count ? Math.min(((event.attendee_count || 0) / event.participant_count) * 100, 100) : 0}%`
+                                }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-gray-500 tabular-nums">
+                              {event.attendee_count || 0} presentes
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Conversions */}
+                      <td className="py-4 px-6">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-emerald-400 tabular-nums">
+                            {event.conversion_count || 0}
+                          </span>
+                          <span className="text-xs text-gray-500 mt-0.5">
+                            R$ {(event.conversion_value || 0).toLocaleString('pt-BR')}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-4 px-6">
+                        <span className={`
+                          inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border
+                          ${statusConfig.bgColor} ${statusConfig.textColor} ${statusConfig.borderColor}
+                        `}>
+                          <span className="relative flex h-1.5 w-1.5">
+                            {statusConfig.animated && (
+                              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusConfig.dotColor} opacity-75`} />
+                            )}
+                            <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${statusConfig.dotColor}`} />
+                          </span>
+                          {statusConfig.label}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openParticipantsModal(event)}
+                            className="h-8 w-8 p-0 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg"
+                          >
+                            <Users className="h-3.5 w-3.5" />
+                          </Button>
+                          {event.meeting_link && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => window.open(event.meeting_link, '_blank')}
+                              className="h-8 w-8 p-0 text-gray-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+
+            {filteredEvents.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 px-4">
+                <div className="p-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.06] mb-4">
+                  <Video className="h-8 w-8 text-gray-600" />
+                </div>
+                <p className="text-sm font-medium text-gray-400">Nenhum evento encontrado</p>
+                <p className="text-xs text-gray-600 mt-1 max-w-[240px] text-center">
+                  {activeFilter !== 'all'
+                    ? 'Tente alterar o filtro ou crie um novo evento'
+                    : 'Crie seu primeiro evento para comecar a acompanhar participantes e conversoes'}
+                </p>
+                <Button
+                  onClick={() => setShowNewEventModal(true)}
+                  size="sm"
+                  className="mt-4 bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-2" />
+                  Criar Evento
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── New Event Modal ── */}
       <Dialog open={showNewEventModal} onOpenChange={setShowNewEventModal}>
-        <DialogContent className="sm:max-w-2xl bg-gray-900 border-gray-700">
+        <DialogContent className="sm:max-w-2xl bg-[#141418] border-white/[0.06] backdrop-blur-xl shadow-2xl shadow-black/40">
           <DialogHeader>
-            <DialogTitle className="text-white">Criar Novo Evento</DialogTitle>
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-blue-500/10">
+                <Plus className="w-4 h-4 text-blue-400" />
+              </div>
+              Criar Novo Evento
+            </DialogTitle>
           </DialogHeader>
-          
-          <div className="space-y-4">
+
+          <div className="space-y-5 mt-2">
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-white">Nome do Evento *</Label>
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Nome do Evento *</Label>
                 <Input
                   value={newEvent.name}
                   onChange={(e) => setNewEvent(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Ex: Masterclass de Vendas"
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-blue-500/30"
                 />
               </div>
-              <div>
-                <Label className="text-white">Tipo de Evento</Label>
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Tipo de Evento</Label>
                 <Select value={newEvent.type} onValueChange={(value: any) => setNewEvent(prev => ({ ...prev, type: value }))}>
-                  <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                  <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-gray-700">
-                    {Object.entries(eventTypes).map(([key, { label }]) => (
-                      <SelectItem key={key} value={key} className="text-white">
+                  <SelectContent className="bg-[#1a1a20] border-white/[0.06]">
+                    {Object.entries(eventTypes).map(([key, { label, accent }]) => (
+                      <SelectItem key={key} value={key} className="text-white focus:bg-white/[0.06]">
                         {label}
                       </SelectItem>
                     ))}
@@ -600,123 +916,157 @@ export default function CallsEventosPage() {
               </div>
             </div>
 
-            <div>
-              <Label className="text-white">Descrição</Label>
+            <div className="space-y-2">
+              <Label className="text-gray-400 text-xs font-medium">Descricao</Label>
               <Textarea
                 value={newEvent.description}
                 onChange={(e) => setNewEvent(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Descrição do evento..."
-                className="bg-gray-800 border-gray-700 text-white"
+                placeholder="Descricao do evento..."
+                className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 resize-none min-h-[80px] focus-visible:ring-blue-500/30"
               />
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label className="text-white">Data e Hora *</Label>
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Data e Hora *</Label>
                 <Input
                   type="datetime-local"
                   value={newEvent.date_time}
                   onChange={(e) => setNewEvent(prev => ({ ...prev, date_time: e.target.value }))}
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-white/[0.03] border-white/[0.06] text-white focus-visible:ring-blue-500/30"
                 />
               </div>
-              <div>
-                <Label className="text-white">Duração (minutos)</Label>
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Duracao (min)</Label>
                 <Input
                   type="number"
                   value={newEvent.duration_minutes}
                   onChange={(e) => setNewEvent(prev => ({ ...prev, duration_minutes: e.target.value }))}
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-white/[0.03] border-white/[0.06] text-white focus-visible:ring-blue-500/30"
                 />
               </div>
-              <div>
-                <Label className="text-white">Máx. Participantes</Label>
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Max. Participantes</Label>
                 <Input
                   type="number"
                   value={newEvent.max_participants}
                   onChange={(e) => setNewEvent(prev => ({ ...prev, max_participants: e.target.value }))}
                   placeholder="Ilimitado"
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-blue-500/30"
                 />
               </div>
             </div>
 
-            <div>
-              <Label className="text-white">Link da Reunião</Label>
+            <div className="space-y-2">
+              <Label className="text-gray-400 text-xs font-medium">Link da Reuniao</Label>
               <Input
                 value={newEvent.meeting_link}
                 onChange={(e) => setNewEvent(prev => ({ ...prev, meeting_link: e.target.value }))}
                 placeholder="https://meet.google.com/..."
-                className="bg-gray-800 border-gray-700 text-white"
+                className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-blue-500/30"
               />
             </div>
           </div>
 
-          <div className="flex gap-3 mt-6">
-            <Button 
-              variant="outline" 
+          <div className="flex gap-3 mt-6 pt-4 border-t border-white/[0.06]">
+            <Button
+              variant="outline"
               onClick={() => setShowNewEventModal(false)}
-              className="flex-1 bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
+              className="flex-1 bg-white/[0.03] border-white/[0.06] text-gray-400 hover:text-white hover:bg-white/[0.06]"
             >
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={handleCreateEvent}
               disabled={!newEvent.name.trim() || !newEvent.date_time}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 disabled:opacity-40 disabled:shadow-none"
             >
+              <Plus className="w-4 h-4 mr-2" />
               Criar Evento
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Participants Modal */}
+      {/* ── Participants Modal ── */}
       <Dialog open={showParticipantsModal} onOpenChange={setShowParticipantsModal}>
-        <DialogContent className="sm:max-w-4xl bg-gray-900 border-gray-700 max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl bg-[#141418] border-white/[0.06] backdrop-blur-xl shadow-2xl shadow-black/40 max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-white">
-              Participantes - {selectedEvent?.name}
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-purple-500/10">
+                <Users className="w-4 h-4 text-purple-400" />
+              </div>
+              <div>
+                <span>Participantes</span>
+                {selectedEvent && (
+                  <p className="text-xs text-gray-500 font-normal mt-0.5">{selectedEvent.name}</p>
+                )}
+              </div>
             </DialogTitle>
           </DialogHeader>
-          
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-gray-400">
-                {participants.length} participantes inscritos
+
+          <div className="flex-1 overflow-y-auto space-y-4 mt-2">
+            {/* Summary bar */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <span className="px-2.5 py-1 rounded-lg bg-white/[0.04] text-xs font-medium text-gray-400 tabular-nums">
+                  {participants.length} inscritos
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-xs font-medium text-emerald-400 tabular-nums">
+                  {participants.filter(p => p.attendance_status === 'attended').length} presentes
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-blue-500/10 text-xs font-medium text-blue-400 tabular-nums">
+                  {participants.filter(p => p.conversion_status === 'converted').length} convertidos
+                </span>
               </div>
               <Button
                 size="sm"
                 onClick={() => setShowAddParticipantModal(true)}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20"
               >
-                <UserPlus className="h-4 w-4 mr-2" />
-                Adicionar Participante
+                <UserPlus className="h-3.5 w-3.5 mr-2" />
+                Adicionar
               </Button>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Participants list */}
+            <div className="rounded-xl ring-1 ring-white/[0.06] overflow-hidden">
               <table className="w-full">
-                <thead className="bg-gray-700">
-                  <tr>
-                    <th className="text-left py-2 px-4 text-gray-300 text-sm">Nome</th>
-                    <th className="text-left py-2 px-4 text-gray-300 text-sm">Contato</th>
-                    <th className="text-left py-2 px-4 text-gray-300 text-sm">Presença</th>
-                    <th className="text-left py-2 px-4 text-gray-300 text-sm">Status</th>
-                    <th className="text-left py-2 px-4 text-gray-300 text-sm">Ações</th>
+                <thead>
+                  <tr className="border-b border-white/[0.06]">
+                    <th className="text-left py-2.5 px-4 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                    <th className="text-left py-2.5 px-4 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Contato</th>
+                    <th className="text-left py-2.5 px-4 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Presenca</th>
+                    <th className="text-left py-2.5 px-4 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="text-right py-2.5 px-4 text-[11px] font-medium text-gray-500 uppercase tracking-wider">Acoes</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-white/[0.04]">
                   {participants.map((participant) => (
-                    <tr key={participant.id} className="hover:bg-gray-700 border-b border-gray-700">
-                      <td className="py-3 px-4 text-white">{participant.participant_name}</td>
+                    <tr key={participant.id} className="group hover:bg-white/[0.02] transition-colors duration-150">
                       <td className="py-3 px-4">
-                        <div className="text-sm">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 ring-1 ring-white/[0.06] flex items-center justify-center flex-shrink-0">
+                            <span className="text-[10px] font-semibold text-white">
+                              {participant.participant_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="text-sm font-medium text-white">{participant.participant_name}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex flex-col gap-0.5">
                           {participant.participant_email && (
-                            <p className="text-gray-300">{participant.participant_email}</p>
+                            <span className="text-xs text-gray-400 flex items-center gap-1">
+                              <Mail className="w-3 h-3 text-gray-600" />
+                              {participant.participant_email}
+                            </span>
                           )}
                           {participant.participant_phone && (
-                            <p className="text-gray-400">{participant.participant_phone}</p>
+                            <span className="text-xs text-gray-500 flex items-center gap-1">
+                              <Phone className="w-3 h-3 text-gray-600" />
+                              {participant.participant_phone}
+                            </span>
                           )}
                         </div>
                       </td>
@@ -725,32 +1075,54 @@ export default function CallsEventosPage() {
                           value={participant.attendance_status}
                           onValueChange={(value) => updateAttendanceStatus(participant.id, value)}
                         >
-                          <SelectTrigger className="w-32 bg-gray-800 border-gray-700 text-white">
+                          <SelectTrigger className="w-32 h-8 bg-white/[0.03] border-white/[0.06] text-white text-xs">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-gray-800 border-gray-700">
-                            <SelectItem value="registered" className="text-white">Inscrito</SelectItem>
-                            <SelectItem value="confirmed" className="text-white">Confirmado</SelectItem>
-                            <SelectItem value="attended" className="text-white">Presente</SelectItem>
-                            <SelectItem value="no_show" className="text-white">Faltou</SelectItem>
+                          <SelectContent className="bg-[#1a1a20] border-white/[0.06]">
+                            <SelectItem value="registered" className="text-white text-xs focus:bg-white/[0.06]">Inscrito</SelectItem>
+                            <SelectItem value="confirmed" className="text-white text-xs focus:bg-white/[0.06]">Confirmado</SelectItem>
+                            <SelectItem value="attended" className="text-white text-xs focus:bg-white/[0.06]">Presente</SelectItem>
+                            <SelectItem value="no_show" className="text-white text-xs focus:bg-white/[0.06]">Faltou</SelectItem>
                           </SelectContent>
                         </Select>
                       </td>
                       <td className="py-3 px-4">
-                        <Badge className={`${conversionStatusColors[participant.conversion_status]} text-white text-xs`}>
-                          {participant.conversion_status === 'not_converted' ? 'Não convertido' :
-                           participant.conversion_status === 'interested' ? 'Interessado' :
-                           participant.conversion_status === 'qualified' ? 'Qualificado' :
-                           participant.conversion_status === 'converted' ? 'Convertido' : 'Perdido'}
-                        </Badge>
-                        {participant.conversion_value && (
-                          <p className="text-green-400 text-xs mt-1">
-                            R$ {participant.conversion_value.toLocaleString('pt-BR')}
-                          </p>
-                        )}
+                        <div>
+                          {participant.conversion_status === 'converted' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                              Convertido
+                            </span>
+                          ) : participant.conversion_status === 'interested' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                              Interessado
+                            </span>
+                          ) : participant.conversion_status === 'qualified' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                              Qualificado
+                            </span>
+                          ) : participant.conversion_status === 'lost' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                              Perdido
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-white/[0.04] text-gray-500 border border-white/[0.06]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-gray-500" />
+                              Nao convertido
+                            </span>
+                          )}
+                          {participant.conversion_value && (
+                            <p className="text-emerald-400 text-[10px] font-medium mt-1 tabular-nums">
+                              R$ {participant.conversion_value.toLocaleString('pt-BR')}
+                            </p>
+                          )}
+                        </div>
                       </td>
-                      <td className="py-3 px-4">
-                        {participant.attendance_status === 'attended' && 
+                      <td className="py-3 px-4 text-right">
+                        {participant.attendance_status === 'attended' &&
                          participant.conversion_status !== 'converted' && (
                           <Button
                             size="sm"
@@ -759,9 +1131,10 @@ export default function CallsEventosPage() {
                               setSelectedParticipant(participant)
                               setShowConvertModal(true)
                             }}
-                            className="text-green-400 hover:text-green-300"
+                            className="h-7 px-2 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg text-xs gap-1.5"
                           >
-                            <Target className="h-4 w-4" />
+                            <Target className="h-3 w-3" />
+                            Converter
                           </Button>
                         )}
                       </td>
@@ -769,138 +1142,187 @@ export default function CallsEventosPage() {
                   ))}
                 </tbody>
               </table>
+
+              {participants.length === 0 && (
+                <div className="py-12 text-center">
+                  <Users className="w-6 h-6 text-gray-600 mx-auto mb-2" />
+                  <p className="text-xs text-gray-500">Nenhum participante registrado</p>
+                </div>
+              )}
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Add Participant Modal */}
+      {/* ── Add Participant Modal ── */}
       <Dialog open={showAddParticipantModal} onOpenChange={setShowAddParticipantModal}>
-        <DialogContent className="sm:max-w-lg bg-gray-900 border-gray-700">
+        <DialogContent className="sm:max-w-lg bg-[#141418] border-white/[0.06] backdrop-blur-xl shadow-2xl shadow-black/40">
           <DialogHeader>
-            <DialogTitle className="text-white">Adicionar Participante</DialogTitle>
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-emerald-500/10">
+                <UserPlus className="w-4 h-4 text-emerald-400" />
+              </div>
+              Adicionar Participante
+            </DialogTitle>
           </DialogHeader>
-          
-          <div className="space-y-4">
-            <div>
-              <Label className="text-white">Nome Completo *</Label>
+
+          <div className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label className="text-gray-400 text-xs font-medium">Nome Completo *</Label>
               <Input
                 value={newParticipant.participant_name}
                 onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_name: e.target.value }))}
                 placeholder="Nome do participante"
-                className="bg-gray-800 border-gray-700 text-white"
+                className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-blue-500/30"
               />
             </div>
-            <div>
-              <Label className="text-white">Email</Label>
-              <Input
-                type="email"
-                value={newParticipant.participant_email}
-                onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_email: e.target.value }))}
-                placeholder="email@exemplo.com"
-                className="bg-gray-800 border-gray-700 text-white"
-              />
+            <div className="space-y-2">
+              <Label className="text-gray-400 text-xs font-medium">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+                <Input
+                  type="email"
+                  value={newParticipant.participant_email}
+                  onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_email: e.target.value }))}
+                  placeholder="email@exemplo.com"
+                  className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 pl-9 focus-visible:ring-blue-500/30"
+                />
+              </div>
             </div>
-            <div>
-              <Label className="text-white">Telefone</Label>
-              <Input
-                value={newParticipant.participant_phone}
-                onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_phone: e.target.value }))}
-                placeholder="(11) 99999-9999"
-                className="bg-gray-800 border-gray-700 text-white"
-              />
+            <div className="space-y-2">
+              <Label className="text-gray-400 text-xs font-medium">Telefone</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+                <Input
+                  value={newParticipant.participant_phone}
+                  onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_phone: e.target.value }))}
+                  placeholder="(11) 99999-9999"
+                  className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 pl-9 focus-visible:ring-blue-500/30"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-3 mt-6">
-            <Button 
-              variant="outline" 
+          <div className="flex gap-3 mt-6 pt-4 border-t border-white/[0.06]">
+            <Button
+              variant="outline"
               onClick={() => setShowAddParticipantModal(false)}
-              className="flex-1 bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
+              className="flex-1 bg-white/[0.03] border-white/[0.06] text-gray-400 hover:text-white hover:bg-white/[0.06]"
             >
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={handleAddParticipant}
               disabled={!newParticipant.participant_name.trim()}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 disabled:opacity-40 disabled:shadow-none"
             >
+              <UserPlus className="w-4 h-4 mr-2" />
               Adicionar
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Convert Participant Modal */}
+      {/* ── Convert Participant Modal ── */}
       <Dialog open={showConvertModal} onOpenChange={setShowConvertModal}>
-        <DialogContent className="sm:max-w-lg bg-gray-900 border-gray-700">
+        <DialogContent className="sm:max-w-lg bg-[#141418] border-white/[0.06] backdrop-blur-xl shadow-2xl shadow-black/40">
           <DialogHeader>
-            <DialogTitle className="text-white">
-              Converter Participante: {selectedParticipant?.participant_name}
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-emerald-500/10">
+                <Target className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div>
+                <span>Converter Participante</span>
+                {selectedParticipant && (
+                  <p className="text-xs text-gray-500 font-normal mt-0.5">{selectedParticipant.participant_name}</p>
+                )}
+              </div>
             </DialogTitle>
           </DialogHeader>
-          
-          <div className="space-y-4">
-            <div>
-              <Label className="text-white">Tipo de Conversão</Label>
+
+          <div className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label className="text-gray-400 text-xs font-medium">Tipo de Conversao</Label>
               <Select value={conversion.conversion_type} onValueChange={(value) => setConversion(prev => ({ ...prev, conversion_type: value }))}>
-                <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
-                  <SelectItem value="sale" className="text-white">Venda</SelectItem>
-                  <SelectItem value="lead_qualified" className="text-white">Lead Qualificado</SelectItem>
-                  <SelectItem value="follow_up_scheduled" className="text-white">Follow-up Agendado</SelectItem>
-                  <SelectItem value="demo_scheduled" className="text-white">Demo Agendada</SelectItem>
+                <SelectContent className="bg-[#1a1a20] border-white/[0.06]">
+                  <SelectItem value="sale" className="text-white focus:bg-white/[0.06]">Venda</SelectItem>
+                  <SelectItem value="lead_qualified" className="text-white focus:bg-white/[0.06]">Lead Qualificado</SelectItem>
+                  <SelectItem value="follow_up_scheduled" className="text-white focus:bg-white/[0.06]">Follow-up Agendado</SelectItem>
+                  <SelectItem value="demo_scheduled" className="text-white focus:bg-white/[0.06]">Demo Agendada</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-white">Valor da Conversão</Label>
-                <Input
-                  type="number"
-                  value={conversion.conversion_value}
-                  onChange={(e) => setConversion(prev => ({ ...prev, conversion_value: e.target.value }))}
-                  placeholder="0.00"
-                  className="bg-gray-800 border-gray-700 text-white"
-                />
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Valor (R$)</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+                  <Input
+                    type="number"
+                    value={conversion.conversion_value}
+                    onChange={(e) => setConversion(prev => ({ ...prev, conversion_value: e.target.value }))}
+                    placeholder="0.00"
+                    className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 pl-9 focus-visible:ring-emerald-500/30"
+                  />
+                </div>
               </div>
-              <div>
-                <Label className="text-white">Comissão (%)</Label>
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Comissao (%)</Label>
                 <Input
                   type="number"
                   value={conversion.commission_percentage}
                   onChange={(e) => setConversion(prev => ({ ...prev, commission_percentage: e.target.value }))}
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-white/[0.03] border-white/[0.06] text-white focus-visible:ring-emerald-500/30"
                 />
               </div>
             </div>
 
-            <div>
-              <Label className="text-white">Produto/Serviço</Label>
+            <div className="space-y-2">
+              <Label className="text-gray-400 text-xs font-medium">Produto/Servico</Label>
               <Input
                 value={conversion.product_service}
                 onChange={(e) => setConversion(prev => ({ ...prev, product_service: e.target.value }))}
-                placeholder="Nome do produto ou serviço"
-                className="bg-gray-800 border-gray-700 text-white"
+                placeholder="Nome do produto ou servico"
+                className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-emerald-500/30"
               />
             </div>
+
+            {/* Conversion preview */}
+            {conversion.conversion_value && (
+              <div className="p-3 rounded-xl bg-emerald-500/5 ring-1 ring-emerald-500/10">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-400">Valor da conversao</span>
+                  <span className="text-white font-medium tabular-nums">
+                    R$ {parseFloat(conversion.conversion_value || '0').toLocaleString('pt-BR')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs mt-1.5">
+                  <span className="text-gray-400">Comissao ({conversion.commission_percentage}%)</span>
+                  <span className="text-emerald-400 font-medium tabular-nums">
+                    R$ {(parseFloat(conversion.conversion_value || '0') * parseFloat(conversion.commission_percentage || '0') / 100).toLocaleString('pt-BR')}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="flex gap-3 mt-6">
-            <Button 
-              variant="outline" 
+          <div className="flex gap-3 mt-6 pt-4 border-t border-white/[0.06]">
+            <Button
+              variant="outline"
               onClick={() => setShowConvertModal(false)}
-              className="flex-1 bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
+              className="flex-1 bg-white/[0.03] border-white/[0.06] text-gray-400 hover:text-white hover:bg-white/[0.06]"
             >
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={handleConvertParticipant}
-              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20"
             >
+              <CheckCircle2 className="w-4 h-4 mr-2" />
               Converter
             </Button>
           </div>
