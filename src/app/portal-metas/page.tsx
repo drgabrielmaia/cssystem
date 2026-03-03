@@ -54,7 +54,7 @@ export default function PortalMetasPage() {
     { value: 'profissional', label: 'Profissional', icon: <Zap className="h-4 w-4" />, color: 'bg-blue-100 text-blue-800 border-blue-300' },
     { value: 'pessoal', label: 'Pessoal', icon: <Heart className="h-4 w-4" />, color: 'bg-pink-100 text-pink-800 border-pink-300' },
     { value: 'saude', label: 'Saúde', icon: <Award className="h-4 w-4" />, color: 'bg-green-100 text-green-800 border-green-300' },
-    { value: 'relacionamento', label: 'Relacionamentos', icon: <User className="h-4 w-4" />, color: 'bg-purple-100 text-purple-800 border-purple-300' },
+    { value: 'relacionamento', label: 'Relacionamentos', icon: <User className="h-4 w-4" />, color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
     { value: 'aprendizado', label: 'Aprendizado', icon: <BookOpen className="h-4 w-4" />, color: 'bg-orange-100 text-orange-800 border-orange-300' }
   ]
 
@@ -62,7 +62,7 @@ export default function PortalMetasPage() {
     { value: 'curto', label: 'Curto Prazo', sublabel: '1-3 meses', color: 'bg-red-100 text-red-800 border-red-300', icon: <Timer className="h-3 w-3" /> },
     { value: 'medio', label: 'Médio Prazo', sublabel: '3-6 meses', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', icon: <Clock className="h-3 w-3" /> },
     { value: 'longo', label: 'Longo Prazo', sublabel: '6-12 meses', color: 'bg-blue-100 text-blue-800 border-blue-300', icon: <Calendar className="h-3 w-3" /> },
-    { value: 'grande', label: 'Grande Meta', sublabel: '1+ anos', color: 'bg-purple-100 text-purple-800 border-purple-300', icon: <Star className="h-3 w-3" /> }
+    { value: 'grande', label: 'Grande Meta', sublabel: '1+ anos', color: 'bg-emerald-100 text-emerald-800 border-emerald-300', icon: <Star className="h-3 w-3" /> }
   ]
 
   const statusMeta = [
@@ -240,7 +240,7 @@ export default function PortalMetasPage() {
     >
       <div className="space-y-8">
         {/* Seleção de Mentorado */}
-        <Card className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-blue-200 shadow-lg">
+        <Card className="bg-gradient-to-r from-blue-50 via-green-50 to-emerald-50 border-blue-200 shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-blue-900">
               <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
@@ -258,7 +258,7 @@ export default function PortalMetasPage() {
                 {mentorados.map((mentorado) => (
                   <SelectItem key={mentorado.id} value={mentorado.id}>
                     <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full flex items-center justify-center">
+                      <div className="w-6 h-6 bg-gradient-to-r from-emerald-400 to-green-400 rounded-full flex items-center justify-center">
                         <User className="h-3 w-3 text-white" />
                       </div>
                       <span className="font-medium">{mentorado.nome_completo}</span>
@@ -313,14 +313,14 @@ export default function PortalMetasPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100">
+              <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-purple-600">Taxa de Sucesso</p>
-                      <p className="text-3xl font-bold text-purple-900">{estatisticas.taxaConclusao.toFixed(0)}%</p>
+                      <p className="text-sm font-medium text-emerald-600">Taxa de Sucesso</p>
+                      <p className="text-3xl font-bold text-emerald-900">{estatisticas.taxaConclusao.toFixed(0)}%</p>
                     </div>
-                    <Trophy className="h-8 w-8 text-purple-600" />
+                    <Trophy className="h-8 w-8 text-emerald-600" />
                   </div>
                 </CardContent>
               </Card>

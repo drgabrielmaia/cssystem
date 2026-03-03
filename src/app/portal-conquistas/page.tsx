@@ -84,7 +84,7 @@ export default function PortalConquistasPage() {
       descricao: 'Completou um módulo inteiro',
       pontos: 35,
       icon: <Medal className="h-6 w-6" />,
-      color: 'from-purple-400 to-purple-600',
+      color: 'from-emerald-400 to-emerald-600',
       categoria: 'aprendizado'
     },
     {
@@ -93,7 +93,7 @@ export default function PortalConquistasPage() {
       descricao: 'Deu nota 9 ou 10 em uma avaliação NPS',
       pontos: 20,
       icon: <Star className="h-6 w-6" />,
-      color: 'from-pink-400 to-pink-600',
+      color: 'from-green-400 to-green-600',
       categoria: 'feedback'
     },
     {
@@ -102,7 +102,7 @@ export default function PortalConquistasPage() {
       descricao: 'Fez 10+ anotações em aulas',
       pontos: 20,
       icon: <Brain className="h-6 w-6" />,
-      color: 'from-indigo-400 to-indigo-600',
+      color: 'from-green-400 to-green-600',
       categoria: 'estudo'
     },
     {
@@ -119,11 +119,11 @@ export default function PortalConquistasPage() {
   const niveis = [
     { min: 0, max: 49, nome: 'Iniciante', icon: '🌱', color: 'from-green-100 to-green-200' },
     { min: 50, max: 99, nome: 'Explorador', icon: '🔍', color: 'from-blue-100 to-blue-200' },
-    { min: 100, max: 199, nome: 'Estudioso', icon: '📚', color: 'from-purple-100 to-purple-200' },
+    { min: 100, max: 199, nome: 'Estudioso', icon: '📚', color: 'from-emerald-100 to-emerald-200' },
     { min: 200, max: 349, nome: 'Conquistador', icon: '🏆', color: 'from-yellow-100 to-yellow-200' },
     { min: 350, max: 499, nome: 'Expert', icon: '⭐', color: 'from-orange-100 to-orange-200' },
     { min: 500, max: 999, nome: 'Mestre', icon: '👑', color: 'from-red-100 to-red-200' },
-    { min: 1000, max: Infinity, nome: 'Lenda', icon: '🚀', color: 'from-gradient-to-r from-purple-500 to-pink-500' }
+    { min: 1000, max: Infinity, nome: 'Lenda', icon: '🚀', color: 'from-gradient-to-r from-emerald-500 to-green-500' }
   ]
 
   useEffect(() => {
@@ -225,10 +225,10 @@ export default function PortalConquistasPage() {
     >
       <div className="space-y-8">
         {/* Seleção de Mentorado */}
-        <Card className="bg-gradient-to-r from-purple-50 via-pink-50 to-indigo-50 border-purple-200 shadow-lg">
+        <Card className="bg-gradient-to-r from-emerald-50 via-green-50 to-green-50 border-emerald-200 shadow-lg">
           <CardHeader>
-            <CardTitle className="flex items-center gap-3 text-purple-900">
-              <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
+            <CardTitle className="flex items-center gap-3 text-emerald-900">
+              <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center">
                 <Trophy className="h-5 w-5 text-white" />
               </div>
               Sistema de Conquistas e Gamificação
@@ -236,14 +236,14 @@ export default function PortalConquistasPage() {
           </CardHeader>
           <CardContent>
             <Select onValueChange={handleMentoradoSelect}>
-              <SelectTrigger className="w-full bg-white border-purple-300 shadow-sm">
+              <SelectTrigger className="w-full bg-white border-emerald-300 shadow-sm">
                 <SelectValue placeholder="Selecione um mentorado para ver suas conquistas..." />
               </SelectTrigger>
               <SelectContent>
                 {mentorados.map((mentorado) => (
                   <SelectItem key={mentorado.id} value={mentorado.id}>
                     <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full flex items-center justify-center">
+                      <div className="w-6 h-6 bg-gradient-to-r from-emerald-400 to-green-400 rounded-full flex items-center justify-center">
                         <Trophy className="h-3 w-3 text-white" />
                       </div>
                       <span className="font-medium">{mentorado.nome_completo}</span>
@@ -333,7 +333,7 @@ export default function PortalConquistasPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <BookOpen className="h-4 w-4 text-purple-600" />
+                        <BookOpen className="h-4 w-4 text-emerald-600" />
                         <span className="text-sm">Anotações</span>
                       </div>
                       <span className="font-bold text-blue-900">{estatisticas.total_anotacoes}</span>

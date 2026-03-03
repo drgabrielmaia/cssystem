@@ -253,7 +253,7 @@ export default function BancoDeAulasPage() {
               placeholder="Buscar aulas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#2A2A2A] border border-gray-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-[#E879F9] transition-colors"
+              className="w-full bg-[#2A2A2A] border border-gray-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500 transition-colors"
             />
           </div>
         </div>
@@ -284,14 +284,14 @@ export default function BancoDeAulasPage() {
                     {/* Expand/Collapse Icon */}
                     <div className="flex-shrink-0">
                       {expandedModule === module.id ? (
-                        <ChevronDown className="w-6 h-6 text-[#E879F9]" />
+                        <ChevronDown className="w-6 h-6 text-[#34D399]" />
                       ) : (
                         <ChevronRight className="w-6 h-6 text-gray-400" />
                       )}
                     </div>
                     
                     {/* Module Icon */}
-                    <div className="w-16 h-16 bg-gradient-to-br from-[#E879F9]/20 to-[#1A1A1A] rounded-lg flex items-center justify-center">
+                    <div className="w-16 h-16 bg-gradient-to-br from-[#34D399]/20 to-[#1A1A1A] rounded-lg flex items-center justify-center">
                       {module.cover_image_url ? (
                         <img
                           src={module.cover_image_url}
@@ -299,7 +299,7 @@ export default function BancoDeAulasPage() {
                           className="w-full h-full object-cover rounded-lg"
                         />
                       ) : (
-                        <BookOpen className="w-8 h-8 text-[#E879F9]" />
+                        <BookOpen className="w-8 h-8 text-[#34D399]" />
                       )}
                     </div>
                     
@@ -319,7 +319,7 @@ export default function BancoDeAulasPage() {
                   {/* Module Stats */}
                   <div className="text-right">
                     <div className="flex items-center space-x-3 mb-2">
-                      <span className="bg-[#E879F9] text-white px-4 py-2 rounded-full text-sm font-medium">
+                      <span className="bg-[#34D399] text-white px-4 py-2 rounded-full text-sm font-medium">
                         {module.lessons.length} aulas
                       </span>
                       <span className="bg-green-500 text-white px-4 py-2 rounded-full text-sm font-medium">
@@ -349,7 +349,7 @@ export default function BancoDeAulasPage() {
                         onClick={() => handleLessonClick(lesson)}
                       >
                         <div className="bg-[#1A1A1A] rounded-lg overflow-hidden hover:bg-[#2A2A2A] transition-all duration-300 group-hover:scale-[1.02] border border-gray-800">
-                          <div className="aspect-video bg-gradient-to-br from-[#E879F9]/20 to-[#1A1A1A] flex items-center justify-center relative">
+                          <div className="aspect-video bg-gradient-to-br from-[#34D399]/20 to-[#1A1A1A] flex items-center justify-center relative">
                             <Play className="w-10 h-10 text-white opacity-60 group-hover:opacity-100 transition-opacity" />
                             
                             {/* Lesson Status Indicators */}
@@ -375,7 +375,7 @@ export default function BancoDeAulasPage() {
 
                           <div className="p-4">
                             <div className="flex items-start justify-between mb-2">
-                              <h3 className="text-white font-semibold group-hover:text-[#E879F9] transition-colors line-clamp-2">
+                              <h3 className="text-white font-semibold group-hover:text-[#34D399] transition-colors line-clamp-2">
                                 {lesson.title}
                               </h3>
                               {lesson.version && (

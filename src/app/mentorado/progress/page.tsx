@@ -209,14 +209,14 @@ export default function ProgressPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100 p-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -263,7 +263,7 @@ export default function ProgressPage() {
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F3F3F5]">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-[#1A1A1A]">Módulos</h3>
-              <CheckCircle className="w-5 h-5 text-purple-600" />
+              <CheckCircle className="w-5 h-5 text-emerald-600" />
             </div>
             <div className="text-2xl font-bold text-[#1A1A1A] mb-2">
               {modules.filter(m => m.lessons.every(l => l.completed)).length}/{modules.length}
@@ -333,7 +333,7 @@ export default function ProgressPage() {
                           </div>
                           <div className="flex items-center space-x-2">
                             {lesson.exercises.length > 0 && (
-                              <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full">
+                              <span className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full">
                                 {lesson.exercises.filter(e => e.user_response).length}/{lesson.exercises.length} exercícios
                               </span>
                             )}

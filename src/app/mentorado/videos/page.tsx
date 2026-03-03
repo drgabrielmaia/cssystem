@@ -599,7 +599,7 @@ export default function MentoradoVideosPage() {
               placeholder="Buscar aulas, módulos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-[#F3F3F5] border-0 rounded-full text-sm text-[#1A1A1A] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#E879F9] focus:bg-white transition-all"
+              className="w-full pl-10 pr-4 py-2 bg-[#F3F3F5] border-0 rounded-full text-sm text-[#1A1A1A] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all"
             />
           </div>
         </div>
@@ -662,7 +662,7 @@ export default function MentoradoVideosPage() {
 
             <div className="space-y-3">
               {selectedLesson.exercises.map((exercise, index) => (
-                <div key={exercise.id} className="bg-white rounded-[12px] p-4 border border-[#E879F9]">
+                <div key={exercise.id} className="bg-white rounded-[12px] p-4 border border-[#34D399]">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-[15px] font-medium text-[#1A1A1A]">
                       Questão {index + 1}
@@ -703,9 +703,9 @@ export default function MentoradoVideosPage() {
           </h2>
           <div className="flex items-center space-x-2 text-[13px] text-[#6B7280]">
             <span>{overallProgress.completed}/{overallProgress.total} concluídas</span>
-            <div className="w-16 h-2 bg-[#E879F9] bg-opacity-30 rounded-full">
+            <div className="w-16 h-2 bg-[#34D399] bg-opacity-30 rounded-full">
               <div
-                className="h-full bg-[#E879F9] rounded-full transition-all duration-500"
+                className="h-full bg-[#34D399] rounded-full transition-all duration-500"
                 style={{ width: `${overallProgress.percentage}%` }}
               />
             </div>
@@ -741,7 +741,7 @@ export default function MentoradoVideosPage() {
 
                   <div className="w-full h-1 bg-[#F3F3F5] rounded-full mb-3">
                     <div
-                      className="h-full bg-[#E879F9] rounded-full transition-all duration-500"
+                      className="h-full bg-[#34D399] rounded-full transition-all duration-500"
                       style={{ width: `${moduleProgress.percentage}%` }}
                     />
                   </div>
@@ -760,7 +760,7 @@ export default function MentoradoVideosPage() {
                             isCompleted
                               ? 'bg-[#22C55E] bg-opacity-10 text-[#22C55E]'
                               : hasStarted
-                              ? 'bg-[#E879F9] bg-opacity-10 text-[#E879F9]'
+                              ? 'bg-[#34D399] bg-opacity-10 text-[#34D399]'
                               : isUnlocked
                               ? 'hover:bg-[#F3F3F5] text-[#1A1A1A]'
                               : 'opacity-50 text-[#6B7280] cursor-not-allowed'
@@ -785,7 +785,7 @@ export default function MentoradoVideosPage() {
                                 {lesson.order_index}. {lesson.title}
                               </p>
                               {hasExercises && (
-                                <HelpCircle className="w-3 h-3 text-[#E879F9] ml-1" />
+                                <HelpCircle className="w-3 h-3 text-[#34D399] ml-1" />
                               )}
                             </div>
                             <p className="text-[12px] opacity-70">
@@ -833,14 +833,14 @@ export default function MentoradoVideosPage() {
                     </div>
 
                     {selectedLesson.exercises.length > 0 && (
-                      <div className="flex items-center text-[13px] text-[#E879F9]">
+                      <div className="flex items-center text-[13px] text-[#34D399]">
                         <HelpCircle className="w-4 h-4 mr-1" />
                         <span>{selectedLesson.exercises.length} exercício(s)</span>
                       </div>
                     )}
 
                     {!selectedLesson.progress?.is_completed && (
-                      <div className="flex items-center text-[13px] text-[#E879F9]">
+                      <div className="flex items-center text-[13px] text-[#34D399]">
                         <span>Em andamento</span>
                       </div>
                     )}
@@ -921,7 +921,7 @@ export default function MentoradoVideosPage() {
                       value={exerciseResponse}
                       onChange={(e) => setExerciseResponse(e.target.value)}
                       placeholder="Digite sua resposta..."
-                      className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#E879F9] focus:border-[#E879F9] text-[#1A1A1A] min-h-[120px]"
+                      className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-[#1A1A1A] min-h-[120px]"
                       disabled={!!selectedExercise.user_response}
                     />
                   )}

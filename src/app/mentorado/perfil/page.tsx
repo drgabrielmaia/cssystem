@@ -201,7 +201,7 @@ export default function PerfilMentorado() {
       <div className="max-w-4xl mx-auto px-4">
         {/* Header do Perfil */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-8 text-white">
+          <div className="bg-gradient-to-r from-blue-500 to-emerald-600 p-8 text-white">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-6">
                 <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
@@ -443,10 +443,10 @@ export default function PerfilMentorado() {
 
             <a
               href="/mentorado/videos"
-              className="p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors block"
+              className="p-4 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors block"
             >
               <div className="flex items-center gap-3">
-                <Target className="w-6 h-6 text-purple-500" />
+                <Target className="w-6 h-6 text-emerald-500" />
                 <div>
                   <h3 className="font-medium text-gray-800">Vídeos</h3>
                   <p className="text-sm text-gray-600">Acessar conteúdos</p>

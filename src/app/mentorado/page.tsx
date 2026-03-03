@@ -130,12 +130,12 @@ function MentoradoPageContent() {
             alt="Background Médicos de Resultado"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-purple-900/30"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-emerald-900/30"></div>
         </div>
         {/* Pulsing loader */}
         <div className="relative z-10 flex flex-col items-center gap-4">
           <div className="relative">
-            <div className="w-16 h-16 rounded-full border-2 border-[#E879F9]/30 border-t-[#E879F9] animate-spin" />
+            <div className="w-16 h-16 rounded-full border-2 border-[#34D399]/30 border-t-[#34D399] animate-spin" />
             <div className="absolute inset-2 w-12 h-12 rounded-full border-2 border-white/10 border-b-white/60 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.8s' }} />
           </div>
           <p className="text-white/60 text-sm font-medium tracking-wider uppercase animate-pulse">Carregando...</p>
@@ -154,20 +154,20 @@ function MentoradoPageContent() {
             alt="Background Médicos de Resultado"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-black/60 to-purple-900/40"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-black/60 to-emerald-900/40"></div>
         </div>
 
         {/* Animated gradient border login card */}
         <div className="relative z-10 w-full max-w-md">
           {/* Outer glow */}
-          <div className="absolute -inset-[1px] bg-gradient-to-r from-[#E879F9] via-blue-500 to-[#E879F9] rounded-2xl opacity-60 blur-sm animate-[loginGlow_3s_ease-in-out_infinite]" />
+          <div className="absolute -inset-[1px] bg-gradient-to-r from-[#34D399] via-blue-500 to-[#34D399] rounded-2xl opacity-60 blur-sm animate-[loginGlow_3s_ease-in-out_infinite]" />
           {/* Gradient border */}
-          <div className="absolute -inset-[1px] bg-gradient-to-r from-[#E879F9] via-blue-500 to-[#E879F9] rounded-2xl opacity-80 animate-[loginGlow_3s_ease-in-out_infinite]" />
+          <div className="absolute -inset-[1px] bg-gradient-to-r from-[#34D399] via-blue-500 to-[#34D399] rounded-2xl opacity-80 animate-[loginGlow_3s_ease-in-out_infinite]" />
 
           <div className="relative bg-[#0f0f0f]/95 backdrop-blur-xl rounded-2xl p-8">
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-[#E879F9] to-blue-500 rounded-2xl flex items-center justify-center mb-5 shadow-lg shadow-[#E879F9]/20">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-[#34D399] to-blue-500 rounded-2xl flex items-center justify-center mb-5 shadow-lg shadow-[#34D399]/20">
                 <UserCheck className="h-8 w-8 text-white" />
               </div>
               <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">Portal do Mentorado</h2>
@@ -180,11 +180,11 @@ function MentoradoPageContent() {
             <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-gray-300 text-sm font-medium">
-                  <Mail className="h-4 w-4 inline mr-2 text-[#E879F9]" />
+                  <Mail className="h-4 w-4 inline mr-2 text-[#34D399]" />
                   Email
                 </Label>
                 <div className="relative group">
-                  <div className="absolute -inset-[1px] bg-gradient-to-r from-[#E879F9]/0 via-[#E879F9]/0 to-blue-500/0 rounded-lg group-focus-within:from-[#E879F9]/60 group-focus-within:via-blue-500/60 group-focus-within:to-[#E879F9]/60 transition-all duration-500" />
+                  <div className="absolute -inset-[1px] bg-gradient-to-r from-[#34D399]/0 via-[#34D399]/0 to-blue-500/0 rounded-lg group-focus-within:from-[#34D399]/60 group-focus-within:via-blue-500/60 group-focus-within:to-[#34D399]/60 transition-all duration-500" />
                   <Input
                     id="email"
                     type="email"
@@ -200,7 +200,7 @@ function MentoradoPageContent() {
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-gray-300 text-sm font-medium">Senha</Label>
                 <div className="relative group">
-                  <div className="absolute -inset-[1px] bg-gradient-to-r from-[#E879F9]/0 via-[#E879F9]/0 to-blue-500/0 rounded-lg group-focus-within:from-[#E879F9]/60 group-focus-within:via-blue-500/60 group-focus-within:to-[#E879F9]/60 transition-all duration-500" />
+                  <div className="absolute -inset-[1px] bg-gradient-to-r from-[#34D399]/0 via-[#34D399]/0 to-blue-500/0 rounded-lg group-focus-within:from-[#34D399]/60 group-focus-within:via-blue-500/60 group-focus-within:to-[#34D399]/60 transition-all duration-500" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
@@ -231,7 +231,7 @@ function MentoradoPageContent() {
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-[#E879F9] to-blue-500 hover:from-[#E879F9]/90 hover:to-blue-500/90 text-white font-semibold py-3 rounded-lg shadow-lg shadow-[#E879F9]/20 hover:shadow-[#E879F9]/40 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                className="w-full bg-gradient-to-r from-[#34D399] to-blue-500 hover:from-[#34D399]/90 hover:to-blue-500/90 text-white font-semibold py-3 rounded-lg shadow-lg shadow-[#34D399]/20 hover:shadow-[#34D399]/40 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                 disabled={loading}
               >
                 {loading ? (
@@ -324,8 +324,8 @@ function MentoradoPageContent() {
           <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/40 via-transparent to-[#0a0a0a]" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a]/80 via-transparent to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-[#0a0a0a] to-transparent" />
-          {/* Subtle purple radial from bottom-left */}
-          <div className="absolute bottom-0 left-0 w-[600px] h-[400px] bg-gradient-radial from-[#E879F9]/8 to-transparent rounded-full blur-3xl" />
+          {/* Subtle green radial from bottom-left */}
+          <div className="absolute bottom-0 left-0 w-[600px] h-[400px] bg-gradient-radial from-[#34D399]/8 to-transparent rounded-full blur-3xl" />
         </div>
 
         {/* Hero Background */}
@@ -342,7 +342,7 @@ function MentoradoPageContent() {
           <div className="flex items-center justify-between animate-fadeInUp stagger-1">
             <div className="flex items-center gap-4">
               {/* Avatar circle */}
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#E879F9] to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-[#E879F9]/20">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#34D399] to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-[#34D399]/20">
                 {MOCK_MODE ? 'M' : (mentorado?.nome_completo?.charAt(0)?.toUpperCase() || 'M')}
               </div>
               <div>
@@ -368,14 +368,14 @@ function MentoradoPageContent() {
         <div className="absolute bottom-0 left-0 right-0 p-8 z-20">
           <div className="max-w-2xl">
             <div className="animate-fadeInLeft stagger-2">
-              <div className="inline-flex items-center gap-2 bg-[#E879F9]/15 border border-[#E879F9]/30 rounded-full px-4 py-1.5 mb-5">
-                <div className="w-2 h-2 bg-[#E879F9] rounded-full animate-subtlePulse" />
-                <span className="text-[#E879F9] text-xs font-semibold uppercase tracking-widest">Plataforma Ativa</span>
+              <div className="inline-flex items-center gap-2 bg-[#34D399]/15 border border-[#34D399]/30 rounded-full px-4 py-1.5 mb-5">
+                <div className="w-2 h-2 bg-[#34D399] rounded-full animate-subtlePulse" />
+                <span className="text-[#34D399] text-xs font-semibold uppercase tracking-widest">Plataforma Ativa</span>
               </div>
             </div>
             <h2 className="text-[52px] font-extrabold text-white mb-4 leading-[1.1] tracking-tight animate-fadeInLeft stagger-3">
               Sua jornada de{' '}
-              <span className="bg-gradient-to-r from-[#E879F9] via-blue-400 to-[#E879F9] bg-clip-text text-transparent animate-gradientMove">
+              <span className="bg-gradient-to-r from-[#34D399] via-blue-400 to-[#34D399] bg-clip-text text-transparent animate-gradientMove">
                 aprendizado
               </span>
               {' '}continua
@@ -393,7 +393,7 @@ function MentoradoPageContent() {
               </Link>
               <Link
                 href="/mentorado/banco-de-aulas"
-                className="group bg-gradient-to-r from-[#E879F9] to-[#c026d3] text-white px-7 py-3.5 rounded-lg font-semibold hover:opacity-90 transition-all duration-300 flex items-center text-[15px] shadow-lg shadow-[#E879F9]/20 hover:shadow-[#E879F9]/40 hover:scale-[1.03] active:scale-[0.98]"
+                className="group bg-gradient-to-r from-[#34D399] to-[#059669] text-white px-7 py-3.5 rounded-lg font-semibold hover:opacity-90 transition-all duration-300 flex items-center text-[15px] shadow-lg shadow-[#34D399]/20 hover:shadow-[#34D399]/40 hover:scale-[1.03] active:scale-[0.98]"
               >
                 <BookOpen className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
                 Banco de Aulas
@@ -415,16 +415,16 @@ function MentoradoPageContent() {
 
         {/* Novidades / What's New Banner */}
         <section className="animate-fadeInUp stagger-1">
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1a1033] via-[#1a1a2e] to-[#0f1922] border border-white/5">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0a1f1a] via-[#1a1a2e] to-[#0f1922] border border-white/5">
             {/* Background decorations */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#E879F9]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#34D399]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
 
             <div className="relative p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center gap-6">
               {/* Icon */}
               <div className="shrink-0">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#E879F9]/20 to-blue-500/20 border border-[#E879F9]/20 flex items-center justify-center">
-                  <Star className="w-7 h-7 text-[#E879F9]" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#34D399]/20 to-blue-500/20 border border-[#34D399]/20 flex items-center justify-center">
+                  <Star className="w-7 h-7 text-[#34D399]" />
                 </div>
               </div>
 
@@ -432,7 +432,7 @@ function MentoradoPageContent() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-2">
                   <h3 className="text-lg font-bold text-white">Novidades</h3>
-                  <span className="px-2.5 py-0.5 bg-[#E879F9]/15 border border-[#E879F9]/30 rounded-full text-[#E879F9] text-[11px] font-semibold uppercase tracking-wider">Novo</span>
+                  <span className="px-2.5 py-0.5 bg-[#34D399]/15 border border-[#34D399]/30 rounded-full text-[#34D399] text-[11px] font-semibold uppercase tracking-wider">Novo</span>
                 </div>
                 <p className="text-gray-400 text-sm leading-relaxed">
                   Novos modulos e conteudos exclusivos estao disponiveis! Confira as atualizacoes mais recentes da plataforma e continue evoluindo na sua jornada.
@@ -443,7 +443,7 @@ function MentoradoPageContent() {
               <div className="shrink-0">
                 <Link
                   href="/mentorado/videos/netflix"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#E879F9]/10 hover:bg-[#E879F9]/20 border border-[#E879F9]/30 hover:border-[#E879F9]/50 text-[#E879F9] rounded-lg font-medium text-sm transition-all duration-300 hover:scale-[1.03]"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#34D399]/10 hover:bg-[#34D399]/20 border border-[#34D399]/30 hover:border-[#34D399]/50 text-[#34D399] rounded-lg font-medium text-sm transition-all duration-300 hover:scale-[1.03]"
                 >
                   Explorar
                   <Play className="w-4 h-4" />
@@ -456,14 +456,14 @@ function MentoradoPageContent() {
         {/* Stats Row - Enhanced */}
         <section>
           <h2 className="text-[22px] font-bold text-white mb-6 flex items-center gap-3">
-            <div className="w-1 h-6 bg-gradient-to-b from-[#E879F9] to-blue-500 rounded-full" />
+            <div className="w-1 h-6 bg-gradient-to-b from-[#34D399] to-blue-500 rounded-full" />
             Suas estatisticas
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {/* Progresso */}
             <div className="group relative animate-floatIn stagger-1">
               {/* Hover gradient border */}
-              <div className="absolute -inset-[1px] bg-gradient-to-r from-[#E879F9] to-purple-500 rounded-xl opacity-0 group-hover:opacity-60 transition-opacity duration-500 blur-[1px]" />
+              <div className="absolute -inset-[1px] bg-gradient-to-r from-[#34D399] to-emerald-500 rounded-xl opacity-0 group-hover:opacity-60 transition-opacity duration-500 blur-[1px]" />
               <div className="relative bg-[#141414] rounded-xl p-6 border border-white/5 group-hover:border-transparent transition-all duration-500">
                 <div className="flex items-center justify-between">
                   <div>
@@ -476,7 +476,7 @@ function MentoradoPageContent() {
                           <circle cx="50" cy="50" r="42" fill="none" stroke="url(#progressGrad)" strokeWidth="8" strokeLinecap="round" strokeDasharray="264" strokeDashoffset="264" className="transition-all duration-1000" />
                           <defs>
                             <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                              <stop offset="0%" stopColor="#E879F9" />
+                              <stop offset="0%" stopColor="#34D399" />
                               <stop offset="100%" stopColor="#818CF8" />
                             </linearGradient>
                           </defs>
@@ -487,13 +487,13 @@ function MentoradoPageContent() {
                       </div>
                     </div>
                   </div>
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#E879F9] to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-[#E879F9]/20 group-hover:shadow-[#E879F9]/40 transition-shadow duration-500">
+                  <div className="w-12 h-12 bg-gradient-to-br from-[#34D399] to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-[#34D399]/20 group-hover:shadow-[#34D399]/40 transition-shadow duration-500">
                     <TrendingUp className="w-6 h-6 text-white" />
                   </div>
                 </div>
                 {/* Progress bar */}
                 <div className="mt-4 h-1.5 bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full w-0 bg-gradient-to-r from-[#E879F9] to-purple-500 rounded-full transition-all duration-1000" />
+                  <div className="h-full w-0 bg-gradient-to-r from-[#34D399] to-emerald-500 rounded-full transition-all duration-1000" />
                 </div>
               </div>
             </div>
@@ -557,12 +557,12 @@ function MentoradoPageContent() {
         <section>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-[22px] font-bold text-white flex items-center gap-3">
-              <div className="w-1 h-6 bg-gradient-to-b from-[#E879F9] to-blue-500 rounded-full" />
+              <div className="w-1 h-6 bg-gradient-to-b from-[#34D399] to-blue-500 rounded-full" />
               Continue assistindo
             </h2>
             <Link
               href="/mentorado/videos/netflix"
-              className="text-[13px] text-gray-500 hover:text-[#E879F9] transition-colors duration-300 font-medium flex items-center gap-1.5 group"
+              className="text-[13px] text-gray-500 hover:text-[#34D399] transition-colors duration-300 font-medium flex items-center gap-1.5 group"
             >
               Ver todos
               <span className="group-hover:translate-x-0.5 transition-transform duration-300">&rarr;</span>
@@ -601,7 +601,7 @@ function MentoradoPageContent() {
                   className="group cursor-pointer animate-floatIn"
                   style={{ animationDelay: `${index * 0.08}s`, opacity: 0 }}
                 >
-                  <div className="relative bg-[#141414] rounded-xl overflow-hidden aspect-[3/4] mb-3 border border-white/5 group-hover:border-[#E879F9]/30 transition-all duration-500 group-hover:scale-[1.05] group-hover:shadow-2xl group-hover:shadow-[#E879F9]/10">
+                  <div className="relative bg-[#141414] rounded-xl overflow-hidden aspect-[3/4] mb-3 border border-white/5 group-hover:border-[#34D399]/30 transition-all duration-500 group-hover:scale-[1.05] group-hover:shadow-2xl group-hover:shadow-[#34D399]/10">
                     {module.cover_image_url ? (
                       <img
                         src={module.cover_image_url}
@@ -609,7 +609,7 @@ function MentoradoPageContent() {
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-[#E879F9]/10 via-[#141414] to-blue-500/10 flex items-center justify-center">
+                      <div className="w-full h-full bg-gradient-to-br from-[#34D399]/10 via-[#141414] to-blue-500/10 flex items-center justify-center">
                         <BookOpen className="w-8 h-8 text-white/40 group-hover:text-white/60 transition-colors duration-300" />
                       </div>
                     )}
@@ -629,7 +629,7 @@ function MentoradoPageContent() {
                     </div>
                   </div>
                   <div className="px-1">
-                    <h3 className="text-white text-[14px] font-medium mb-1 group-hover:text-[#E879F9] transition-colors duration-300 line-clamp-2">
+                    <h3 className="text-white text-[14px] font-medium mb-1 group-hover:text-[#34D399] transition-colors duration-300 line-clamp-2">
                       {module.title}
                     </h3>
                     <p className="text-gray-500 text-[12px] line-clamp-2">
@@ -645,12 +645,12 @@ function MentoradoPageContent() {
         {/* Quick Actions Grid - Enhanced */}
         <section>
           <h2 className="text-[22px] font-bold text-white mb-6 flex items-center gap-3">
-            <div className="w-1 h-6 bg-gradient-to-b from-[#E879F9] to-blue-500 rounded-full" />
+            <div className="w-1 h-6 bg-gradient-to-b from-[#34D399] to-blue-500 rounded-full" />
             Acesso rapido
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
             {[
-              { href: '/mentorado/videos/netflix', icon: Play, label: 'Minhas Aulas', color: '#E879F9', glowColor: 'rgba(232,121,249,0.15)' },
+              { href: '/mentorado/videos/netflix', icon: Play, label: 'Minhas Aulas', color: '#34D399', glowColor: 'rgba(232,121,249,0.15)' },
               { href: '/mentorado/comissoes', icon: DollarSign, label: 'Comissoes', color: '#22C55E', glowColor: 'rgba(34,197,94,0.15)' },
               { href: '/area-do-aluno', icon: Brain, label: 'Area do Aluno', color: '#3B82F6', glowColor: 'rgba(59,130,246,0.15)', special: true },
               { href: '/mentorado/metas', icon: Target, label: 'Metas', color: '#F59E0B', glowColor: 'rgba(245,158,11,0.15)' },
@@ -665,7 +665,7 @@ function MentoradoPageContent() {
                   href={action.href}
                   className={`group relative rounded-xl p-5 text-center transition-all duration-500 hover:scale-[1.05] active:scale-[0.97] animate-floatIn ${
                     action.special
-                      ? 'bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-400/20 hover:border-blue-400/40'
+                      ? 'bg-gradient-to-br from-blue-500/10 to-emerald-500/10 border border-blue-400/20 hover:border-blue-400/40'
                       : 'bg-[#141414] border border-white/5 hover:border-white/10'
                   }`}
                   style={{ animationDelay: `${i * 0.06}s`, opacity: 0 }}
@@ -701,7 +701,7 @@ function MentoradoPageContent() {
         {!MOCK_MODE && (
           <section>
             <h2 className="text-[22px] font-bold text-white mb-6 flex items-center gap-3">
-              <div className="w-1 h-6 bg-gradient-to-b from-[#E879F9] to-blue-500 rounded-full" />
+              <div className="w-1 h-6 bg-gradient-to-b from-[#34D399] to-blue-500 rounded-full" />
               Informacoes da conta
             </h2>
             <div className="bg-[#141414] rounded-xl border border-white/5 overflow-hidden">
@@ -710,7 +710,7 @@ function MentoradoPageContent() {
                   {/* Avatar and name block */}
                   <div className="flex items-center gap-5">
                     <div className="relative">
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#E879F9] to-blue-500 flex items-center justify-center text-white text-2xl font-bold shadow-xl shadow-[#E879F9]/20">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#34D399] to-blue-500 flex items-center justify-center text-white text-2xl font-bold shadow-xl shadow-[#34D399]/20">
                         {mentorado?.nome_completo?.charAt(0)?.toUpperCase() || 'M'}
                       </div>
                       {/* Online indicator */}
@@ -746,7 +746,7 @@ function MentoradoPageContent() {
                     <div className="bg-white/[0.02] rounded-lg p-4 border border-white/5">
                       <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1.5">Estado</p>
                       <p className="text-sm text-white font-medium flex items-center gap-2">
-                        <div className="w-2 h-2 bg-[#E879F9] rounded-full" />
+                        <div className="w-2 h-2 bg-[#34D399] rounded-full" />
                         {mentorado?.estado_atual || 'Em progresso'}
                       </p>
                     </div>

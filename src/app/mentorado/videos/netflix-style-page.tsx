@@ -431,7 +431,7 @@ export default function NetflixStyleVideosPage() {
         <div className="text-center">
           <h1 className="text-2xl mb-4">Acesso Restrito</h1>
           <p className="text-gray-400 mb-4">Você precisa fazer login para acessar as aulas.</p>
-          <a href="/login" className="bg-[#E879F9] hover:bg-[#D865E8] text-white px-6 py-2 rounded">
+          <a href="/login" className="bg-[#34D399] hover:bg-[#10B981] text-white px-6 py-2 rounded">
             Fazer Login
           </a>
         </div>
@@ -542,7 +542,7 @@ export default function NetflixStyleVideosPage() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-[#E879F9]/20 to-[#1A1A1A] flex items-center justify-center">
+                          <div className="w-full h-full bg-gradient-to-br from-[#34D399]/20 to-[#1A1A1A] flex items-center justify-center">
                             <BookOpen className="w-8 h-8 text-white" />
                           </div>
                         )}
@@ -563,7 +563,7 @@ export default function NetflixStyleVideosPage() {
                           <div className="absolute top-2 left-2 right-2">
                             <div className="bg-black bg-opacity-50 rounded-full h-1">
                               <div
-                                className="bg-[#E879F9] h-1 rounded-full transition-all"
+                                className="bg-[#34D399] h-1 rounded-full transition-all"
                                 style={{ width: `${moduleProgress.percentage}%` }}
                               />
                             </div>
@@ -645,7 +645,7 @@ export default function NetflixStyleVideosPage() {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-[#E879F9]/20 to-[#1A1A1A] flex items-center justify-center">
+                                <div className="w-full h-full bg-gradient-to-br from-[#34D399]/20 to-[#1A1A1A] flex items-center justify-center">
                                   <div className="text-center">
                                     <div className={`w-12 md:w-16 h-12 md:h-16 rounded-full flex items-center justify-center mb-2 ${
                                       isCompleted
@@ -669,7 +669,7 @@ export default function NetflixStyleVideosPage() {
                                 </div>
                               )}
                               {lesson.progress && !isCompleted && (
-                                <div className="absolute top-2 right-2 w-3 h-3 bg-[#E879F9] rounded-full"></div>
+                                <div className="absolute top-2 right-2 w-3 h-3 bg-[#34D399] rounded-full"></div>
                               )}
                             </div>
                             <div className="px-1">
@@ -685,7 +685,7 @@ export default function NetflixStyleVideosPage() {
                                         e.stopPropagation()
                                         window.open(lesson.pdf_url, '_blank')
                                       }}
-                                      className="text-[#E879F9] hover:text-white transition-colors"
+                                      className="text-[#34D399] hover:text-white transition-colors"
                                       title="Baixar PDF"
                                     >
                                       <Download className="w-3 h-3" />
@@ -719,7 +719,7 @@ export default function NetflixStyleVideosPage() {
 
         return (
           <div className="mt-12 mb-8">
-            <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-400/30 rounded-lg p-6">
+            <div className="bg-gradient-to-r from-blue-600/20 to-emerald-600/20 border border-blue-400/30 rounded-lg p-6">
               <div className="flex items-center space-x-4 mb-6">
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
                   currentPosition === 1 ? 'bg-yellow-400 text-black' :
@@ -818,7 +818,7 @@ export default function NetflixStyleVideosPage() {
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-3">
                     <div
-                      className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full transition-all duration-300"
+                      className="bg-gradient-to-r from-blue-500 to-emerald-500 h-3 rounded-full transition-all duration-300"
                       style={{
                         width: `${Math.min(100, (mentoradoData.total_indicacoes / (nextPosition.total_indicacoes + 1)) * 100)}%`
                       }}
@@ -956,7 +956,7 @@ export default function NetflixStyleVideosPage() {
                   </button>
                   <button
                     onClick={() => setShowNpsModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-[4px] text-[14px] font-medium hover:bg-purple-700 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-[4px] text-[14px] font-medium hover:bg-emerald-700 transition-colors"
                   >
                     <Star className="w-4 h-4" />
                     Avaliar Aula
@@ -991,7 +991,7 @@ export default function NetflixStyleVideosPage() {
                     {!selectedLesson.progress?.is_completed && (
                       <button
                         onClick={() => handleCompleteLesson(selectedLesson.id)}
-                        className="px-4 py-2 bg-[#E879F9] text-white rounded-[4px] text-[14px] font-medium hover:bg-[#D865E8] transition-colors flex items-center"
+                        className="px-4 py-2 bg-[#34D399] text-white rounded-[4px] text-[14px] font-medium hover:bg-[#10B981] transition-colors flex items-center"
                       >
                         <CheckCircle className="w-4 h-4 mr-2" />
                         Marcar como Concluída
@@ -1055,7 +1055,7 @@ export default function NetflixStyleVideosPage() {
         <DialogContent className="sm:max-w-[500px] bg-[#181818] border-gray-800 text-white">
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <Star className="w-6 h-6 text-purple-400" />
+              <Star className="w-6 h-6 text-emerald-400" />
               <div>
                 <h3 className="text-xl font-semibold">Avaliar esta Aula</h3>
                 <p className="text-gray-400 text-sm">
@@ -1102,7 +1102,7 @@ export default function NetflixStyleVideosPage() {
                   value={npsFeedback}
                   onChange={(e) => setNpsFeedback(e.target.value)}
                   placeholder="O que você achou desta aula? Sugestões de melhoria?"
-                  className="w-full h-24 p-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:border-purple-400"
+                  className="w-full h-24 p-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:border-emerald-400"
                 />
               </div>
             </div>
@@ -1117,7 +1117,7 @@ export default function NetflixStyleVideosPage() {
               <button
                 onClick={saveNps}
                 disabled={npsScore === null}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Enviar Avaliação
               </button>

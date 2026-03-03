@@ -13,7 +13,7 @@ function MentoradoOnboardingContent() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-16 h-16 animate-spin mx-auto mb-4 text-white" />
           <div className="text-white text-lg">Carregando seu mapa mental...</div>
@@ -24,7 +24,7 @@ function MentoradoOnboardingContent() {
 
   if (error || !mentorado) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex items-center justify-center">
         <Card className="p-8 bg-white/10 backdrop-blur-md border-white/20 max-w-md mx-4">
           <div className="text-center text-white">
             <User className="h-16 w-16 mx-auto mb-4 text-white/60" />

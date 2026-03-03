@@ -466,7 +466,7 @@ function MentoradoComissoesPageContent() {
       case 'paid': return 'text-green-400 bg-green-400/20'
       case 'eligible': return 'text-blue-400 bg-blue-400/20'
       case 'pending': return 'text-yellow-400 bg-yellow-400/20'
-      case 'requested': return 'text-purple-400 bg-purple-400/20'
+      case 'requested': return 'text-emerald-400 bg-emerald-400/20'
       case 'approved': return 'text-emerald-400 bg-emerald-400/20'
       case 'processing': return 'text-orange-400 bg-orange-400/20'
       case 'cancelled': return 'text-red-400 bg-red-400/20'
@@ -663,7 +663,7 @@ function MentoradoComissoesPageContent() {
 
           return (
             <section className="mb-8">
-              <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-400/30 rounded-lg p-6">
+              <div className="bg-gradient-to-r from-blue-600/20 to-emerald-600/20 border border-blue-400/30 rounded-lg p-6">
                 <div className="flex items-center space-x-4 mb-6">
                   <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
                     currentPosition === 1 ? 'bg-yellow-400 text-black' :
@@ -762,7 +762,7 @@ function MentoradoComissoesPageContent() {
                     </div>
                     <div className="w-full bg-gray-700 rounded-full h-3">
                       <div
-                        className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full transition-all duration-300"
+                        className="bg-gradient-to-r from-blue-500 to-emerald-500 h-3 rounded-full transition-all duration-300"
                         style={{
                           width: `${Math.min(100, (mentoradoData.total_indicacoes / (nextPosition.total_indicacoes + 1)) * 100)}%`
                         }}
@@ -947,7 +947,7 @@ function MentoradoComissoesPageContent() {
                               referral.status === 'converted' ? 'bg-green-400/20 text-green-400' :
                               referral.status === 'negotiating' ? 'bg-yellow-400/20 text-yellow-400' :
                               referral.status === 'qualified' ? 'bg-blue-400/20 text-blue-400' :
-                              referral.status === 'contacted' ? 'bg-purple-400/20 text-purple-400' :
+                              referral.status === 'contacted' ? 'bg-emerald-400/20 text-emerald-400' :
                               referral.status === 'lost' ? 'bg-red-400/20 text-red-400' :
                               'bg-gray-400/20 text-gray-400'
                             }`}>
@@ -1203,7 +1203,7 @@ function MentoradoComissoesPageContent() {
             )}
 
             {/* Explicação do Sistema */}
-            <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-400/30 rounded-lg p-6 mt-8">
+            <div className="bg-gradient-to-r from-blue-600/20 to-emerald-600/20 border border-blue-400/30 rounded-lg p-6 mt-8">
               <div className="flex items-start gap-4">
                 <Calculator className="w-6 h-6 text-blue-400 mt-1" />
                 <div>

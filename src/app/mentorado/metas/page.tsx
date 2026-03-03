@@ -220,7 +220,7 @@ export default function MentoradoMetasPage() {
                   key={goal.id}
                   className={`bg-[#1A1A1A] rounded-[8px] p-6 cursor-pointer transition-all duration-300 border-2 ${
                     selectedGoal?.id === goal.id
-                      ? 'border-[#E879F9] bg-[#2A2A2A]'
+                      ? 'border-[#34D399] bg-[#2A2A2A]'
                       : 'border-gray-700 hover:border-gray-600 hover:bg-[#2A2A2A]'
                   }`}
                   onClick={() => setSelectedGoal(goal)}
@@ -246,7 +246,7 @@ export default function MentoradoMetasPage() {
 
                     <div className="w-full bg-gray-700 rounded-full h-2">
                       <div
-                        className="bg-[#E879F9] h-2 rounded-full transition-all duration-500"
+                        className="bg-[#34D399] h-2 rounded-full transition-all duration-500"
                         style={{ width: `${goal.progress_percentage}%` }}
                       />
                     </div>
@@ -273,7 +273,7 @@ export default function MentoradoMetasPage() {
                       <p className="text-gray-400 text-lg">{selectedGoal.description}</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-4xl font-bold text-[#E879F9] mb-1">
+                      <div className="text-4xl font-bold text-[#34D399] mb-1">
                         {selectedGoal.progress_percentage}%
                       </div>
                       <div className="text-sm text-gray-400">Concluído</div>
@@ -296,7 +296,7 @@ export default function MentoradoMetasPage() {
                         <div className="text-sm text-gray-400">Atual</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-[#E879F9] mb-1">
+                        <div className="text-2xl font-bold text-[#34D399] mb-1">
                           {formatCurrency(selectedGoal.target_value)}
                         </div>
                         <div className="text-sm text-gray-400">Meta</div>
@@ -344,7 +344,7 @@ export default function MentoradoMetasPage() {
                                 </div>
                               </div>
                               <div className="text-right">
-                                <div className="text-xl font-bold text-[#E879F9] mb-1">
+                                <div className="text-xl font-bold text-[#34D399] mb-1">
                                   {checkpoint.progress}%
                                 </div>
                                 {checkpoint.is_completed && (
@@ -368,7 +368,7 @@ export default function MentoradoMetasPage() {
                                   className={`h-2 rounded-full transition-all duration-500 ${
                                     checkpoint.is_completed
                                       ? 'bg-green-400'
-                                      : 'bg-[#E879F9]'
+                                      : 'bg-[#34D399]'
                                   }`}
                                   style={{ width: `${checkpoint.progress}%` }}
                                 />
@@ -399,7 +399,7 @@ export default function MentoradoMetasPage() {
                                         input.value = ''
                                       }
                                     }}
-                                    className="bg-[#E879F9] hover:bg-[#D865E8] text-white px-4 py-2 rounded-[4px] text-sm font-medium transition-colors flex items-center"
+                                    className="bg-[#34D399] hover:bg-[#10B981] text-white px-4 py-2 rounded-[4px] text-sm font-medium transition-colors flex items-center"
                                   >
                                     <ArrowUp className="w-4 h-4 mr-1" />
                                     Atualizar

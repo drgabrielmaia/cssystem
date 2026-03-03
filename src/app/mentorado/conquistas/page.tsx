@@ -165,7 +165,7 @@ export default function MentoradoConquistasPage() {
         <div className="text-center">
           <h1 className="text-2xl mb-4">Acesso Restrito</h1>
           <p className="text-gray-400 mb-4">Você precisa fazer login para ver suas conquistas.</p>
-          <a href="/login" className="bg-[#E879F9] hover:bg-[#D865E8] text-white px-6 py-2 rounded">
+          <a href="/login" className="bg-[#34D399] hover:bg-[#10B981] text-white px-6 py-2 rounded">
             Fazer Login
           </a>
         </div>
@@ -229,7 +229,7 @@ export default function MentoradoConquistasPage() {
                   <p className="text-[13px] text-gray-400 font-medium mb-2">Taxa de Conclusão</p>
                   <p className="text-[24px] font-bold text-white">{Math.round((unlockedCount / achievements.length) * 100)}%</p>
                 </div>
-                <div className="w-12 h-12 bg-[#E879F9] rounded-[8px] flex items-center justify-center">
+                <div className="w-12 h-12 bg-[#34D399] rounded-[8px] flex items-center justify-center">
                   <Target className="w-6 h-6 text-white" />
                 </div>
               </div>
@@ -300,7 +300,7 @@ export default function MentoradoConquistasPage() {
                       </div>
                       <div className="w-full bg-gray-700 rounded-full h-2">
                         <div
-                          className="bg-[#E879F9] h-2 rounded-full transition-all duration-500"
+                          className="bg-[#34D399] h-2 rounded-full transition-all duration-500"
                           style={{ width: `${(progress / maxProgress) * 100}%` }}
                         />
                       </div>
