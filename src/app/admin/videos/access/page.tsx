@@ -93,14 +93,12 @@ export default function VideoAccessControlPage() {
     setLoading(true)
     
     try {
-      // TENTAR BUSCAR OS DADOS REAIS DO SUPABASE
       const organizationId = '9c8c0033-15ea-4e33-a55f-28d81a19693b'
       
-      // Buscar mentorados reais
+      // Buscar mentorados reais (sem filtro de status_login pra mostrar todos)
       const { data: mentoradosData, error: mentoradosError } = await supabase
         .from('mentorados')
         .select('id, nome_completo, email, turma, status_login')
-        .eq('status_login', 'ativo')
         .eq('organization_id', organizationId)
         .order('nome_completo')
         
@@ -112,10 +110,8 @@ export default function VideoAccessControlPage() {
         .eq('organization_id', organizationId)
         .order('order_index')
       
-      // Se deu erro, usar dados mock limitados
       if (mentoradosError || modulesError) {
-        console.error('Erro auth/query:', mentoradosError || modulesError)
-        throw new Error('Fallback para mock')
+        console.error('Erro ao buscar dados:', mentoradosError || modulesError)
       }
       
       // Buscar access records com paginação (Supabase capa em 1000 por request)
@@ -163,146 +159,13 @@ export default function VideoAccessControlPage() {
       
       setMentoradoProgress(processed)
       
-    } catch (error) {
-      console.error('🚨 Erro ao carregar dados reais, usando mock:', error)
-      console.error('🚨 Detalhes do erro:', error.message)
-      
-      // FALLBACK: Dados mock com múltiplos mentorados para teste
-      const mockMentorados = [
-        {
-          id: 'de7bb7b4-a1ba-4bb2-a0a5-27592f60623a',
-          nome_completo: 'Thayla Maine Fiuza Guimarães Soares',
-          email: 'thaylamaine@gmail.com',
-          turma: 'Turma 2024',
-          status_login: 'ativo'
-        },
-        {
-          id: 'c97fae5f-20e2-4c13-8dde-4ace778be2cd',
-          nome_completo: 'Emerson Barbosa',
-          email: 'emersonbljr2802@gmail.com',
-          turma: 'Turma Geral',
-          status_login: 'ativo'
-        },
-        {
-          id: 'mock-id-3',
-          nome_completo: 'Dr. João Silva',
-          email: 'joao.silva@email.com',
-          turma: 'Turma 2024',
-          status_login: 'ativo'
-        },
-        {
-          id: 'mock-id-4',
-          nome_completo: 'Dra. Ana Santos',
-          email: 'ana.santos@email.com',
-          turma: 'Turma 2023',
-          status_login: 'ativo'
-        },
-        {
-          id: 'mock-id-5',
-          nome_completo: 'Dr. Carlos Lima',
-          email: 'carlos.lima@email.com',
-          turma: 'Turma 2024',
-          status_login: 'ativo'
-        }
-      ]
-
-      // TODOS OS 8 MÓDULOS REAIS DO BANCO com estrutura completa
-      const mockModules = [
-        { id: '525bbdef-7b1d-4b4b-a64c-aa31216450af', title: 'Onboarding', description: 'Módulo de boas-vindas', order_index: 0, is_active: true },
-        { id: '6f062c99-c9e2-48ee-a366-bb917d401c33', title: 'Médicos de Resultado – Pocket', description: 'Estratégias práticas', order_index: 1, is_active: true },
-        { id: 'eab5d09c-b4a7-45ee-885d-2b208c0cc261', title: 'Posicionamento Digital Estratégico e Intencional', description: 'Branding médico', order_index: 2, is_active: true },
-        { id: 'fddb62e8-6eb0-441d-bf4d-02de807d043c', title: 'Atrai & Encanta', description: 'Marketing de atração', order_index: 3, is_active: true },
-        { id: '1ec0fa80-5ddb-447f-bb95-42f8d7c10693', title: 'Médicos que vendem', description: 'Vendas para médicos', order_index: 4, is_active: true },
-        { id: 'd2e683ba-74e3-4f0a-9703-9e486a77e8ed', title: 'Hotseats', description: 'Sessões de feedback', order_index: 5, is_active: true },
-        { id: '498e8ccb-ac61-42a8-9d9d-315b46120de6', title: 'Bônus', description: 'Conteúdo extra', order_index: 6, is_active: true },
-        { id: '6dca50ff-76e2-4478-9c6f-b9faeb0400e1', title: 'IA', description: 'Inteligência Artificial', order_index: 7, is_active: true }
-      ]
-
-      // ACESSOS MOCK - Simulando diferentes cenários de acesso
-      const mockAccess = [
-        // Thayla - tem acesso a 2 módulos (como nos dados reais)
-        { 
-          id: 'access-1',
-          mentorado_id: 'de7bb7b4-a1ba-4bb2-a0a5-27592f60623a', 
-          module_id: '525bbdef-7b1d-4b4b-a64c-aa31216450af', // Onboarding
-          has_access: true,
-          granted_at: new Date().toISOString(),
-          granted_by: 'admin'
-        },
-        { 
-          id: 'access-2',
-          mentorado_id: 'de7bb7b4-a1ba-4bb2-a0a5-27592f60623a', 
-          module_id: '6f062c99-c9e2-48ee-a366-bb917d401c33', // Médicos de Resultado – Pocket
-          has_access: true,
-          granted_at: new Date().toISOString(),
-          granted_by: 'admin'
-        },
-        // Emerson - tem acesso a todos os módulos
-        { 
-          id: 'access-3',
-          mentorado_id: 'c97fae5f-20e2-4c13-8dde-4ace778be2cd', 
-          module_id: '525bbdef-7b1d-4b4b-a64c-aa31216450af',
-          has_access: true,
-          granted_at: new Date().toISOString(),
-          granted_by: 'admin'
-        },
-        { 
-          id: 'access-4',
-          mentorado_id: 'c97fae5f-20e2-4c13-8dde-4ace778be2cd', 
-          module_id: '6f062c99-c9e2-48ee-a366-bb917d401c33',
-          has_access: true,
-          granted_at: new Date().toISOString(),
-          granted_by: 'admin'
-        },
-        { 
-          id: 'access-5',
-          mentorado_id: 'c97fae5f-20e2-4c13-8dde-4ace778be2cd', 
-          module_id: 'eab5d09c-b4a7-45ee-885d-2b208c0cc261',
-          has_access: true,
-          granted_at: new Date().toISOString(),
-          granted_by: 'admin'
-        },
-        // Dr. João - acesso limitado a 3 módulos
-        { 
-          id: 'access-6',
-          mentorado_id: 'mock-id-3', 
-          module_id: '525bbdef-7b1d-4b4b-a64c-aa31216450af',
-          has_access: true,
-          granted_at: new Date().toISOString(),
-          granted_by: 'admin'
-        },
-        { 
-          id: 'access-7',
-          mentorado_id: 'mock-id-3', 
-          module_id: 'fddb62e8-6eb0-441d-bf4d-02de807d043c',
-          has_access: true,
-          granted_at: new Date().toISOString(),
-          granted_by: 'admin'
-        }
-      ]
-
-      console.log('🔍 CARREGANDO DADOS MOCK:')
-      console.log('Mentorados:', mockMentorados.length)
-      console.log('Módulos totais:', mockModules.length) 
-      console.log('Access records:', mockAccess.length)
-
-      setMentorados(mockMentorados)
-      setModules(mockModules)
-      setAccess(mockAccess)
+    } catch (error: any) {
+      console.error('Erro ao carregar dados:', error?.message || error)
+      setMentorados([])
+      setModules([])
+      setAccess([])
       setProgress([])
-
-      const processed = mockMentorados.map(mentorado => ({
-        mentorado,
-        total_lessons: 0,
-        completed_lessons: 0,
-        watch_time_minutes: Math.floor(Math.random() * 300), // Tempo simulado
-        last_activity: undefined,
-        completion_rate: Math.floor(Math.random() * 100), // Taxa simulada
-        modules_accessed: mockAccess.filter(a => a.mentorado_id === mentorado.id && a.has_access).length,
-        recent_lessons: []
-      }))
-      
-      setMentoradoProgress(processed)
+      setMentoradoProgress([])
     }
     
     setLoading(false)

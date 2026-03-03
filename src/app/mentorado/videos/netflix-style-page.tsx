@@ -286,7 +286,7 @@ export default function NetflixStyleVideosPage() {
     try {
       console.log('🏆 Carregando ranking de indicações...')
 
-      const orgId = mentorado?.organization_id || 'a0000000-0000-4000-8000-000000000001'
+      const orgId = mentorado?.organization_id || '9c8c0033-15ea-4e33-a55f-28d81a19693b'
 
       // First get all mentorados from the organization
       const { data: allMentorados, error: mentoradosError } = await supabase
