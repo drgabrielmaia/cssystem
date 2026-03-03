@@ -16,6 +16,15 @@ const _supabaseReal = createBrowserClient(supabaseUrl, supabaseKey, {
       'x-application-name': 'cssystem'
     },
     fetch: (url, options = {}) => {
+      // Block Supabase auth token refresh when using custom JWT (Docker PostgreSQL)
+      // This prevents CORS errors from stale Supabase sessions
+      const urlStr = typeof url === 'string' ? url : (url as Request)?.url || ''
+      if (hasCustomJwt() && (urlStr.includes('/auth/v1/token') || urlStr.includes('/auth/v1/user'))) {
+        return Promise.resolve(new Response(
+          JSON.stringify({ error: 'session_not_found', error_description: 'Using custom JWT auth' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        ))
+      }
       return fetch(url, {
         ...options,
         ...(options.signal && { signal: options.signal })
@@ -97,6 +106,13 @@ export const createClient = () => createBrowserClient(supabaseUrl, supabaseKey, 
       'x-application-name': 'cssystem'
     },
     fetch: (url, options = {}) => {
+      const urlStr = typeof url === 'string' ? url : (url as Request)?.url || ''
+      if (hasCustomJwt() && (urlStr.includes('/auth/v1/token') || urlStr.includes('/auth/v1/user'))) {
+        return Promise.resolve(new Response(
+          JSON.stringify({ error: 'session_not_found', error_description: 'Using custom JWT auth' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        ))
+      }
       return fetch(url, {
         ...options,
         ...(options.signal && { signal: options.signal })

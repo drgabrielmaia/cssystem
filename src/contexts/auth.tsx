@@ -248,6 +248,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event)
 
+      // Ignore Supabase auth events when using custom JWT (Docker PostgreSQL)
+      if (getToken()) return
+
       const currentUser = session?.user ?? null
 
       if (event === 'TOKEN_REFRESHED') {
