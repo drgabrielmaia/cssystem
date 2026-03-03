@@ -55,21 +55,15 @@ function hasCustomJwt(): boolean {
   return !!localStorage.getItem('cs_auth_token')
 }
 
-// Supabase-compatible wrapper that routes data queries through the API
-// when logged in via custom JWT. Auth/storage always go through real Supabase.
+// Data queries: use Docker PostgreSQL API (ApiQueryBuilder) always.
+// ApiQueryBuilder works with or without JWT - the api-cs handles auth.
 export const supabase = {
   from(table: string) {
-    if (hasCustomJwt()) {
-      return new ApiQueryBuilder(table) as any
-    }
-    return _supabaseReal.from(table)
+    return new ApiQueryBuilder(table) as any
   },
 
   rpc(name: string, params?: any) {
-    if (hasCustomJwt()) {
-      return new ApiRpcBuilder(name, params) as any
-    }
-    return _supabaseReal.rpc(name, params)
+    return new ApiRpcBuilder(name, params) as any
   },
 
   // Auth always goes through real Supabase (for mentorado pages, Supabase-based users)

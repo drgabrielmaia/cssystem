@@ -46,11 +46,18 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   })
 
   if (response.status === 401) {
-    clearAuth()
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login'
+    // Only clear auth and redirect if user had a token (admin user)
+    // Don't redirect mentorados who don't use JWT
+    if (token) {
+      clearAuth()
+      if (typeof window !== 'undefined') {
+        const isMentoradoPage = window.location.pathname.startsWith('/mentorado')
+        if (!isMentoradoPage) {
+          window.location.href = '/login'
+        }
+      }
+      throw new Error('Sessão expirada')
     }
-    throw new Error('Sessão expirada')
   }
 
   return response

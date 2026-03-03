@@ -1,8 +1,9 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
 import { MOCK_MODE, MOCK_PASSWORD, createMockMentorado } from '@/lib/mock-data'
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
 
 interface Mentorado {
   id: string
@@ -37,7 +38,7 @@ interface MentoradoAuthContextType {
 const MentoradoAuthContext = createContext<MentoradoAuthContextType | undefined>(undefined)
 
 const COOKIE_NAME = 'mentorado_auth'
-const AUTH_VERSION = '2.0' // Incrementar quando houver mudanças no auth
+const AUTH_VERSION = '3.0' // Incrementar quando houver mudanças no auth
 const VERSION_KEY = 'mentorado_auth_version'
 
 export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
@@ -120,32 +121,6 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Função para verificar se o mentorado deve ter acesso bloqueado
-  const shouldBlockAccess = (mentoradoData: any): { blocked: boolean, reason?: string } => {
-    // 1. Verificar se foi marcado como churn ou excluído
-    if (mentoradoData.estado_atual === 'churn') {
-      return { blocked: true, reason: 'Conta marcada como churn' }
-    }
-
-    // 2. Verificar se completou 12 meses desde a data de entrada
-    if (mentoradoData.data_entrada) {
-      const dataEntrada = new Date(mentoradoData.data_entrada)
-      const agora = new Date()
-      const diferencaEmMeses = (agora.getFullYear() - dataEntrada.getFullYear()) * 12 + (agora.getMonth() - dataEntrada.getMonth())
-
-      if (diferencaEmMeses >= 12) {
-        return { blocked: true, reason: 'Período de acesso expirado (12 meses)' }
-      }
-    }
-
-    // 3. Verificar se status_login está inativo
-    if (mentoradoData.status_login !== 'ativo') {
-      return { blocked: true, reason: 'Status de login inativo' }
-    }
-
-    return { blocked: false }
-  }
-
   // Função para verificar autenticação (reutilizável)
   const checkAuth = async () => {
     try {
@@ -167,39 +142,54 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      // Debug: Verificar dispositivo
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-      console.log('📱 Dispositivo:', isMobile ? 'MOBILE' : 'DESKTOP')
-
       // Verificar cookie
       const mentoradoId = getCookie(COOKIE_NAME)
       console.log('🔍 Cookie mentorado_auth:', mentoradoId ? 'ENCONTRADO' : 'NÃO ENCONTRADO')
 
       if (mentoradoId) {
-        // Buscar dados atualizados do mentorado
-        const { data: mentoradoData, error: fetchError } = await supabase
-          .from('mentorados')
-          .select('*')
-          .eq('id', mentoradoId)
-          .single()
+        // Validar mentorado via API pública (sem JWT)
+        try {
+          const response = await fetch(`${API_BASE_URL}/public/mentorados/validate/${mentoradoId}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          })
 
-        if (fetchError || !mentoradoData) {
-          // Cookie inválido ou usuário não encontrado
-          removeCookie(COOKIE_NAME)
-          localStorage.removeItem('mentorado') // Limpar localStorage legado
-          setMentorado(null)
-        } else {
-          // Verificar se deve ter acesso bloqueado
-          const accessCheck = shouldBlockAccess(mentoradoData)
-
-          if (accessCheck.blocked) {
-            console.log('🚫 Acesso bloqueado:', accessCheck.reason)
-            setError(accessCheck.reason || 'Acesso bloqueado')
+          if (response.ok) {
+            const result = await response.json()
+            if (result.success && result.mentorado) {
+              setMentorado(result.mentorado)
+            } else {
+              removeCookie(COOKIE_NAME)
+              localStorage.removeItem('mentorado')
+              setMentorado(null)
+            }
+          } else if (response.status === 403) {
+            const result = await response.json()
+            console.log('🚫 Acesso bloqueado:', result.error)
+            setError(result.error || 'Acesso bloqueado')
             removeCookie(COOKIE_NAME)
             localStorage.removeItem('mentorado')
             setMentorado(null)
           } else {
-            setMentorado(mentoradoData)
+            // Cookie inválido ou mentorado não encontrado
+            removeCookie(COOKIE_NAME)
+            localStorage.removeItem('mentorado')
+            setMentorado(null)
+          }
+        } catch (fetchErr) {
+          console.error('Erro ao validar mentorado via API:', fetchErr)
+          // On network error, try using cached data from localStorage
+          const cached = localStorage.getItem('mentorado_cache')
+          if (cached) {
+            try {
+              setMentorado(JSON.parse(cached))
+            } catch (e) {
+              removeCookie(COOKIE_NAME)
+              setMentorado(null)
+            }
+          } else {
+            removeCookie(COOKIE_NAME)
+            setMentorado(null)
           }
         }
       } else {
@@ -208,28 +198,16 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
         if (savedMentorado) {
           try {
             const mentoradoData = JSON.parse(savedMentorado)
-
-            // Verificar se ainda é válido no banco
-            const { data: currentData, error: fetchError } = await supabase
-              .from('mentorados')
-              .select('*')
-              .eq('id', mentoradoData.id)
-              .eq('status_login', 'ativo')
-              .single()
-
-            if (!fetchError && currentData) {
-              setMentorado(currentData)
-              setCookie(COOKIE_NAME, currentData.id)
-            }
-
-            // Limpar localStorage
+            // Set cookie and use cached data
+            setCookie(COOKIE_NAME, mentoradoData.id)
+            setMentorado(mentoradoData)
+            // Limpar localStorage legado
             localStorage.removeItem('mentorado')
           } catch (e) {
             localStorage.removeItem('mentorado')
           }
         }
 
-        // Se não encontrou nada, garantir que está null
         if (!savedMentorado) {
           setMentorado(null)
         }
@@ -329,37 +307,45 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
 
       console.log('📋 Versão do auth:', AUTH_VERSION)
 
-      // Busca simplificada - primeiro tenta case-insensitive
-      const { data: mentoradoData, error: fetchError } = await supabase
-        .from('mentorados')
-        .select('*')
-        .ilike('email', email)
-        .single()
+      // Login via API pública (sem JWT)
+      const response = await fetch(`${API_BASE_URL}/public/mentorados/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
+      })
 
-      if (fetchError) {
-        console.log('❌ Busca case-insensitive falhou:', fetchError.code, fetchError.message)
+      const result = await response.json()
 
-        // Se não encontrou, tenta busca exata
-        const { data: exactData, error: exactError } = await supabase
-          .from('mentorados')
-          .select('*')
-          .eq('email', email.toLowerCase())
-          .single()
+      if (response.ok && result.success && result.mentorado) {
+        console.log('✅ Login via API bem-sucedido')
+        setMentorado(result.mentorado)
+        setCookie(COOKIE_NAME, result.mentorado.id)
+        localStorage.removeItem('mentorado')
 
-        if (exactError) {
-          console.log('❌ Busca exata também falhou:', exactError.code)
-          setError('Email não encontrado')
-          return false
+        // Store JWT token so ApiQueryBuilder works for mentorado pages
+        if (result.token) {
+          localStorage.setItem('cs_auth_token', result.token)
+          document.cookie = `cs_auth_token=${result.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
         }
 
-        // Usar dados da busca exata
-        console.log('✅ Encontrado com busca exata')
-        return await processLogin(exactData, password)
-      }
+        // Cache mentorado data for offline/network error fallback
+        try {
+          localStorage.setItem('mentorado_cache', JSON.stringify(result.mentorado))
+        } catch (e) { /* ignore */ }
 
-      // Usar dados da busca case-insensitive
-      console.log('✅ Encontrado com busca case-insensitive')
-      return await processLogin(mentoradoData, password)
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('mentoradoLoginSuccess'))
+        }, 50)
+
+        console.log('✅ Login realizado com sucesso')
+        errorCountRef.current = 0
+        return true
+      } else {
+        const errorMsg = result.error || 'Email ou senha incorretos'
+        console.log('❌ Login falhou:', errorMsg)
+        setError(errorMsg)
+        return false
+      }
 
     } catch (error: any) {
       console.error('❌ Erro no login:', error)
@@ -378,74 +364,32 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const processLogin = async (mentoradoData: any, password: string): Promise<boolean> => {
-    console.log('👤 Processando login para:', {
-      nome_completo: mentoradoData.nome_completo,
-      email: mentoradoData.email,
-      status_login: mentoradoData.status_login,
-      estado_atual: mentoradoData.estado_atual
-    })
-
-    // Verificar se deve ter acesso bloqueado
-    const accessCheck = shouldBlockAccess(mentoradoData)
-    if (accessCheck.blocked) {
-      console.log('🚫 Acesso bloqueado:', accessCheck.reason)
-      setError(accessCheck.reason || 'Acesso bloqueado')
-      return false
-    }
-
-    // Verificar senha (aceita qualquer senha se password_hash for null, senão verifica)
-    if (!mentoradoData.password_hash) {
-      console.log('✅ Usuário sem senha configurada - permitindo acesso com qualquer senha')
-    } else {
-      // Verify password with bcrypt migration support
-      const { PasswordSecurity } = await import('@/lib/password-security')
-      const passwordCheck = await PasswordSecurity.migratePlainTextPassword(password, mentoradoData.password_hash)
-      
-      if (!passwordCheck.isValid) {
-        console.log('🚫 Senha incorreta')
-        setError('Senha incorreta')
-        return false
-      }
-
-      // If password was migrated from plain text, update the hash
-      if (passwordCheck.newHash) {
-        console.log('🔄 Migrando senha para hash bcrypt...')
-        try {
-          await supabase
-            .from('mentorados')
-            .update({ password_hash: passwordCheck.newHash })
-            .eq('id', mentoradoData.id)
-        } catch (error) {
-          console.warn('⚠️ Falha ao atualizar hash da senha:', error)
-          // Continue with login even if hash update fails
-        }
-      }
-    }
-
-    setMentorado(mentoradoData)
-    setCookie(COOKIE_NAME, mentoradoData.id)
-    localStorage.removeItem('mentorado') // Limpar localStorage legado
-
-    // Disparar evento de sucesso
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('mentoradoLoginSuccess'))
-    }, 50)
-
-    console.log('✅ Login realizado com sucesso')
-    errorCountRef.current = 0 // Reset error counter on success
-    return true
-  }
 
   const signOut = async (): Promise<void> => {
     try {
       console.log('🚪 Fazendo logout do mentorado...')
       removeCookie(COOKIE_NAME)
-      localStorage.removeItem('mentorado') // Limpar localStorage legado
+      localStorage.removeItem('mentorado')
+      localStorage.removeItem('mentorado_cache')
+      // Clear mentorado JWT token (but don't clear admin token if it's a different user)
+      const storedToken = localStorage.getItem('cs_auth_token')
+      if (storedToken) {
+        try {
+          const payload = JSON.parse(atob(storedToken.split('.')[1]))
+          if (payload.is_mentorado) {
+            localStorage.removeItem('cs_auth_token')
+            document.cookie = 'cs_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+          }
+        } catch (e) {
+          // If can't decode, clear anyway
+          localStorage.removeItem('cs_auth_token')
+          document.cookie = 'cs_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        }
+      }
       setMentorado(null)
       setError(null)
       console.log('✅ Logout realizado com sucesso')
-      
+
       // Redirect para a página de login após logout
       window.location.href = '/mentorado'
     } catch (error: any) {
@@ -453,6 +397,9 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
       // Forçar logout mesmo com erro
       removeCookie(COOKIE_NAME)
       localStorage.removeItem('mentorado')
+      localStorage.removeItem('mentorado_cache')
+      localStorage.removeItem('cs_auth_token')
+      document.cookie = 'cs_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
       setMentorado(null)
       setError(null)
     }
