@@ -23,37 +23,50 @@ function getCurrentMonthYear() {
 
 async function getUsage(mentoradoId: string) {
   const monthYear = getCurrentMonthYear()
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('ai_usage')
     .select('*')
     .eq('mentorado_id', mentoradoId)
     .eq('month_year', monthYear)
     .single()
+  if (error && error.code !== 'PGRST116') {
+    console.error('[chat-gemini] getUsage error:', error.message, '| mentoradoId:', mentoradoId)
+  }
   return data || { images_generated: 0, chat_messages_sent: 0, input_tokens_estimated: 0, output_tokens_estimated: 0 }
 }
 
 async function incrementUsage(mentoradoId: string, isImage: boolean) {
   const monthYear = getCurrentMonthYear()
-  const { data: existing } = await supabaseAdmin
+  const { data: existing, error: selectError } = await supabaseAdmin
     .from('ai_usage')
     .select('id, images_generated, chat_messages_sent')
     .eq('mentorado_id', mentoradoId)
     .eq('month_year', monthYear)
     .single()
 
+  if (selectError && selectError.code !== 'PGRST116') {
+    console.error('[chat-gemini] incrementUsage select error:', selectError.message)
+  }
+
   if (existing) {
-    await supabaseAdmin.from('ai_usage').update({
+    const { error: updateError } = await supabaseAdmin.from('ai_usage').update({
       images_generated: existing.images_generated + (isImage ? 1 : 0),
       chat_messages_sent: existing.chat_messages_sent + (isImage ? 0 : 1),
       updated_at: new Date().toISOString(),
     }).eq('id', existing.id)
+    if (updateError) {
+      console.error('[chat-gemini] incrementUsage update error:', updateError.message)
+    }
   } else {
-    await supabaseAdmin.from('ai_usage').insert({
+    const { error: insertError } = await supabaseAdmin.from('ai_usage').insert({
       mentorado_id: mentoradoId,
       month_year: monthYear,
       images_generated: isImage ? 1 : 0,
       chat_messages_sent: isImage ? 0 : 1,
     })
+    if (insertError) {
+      console.error('[chat-gemini] incrementUsage insert error:', insertError.message)
+    }
   }
 }
 
@@ -438,7 +451,9 @@ QUALIDADE: Foto realista, iluminação profissional, resolução alta.`
 
       // Track image usage
       if (mentoradoId && generatedImageBase64) {
-        await incrementUsage(mentoradoId, true).catch(() => {})
+        await incrementUsage(mentoradoId, true).catch((err) => {
+          console.error('[chat-gemini] Failed to track image usage:', err?.message || err)
+        })
       }
 
       const updatedUsage = mentoradoId ? await getUsage(mentoradoId).catch(() => null) : null
@@ -475,7 +490,9 @@ QUALIDADE: Foto realista, iluminação profissional, resolução alta.`
 
     // Track chat usage
     if (mentoradoId) {
-      await incrementUsage(mentoradoId, false).catch(() => {})
+      await incrementUsage(mentoradoId, false).catch((err) => {
+        console.error('[chat-gemini] Failed to track chat usage:', err?.message || err)
+      })
     }
 
     const updatedUsage = mentoradoId ? await getUsage(mentoradoId).catch(() => null) : null
