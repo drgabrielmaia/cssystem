@@ -284,7 +284,7 @@ export default function FormPageSafe() {
 
       // Path 2: qualificacao-medica special flow
       if (slug === 'qualificacao-medica') {
-        const organizationId = template?.organization_id || '00000000-0000-0000-0000-000000000001'
+        const organizationId = template?.organization_id || null
         const submissionData = {
           template_id: template?.id, template_slug: slug,
           organization_id: organizationId,
@@ -321,7 +321,7 @@ export default function FormPageSafe() {
       if (template?.form_type === 'lead') {
         const leadData: any = {
           origem: 'formulario_seguro', status: 'novo', observacoes: '',
-          organization_id: template?.organization_id || '00000000-0000-0000-0000-000000000001',
+          organization_id: template?.organization_id || null,
           data_primeiro_contato: new Date().toISOString(),
         }
         template.fields.forEach(field => {
@@ -335,7 +335,7 @@ export default function FormPageSafe() {
       }
       await supabase.from('form_submissions').insert([{
         template_id: template?.id, template_slug: slug,
-        organization_id: template?.organization_id || '00000000-0000-0000-0000-000000000001',
+        organization_id: template?.organization_id || null,
         lead_id: leadId, mentorado_id: null, source_url: 'form_safe',
         submission_data: formData,
         user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
