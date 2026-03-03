@@ -4,14 +4,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { useStableData } from '@/hooks/use-stable-data'
 import { useStableMutation } from '@/hooks/use-stable-mutation'
-import { PageLayout } from '@/components/ui/page-layout'
 import { useActiveOrganization } from '@/contexts/organization'
-import { KPICardVibrant } from '@/components/ui/kpi-card-vibrant'
-import { MetricCard } from '@/components/ui/metric-card'
-import { DataTable } from '@/components/ui/data-table'
-import { StatusBadge } from '@/components/ui/status-badge'
-import { ChartCard } from '@/components/ui/chart-card'
 import { ChurnRateCard } from '@/components/churn-rate-card'
+import EmbeddedAIChat from '@/components/embedded-ai-chat'
 import { supabase } from '@/lib/supabase'
 import {
   DollarSign,
@@ -32,7 +27,11 @@ import {
   RefreshCw,
   BarChart3,
   Calendar,
-  UserPlus
+  UserPlus,
+  ArrowUpRight,
+  ArrowDownRight,
+  Wallet,
+  Receipt
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts'
@@ -92,7 +91,7 @@ interface Closer {
 export default function LeadsPage() {
   const router = useRouter()
   const { activeOrganizationId, loading: orgLoading } = useActiveOrganization()
-  
+
   // Estados locais simples (não precisam de hooks especiais)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('todos')
@@ -115,30 +114,30 @@ export default function LeadsPage() {
   // Filtros calculados para os hooks
   const leadFilters = useMemo(() => {
     const filters: Record<string, any> = {}
-    
+
     // Filtrar por organização ativa
     if (activeOrganizationId) {
       filters.organization_id = activeOrganizationId
     }
-    
+
     if (statusFilter !== 'todos') {
       filters.status = statusFilter
     }
-    
+
     if (origemFilter !== 'todas') {
       filters.origem = origemFilter
     }
-    
+
     return filters
   }, [activeOrganizationId, statusFilter, origemFilter])
 
   // Hook para buscar leads com filtros estáveis
-  const { 
-    data: leads, 
-    loading: leadsLoading, 
-    error: leadsError, 
+  const {
+    data: leads,
+    loading: leadsLoading,
+    error: leadsError,
     refetch: refetchLeads,
-    isRefetching: isRefetchingLeads 
+    isRefetching: isRefetchingLeads
   } = useStableData<Lead>({
     tableName: 'leads',
     filters: leadFilters,
@@ -290,7 +289,7 @@ export default function LeadsPage() {
   // Carregar stats quando leads mudarem
   useEffect(() => {
     loadStats()
-    loadOrigemData() 
+    loadOrigemData()
     loadConversionData()
   }, [leads])
 
@@ -299,12 +298,12 @@ export default function LeadsPage() {
     try {
       // Query para leads totais (usar data inteligente baseada no status)
       let queryTotal = supabase.from('leads').select('*')
-      
+
       // Filtrar por organização
       if (activeOrganizationId) {
         queryTotal = queryTotal.eq('organization_id', activeOrganizationId)
       }
-      
+
       const dateRange = getDateRange(dateFilter)
       if (dateRange) {
         // Usar data_venda para vendidos e data_primeiro_contato para outros
@@ -313,12 +312,12 @@ export default function LeadsPage() {
 
       // Query para vendas (usar data_venda para leads vendidos) - apenas com valor arrecadado
       let queryVendas = supabase.from('leads').select('*').eq('status', 'vendido').not('valor_arrecadado', 'is', null).gt('valor_arrecadado', 0)
-      
+
       // Filtrar por organização
       if (activeOrganizationId) {
         queryVendas = queryVendas.eq('organization_id', activeOrganizationId)
       }
-      
+
       if (dateRange) {
         queryVendas = queryVendas
           .gte('data_venda', dateRange.start)
@@ -365,12 +364,12 @@ export default function LeadsPage() {
   const loadOrigemData = async () => {
     try {
       let query = supabase.from('leads').select('origem, status, valor_arrecadado')
-      
+
       // Filtrar por organização
       if (activeOrganizationId) {
         query = query.eq('organization_id', activeOrganizationId)
       }
-      
+
       const { data: leads } = await query
 
       if (leads) {
@@ -428,11 +427,11 @@ export default function LeadsPage() {
           .select('id')
           .gte('data_primeiro_contato', startDate.toISOString())
           .lte('data_primeiro_contato', endDate.toISOString())
-        
+
         if (activeOrganizationId) {
           queryTotalLeads = queryTotalLeads.eq('organization_id', activeOrganizationId)
         }
-        
+
         const { data: totalLeads } = await queryTotalLeads
 
         // Buscar vendas do mês - apenas vendas com valor arrecadado
@@ -444,11 +443,11 @@ export default function LeadsPage() {
           .gt('valor_arrecadado', 0)
           .gte('data_venda', startDate.toISOString())
           .lte('data_venda', endDate.toISOString())
-        
+
         if (activeOrganizationId) {
           queryVendas = queryVendas.eq('organization_id', activeOrganizationId)
         }
-        
+
         const { data: vendas } = await queryVendas
 
         const totalLeadsCount = totalLeads?.length || 0
@@ -561,71 +560,9 @@ export default function LeadsPage() {
     }
 
     try {
-
-      // Verificar sessão de autenticação
-      console.log('Verificando sessão de autenticação...')
-
-      // Primeiro, verificar se há sessão ativa
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      console.log('Sessão atual:', { session, sessionError })
-
-      if (sessionError) {
-        console.error('Erro ao obter sessão:', sessionError)
-        throw new Error(`Erro de sessão: ${sessionError.message}`)
-      }
-
-      if (!session) {
-        console.error('Nenhuma sessão ativa encontrada')
-        throw new Error('Sessão expirada - faça login novamente')
-      }
-
-      // Agora tentar obter o usuário
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-      console.log('Auth user check:', { user, userError })
-
-      if (userError) {
-        console.error('Erro de autenticação:', userError)
-        throw new Error(`Erro de autenticação: ${userError.message}`)
-      }
-
-      if (!user) {
-        console.error('Usuário não encontrado')
-        throw new Error('Usuário não autenticado - faça login novamente')
-      }
-
-      console.log('Buscando organização para usuário:', user.id) // Debug
-
-      // Buscar organization_id do usuário atual
-      let organizationId = null
-      try {
-        const { data: orgData, error: orgError } = await supabase
-          .from('organization_users')
-          .select('organization_id')
-          .eq('user_id', user.id)
-          .single()
-
-        if (orgError) {
-          console.error('Erro ao buscar organização:', orgError)
-          // Se não conseguir buscar pela tabela organization_users, tentar buscar na tabela organizations
-          const { data: orgDirectData, error: orgDirectError } = await supabase
-            .from('organizations')
-            .select('id')
-            .eq('owner_email', user.email)
-            .single()
-
-          if (orgDirectError) {
-            console.error('Erro ao buscar organização diretamente:', orgDirectError)
-            throw new Error('Usuário não está associado a nenhuma organização')
-          }
-          organizationId = orgDirectData.id
-        } else {
-          organizationId = orgData.organization_id
-        }
-
-        console.log('Organization ID encontrado:', organizationId)
-      } catch (error) {
-        console.error('Erro ao obter organization_id:', error)
-        throw new Error('Erro ao verificar organização do usuário')
+      const organizationId = activeOrganizationId
+      if (!organizationId) {
+        throw new Error('Organização não encontrada - faça login novamente')
       }
 
       // 1. Criar mentorado com dados do lead
@@ -724,7 +661,7 @@ export default function LeadsPage() {
           if (!contractError && contractId) {
             // Importar e chamar função de envio de WhatsApp
             const { sendContractAfterCreation } = await import('@/lib/contract-whatsapp')
-            
+
             if (mentorado.telefone) {
               const whatsappSent = await sendContractAfterCreation(contractId)
               if (whatsappSent) {
@@ -738,10 +675,10 @@ export default function LeadsPage() {
         console.error('Erro ao enviar contrato automaticamente:', contractError)
       }
 
-      const successMessage = contractSent 
+      const successMessage = contractSent
         ? `Lead convertido em mentorado com sucesso!\nContrato enviado automaticamente via WhatsApp 📱\nMentorado ID: ${mentorado.id}`
         : `Lead convertido em mentorado com sucesso!\nMentorado ID: ${mentorado.id}\n⚠️ Contrato não foi enviado automaticamente - verifique se há template ativo`
-      
+
       alert(successMessage)
       refetchLeads()
     } catch (error) {
@@ -751,717 +688,850 @@ export default function LeadsPage() {
     }
   }
 
+  // Status badge colors for dark theme
+  const getStatusStyle = (status: string) => {
+    const styles: Record<string, string> = {
+      novo: 'bg-blue-500/15 text-blue-400 border border-blue-500/20',
+      contactado: 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/20',
+      qualificado: 'bg-violet-500/15 text-violet-400 border border-violet-500/20',
+      agendado: 'bg-amber-500/15 text-amber-400 border border-amber-500/20',
+      'no-show': 'bg-orange-500/15 text-orange-400 border border-orange-500/20',
+      quente: 'bg-red-500/15 text-red-400 border border-red-500/20',
+      vendido: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20',
+      call_agendada: 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/20',
+      proposta_enviada: 'bg-purple-500/15 text-purple-400 border border-purple-500/20',
+      perdido: 'bg-gray-500/15 text-gray-400 border border-gray-500/20',
+      vazado: 'bg-pink-500/15 text-pink-400 border border-pink-500/20',
+      churn: 'bg-red-800/15 text-red-300 border border-red-800/20',
+      churnzinho: 'bg-orange-800/15 text-orange-300 border border-orange-800/20',
+    }
+    return styles[status] || 'bg-gray-500/15 text-gray-400 border border-gray-500/20'
+  }
+
   if (loading) {
     return (
-      <PageLayout title="Leads" subtitle="Carregando...">
-        <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#059669]"></div>
+      <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-500/20 animate-pulse">
+            <Users className="h-6 w-6 text-white" />
+          </div>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500/20 border-t-emerald-500"></div>
+          <p className="text-sm text-white/40">Carregando leads...</p>
         </div>
-      </PageLayout>
+      </div>
     )
   }
 
   return (
     <ProtectedRoute>
-      <div className="relative">
+      <div className="min-h-screen bg-[#0a0a0c]">
         {/* Loading Overlay */}
         {isLoadingData && (
-          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div className="bg-white rounded-lg p-6 shadow-xl flex items-center gap-3">
-              <RefreshCw className="w-5 h-5 animate-spin text-primary" />
-              <span className="text-sm font-medium">Sincronizando dados...</span>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-[#1a1a1e] rounded-2xl p-6 shadow-2xl border border-white/[0.06] flex items-center gap-3">
+              <RefreshCw className="w-5 h-5 animate-spin text-emerald-400" />
+              <span className="text-sm font-medium text-white/70">Sincronizando dados...</span>
             </div>
           </div>
         )}
-        
-      <PageLayout title="Leads" subtitle="Gestão completa de leads e oportunidades">
-      {/* KPI Cards - Grid responsivo */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <KPICardVibrant
-          title="Total de Leads"
-          value={stats.total_leads.toString()}
-          subtitle="Este mês"
-          percentage={15}
-          trend="up"
-          color="blue"
-          icon={Users}
-          sparklineData={[
-            { value: 20 }, { value: 25 }, { value: 30 }, { value: 28 },
-            { value: 35 }, { value: 38 }, { value: 42 }, { value: stats.total_leads }
-          ]}
-        />
-        <MetricCard
-          title="Taxa de Conversão"
-          value={`${stats.taxa_conversao.toFixed(1)}%`}
-          change={2.5}
-          changeType="increase"
-          icon={Target}
-          iconColor="green"
-        />
-        <MetricCard
-          title="Valor em Vendas"
-          value={formatCurrency(stats.valor_total_arrecadado)}
-          change={18}
-          changeType="increase"
-          icon={DollarSign}
-          iconColor="orange"
-        />
-        <MetricCard
-          title="Ticket Médio"
-          value={formatCurrency(stats.ticket_medio)}
-          change={8}
-          changeType="increase"
-          icon={TrendingUp}
-          iconColor="purple"
-        />
-        <ChurnRateCard />
-      </div>
 
-      {/* Gráficos - Grid responsivo */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Gráfico de Taxa de Conversão */}
-        <div className="lg:col-span-2">
-          <ChartCard title="Evolução da Taxa de Conversão e Volume de Leads" subtitle="Últimos 6 meses">
-            {/* Legenda */}
-            <div className="flex items-center justify-center gap-6 mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-[#059669] rounded"></div>
-                <span className="text-sm text-muted-foreground">Taxa de Conversão (%)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-[#3B82F6] rounded"></div>
-                <span className="text-sm text-muted-foreground">Volume de Leads</span>
-              </div>
-            </div>
-
-            <div className="h-80">
-              {conversionChartLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#059669]"></div>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={conversionData}>
-                    <defs>
-                      <linearGradient id="colorConversion" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#059669" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="month" className="stroke-muted-foreground" fontSize={12} />
-
-                    {/* Dois eixos Y - um para taxa (%) e outro para leads (quantidade) */}
-                    <YAxis
-                      yAxisId="taxa"
-                      orientation="left"
-                      className="stroke-muted-foreground"
-                      fontSize={12}
-                      label={{ value: 'Taxa (%)', angle: -90, position: 'insideLeft' }}
-                    />
-                    <YAxis
-                      yAxisId="leads"
-                      orientation="right"
-                      className="stroke-muted-foreground"
-                      fontSize={12}
-                      label={{ value: 'Leads', angle: 90, position: 'insideRight' }}
-                    />
-
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '12px',
-                        boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
-                      }}
-                      formatter={(value, name) => [
-                        name === 'taxa' ? `${Number(value).toFixed(1)}%` : `${value} leads`,
-                        name === 'taxa' ? 'Taxa de Conversão' : 'Total de Leads'
-                      ]}
-                    />
-
-                    {/* Área para quantidade de leads */}
-                    <Area
-                      yAxisId="leads"
-                      type="monotone"
-                      dataKey="leads"
-                      stroke="#3B82F6"
-                      fillOpacity={1}
-                      fill="url(#colorLeads)"
-                      strokeWidth={2}
-                    />
-
-                    {/* Linha para taxa de conversão */}
-                    <Area
-                      yAxisId="taxa"
-                      type="monotone"
-                      dataKey="taxa"
-                      stroke="#059669"
-                      fillOpacity={1}
-                      fill="url(#colorConversion)"
-                      strokeWidth={3}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </ChartCard>
-        </div>
-
-        {/* Gráfico de Origem dos Leads */}
-        <ChartCard title="Origem dos Leads" subtitle="Performance por canal">
-          <div className="h-80 flex flex-col items-center justify-center">
-            <ResponsiveContainer width="100%" height="60%">
-              <PieChart>
-                <Pie
-                  data={origemData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={80}
-                  paddingAngle={4}
-                  dataKey="value"
-                  onClick={(data) => {
-                    setSelectedOrigem(data)
-                    setShowOrigemModal(true)
-                  }}
-                >
-                  {origemData.map((entry, index) => (
-                    <Cell
-                      key={index}
-                      fill={entry.color}
-                      style={{ cursor: 'pointer' }}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value, name) => [value, 'Leads']}
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 20px -2px rgb(0 0 0 / 0.08)'
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="grid grid-cols-1 gap-1 w-full mt-2 max-h-32 overflow-y-auto">
-              {origemData.map((entry, index) => (
-                <div key={index} className="flex items-center justify-between p-2 hover:bg-muted rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: entry.color }}
-                    />
-                    <span className="text-xs text-foreground font-medium">
-                      {entry.name}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-foreground font-semibold">
-                      {entry.value} leads
-                    </div>
-                    <div className="text-xs text-primary">
-                      {formatCurrency(entry.valorPago)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {entry.taxaConversao.toFixed(1)}% conv.
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </ChartCard>
-      </div>
-
-      {/* Ações e Busca */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Buscar leads..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all w-full sm:w-80"
-            />
-          </div>
-
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-sm font-medium transition-colors ${
-              showFilters
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-background text-foreground border-border hover:bg-muted'
-            }`}
-          >
-            <Filter className="w-4 h-4" />
-            Filtros
-            {(statusFilter !== 'todos' || origemFilter !== 'todas' || dateFilter !== 'mes_atual') && (
-              <span className="ml-1 px-2 py-0.5 bg-destructive text-destructive-foreground text-xs rounded-full">
-                {[statusFilter !== 'todos', origemFilter !== 'todas', dateFilter !== 'mes_atual'].filter(Boolean).length}
-              </span>
-            )}
-          </button>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <button
-            onClick={() => refetchLeads()}
-            className="flex items-center gap-2 px-4 py-2 text-foreground hover:bg-muted rounded-xl transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Atualizar
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 text-foreground hover:bg-muted rounded-xl transition-colors">
-            <Download className="w-4 h-4" />
-            Exportar
-          </button>
-          <div className="flex gap-2">
-            <button
-              onClick={() => refetchLeads()}
-              disabled={isLoadingData}
-              className={`flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl font-medium transition-all ${
-                isLoadingData 
-                ? 'opacity-50 cursor-not-allowed' 
-                : 'hover:bg-gray-50 hover:border-gray-400'
-              }`}
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
-              {isLoadingData ? 'Atualizando...' : 'Atualizar'}
-            </button>
-            <button
-              onClick={handleNewLead}
-              className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-medium transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Novo Lead
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Filtros Expandíveis */}
-      {showFilters && (
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 mb-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-300 mb-2">Status</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
-              >
-                <option value="todos">Todos os Status</option>
-                {availableStatuses.map(status => (
-                  <option key={status} value={status}>
-                    {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-300 mb-2">Origem</label>
-              <select
-                value={origemFilter}
-                onChange={(e) => setOrigemFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
-              >
-                <option value="todas">Todas as Origens</option>
-                {availableOrigens.map((origem) => (
-                  <option key={origem} value={origem}>{origem}</option>
-                ))}
-              </select>
-            </div>
-
-
-            <div>
-              <label className="block text-xs font-medium text-gray-300 mb-2">Período</label>
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
-              >
-                <option value="mes_atual">Mês Atual</option>
-                <option value="ano_atual">Ano Atual</option>
-                <option value="semana_atual">Semana Atual</option>
-                <option value="semana_passada">Última Semana</option>
-                <option value="mes_passado">Mês Passado</option>
-                <option value="personalizado">Personalizado</option>
-                <option value="todos">Todas as Datas</option>
-              </select>
-            </div>
-
-            {dateFilter === 'personalizado' && (
-              <>
-                <div>
-                  <label className="block text-xs font-medium text-gray-300 mb-2">Data Início</label>
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
-                  />
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-30 bg-[#0a0a0c]/80 backdrop-blur-xl border-b border-white/[0.06]">
+          <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                  <Users className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-300 mb-2">Data Fim</label>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-[#059669] transition-all"
-                  />
+                  <h1 className="text-xl font-bold text-white tracking-tight">Leads</h1>
+                  <p className="text-xs text-white/40 mt-0.5">Gestão completa de leads e oportunidades</p>
                 </div>
-              </>
-            )}
-          </div>
-
-          {/* Botões de ação dos filtros */}
-          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-600">
-            <button
-              onClick={() => {
-                setStatusFilter('todos')
-                setOrigemFilter('todas')
-                setDateFilter('mes_atual')
-                setCustomStartDate('')
-                setCustomEndDate('')
-              }}
-              className="text-sm text-gray-400 hover:text-gray-300 transition-colors"
-            >
-              Limpar filtros
-            </button>
-            <div className="text-xs text-gray-400">
-              {filteredLeads.length} resultado{filteredLeads.length !== 1 ? 's' : ''} encontrado{filteredLeads.length !== 1 ? 's' : ''}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Loading indicator para filtros */}
-      {isLoadingData && (
-        <div className="flex items-center justify-center py-4 mb-6">
-          <div className="flex items-center gap-3 px-4 py-2 bg-gray-800 rounded-xl shadow-sm border border-gray-700">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#059669]"></div>
-            <span className="text-sm text-gray-400">Atualizando filtros...</span>
-          </div>
-        </div>
-      )}
-
-      {/* Tabela de Leads */}
-      <DataTable
-        title="Lista de Leads"
-        columns={[
-          {
-            header: 'Lead',
-            render: (lead) => (
+              </div>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#059669] to-[#10B981] flex items-center justify-center text-white font-semibold text-sm">
-                  {lead.nome_completo.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground">{lead.nome_completo}</p>
-                  <p className="text-sm text-muted-foreground">{lead.email || 'Sem email'}</p>
-                </div>
-              </div>
-            )
-          },
-          {
-            header: 'Empresa',
-            render: (lead) => (
-              <div>
-                <p className="font-medium text-foreground">{lead.empresa || '-'}</p>
-                <p className="text-sm text-muted-foreground">{lead.cargo || '-'}</p>
-              </div>
-            )
-          },
-          {
-            header: 'Origem',
-            render: (lead) => {
-              const origem = lead.origem || 'Outros'
-              const cor = origemColors[origem as keyof typeof origemColors] || '#94A3B8'
-              return (
-                <span
-                  className="px-3 py-1 rounded-full text-xs font-semibold text-white"
-                  style={{ backgroundColor: cor }}
-                >
-                  {origem}
-                </span>
-              )
-            }
-          },
-          {
-            header: 'Status',
-            render: (lead) => (
-              <div className="flex flex-col gap-1">
-                <StatusBadge status={(statusMap as any)[lead.status] || 'pending'} />
-                {lead.data_venda && (
-                  <div className="flex items-center gap-1">
-                    {lead.desistiu ? (
-                      <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full">
-                        Desistiu
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">
-                        Ativo
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          },
-          {
-            header: 'Valor',
-            render: (lead) => (
-              <div className="text-right">
-                {lead.valor_vendido ? (
-                  <div>
-                    <p className="font-semibold text-primary">{formatCurrency(lead.valor_vendido)}</p>
-                    {lead.data_venda && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Vendido em {formatDate(lead.data_venda)}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">-</p>
-                )}
-              </div>
-            )
-          },
-          {
-            header: 'Data',
-            render: (lead) => (
-              <span className="text-sm text-muted-foreground">{formatDate(lead.created_at)}</span>
-            )
-          },
-          {
-            header: 'Ações',
-            render: (lead) => (
-              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleViewDetails(lead)}
-className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                  title="Ver detalhes"
+                  onClick={() => refetchLeads()}
+                  disabled={isLoadingData}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl text-sm font-medium text-white/70 hover:text-white transition-all"
                 >
-                  <Eye className="w-4 h-4 text-muted-foreground group-hover:text-muted-foreground" />
+                  <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">{isLoadingData ? 'Atualizando...' : 'Atualizar'}</span>
+                </button>
+                <button className="flex items-center gap-2 px-4 py-2 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl text-sm font-medium text-white/70 hover:text-white transition-all">
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Exportar</span>
                 </button>
                 <button
-                  onClick={() => handleViewDetails(lead)}
-className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                  title="Análise detalhada"
+                  onClick={handleNewLead}
+                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl font-medium transition-all shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30"
                 >
-                  <BarChart3 className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
-                </button>
-                <button
-                  onClick={() => router.push(`/agendar/lead/${lead.id}`)}
-className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                  title="Agendar call"
-                >
-                  <Calendar className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
-                </button>
-                <button
-                  onClick={() => handleEditLead(lead)}
-className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                  title="Editar"
-                >
-                  <Edit className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
-                </button>
-                {lead.status === 'vendido' && !lead.convertido_em && (
-                  <button
-                    onClick={() => handleConvertToMentorado(lead)}
-  className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                    title="Converter em Mentorado"
-                  >
-                    <UserPlus className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
-                  </button>
-                )}
-                {lead.telefone && (
-                  <button
-  className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                    title="Ligar"
-                  >
-                    <Phone className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
-                  </button>
-                )}
-                {lead.email && (
-                  <button
-  className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                    title="Enviar email"
-                  >
-                    <Mail className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
-                  </button>
-                )}
-                <button
-                  onClick={() => handleDeleteLead(lead.id)}
-className="p-2 hover:bg-muted rounded-lg transition-colors group"
-                  title="Excluir"
-                >
-                  <Trash2 className="w-4 h-4 text-muted-foreground group-hover:text-destructive" />
+                  <Plus className="w-4 h-4" />
+                  Novo Lead
                 </button>
               </div>
-            )
-          }
-        ]}
-        data={filteredLeads}
-      />
+            </div>
+          </div>
+        </div>
 
-      {/* Modal de Detalhes da Origem */}
-      {showOrigemModal && selectedOrigem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white">
-                Detalhes da Origem: {selectedOrigem.name}
-              </h2>
-              <button
-                onClick={() => setShowOrigemModal(false)}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-white"
-              >
-                ✕
-              </button>
+        {/* Main Content */}
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Total de Leads */}
+            <div className="group relative bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06] hover:border-emerald-500/20 transition-all duration-300 overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-emerald-500/[0.06] to-transparent rounded-bl-full transition-all group-hover:from-emerald-500/[0.1]" />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <Users className="h-5 w-5 text-white" />
+                  </div>
+                </div>
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Total de Leads</p>
+                <p className="text-3xl font-bold text-white mt-1 tabular-nums">{stats.total_leads}</p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-2">
-                  <div
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: selectedOrigem.color }}
-                  />
-                  <h3 className="font-semibold text-white">Total de Leads</h3>
+            {/* Taxa de Conversão */}
+            <div className="group relative bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06] hover:border-cyan-500/20 transition-all duration-300 overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-cyan-500/[0.06] to-transparent rounded-bl-full transition-all group-hover:from-cyan-500/[0.1]" />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-700 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                    <Target className="h-5 w-5 text-white" />
+                  </div>
                 </div>
-                <p className="text-3xl font-bold text-blue-600">{selectedOrigem.value}</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6">
-                <h3 className="font-semibold text-white mb-2">Taxa de Conversão</h3>
-                <p className="text-3xl font-bold text-green-600">{selectedOrigem.taxaConversao.toFixed(1)}%</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl p-6">
-                <h3 className="font-semibold text-white mb-2">Valor Arrecadado</h3>
-                <p className="text-3xl font-bold text-orange-600">
-                  {new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  }).format(selectedOrigem.valorPago)}
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Taxa de Conversão</p>
+                <p className="text-3xl font-bold text-white mt-1 tabular-nums">{stats.taxa_conversao.toFixed(1)}%</p>
+                <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+                  <ArrowUpRight className="w-3 h-3" />
+                  {stats.leads_convertidos} convertidos
                 </p>
               </div>
             </div>
 
-            <div className="bg-gray-700 rounded-2xl p-6">
-              <h3 className="font-semibold text-white mb-4">Performance Detalhada</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Ticket Médio</span>
-                  <span className="font-semibold">
-                    {selectedOrigem.value > 0
-                      ? new Intl.NumberFormat('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL'
-                        }).format(selectedOrigem.valorPago / (selectedOrigem.value * selectedOrigem.taxaConversao / 100))
-                      : 'R$ 0,00'
-                    }
-                  </span>
+            {/* Valor Arrecadado */}
+            <div className="group relative bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06] hover:border-amber-500/20 transition-all duration-300 overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-amber-500/[0.06] to-transparent rounded-bl-full transition-all group-hover:from-amber-500/[0.1]" />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                    <Wallet className="h-5 w-5 text-white" />
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Leads Convertidos</span>
-                  <span className="font-semibold">
-                    {Math.round(selectedOrigem.value * selectedOrigem.taxaConversao / 100)}
-                  </span>
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Valor Arrecadado</p>
+                <p className="text-2xl font-bold text-white mt-1 tabular-nums">{formatCurrency(stats.valor_total_arrecadado)}</p>
+              </div>
+            </div>
+
+            {/* Ticket Médio */}
+            <div className="group relative bg-[#1a1a1e] rounded-2xl p-5 border border-white/[0.06] hover:border-violet-500/20 transition-all duration-300 overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-violet-500/[0.06] to-transparent rounded-bl-full transition-all group-hover:from-violet-500/[0.1]" />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-violet-700 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                    <Receipt className="h-5 w-5 text-white" />
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">ROI Estimado</span>
-                  <span className="font-semibold text-green-600">
-                    {selectedOrigem.valorPago > 0 ? '+' : ''}
-                    {((selectedOrigem.valorPago / Math.max(selectedOrigem.value * 50, 1) - 1) * 100).toFixed(1)}%
-                  </span>
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Ticket Médio</p>
+                <p className="text-2xl font-bold text-white mt-1 tabular-nums">{formatCurrency(stats.ticket_medio)}</p>
+              </div>
+            </div>
+
+            {/* Churn Rate Card */}
+            <ChurnRateCard />
+          </div>
+
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Conversion Rate Chart */}
+            <div className="lg:col-span-2 bg-[#1a1a1e] rounded-2xl border border-white/[0.06] overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/[0.04]">
+                <h3 className="text-sm font-semibold text-white">Evolução da Taxa de Conversão e Volume de Leads</h3>
+                <p className="text-xs text-white/40 mt-0.5">Últimos 6 meses</p>
+              </div>
+              <div className="p-6">
+                {/* Legend */}
+                <div className="flex items-center justify-center gap-6 mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-emerald-500 rounded-sm"></div>
+                    <span className="text-xs text-white/50">Taxa de Conversão (%)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-blue-500 rounded-sm"></div>
+                    <span className="text-xs text-white/50">Volume de Leads</span>
+                  </div>
+                </div>
+
+                <div className="h-80">
+                  {conversionChartLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500/20 border-t-emerald-500"></div>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={conversionData}>
+                        <defs>
+                          <linearGradient id="colorConversion" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#059669" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.2}/>
+                            <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                        <XAxis dataKey="month" stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
+
+                        <YAxis
+                          yAxisId="taxa"
+                          orientation="left"
+                          stroke="rgba(255,255,255,0.3)"
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                          label={{ value: 'Taxa (%)', angle: -90, position: 'insideLeft', style: { fill: 'rgba(255,255,255,0.3)', fontSize: 11 } }}
+                        />
+                        <YAxis
+                          yAxisId="leads"
+                          orientation="right"
+                          stroke="rgba(255,255,255,0.3)"
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                          label={{ value: 'Leads', angle: 90, position: 'insideRight', style: { fill: 'rgba(255,255,255,0.3)', fontSize: 11 } }}
+                        />
+
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#1a1a1e',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '12px',
+                            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                            color: '#fff'
+                          }}
+                          itemStyle={{ color: '#fff' }}
+                          labelStyle={{ color: 'rgba(255,255,255,0.6)' }}
+                          formatter={(value, name) => [
+                            name === 'taxa' ? `${Number(value).toFixed(1)}%` : `${value} leads`,
+                            name === 'taxa' ? 'Taxa de Conversão' : 'Total de Leads'
+                          ]}
+                        />
+
+                        <Area
+                          yAxisId="leads"
+                          type="monotone"
+                          dataKey="leads"
+                          stroke="#3B82F6"
+                          fillOpacity={1}
+                          fill="url(#colorLeads)"
+                          strokeWidth={2}
+                        />
+
+                        <Area
+                          yAxisId="taxa"
+                          type="monotone"
+                          dataKey="taxa"
+                          stroke="#059669"
+                          fillOpacity={1}
+                          fill="url(#colorConversion)"
+                          strokeWidth={3}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => {
-                  setOrigemFilter(selectedOrigem.name.toLowerCase())
-                  setShowOrigemModal(false)
-                }}
-className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-xl font-medium transition-colors"
-              >
-                Filtrar por esta origem
-              </button>
-              <button
-                onClick={() => setShowOrigemModal(false)}
-                className="px-6 py-3 border border-gray-600 hover:bg-gray-700 rounded-xl font-medium text-white transition-colors"
-              >
-                Fechar
-              </button>
+            {/* Origin Pie Chart */}
+            <div className="bg-[#1a1a1e] rounded-2xl border border-white/[0.06] overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/[0.04]">
+                <h3 className="text-sm font-semibold text-white">Origem dos Leads</h3>
+                <p className="text-xs text-white/40 mt-0.5">Performance por canal</p>
+              </div>
+              <div className="p-6">
+                <div className="h-80 flex flex-col items-center justify-center">
+                  <ResponsiveContainer width="100%" height="60%">
+                    <PieChart>
+                      <Pie
+                        data={origemData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={40}
+                        outerRadius={80}
+                        paddingAngle={4}
+                        dataKey="value"
+                        onClick={(data) => {
+                          setSelectedOrigem(data)
+                          setShowOrigemModal(true)
+                        }}
+                      >
+                        {origemData.map((entry, index) => (
+                          <Cell
+                            key={index}
+                            fill={entry.color}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value, name) => [value, 'Leads']}
+                        contentStyle={{
+                          backgroundColor: '#1a1a1e',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: '12px',
+                          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                          color: '#fff'
+                        }}
+                        itemStyle={{ color: '#fff' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="grid grid-cols-1 gap-1 w-full mt-2 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
+                    {origemData.map((entry, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 hover:bg-white/[0.04] rounded-lg transition-colors cursor-pointer" onClick={() => { setSelectedOrigem(entry); setShowOrigemModal(true) }}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full"
+                            style={{ backgroundColor: entry.color }}
+                          />
+                          <span className="text-xs text-white/70 font-medium">
+                            {entry.name}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-white font-semibold">
+                            {entry.value} leads
+                          </div>
+                          <div className="text-xs text-emerald-400">
+                            {formatCurrency(entry.valorPago)}
+                          </div>
+                          <div className="text-xs text-white/30">
+                            {entry.taxaConversao.toFixed(1)}% conv.
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Modal de Edição/Criação de Lead */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white">
-                {editingLead ? `Editar Lead: ${editingLead.nome_completo}` : 'Criar Novo Lead'}
-              </h2>
-              <button
-                onClick={() => {
-                  setIsModalOpen(false)
-                  setEditingLead(null)
-                }}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-white"
-              >
-                ✕
-              </button>
+          {/* Search & Filters Section */}
+          <div className="bg-[#1a1a1e] rounded-2xl border border-white/[0.06] p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/30 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Buscar leads..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 pr-4 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all w-full sm:w-80"
+                  />
+                </div>
+
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-medium transition-all ${
+                    showFilters
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                      : 'bg-white/[0.05] text-white/60 border-white/[0.08] hover:bg-white/[0.08] hover:text-white/80'
+                  }`}
+                >
+                  <Filter className="w-4 h-4" />
+                  Filtros
+                  {(statusFilter !== 'todos' || origemFilter !== 'todas' || dateFilter !== 'mes_atual') && (
+                    <span className="ml-1 px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full font-semibold">
+                      {[statusFilter !== 'todos', origemFilter !== 'todas', dateFilter !== 'mes_atual'].filter(Boolean).length}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              <div className="text-xs text-white/30">
+                {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''} encontrado{filteredLeads.length !== 1 ? 's' : ''}
+              </div>
             </div>
 
-            <EditLeadForm
-              lead={editingLead}
-              onSave={async (leadData) => {
-                console.log('🔍 Debug leadData antes de salvar:', leadData)
-                
-                // Processar dados para garantir tipos corretos
-                const processedData = {
-                  ...leadData,
-                  // Converter empty strings para null em campos UUID
-                  sdr_id: leadData.sdr_id?.trim() || null,
-                  closer_id: leadData.closer_id?.trim() || null,
-                  mentorado_indicador_id: leadData.mentorado_indicador_id?.trim() || null,
-                }
+            {/* Expandable Filters */}
+            {showFilters && (
+              <div className="mt-4 pt-4 border-t border-white/[0.04]">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-white/40 mb-2 uppercase tracking-wider">Status</label>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all"
+                    >
+                      <option value="todos">Todos os Status</option>
+                      {availableStatuses.map(status => (
+                        <option key={status} value={status}>
+                          {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                if (editingLead) {
-                  // Editar lead existente
-                  await updateLead.mutate({ id: editingLead.id, ...processedData })
-                  
-                  // Verificar se lead foi marcado como vendido e tem indicador
-                  await checkAndCreateCommission(editingLead.id, processedData, editingLead)
-                } else {
-                  // Criar novo lead
-                  await createLead.mutate(processedData)
-                }
-              }}
-              onCancel={() => {
-                setIsModalOpen(false)
-                setEditingLead(null)
-              }}
-            />
+                  <div>
+                    <label className="block text-xs font-medium text-white/40 mb-2 uppercase tracking-wider">Origem</label>
+                    <select
+                      value={origemFilter}
+                      onChange={(e) => setOrigemFilter(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all"
+                    >
+                      <option value="todas">Todas as Origens</option>
+                      {availableOrigens.map((origem) => (
+                        <option key={origem} value={origem}>{origem}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-white/40 mb-2 uppercase tracking-wider">Período</label>
+                    <select
+                      value={dateFilter}
+                      onChange={(e) => setDateFilter(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all"
+                    >
+                      <option value="mes_atual">Mês Atual</option>
+                      <option value="ano_atual">Ano Atual</option>
+                      <option value="semana_atual">Semana Atual</option>
+                      <option value="semana_passada">Última Semana</option>
+                      <option value="mes_passado">Mês Passado</option>
+                      <option value="personalizado">Personalizado</option>
+                      <option value="todos">Todas as Datas</option>
+                    </select>
+                  </div>
+
+                  {dateFilter === 'personalizado' && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-medium text-white/40 mb-2 uppercase tracking-wider">Data Início</label>
+                        <input
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          className="w-full px-3 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-white/40 mb-2 uppercase tracking-wider">Data Fim</label>
+                        <input
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          className="w-full px-3 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/[0.04]">
+                  <button
+                    onClick={() => {
+                      setStatusFilter('todos')
+                      setOrigemFilter('todas')
+                      setDateFilter('mes_atual')
+                      setCustomStartDate('')
+                      setCustomEndDate('')
+                    }}
+                    className="text-sm text-white/40 hover:text-white/60 transition-colors"
+                  >
+                    Limpar filtros
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Loading indicator for filters */}
+          {isLoadingData && (
+            <div className="flex items-center justify-center py-4">
+              <div className="flex items-center gap-3 px-4 py-2 bg-[#1a1a1e] rounded-xl border border-white/[0.06]">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-emerald-500/20 border-t-emerald-500"></div>
+                <span className="text-sm text-white/40">Atualizando filtros...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Leads Table */}
+          <div className="bg-[#1a1a1e] rounded-2xl border border-white/[0.06] overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/[0.04] flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-white">Lista de Leads</h3>
+                <p className="text-xs text-white/40 mt-0.5">{filteredLeads.length} registros</p>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/[0.04]">
+                    <th className="text-left px-6 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">Lead</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">Empresa</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">Origem</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">Status</th>
+                    <th className="text-right px-6 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">Valor</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">Data</th>
+                    <th className="text-right px-6 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {filteredLeads.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-16 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center">
+                            <Users className="w-6 h-6 text-white/20" />
+                          </div>
+                          <p className="text-sm text-white/40">Nenhum lead encontrado</p>
+                          <p className="text-xs text-white/20">Tente ajustar os filtros ou criar um novo lead</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredLeads.map((lead) => {
+                      const origem = lead.origem || 'Outros'
+                      const cor = origemColors[origem as keyof typeof origemColors] || '#94A3B8'
+                      return (
+                        <tr key={lead.id} className="hover:bg-white/[0.02] transition-colors group">
+                          {/* Lead */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
+                                {lead.nome_completo.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-white truncate">{lead.nome_completo}</p>
+                                <p className="text-xs text-white/40 truncate">{lead.email || 'Sem email'}</p>
+                              </div>
+                            </div>
+                          </td>
+                          {/* Empresa */}
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-white/80">{lead.empresa || '-'}</p>
+                            <p className="text-xs text-white/30">{lead.cargo || '-'}</p>
+                          </td>
+                          {/* Origem */}
+                          <td className="px-6 py-4">
+                            <span
+                              className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold text-white"
+                              style={{ backgroundColor: cor }}
+                            >
+                              {origem}
+                            </span>
+                          </td>
+                          {/* Status */}
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col gap-1">
+                              <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium w-fit ${getStatusStyle(lead.status)}`}>
+                                {lead.status.charAt(0).toUpperCase() + lead.status.slice(1).replace('_', ' ')}
+                              </span>
+                              {lead.data_venda && (
+                                <div>
+                                  {lead.desistiu ? (
+                                    <span className="px-2 py-0.5 text-xs bg-red-500/15 text-red-400 rounded-full border border-red-500/20">
+                                      Desistiu
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 text-xs bg-emerald-500/15 text-emerald-400 rounded-full border border-emerald-500/20">
+                                      Ativo
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          {/* Valor */}
+                          <td className="px-6 py-4 text-right">
+                            {lead.valor_vendido ? (
+                              <div>
+                                <p className="text-sm font-semibold text-emerald-400">{formatCurrency(lead.valor_vendido)}</p>
+                                {lead.data_venda && (
+                                  <p className="text-xs text-white/30 mt-0.5">
+                                    Vendido em {formatDate(lead.data_venda)}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-white/20">-</p>
+                            )}
+                          </td>
+                          {/* Data */}
+                          <td className="px-6 py-4">
+                            <span className="text-xs text-white/40">{formatDate(lead.created_at)}</span>
+                          </td>
+                          {/* Ações */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => handleViewDetails(lead)}
+                                className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+                                title="Ver detalhes"
+                              >
+                                <Eye className="w-4 h-4 text-white/30 hover:text-white/60" />
+                              </button>
+                              <button
+                                onClick={() => handleViewDetails(lead)}
+                                className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+                                title="Análise detalhada"
+                              >
+                                <BarChart3 className="w-4 h-4 text-white/30 hover:text-emerald-400" />
+                              </button>
+                              <button
+                                onClick={() => router.push(`/agendar/lead/${lead.id}`)}
+                                className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+                                title="Agendar call"
+                              >
+                                <Calendar className="w-4 h-4 text-white/30 hover:text-emerald-400" />
+                              </button>
+                              <button
+                                onClick={() => handleEditLead(lead)}
+                                className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+                                title="Editar"
+                              >
+                                <Edit className="w-4 h-4 text-white/30 hover:text-emerald-400" />
+                              </button>
+                              {lead.status === 'vendido' && !lead.convertido_em && (
+                                <button
+                                  onClick={() => handleConvertToMentorado(lead)}
+                                  className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+                                  title="Converter em Mentorado"
+                                >
+                                  <UserPlus className="w-4 h-4 text-white/30 hover:text-emerald-400" />
+                                </button>
+                              )}
+                              {lead.telefone && (
+                                <button
+                                  className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+                                  title="Ligar"
+                                >
+                                  <Phone className="w-4 h-4 text-white/30 hover:text-emerald-400" />
+                                </button>
+                              )}
+                              {lead.email && (
+                                <button
+                                  className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+                                  title="Enviar email"
+                                >
+                                  <Mail className="w-4 h-4 text-white/30 hover:text-emerald-400" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteLead(lead.id)}
+                                className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors"
+                                title="Excluir"
+                              >
+                                <Trash2 className="w-4 h-4 text-white/30 hover:text-red-400" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Embedded AI Chat */}
+          <EmbeddedAIChat
+            contextBuilder={() => {
+              const statusCounts = filteredLeads.reduce((acc, l) => {
+                acc[l.status] = (acc[l.status] || 0) + 1
+                return acc
+              }, {} as Record<string, number>)
+              const statusList = Object.entries(statusCounts).map(([k, v]) => `${k}: ${v}`).join(', ')
+
+              return `
+DADOS DOS LEADS:
+- Total de leads: ${stats.total_leads}
+- Leads convertidos: ${stats.leads_convertidos}
+- Taxa de conversão: ${stats.taxa_conversao.toFixed(1)}%
+- Valor total vendas: ${formatCurrency(stats.valor_total_vendas)}
+- Valor arrecadado: ${formatCurrency(stats.valor_total_arrecadado)}
+- Ticket médio: ${formatCurrency(stats.ticket_medio)}
+- Leads filtrados exibidos: ${filteredLeads.length}
+
+STATUS DOS LEADS:
+${statusList}
+
+ORIGENS:
+${origemData.map(o => `${o.name}: ${o.value} leads, ${formatCurrency(o.valorPago)} faturado, ${o.taxaConversao.toFixed(1)}% conversão`).join('\n')}
+
+CONVERSÃO MENSAL (últimos 6 meses):
+${conversionData.map(c => `${c.month}: ${c.leads} leads, ${c.vendas} vendas, ${c.taxa}% taxa`).join('\n')}
+`
+            }}
+            systemPrompt="Você é um ANALISTA DE VENDAS SÊNIOR especializado em leads e funil de vendas. Analise os dados de leads fornecidos e dê insights estratégicos. Identifique padrões, oportunidades e gargalos no funil. Sugira ações práticas para melhorar a conversão."
+            title="Analista de Leads"
+            subtitle="IA especializada em seu funil"
+            accentColor="emerald"
+            suggestions={[
+              'Analise meu funil de leads atual',
+              'Qual canal está performando melhor?',
+              'Onde estou perdendo mais leads?',
+              'Como posso melhorar a taxa de conversão?',
+            ]}
+          />
+
+          {/* Origin Detail Modal */}
+          {showOrigemModal && selectedOrigem && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-[#1a1a1e] rounded-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto border border-white/[0.08] shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-white">
+                    Detalhes da Origem: {selectedOrigem.name}
+                  </h2>
+                  <button
+                    onClick={() => setShowOrigemModal(false)}
+                    className="p-2 hover:bg-white/[0.06] rounded-lg transition-colors text-white/60 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-white/[0.04] rounded-2xl p-5 border border-white/[0.06]">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: selectedOrigem.color }}
+                      />
+                      <h3 className="font-semibold text-white/60 text-sm">Total de Leads</h3>
+                    </div>
+                    <p className="text-3xl font-bold text-white">{selectedOrigem.value}</p>
+                  </div>
+
+                  <div className="bg-white/[0.04] rounded-2xl p-5 border border-white/[0.06]">
+                    <h3 className="font-semibold text-white/60 text-sm mb-2">Taxa de Conversão</h3>
+                    <p className="text-3xl font-bold text-emerald-400">{selectedOrigem.taxaConversao.toFixed(1)}%</p>
+                  </div>
+
+                  <div className="bg-white/[0.04] rounded-2xl p-5 border border-white/[0.06]">
+                    <h3 className="font-semibold text-white/60 text-sm mb-2">Valor Arrecadado</h3>
+                    <p className="text-2xl font-bold text-amber-400">
+                      {new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL'
+                      }).format(selectedOrigem.valorPago)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-white/[0.04] rounded-2xl p-6 border border-white/[0.06]">
+                  <h3 className="font-semibold text-white mb-4">Performance Detalhada</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-white/40 text-sm">Ticket Médio</span>
+                      <span className="font-semibold text-white">
+                        {selectedOrigem.value > 0
+                          ? new Intl.NumberFormat('pt-BR', {
+                              style: 'currency',
+                              currency: 'BRL'
+                            }).format(selectedOrigem.valorPago / (selectedOrigem.value * selectedOrigem.taxaConversao / 100))
+                          : 'R$ 0,00'
+                        }
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/40 text-sm">Leads Convertidos</span>
+                      <span className="font-semibold text-white">
+                        {Math.round(selectedOrigem.value * selectedOrigem.taxaConversao / 100)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/40 text-sm">ROI Estimado</span>
+                      <span className="font-semibold text-emerald-400">
+                        {selectedOrigem.valorPago > 0 ? '+' : ''}
+                        {((selectedOrigem.valorPago / Math.max(selectedOrigem.value * 50, 1) - 1) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    onClick={() => {
+                      setOrigemFilter(selectedOrigem.name.toLowerCase())
+                      setShowOrigemModal(false)
+                    }}
+                    className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white px-6 py-3 rounded-xl font-medium transition-all shadow-lg shadow-emerald-500/20"
+                  >
+                    Filtrar por esta origem
+                  </button>
+                  <button
+                    onClick={() => setShowOrigemModal(false)}
+                    className="px-6 py-3 border border-white/[0.08] hover:bg-white/[0.06] rounded-xl font-medium text-white/70 hover:text-white transition-all"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit/Create Lead Modal */}
+          {isModalOpen && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-[#1a1a1e] rounded-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto border border-white/[0.08] shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-white">
+                    {editingLead ? `Editar Lead: ${editingLead.nome_completo}` : 'Criar Novo Lead'}
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setIsModalOpen(false)
+                      setEditingLead(null)
+                    }}
+                    className="p-2 hover:bg-white/[0.06] rounded-lg transition-colors text-white/60 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <EditLeadForm
+                  lead={editingLead}
+                  activeOrganizationId={activeOrganizationId}
+                  onSave={async (leadData) => {
+                    console.log('🔍 Debug leadData antes de salvar:', leadData)
+
+                    // Processar dados para garantir tipos corretos
+                    const processedData = {
+                      ...leadData,
+                      // Converter empty strings para null em campos UUID
+                      sdr_id: leadData.sdr_id?.trim() || null,
+                      closer_id: leadData.closer_id?.trim() || null,
+                      mentorado_indicador_id: leadData.mentorado_indicador_id?.trim() || null,
+                    }
+
+                    if (editingLead) {
+                      // Editar lead existente
+                      await updateLead.mutate({ id: editingLead.id, ...processedData })
+
+                      // Verificar se lead foi marcado como vendido e tem indicador
+                      await checkAndCreateCommission(editingLead.id, processedData, editingLead)
+                    } else {
+                      // Criar novo lead
+                      await createLead.mutate(processedData)
+                    }
+                  }}
+                  onCancel={() => {
+                    setIsModalOpen(false)
+                    setEditingLead(null)
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
-      )}
-    </PageLayout>
       </div>
     </ProtectedRoute>
   )
@@ -1549,10 +1619,11 @@ async function checkAndCreateCommission(leadId: string, leadData: any, originalL
   }
 }
 
-function EditLeadForm({ lead, onSave, onCancel }: {
+function EditLeadForm({ lead, onSave, onCancel, activeOrganizationId }: {
   lead: Lead | null
   onSave: (lead: Partial<Lead>) => void
   onCancel: () => void
+  activeOrganizationId?: string | null
 }) {
   const [formData, setFormData] = useState({
     nome_completo: lead?.nome_completo || '',
@@ -1579,40 +1650,19 @@ function EditLeadForm({ lead, onSave, onCancel }: {
   const [mentorados, setMentorados] = useState<Mentorado[]>([])
   const [sdrs, setSdrs] = useState<Closer[]>([])
   const [closers, setClosers] = useState<Closer[]>([])
-  const [organizationId, setOrganizationId] = useState<string | null>(null)
+  const organizationId = activeOrganizationId || null
 
   // Carregar dados iniciais
   useEffect(() => {
     async function loadInitialData() {
+      if (!organizationId) return
+
       try {
-        // Primeiro, obter o organization_id do usuário
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
-        
-        if (userError || !user) {
-          console.error('Erro ao obter usuário:', userError)
-          return
-        }
-
-        // Buscar organization_id do usuário
-        const { data: orgData, error: orgError } = await supabase
-          .from('organization_users')
-          .select('organization_id')
-          .eq('user_id', user.id)
-          .single()
-
-        if (orgError) {
-          console.error('Erro ao buscar organização:', orgError)
-          return
-        }
-
-        const currentOrganizationId = orgData.organization_id
-        setOrganizationId(currentOrganizationId)
-
         // Carregar mentorados da organização
         const { data: mentoradosData, error: mentoradosError } = await supabase
           .from('mentorados')
           .select('id, nome_completo, email')
-          .eq('organization_id', currentOrganizationId)
+          .eq('organization_id', organizationId)
           .order('nome_completo')
 
         if (mentoradosError) {
@@ -1625,7 +1675,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
         const { data: sdrsData, error: sdrsError } = await supabase
           .from('closers')
           .select('id, nome_completo, email, tipo_closer')
-          .eq('organization_id', currentOrganizationId)
+          .eq('organization_id', organizationId)
           .eq('tipo_closer', 'sdr')
           .eq('ativo', true)
           .order('nome_completo')
@@ -1640,7 +1690,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
         const { data: closersData, error: closersError } = await supabase
           .from('closers')
           .select('id, nome_completo, email, tipo_closer')
-          .eq('organization_id', currentOrganizationId)
+          .eq('organization_id', organizationId)
           .eq('tipo_closer', 'closer')
           .eq('ativo', true)
           .order('nome_completo')
@@ -1657,7 +1707,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
     }
 
     loadInitialData()
-  }, [])
+  }, [organizationId])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -1686,7 +1736,7 @@ function EditLeadForm({ lead, onSave, onCancel }: {
     if (!lead) {
       submitData.data_primeiro_contato = new Date().toISOString()
       // Adicionar organization_id automaticamente
-      submitData.organization_id = organizationId || '00000000-0000-0000-0000-000000000001'
+      submitData.organization_id = organizationId
     }
 
     onSave(submitData)
