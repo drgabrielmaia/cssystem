@@ -2,7 +2,6 @@
 // Supabase Netflix Platform Services
 // ===============================================
 
-import { createBrowserClient } from '@supabase/ssr'
 import { supabase } from './supabase'
 import type {
   ModuleCategory,
@@ -20,10 +19,6 @@ import type {
   RecommendationService
 } from '@/types/netflix-platform'
 import { calculateNPSScore } from '@/types/netflix-platform'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
 
 // ===============================================
 // Module Rating Service (NPS System)

@@ -1,43 +1,16 @@
-import { createServerClient } from '@supabase/ssr'
-import type { NextRequest } from 'next/server'
+// =====================================================================
+// Supabase server client REMOVED — all data goes through api-cs (Docker PostgreSQL)
+// Stubs provided so existing API routes don't crash
+// =====================================================================
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+import { supabase } from '../supabase'
 
-// For Server Components and Route Handlers with CookieStore
-export function createClient(cookieStore: any) {
-  return createServerClient(supabaseUrl, supabaseKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll()
-      },
-      setAll(cookiesToSet: any) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }: any) =>
-            cookieStore.set(name, value, options)
-          )
-        } catch {
-          // The `setAll` method was called from a Server Component.
-        }
-      }
-    }
-  })
+// Returns the same stub supabase object — all queries go through ApiQueryBuilder
+export function createClient(_cookieStore?: any) {
+  return supabase
 }
 
-// For middleware
-export function createMiddlewareClient(request: NextRequest) {
-  return createServerClient(supabaseUrl, supabaseKey, {
-    cookies: {
-      getAll() {
-        const cookies: { name: string; value: string }[] = []
-        request.cookies.getAll().forEach(({ name, value }) => {
-          cookies.push({ name, value })
-        })
-        return cookies
-      },
-      setAll(cookiesToSet: any) {
-        // Not implemented for middleware
-      }
-    }
-  })
+// For middleware — same stub
+export function createMiddlewareClient(_request?: any) {
+  return supabase
 }

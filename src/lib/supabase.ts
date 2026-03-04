@@ -1,52 +1,33 @@
-import { createBrowserClient } from '@supabase/ssr'
 import { ApiQueryBuilder, ApiRpcBuilder } from './api-query-builder'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// =====================================================================
+// Supabase client REMOVED — all data goes through api-cs (Docker PostgreSQL)
+// Auth stubs provided so existing code doesn't crash
+// =====================================================================
 
-// Real Supabase client — only used for storage/realtime. Auth is blocked.
-const _supabaseReal = createBrowserClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-    detectSessionInUrl: false
-  },
-  global: {
-    headers: {
-      'x-application-name': 'cssystem'
-    },
-    fetch: (url, options = {}) => {
-      const urlStr = typeof url === 'string' ? url : (url as Request)?.url || ''
-      // Block ALL Supabase auth requests — Supabase cloud is not used for auth
-      if (urlStr.includes('/auth/v1/')) {
-        return Promise.resolve(new Response(
-          JSON.stringify({ error: 'session_not_found', error_description: 'Auth handled by api-cs' }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        ))
-      }
-      return fetch(url, {
-        ...options,
-        ...(options.signal && { signal: options.signal })
-      }).catch((error: any) => {
-        if (error.name === 'AbortError') {
-          throw error
-        }
-        throw error
-      })
-    }
-  },
-  db: {
-    schema: 'public'
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
-  }
-})
+// No-op auth stub — real auth is handled by api-cs JWT + mentorado-auth context
+const authStub = {
+  getSession: async () => ({ data: { session: null }, error: null }),
+  getUser: async () => ({ data: { user: null }, error: null }),
+  signInWithPassword: async () => ({ data: { user: null, session: null }, error: { message: 'Use api-cs auth' } }),
+  signUp: async () => ({ data: { user: null, session: null }, error: { message: 'Use api-cs auth' } }),
+  signOut: async () => ({ error: null }),
+  onAuthStateChange: (_event: string, _callback: any) => ({ data: { subscription: { unsubscribe: () => {} } } }),
+  refreshSession: async () => ({ data: { session: null }, error: null }),
+}
 
-// Data queries: use Docker PostgreSQL API (ApiQueryBuilder) always.
-// ApiQueryBuilder works with or without JWT - the api-cs handles auth.
+// No-op storage stub
+const storageStub = {
+  from: (_bucket: string) => ({
+    upload: async () => ({ data: null, error: { message: 'Storage not available' } }),
+    download: async () => ({ data: null, error: { message: 'Storage not available' } }),
+    getPublicUrl: (path: string) => ({ data: { publicUrl: path } }),
+    remove: async () => ({ data: null, error: null }),
+    list: async () => ({ data: [], error: null }),
+  }),
+}
+
+// All data queries go through Docker PostgreSQL API via ApiQueryBuilder
 export const supabase = {
   from(table: string) {
     return new ApiQueryBuilder(table) as any
@@ -56,67 +37,28 @@ export const supabase = {
     return new ApiRpcBuilder(name, params) as any
   },
 
-  // Auth always goes through real Supabase (for mentorado pages, Supabase-based users)
   get auth() {
-    return _supabaseReal.auth
+    return authStub as any
   },
 
-  // Storage always goes through real Supabase
   get storage() {
-    return _supabaseReal.storage
+    return storageStub as any
   },
 
-  // Realtime always goes through real Supabase
-  channel(...args: any[]) {
-    return (_supabaseReal as any).channel(...args)
+  channel() {
+    return { on: () => ({ subscribe: () => {} }), subscribe: () => {}, unsubscribe: () => {} } as any
   },
 
-  removeChannel(...args: any[]) {
-    return (_supabaseReal as any).removeChannel(...args)
+  removeChannel() {
+    return Promise.resolve()
   },
 } as any
 
-// Also export the real Supabase client for cases that explicitly need it
-export const supabaseReal = _supabaseReal
+// Stub for code that imports supabaseReal
+export const supabaseReal = supabase
 
-export const createClient = () => createBrowserClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-    detectSessionInUrl: false
-  },
-  global: {
-    headers: {
-      'x-application-name': 'cssystem'
-    },
-    fetch: (url, options = {}) => {
-      const urlStr = typeof url === 'string' ? url : (url as Request)?.url || ''
-      if (urlStr.includes('/auth/v1/')) {
-        return Promise.resolve(new Response(
-          JSON.stringify({ error: 'session_not_found', error_description: 'Auth handled by api-cs' }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        ))
-      }
-      return fetch(url, {
-        ...options,
-        ...(options.signal && { signal: options.signal })
-      }).catch((error: any) => {
-        if (error.name === 'AbortError') {
-          throw error
-        }
-        throw error
-      })
-    }
-  },
-  db: {
-    schema: 'public'
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
-  }
-})
+// Stub for server-side code that calls createClient
+export const createClient = () => supabase
 
 // Re-exportar tipos do arquivo types
 export type { Mentorado, FormularioResposta, KPI, TurmaStats, DespesaMensal } from '@/types'
@@ -289,7 +231,6 @@ export interface OrganizationUser {
 export const organizationService = {
   async getUserOrganization(userId: string, userEmail?: string) {
     try {
-      // Try by user_id first
       const { data, error } = await supabase
         .from('organization_users')
         .select(`
@@ -313,7 +254,6 @@ export const organizationService = {
         }
       }
 
-      // Fallback: try by email if user_id didn't match
       if (userEmail) {
         const { data: emailData, error: emailError } = await supabase
           .from('organization_users')
@@ -332,7 +272,6 @@ export const organizationService = {
           .single()
 
         if (!emailError && emailData?.organizations) {
-          // Update the user_id for future lookups
           await supabase
             .from('organization_users')
             .update({ user_id: userId })
@@ -346,7 +285,6 @@ export const organizationService = {
         }
       }
 
-      console.log('User not found in any organization');
       return null;
     } catch (error: any) {
       console.error('Error fetching user organization:', error);
@@ -514,10 +452,7 @@ export const organizationService = {
         .select('role, created_at, user_id')
         .eq('organization_id', organizationId)
 
-      if (usersError) {
-        console.error('Error fetching organization users:', usersError);
-        throw usersError;
-      }
+      if (usersError) throw usersError;
 
       const { data: organization, error: orgError } = await supabase
         .from('organizations')
@@ -525,10 +460,7 @@ export const organizationService = {
         .eq('id', organizationId)
         .single()
 
-      if (orgError) {
-        console.error('Error fetching organization data:', orgError);
-        throw orgError;
-      }
+      if (orgError) throw orgError;
 
       return {
         totalMembers: users?.length || 0,
