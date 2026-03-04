@@ -134,19 +134,20 @@ const STATUS_ORDER = ['novo', 'contactado', 'qualificado', 'agendado', 'call_age
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
 function getLeadRevenue(lead: LeadRaw): number {
-  return lead.valor_vendido || lead.valor_venda || lead.valor_arrecadado || 0
+  return Number(lead.valor_vendido) || Number(lead.valor_venda) || Number(lead.valor_arrecadado) || 0
 }
 
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+  const v = Number(value) || 0
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
 }
 
 function formatNumber(value: number): string {
-  return new Intl.NumberFormat('pt-BR').format(value)
+  return new Intl.NumberFormat('pt-BR').format(Number(value) || 0)
 }
 
 function formatPercent(value: number): string {
-  return `${value.toFixed(1)}%`
+  return `${Number(value || 0).toFixed(1)}%`
 }
 
 function getChannelIcon(channel: string) {
@@ -240,6 +241,8 @@ export default function LeadDistributionDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState('30d')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
 
   // AI Chat State
   const [isChatOpen, setIsChatOpen] = useState(false)
@@ -287,6 +290,26 @@ export default function LeadDistributionDashboard() {
         lastPeriodEnd.setSeconds(-1)
         break
       }
+      case 'custom': {
+        if (customStartDate && customEndDate) {
+          startDate = new Date(customStartDate)
+          startDate.setHours(0, 0, 0, 0)
+          const endD = new Date(customEndDate)
+          endD.setHours(23, 59, 59, 999)
+          const diffMs = endD.getTime() - startDate.getTime()
+          lastPeriodStart = new Date(startDate.getTime() - diffMs)
+          lastPeriodEnd = new Date(startDate)
+          lastPeriodEnd.setSeconds(-1)
+        } else {
+          startDate = new Date(now)
+          startDate.setMonth(now.getMonth() - 1)
+          lastPeriodStart = new Date(startDate)
+          lastPeriodStart.setMonth(startDate.getMonth() - 1)
+          lastPeriodEnd = new Date(startDate)
+          lastPeriodEnd.setSeconds(-1)
+        }
+        break
+      }
       default: {
         startDate = new Date(now)
         startDate.setFullYear(now.getFullYear() - 1)
@@ -299,7 +322,7 @@ export default function LeadDistributionDashboard() {
     }
 
     return { startDate, lastPeriodStart, lastPeriodEnd }
-  }, [selectedPeriod])
+  }, [selectedPeriod, customStartDate, customEndDate])
 
   // ─── Data fetching ──────────────────────────────────────────────────────────
 
@@ -313,7 +336,7 @@ export default function LeadDistributionDashboard() {
       const [leadsResult, closersResult] = await Promise.all([
         supabase
           .from('leads')
-          .select('id, nome_completo, origem, status, valor_venda, valor_vendido, valor_arrecadado, closer_id, sdr_id, created_at, closers:closer_id(id, nome_completo, nome), sdrs:sdr_id(id, nome_completo, nome)')
+          .select('id, nome_completo, origem, status, valor_venda, valor_vendido, valor_arrecadado, closer_id, sdr_id, created_at')
           .eq('organization_id', organizationId)
           .not('origem', 'is', null),
         supabase
@@ -343,19 +366,27 @@ export default function LeadDistributionDashboard() {
 
   const { startDate, lastPeriodStart, lastPeriodEnd } = useMemo(() => getDateRanges(), [getDateRanges])
 
-  const totalLeads = leads.length
+  // Filter leads by selected period for KPIs
+  const periodLeads = useMemo(() => {
+    return leads.filter(l => {
+      const d = new Date(l.created_at)
+      return d >= startDate
+    })
+  }, [leads, startDate])
+
+  const totalLeads = periodLeads.length
 
   const totalRevenue = useMemo(() => {
-    return leads
+    return periodLeads
       .filter(l => SOLD_STATUSES.includes(l.status || ''))
       .reduce((sum, l) => sum + getLeadRevenue(l), 0)
-  }, [leads])
+  }, [periodLeads])
 
   const conversionRate = useMemo(() => {
     if (totalLeads === 0) return 0
-    const won = leads.filter(l => SOLD_STATUSES.includes(l.status || '')).length
+    const won = periodLeads.filter(l => SOLD_STATUSES.includes(l.status || '')).length
     return (won / totalLeads) * 100
-  }, [leads, totalLeads])
+  }, [periodLeads, totalLeads])
 
   // Status breakdown
   const statusBreakdown = useMemo<StatusCount[]>(() => {
@@ -513,7 +544,7 @@ export default function LeadDistributionDashboard() {
 
   // ─── Period label ───────────────────────────────────────────────────────────
 
-  const periodLabel = selectedPeriod === '7d' ? 'Esta Semana' : selectedPeriod === '30d' ? 'Este Mês' : selectedPeriod === '90d' ? 'Últimos 90 dias' : 'Último Ano'
+  const periodLabel = selectedPeriod === '7d' ? 'Esta Semana' : selectedPeriod === '30d' ? 'Este Mês' : selectedPeriod === '90d' ? 'Últimos 90 dias' : selectedPeriod === 'custom' ? 'Personalizado' : 'Último Ano'
 
   // ─── AI Chat ──────────────────────────────────────────────────────────────────
 
@@ -693,9 +724,29 @@ REGRAS:
                   <option value="30d">Este mês</option>
                   <option value="90d">Últimos 90 dias</option>
                   <option value="1y">Último ano</option>
+                  <option value="custom">Personalizado</option>
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/30 pointer-events-none" />
               </div>
+
+              {/* Custom date inputs */}
+              {selectedPeriod === 'custom' && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="px-2 py-1.5 text-xs bg-[#1a1a1e] border border-white/[0.06] rounded-lg text-white/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 [color-scheme:dark]"
+                  />
+                  <span className="text-white/30 text-xs">até</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="px-2 py-1.5 text-xs bg-[#1a1a1e] border border-white/[0.06] rounded-lg text-white/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 [color-scheme:dark]"
+                  />
+                </div>
+              )}
 
               {/* Refresh */}
               <button

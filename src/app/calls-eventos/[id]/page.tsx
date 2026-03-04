@@ -754,18 +754,18 @@ ${transcription}`
             <div>
               <p className="text-sm text-gray-400">Presentes</p>
               <p className="text-2xl font-bold text-white">{stats.attended}</p>
-              <p className="text-xs text-gray-500">{stats.attendanceRate.toFixed(1)}%</p>
+              <p className="text-xs text-gray-500">{Number(stats.attendanceRate || 0).toFixed(1)}%</p>
             </div>
             <CheckCircle2 className="h-8 w-8 text-green-400" />
           </div>
         </div>
-        
+
         <div className="bg-gray-800 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Conversões</p>
               <p className="text-2xl font-bold text-white">{stats.converted}</p>
-              <p className="text-xs text-gray-500">{stats.conversionRate.toFixed(1)}%</p>
+              <p className="text-xs text-gray-500">{Number(stats.conversionRate || 0).toFixed(1)}%</p>
             </div>
             <Target className="h-8 w-8 text-purple-400" />
           </div>

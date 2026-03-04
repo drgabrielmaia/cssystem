@@ -572,7 +572,7 @@ function CloserPageContent() {
                   <Target className="h-4 w-4 text-[#60A5FA]" />
                 </div>
               </div>
-              <p className="text-white text-3xl font-bold mb-3 tracking-tight">{dashboardMetrics?.taxa_conversao?.toFixed(1) || '0.0'}%</p>
+              <p className="text-white text-3xl font-bold mb-3 tracking-tight">{Number(dashboardMetrics?.taxa_conversao || 0).toFixed(1) || '0.0'}%</p>
               <div className="flex items-center gap-1.5 text-sm">
                 <div className="flex items-center gap-1 bg-[#4ADE80]/10 px-2 py-0.5 rounded-full">
                   <ArrowUp className="h-3.5 w-3.5 text-[#4ADE80]" />
@@ -759,7 +759,7 @@ function CloserPageContent() {
                 <div className="w-2 h-2 rounded-full bg-[#60A5FA] mt-1.5 shrink-0"></div>
                 <div>
                   <p className="text-[#A1A1AA] text-sm">
-                    Taxa de conversao atual: <span className="text-white font-semibold">{dashboardMetrics?.taxa_conversao?.toFixed(1) || '0'}%</span>.
+                    Taxa de conversao atual: <span className="text-white font-semibold">{Number(dashboardMetrics?.taxa_conversao || 0).toFixed(1) || '0'}%</span>.
                     {(dashboardMetrics?.taxa_conversao || 0) >= 20
                       ? <span className="text-[#4ADE80]"> Excelente!</span>
                       : (dashboardMetrics?.taxa_conversao || 0) >= 10
@@ -773,7 +773,7 @@ function CloserPageContent() {
                 <div className="w-2 h-2 rounded-full bg-[#FACC15] mt-1.5 shrink-0"></div>
                 <div>
                   <p className="text-[#A1A1AA] text-sm">
-                    Meta mensal: <span className="text-white font-semibold">{dashboardMetrics?.percentual_meta?.toFixed(0) || '0'}%</span> atingida.
+                    Meta mensal: <span className="text-white font-semibold">{Number(dashboardMetrics?.percentual_meta || 0).toFixed(0) || '0'}%</span> atingida.
                     {(dashboardMetrics?.percentual_meta || 0) >= 100
                       ? <span className="text-[#4ADE80]"> Meta batida!</span>
                       : <span className="text-[#71717A]"> Faltam R$ {((dashboardMetrics?.meta_mensal || 500000) - (dashboardMetrics?.receita_total || 0)).toLocaleString('pt-BR')}.</span>
@@ -948,7 +948,7 @@ function CloserPageContent() {
                     (dashboardMetrics?.percentual_meta || 0) >= 80 ? 'text-[#4ADE80]' :
                     (dashboardMetrics?.percentual_meta || 0) >= 50 ? 'text-[#FACC15]' : 'text-[#EF4444]'
                   }`}>
-                    {dashboardMetrics?.percentual_meta?.toFixed(1) || '0'}% atingido
+                    {Number(dashboardMetrics?.percentual_meta || 0).toFixed(1) || '0'}% atingido
                   </p>
                   {(dashboardMetrics?.percentual_meta || 0) >= 100 && (
                     <span className="text-[10px] bg-[#4ADE80]/15 text-[#4ADE80] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Meta Batida</span>

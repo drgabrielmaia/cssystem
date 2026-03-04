@@ -525,7 +525,7 @@ export default function CallsEventosPage() {
               <CheckCircle2 className="w-4 h-4 text-cyan-400" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-white tracking-tight">{statistics.attendance_rate.toFixed(1)}%</p>
+          <p className="text-2xl font-bold text-white tracking-tight">{Number(statistics.attendance_rate || 0).toFixed(1)}%</p>
           <p className="text-xs text-gray-500 mt-1">Taxa de Presenca</p>
         </div>
 
@@ -536,7 +536,7 @@ export default function CallsEventosPage() {
               <Target className="w-4 h-4 text-purple-400" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-white tracking-tight">{statistics.conversion_rate.toFixed(1)}%</p>
+          <p className="text-2xl font-bold text-white tracking-tight">{Number(statistics.conversion_rate || 0).toFixed(1)}%</p>
           <p className="text-xs text-gray-500 mt-1">Taxa de Conversao</p>
         </div>
 

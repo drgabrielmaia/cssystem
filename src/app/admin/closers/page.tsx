@@ -396,9 +396,9 @@ export default function AdminClosersPage() {
               <TrendingUp className="h-5 w-5 text-orange-500" />
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Taxa média: {filteredClosers.length > 0 
-                ? (filteredClosers.reduce((acc, c) => acc + (c.taxa_conversao_mes || 0), 0) / filteredClosers.length).toFixed(1)
-                : 0}%
+              Taxa média: {filteredClosers.length > 0
+                ? (filteredClosers.reduce((acc, c) => acc + Number(c.taxa_conversao_mes || 0), 0) / filteredClosers.length).toFixed(1)
+                : '0.0'}%
             </p>
           </CardContent>
         </Card>
@@ -508,7 +508,7 @@ export default function AdminClosersPage() {
                       R$ {(closer.valor_vendas_mes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell className="text-center">
-                      {(closer.taxa_conversao_mes || 0).toFixed(1)}%
+                      {Number(closer.taxa_conversao_mes || 0).toFixed(1)}%
                     </TableCell>
                     <TableCell className="text-right">
                       R$ {(closer.comissao_mes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -853,7 +853,7 @@ export default function AdminClosersPage() {
                   </div>
                   <div>
                     <Label className="text-gray-500">Taxa Conv.</Label>
-                    <p className="font-bold text-lg">{(selectedCloser.taxa_conversao_mes || 0).toFixed(1)}%</p>
+                    <p className="font-bold text-lg">{Number(selectedCloser.taxa_conversao_mes || 0).toFixed(1)}%</p>
                   </div>
                 </div>
               </div>
@@ -908,11 +908,11 @@ export default function AdminClosersPage() {
                     </div>
                     <div className="bg-purple-50 p-4 rounded-lg">
                       <div className="text-sm text-purple-600 font-medium">Taxa Agendamento</div>
-                      <div className="text-2xl font-bold text-purple-900">{performanceData.taxaConversaoReunioes.toFixed(1)}%</div>
+                      <div className="text-2xl font-bold text-purple-900">{Number(performanceData.taxaConversaoReunioes || 0).toFixed(1)}%</div>
                     </div>
                     <div className="bg-orange-50 p-4 rounded-lg">
                       <div className="text-sm text-orange-600 font-medium">Taxa Conversão</div>
-                      <div className="text-2xl font-bold text-orange-900">{performanceData.taxaConversaoLeads.toFixed(1)}%</div>
+                      <div className="text-2xl font-bold text-orange-900">{Number(performanceData.taxaConversaoLeads || 0).toFixed(1)}%</div>
                     </div>
                   </>
                 ) : (
@@ -925,18 +925,18 @@ export default function AdminClosersPage() {
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <div className="text-sm text-blue-600 font-medium">Valor Total</div>
                       <div className="text-2xl font-bold text-blue-900">
-                        R$ {performanceData.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {Number(performanceData.valorTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </div>
                     </div>
                     <div className="bg-purple-50 p-4 rounded-lg">
                       <div className="text-sm text-purple-600 font-medium">Ticket Médio</div>
                       <div className="text-2xl font-bold text-purple-900">
-                        R$ {performanceData.mediaTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {Number(performanceData.mediaTicket || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </div>
                     </div>
                     <div className="bg-yellow-50 p-4 rounded-lg">
                       <div className="text-sm text-yellow-600 font-medium">Taxa Conversão</div>
-                      <div className="text-2xl font-bold text-yellow-900">{performanceData.taxaConversaoLeads.toFixed(1)}%</div>
+                      <div className="text-2xl font-bold text-yellow-900">{Number(performanceData.taxaConversaoLeads || 0).toFixed(1)}%</div>
                     </div>
                   </>
                 )}

@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
-import { useStableData } from '@/hooks/use-stable-data'
 import { useStableMutation } from '@/hooks/use-stable-mutation'
 import { useActiveOrganization } from '@/contexts/organization'
+import { apiFetch } from '@/lib/api'
 import { ChurnRateCard } from '@/components/churn-rate-card'
 import EmbeddedAIChat from '@/components/embedded-ai-chat'
 import { supabase } from '@/lib/supabase'
@@ -113,36 +113,73 @@ export default function LeadsPage() {
     ticket_medio: 0
   })
 
-  // Filtros calculados para os hooks
-  const leadFilters = useMemo(() => {
-    const filters: Record<string, any> = {
-      organization_id: activeOrganizationId || null
+  // Server-side paginated leads
+  const [leads, setLeads] = useState<Lead[]>([])
+  const [totalLeadsCount, setTotalLeadsCount] = useState(0)
+  const [totalServerPages, setTotalServerPages] = useState(1)
+  const [leadsLoading, setLeadsLoading] = useState(true)
+  const [leadsError, setLeadsError] = useState<string | null>(null)
+  const [isRefetchingLeads, setIsRefetchingLeads] = useState(false)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Debounce search input (500ms)
+  useEffect(() => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+      setCurrentPage(1) // Reset to page 1 on new search
+    }, 500)
+    return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current) }
+  }, [searchTerm])
+
+  // Load leads from server (paginated + filtered)
+  const loadLeads = useCallback(async (isRefetch = false) => {
+    if (!activeOrganizationId) return
+    if (isRefetch) setIsRefetchingLeads(true)
+    else setLeadsLoading(true)
+    setLeadsError(null)
+
+    try {
+      const response = await apiFetch('/api/leads/search', {
+        method: 'POST',
+        body: JSON.stringify({
+          organization_id: activeOrganizationId,
+          search: debouncedSearch || undefined,
+          status: statusFilter !== 'todos' ? statusFilter : undefined,
+          origem: origemFilter !== 'todas' ? origemFilter : undefined,
+          date_filter: dateFilter,
+          custom_start: dateFilter === 'personalizado' ? customStartDate : undefined,
+          custom_end: dateFilter === 'personalizado' ? customEndDate : undefined,
+          page: currentPage,
+          limit: leadsPerPage
+        })
+      })
+      const result = await response.json()
+      if (result.error) throw new Error(result.error.message || 'Erro ao carregar leads')
+      setLeads(result.data || [])
+      setTotalLeadsCount(result.count || 0)
+      setTotalServerPages(result.totalPages || 1)
+    } catch (err: any) {
+      console.error('Erro ao carregar leads:', err)
+      setLeadsError(err.message)
+    } finally {
+      setLeadsLoading(false)
+      setIsRefetchingLeads(false)
     }
+  }, [activeOrganizationId, debouncedSearch, statusFilter, origemFilter, dateFilter, customStartDate, customEndDate, currentPage])
 
-    if (statusFilter !== 'todos') {
-      filters.status = statusFilter
-    }
+  // Reload when filters/page change
+  useEffect(() => {
+    loadLeads()
+  }, [loadLeads])
 
-    if (origemFilter !== 'todas') {
-      filters.origem = origemFilter
-    }
+  // Reset page on filter changes (except page itself)
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [statusFilter, origemFilter, dateFilter, customStartDate, customEndDate])
 
-    return filters
-  }, [activeOrganizationId, statusFilter, origemFilter])
-
-  // Hook para buscar leads com filtros estáveis
-  const {
-    data: leads,
-    loading: leadsLoading,
-    error: leadsError,
-    refetch: refetchLeads,
-    isRefetching: isRefetchingLeads
-  } = useStableData<Lead>({
-    tableName: 'leads',
-    filters: leadFilters,
-    dependencies: [activeOrganizationId, statusFilter, origemFilter, dateFilter, customStartDate, customEndDate],
-    debounceMs: 500
-  })
+  const refetchLeads = useCallback(() => loadLeads(true), [loadLeads])
 
   // Hook para mutações (criar/editar/deletar leads)
   const createLead = useStableMutation('leads', 'insert', {
@@ -469,22 +506,10 @@ export default function LeadsPage() {
     }
   }
 
-  // Busca só no cliente (instantânea) - filtros já aplicados no servidor
-  const filteredLeads = leads.filter(lead => {
-    return searchTerm === '' ||
-      lead.nome_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.empresa?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.cargo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.telefone?.toLowerCase().includes(searchTerm.toLowerCase())
-  })
-
-  // Pagination
-  const totalPages = Math.ceil(filteredLeads.length / leadsPerPage)
-  const paginatedLeads = filteredLeads.slice(
-    (currentPage - 1) * leadsPerPage,
-    currentPage * leadsPerPage
-  )
+  // Server-side pagination - leads already filtered and paginated
+  const filteredLeads = leads
+  const totalPages = totalServerPages
+  const paginatedLeads = leads
 
   // Obter listas para os filtros
   const availableStatuses = Array.from(new Set(leads.map(lead => lead.status).filter(Boolean)))
@@ -1036,7 +1061,7 @@ export default function LeadsPage() {
                     type="text"
                     placeholder="Buscar leads..."
                     value={searchTerm}
-                    onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1) }}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 pr-4 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all w-full sm:w-80"
                   />
                 </div>
@@ -1060,7 +1085,7 @@ export default function LeadsPage() {
               </div>
 
               <div className="text-xs text-white/30">
-                {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''} encontrado{filteredLeads.length !== 1 ? 's' : ''}
+                {totalLeadsCount} lead{totalLeadsCount !== 1 ? 's' : ''} encontrado{totalLeadsCount !== 1 ? 's' : ''}
               </div>
             </div>
 
@@ -1172,7 +1197,7 @@ export default function LeadsPage() {
             <div className="px-6 py-4 border-b border-white/[0.04] flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-white">Lista de Leads</h3>
-                <p className="text-xs text-white/40 mt-0.5">{filteredLeads.length} registros</p>
+                <p className="text-xs text-white/40 mt-0.5">{totalLeadsCount} registros</p>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -1350,7 +1375,7 @@ export default function LeadsPage() {
             {totalPages > 1 && (
               <div className="px-6 py-4 border-t border-white/[0.04] flex items-center justify-between">
                 <p className="text-xs text-white/40">
-                  {(currentPage - 1) * leadsPerPage + 1}-{Math.min(currentPage * leadsPerPage, filteredLeads.length)} de {filteredLeads.length}
+                  {(currentPage - 1) * leadsPerPage + 1}-{Math.min(currentPage * leadsPerPage, totalLeadsCount)} de {totalLeadsCount}
                 </p>
                 <div className="flex items-center gap-1">
                   <button
@@ -1413,7 +1438,7 @@ DADOS DOS LEADS:
 - Valor total vendas: ${formatCurrency(stats.valor_total_vendas)}
 - Valor arrecadado: ${formatCurrency(stats.valor_total_arrecadado)}
 - Ticket médio: ${formatCurrency(stats.ticket_medio)}
-- Leads filtrados exibidos: ${filteredLeads.length}
+- Leads filtrados exibidos: ${totalLeadsCount}
 
 STATUS DOS LEADS:
 ${statusList}
