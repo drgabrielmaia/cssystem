@@ -36,8 +36,16 @@ export default function DashboardPage() {
   const [customStartDate, setCustomStartDate] = useState<string>('')
   const [customEndDate, setCustomEndDate] = useState<string>('')
 
-  const customStart = useMemo(() => customStartDate ? new Date(customStartDate) : undefined, [customStartDate])
-  const customEnd = useMemo(() => customEndDate ? new Date(customEndDate) : undefined, [customEndDate])
+  const customStart = useMemo(() => {
+    if (!customStartDate) return undefined
+    const d = new Date(customStartDate)
+    return isNaN(d.getTime()) ? undefined : d
+  }, [customStartDate])
+  const customEnd = useMemo(() => {
+    if (!customEndDate) return undefined
+    const d = new Date(customEndDate)
+    return isNaN(d.getTime()) ? undefined : d
+  }, [customEndDate])
 
   const {
     metrics,

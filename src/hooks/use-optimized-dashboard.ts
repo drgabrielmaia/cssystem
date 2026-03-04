@@ -178,7 +178,9 @@ export function useOptimizedDashboard(
   }, [dateFilter, customStartDate, customEndDate])
 
   const cacheKey = useMemo(() => {
-    return `${organizationId}_${dateFilter}_${dateRange.start.toISOString()}_${dateRange.end.toISOString()}`
+    const startStr = isNaN(dateRange.start.getTime()) ? 'invalid' : dateRange.start.toISOString()
+    const endStr = isNaN(dateRange.end.getTime()) ? 'invalid' : dateRange.end.toISOString()
+    return `${organizationId}_${dateFilter}_${startStr}_${endStr}`
   }, [organizationId, dateFilter, dateRange])
 
   const loadMetrics = useCallback(async (): Promise<{ metrics: DashboardMetrics; evolution: EvolutionDataPoint[] }> => {
@@ -195,6 +197,10 @@ export function useOptimizedDashboard(
 
     console.log('📊 Loading fresh dashboard metrics...')
     const { start, end } = dateRange
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new Error('Data inválida selecionada')
+    }
 
     // Parallel data loading with optimized queries
     const [salesResult, callsResult, churnResult] = await Promise.allSettled([
