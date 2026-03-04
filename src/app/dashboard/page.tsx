@@ -204,16 +204,16 @@ export default function DashboardPage() {
                     type="date"
                     value={customStartDate}
                     onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="px-3 py-1.5 text-sm border border-white/[0.08] rounded-lg bg-white/[0.05] text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all"
+                    className="px-3 py-1.5 text-sm border border-white/[0.08] rounded-lg bg-[#1a1a1e] text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all [color-scheme:dark]"
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-white/50">Ate:</label>
+                  <label className="text-sm font-medium text-white/50">Até:</label>
                   <input
                     type="date"
                     value={customEndDate}
                     onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="px-3 py-1.5 text-sm border border-white/[0.08] rounded-lg bg-white/[0.05] text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all"
+                    className="px-3 py-1.5 text-sm border border-white/[0.08] rounded-lg bg-[#1a1a1e] text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all [color-scheme:dark]"
                   />
                 </div>
               </div>
