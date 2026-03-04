@@ -102,6 +102,8 @@ export default function LeadsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
   const [showFilters, setShowFilters] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const leadsPerPage = 10
   const [stats, setStats] = useState<LeadStats>({
     total_leads: 0,
     leads_convertidos: 0,
@@ -476,6 +478,13 @@ export default function LeadsPage() {
       lead.cargo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.telefone?.toLowerCase().includes(searchTerm.toLowerCase())
   })
+
+  // Pagination
+  const totalPages = Math.ceil(filteredLeads.length / leadsPerPage)
+  const paginatedLeads = filteredLeads.slice(
+    (currentPage - 1) * leadsPerPage,
+    currentPage * leadsPerPage
+  )
 
   // Obter listas para os filtros
   const availableStatuses = Array.from(new Set(leads.map(lead => lead.status).filter(Boolean)))
@@ -1027,7 +1036,7 @@ export default function LeadsPage() {
                     type="text"
                     placeholder="Buscar leads..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1) }}
                     className="pl-10 pr-4 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all w-full sm:w-80"
                   />
                 </div>
@@ -1063,7 +1072,7 @@ export default function LeadsPage() {
                     <label className="block text-xs font-medium text-white/40 mb-2 uppercase tracking-wider">Status</label>
                     <select
                       value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
+                      onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1) }}
                       className="w-full px-3 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all"
                     >
                       <option value="todos">Todos os Status</option>
@@ -1079,7 +1088,7 @@ export default function LeadsPage() {
                     <label className="block text-xs font-medium text-white/40 mb-2 uppercase tracking-wider">Origem</label>
                     <select
                       value={origemFilter}
-                      onChange={(e) => setOrigemFilter(e.target.value)}
+                      onChange={(e) => { setOrigemFilter(e.target.value); setCurrentPage(1) }}
                       className="w-full px-3 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all"
                     >
                       <option value="todas">Todas as Origens</option>
@@ -1093,7 +1102,7 @@ export default function LeadsPage() {
                     <label className="block text-xs font-medium text-white/40 mb-2 uppercase tracking-wider">Período</label>
                     <select
                       value={dateFilter}
-                      onChange={(e) => setDateFilter(e.target.value)}
+                      onChange={(e) => { setDateFilter(e.target.value); setCurrentPage(1) }}
                       className="w-full px-3 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all"
                     >
                       <option value="mes_atual">Mês Atual</option>
@@ -1193,7 +1202,7 @@ export default function LeadsPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredLeads.map((lead) => {
+                    paginatedLeads.map((lead) => {
                       const origem = lead.origem || 'Outros'
                       const cor = origemColors[origem as keyof typeof origemColors] || '#94A3B8'
                       return (
@@ -1336,6 +1345,55 @@ export default function LeadsPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="px-6 py-4 border-t border-white/[0.04] flex items-center justify-between">
+                <p className="text-xs text-white/40">
+                  {(currentPage - 1) * leadsPerPage + 1}-{Math.min(currentPage * leadsPerPage, filteredLeads.length)} de {filteredLeads.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-xs rounded-lg border border-white/[0.08] text-white/60 hover:bg-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Anterior
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                    .reduce((acc, p, i, arr) => {
+                      if (i > 0 && p - arr[i - 1] > 1) acc.push(-1)
+                      acc.push(p)
+                      return acc
+                    }, [] as number[])
+                    .map((p, i) =>
+                      p === -1 ? (
+                        <span key={`dots-${i}`} className="px-1 text-xs text-white/30">...</span>
+                      ) : (
+                        <button
+                          key={p}
+                          onClick={() => setCurrentPage(p)}
+                          className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                            currentPage === p
+                              ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400 font-semibold'
+                              : 'border-white/[0.08] text-white/60 hover:bg-white/[0.06]'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      )
+                    )}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 text-xs rounded-lg border border-white/[0.08] text-white/60 hover:bg-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Próximo
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Embedded AI Chat */}
