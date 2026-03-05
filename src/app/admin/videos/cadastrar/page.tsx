@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
-import whatsappMultiService from '@/lib/whatsapp-multi-service'
 import { ArrowLeft, Upload, Video, FileText, CheckCircle, AlertCircle, Save, Eye } from 'lucide-react'
 import Link from 'next/link'
 
@@ -95,7 +94,7 @@ export default function CadastrarAulaPage() {
         setLessonCreated(true)
         setStep(3)
 
-        // Send WhatsApp group notification if configured
+        // Enviar notificação WhatsApp via API Docker
         try {
           const { data: orgData } = await supabase
             .from('organizations')
@@ -110,7 +109,19 @@ export default function CadastrarAulaPage() {
               (moduleName ? `📁 Módulo: ${moduleName}\n` : '') +
               (lessonData.description ? `\n${lessonData.description}\n` : '') +
               `\n🔗 Acesse a área do aluno para assistir!`
-            await whatsappMultiService.sendMessage(orgData.whatsapp_group_aulas, msg)
+
+            const apiUrl = 'https://api.medicosderesultado.com.br'
+            const res = await fetch(`${apiUrl}/users/${organizationId}/send`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ to: orgData.whatsapp_group_aulas, message: msg })
+            })
+            const result = await res.json()
+            if (result.success) {
+              console.log('✅ Notificação WhatsApp enviada ao grupo')
+            } else {
+              console.error('❌ Falha na notificação WhatsApp:', result.error)
+            }
           }
         } catch (notifyErr) {
           console.error('Erro ao notificar grupo WhatsApp:', notifyErr)

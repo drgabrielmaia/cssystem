@@ -398,12 +398,30 @@ export default function FollowUpConfigPage() {
 
   const toggleSequenceActive = async (sequenceId: string, ativo: boolean) => {
     try {
+      // 1. Atualizar a sequência
       const { error } = await supabase
         .from('lead_followup_sequences')
         .update({ ativo, updated_at: new Date().toISOString() })
         .eq('id', sequenceId)
 
       if (error) throw error
+
+      // 2. Pausar/retomar execuções ativas dessa sequência
+      if (!ativo) {
+        // Desativando → pausar execuções ativas
+        await supabase
+          .from('lead_followup_executions')
+          .update({ status: 'paused', updated_at: new Date().toISOString() })
+          .eq('sequence_id', sequenceId)
+          .eq('status', 'active')
+      } else {
+        // Ativando → retomar execuções pausadas
+        await supabase
+          .from('lead_followup_executions')
+          .update({ status: 'active', updated_at: new Date().toISOString() })
+          .eq('sequence_id', sequenceId)
+          .eq('status', 'paused')
+      }
 
       toast.success(`Sequência ${ativo ? 'ativada' : 'desativada'} com sucesso!`)
       loadData()
