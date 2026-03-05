@@ -165,13 +165,19 @@ export default function CallsEventosPage() {
       const formData = new FormData()
       formData.append('file', file)
       const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
-      const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData })
+      const token = localStorage.getItem('cs_auth_token')
+      const headers: Record<string, string> = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData, headers })
       const result = await res.json()
       if (result.success && result.url) {
         setNewEvent(prev => ({ ...prev, imagem_capa: result.url }))
+      } else {
+        alert('Erro no upload: ' + (result.error || 'Tente novamente'))
       }
     } catch (err) {
       console.error('Erro no upload:', err)
+      alert('Erro no upload da imagem')
     } finally {
       setUploadingCapa(false)
     }
@@ -302,12 +308,16 @@ export default function CallsEventosPage() {
       const { error } = await supabase
         .from('group_events')
         .insert({
+          title: newEvent.name,
           name: newEvent.name,
           description: newEvent.description || null,
+          event_type: newEvent.type,
           type: newEvent.type,
+          start_time: newEvent.date_time,
           date_time: newEvent.date_time,
           duration_minutes: parseInt(newEvent.duration_minutes) || 60,
           max_participants: newEvent.max_participants ? parseInt(newEvent.max_participants) : null,
+          meet_link: newEvent.meeting_link || null,
           meeting_link: newEvent.meeting_link || null,
           valor_ingresso: newEvent.valor_ingresso ? parseFloat(newEvent.valor_ingresso) : 0,
           is_paid: newEvent.valor_ingresso ? parseFloat(newEvent.valor_ingresso) > 0 : false,
@@ -319,8 +329,6 @@ export default function CallsEventosPage() {
           status: 'scheduled',
           created_by_email: user?.email,
           organization_id: organizationId,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
         })
 
       if (error) throw error

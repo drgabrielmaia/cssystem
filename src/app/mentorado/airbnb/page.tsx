@@ -13,7 +13,7 @@ import {
   Wifi, Car, Users, Wind, Zap, Camera, Stethoscope,
   Shield, Accessibility, Bath, Heart,
   Home, Loader2, ArrowLeft,
-  CheckCircle2, Award, SlidersHorizontal
+  CheckCircle2, Award, SlidersHorizontal, Upload, ImagePlus
 } from 'lucide-react'
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { supabase } from '@/lib/supabase'
@@ -89,6 +89,9 @@ export default function AirbnbPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [creatingClinica, setCreatingClinica] = useState(false)
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  const [uploadingPhotos, setUploadingPhotos] = useState(false)
+  const [clinicaPhotos, setClinicaPhotos] = useState<string[]>([])
+  const [currentStep, setCurrentStep] = useState(1)
 
   // Filters
   const [filterCidade, setFilterCidade] = useState('')
@@ -126,6 +129,40 @@ export default function AirbnbPage() {
     tem_banheiro_privativo: false,
     tem_acessibilidade: false,
   })
+
+  const handlePhotoUpload = async (files: FileList) => {
+    setUploadingPhotos(true)
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
+      const token = localStorage.getItem('cs_auth_token')
+      const headers: Record<string, string> = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+
+      const uploaded: string[] = []
+      for (const file of Array.from(files)) {
+        const formData = new FormData()
+        formData.append('file', file)
+        const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData, headers })
+        const result = await res.json()
+        if (result.success && result.url) {
+          uploaded.push(result.url)
+        }
+      }
+      setClinicaPhotos(prev => [...prev, ...uploaded])
+      if (uploaded.length > 0) {
+        toast.success(`${uploaded.length} foto(s) enviada(s)!`)
+      }
+    } catch (err) {
+      console.error('Erro no upload:', err)
+      toast.error('Erro ao enviar fotos')
+    } finally {
+      setUploadingPhotos(false)
+    }
+  }
+
+  const removePhoto = (index: number) => {
+    setClinicaPhotos(prev => prev.filter((_, i) => i !== index))
+  }
 
   useEffect(() => {
     if (mentorado) loadClinicas()
@@ -180,45 +217,53 @@ export default function AirbnbPage() {
 
     try {
       setCreatingClinica(true)
+      const insertData: any = {
+        organization_id: '9c8c0033-15ea-4e33-a55f-28d81a19693b',
+        owner_mentorado_id: mentorado?.id,
+        titulo: newClinica.titulo,
+        descricao: newClinica.descricao || null,
+        endereco: newClinica.endereco || null,
+        cidade: newClinica.cidade,
+        estado: newClinica.estado || null,
+        cep: newClinica.cep || null,
+        bairro: newClinica.bairro || null,
+        preco_por_turno: parseFloat(newClinica.preco_por_turno) || 0,
+        preco_por_dia: parseFloat(newClinica.preco_por_dia) || 0,
+        preco_por_mes: parseFloat(newClinica.preco_por_mes) || 0,
+        numero_salas: parseInt(newClinica.numero_salas) || 1,
+        area_m2: newClinica.area_m2 ? parseFloat(newClinica.area_m2) : null,
+        especialidades_recomendadas: newClinica.especialidades_recomendadas || null,
+        horario_funcionamento: newClinica.horario_funcionamento || null,
+        regras: newClinica.regras || null,
+        foto_capa: clinicaPhotos.length > 0 ? clinicaPhotos[0] : null,
+        tem_videomaker: newClinica.tem_videomaker,
+        tem_recepcionista: newClinica.tem_recepcionista,
+        tem_estacionamento: newClinica.tem_estacionamento,
+        tem_wifi: newClinica.tem_wifi,
+        tem_ar_condicionado: newClinica.tem_ar_condicionado,
+        tem_sala_espera: newClinica.tem_sala_espera,
+        tem_raio_x: newClinica.tem_raio_x,
+        tem_autoclave: newClinica.tem_autoclave,
+        tem_banheiro_privativo: newClinica.tem_banheiro_privativo,
+        tem_acessibilidade: newClinica.tem_acessibilidade,
+        status: 'em_revisao',
+      }
+
+      // Only send fotos if there are actual photos
+      if (clinicaPhotos.length > 0) {
+        insertData.fotos = clinicaPhotos
+      }
+
       const { error } = await supabase
         .from('clinicas')
-        .insert({
-          organization_id: '9c8c0033-15ea-4e33-a55f-28d81a19693b',
-          owner_mentorado_id: mentorado?.id,
-          titulo: newClinica.titulo,
-          descricao: newClinica.descricao || null,
-          endereco: newClinica.endereco || null,
-          cidade: newClinica.cidade,
-          estado: newClinica.estado || null,
-          cep: newClinica.cep || null,
-          bairro: newClinica.bairro || null,
-          preco_por_turno: parseFloat(newClinica.preco_por_turno) || 0,
-          preco_por_dia: parseFloat(newClinica.preco_por_dia) || 0,
-          preco_por_mes: parseFloat(newClinica.preco_por_mes) || 0,
-          numero_salas: parseInt(newClinica.numero_salas) || 1,
-          area_m2: newClinica.area_m2 ? parseFloat(newClinica.area_m2) : null,
-          especialidades_recomendadas: newClinica.especialidades_recomendadas || null,
-          horario_funcionamento: newClinica.horario_funcionamento || null,
-          regras: newClinica.regras || null,
-          foto_capa: newClinica.foto_capa || null,
-          fotos: [],
-          tem_videomaker: newClinica.tem_videomaker,
-          tem_recepcionista: newClinica.tem_recepcionista,
-          tem_estacionamento: newClinica.tem_estacionamento,
-          tem_wifi: newClinica.tem_wifi,
-          tem_ar_condicionado: newClinica.tem_ar_condicionado,
-          tem_sala_espera: newClinica.tem_sala_espera,
-          tem_raio_x: newClinica.tem_raio_x,
-          tem_autoclave: newClinica.tem_autoclave,
-          tem_banheiro_privativo: newClinica.tem_banheiro_privativo,
-          tem_acessibilidade: newClinica.tem_acessibilidade,
-          status: 'em_revisao',
-        })
+        .insert(insertData)
 
       if (error) throw error
 
       toast.success('Clinica enviada para revisao!')
       setShowCreateModal(false)
+      setClinicaPhotos([])
+      setCurrentStep(1)
       setNewClinica({
         titulo: '', descricao: '', endereco: '', cidade: '', estado: '', cep: '', bairro: '',
         preco_por_turno: '', preco_por_dia: '', preco_por_mes: '',
@@ -230,7 +275,7 @@ export default function AirbnbPage() {
       loadClinicas()
     } catch (err) {
       console.error('Error creating clinica:', err)
-      toast.error('Erro ao criar clinica')
+      toast.error('Erro ao criar clinica: ' + ((err as any)?.message || 'Erro desconhecido'))
     } finally {
       setCreatingClinica(false)
     }
@@ -297,11 +342,11 @@ export default function AirbnbPage() {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <Card className="p-8 bg-white border border-gray-200 shadow-lg max-w-md w-full text-center rounded-2xl">
-          <Shield className="w-16 h-16 mx-auto mb-4 text-rose-400" />
+          <Shield className="w-16 h-16 mx-auto mb-4 text-emerald-400" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Acesso Restrito</h2>
           <p className="text-gray-500 mb-6">Esta funcionalidade esta em fase beta e disponivel apenas para usuarios selecionados.</p>
           <Link href="/mentorado">
-            <Button className="bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-xl px-6">
+            <Button className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl px-6">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar ao Portal
             </Button>
@@ -327,10 +372,10 @@ export default function AirbnbPage() {
                 <ArrowLeft className="w-5 h-5" />
               </Link>
               <Link href="/mentorado/airbnb" className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
                   <Stethoscope className="w-4 h-4 text-white" />
                 </div>
-                <span className="hidden sm:block text-xl font-bold text-rose-500 tracking-tight">
+                <span className="hidden sm:block text-xl font-bold text-emerald-500 tracking-tight">
                   clinicbnb
                 </span>
               </Link>
@@ -339,7 +384,7 @@ export default function AirbnbPage() {
             {/* Right: CTA */}
             <Button
               onClick={() => setShowCreateModal(true)}
-              className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white font-semibold rounded-full px-5 h-10 shadow-md shadow-rose-500/20 transition-all hover:shadow-lg hover:shadow-rose-500/30 active:scale-[0.97]"
+              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold rounded-full px-5 h-10 shadow-md shadow-emerald-500/20 transition-all hover:shadow-lg hover:shadow-emerald-500/30 active:scale-[0.97]"
             >
               <Plus className="w-4 h-4 mr-1.5" />
               Anunciar Clinica
@@ -355,7 +400,7 @@ export default function AirbnbPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar por cidade, bairro ou nome da clinica..."
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-full text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 transition-all shadow-sm hover:shadow-md"
+                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-full text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all shadow-sm hover:shadow-md"
                 />
                 {searchTerm && (
                   <button
@@ -370,14 +415,14 @@ export default function AirbnbPage() {
                 onClick={() => setShowFilters(!showFilters)}
                 className={`flex items-center gap-2 px-4 py-3 rounded-full border text-sm font-medium transition-all shrink-0 ${
                   showFilters || activeFiltersCount > 0
-                    ? 'border-rose-300 bg-rose-50 text-rose-600'
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-600'
                     : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:shadow-sm'
                 }`}
               >
                 <SlidersHorizontal className="w-4 h-4" />
                 <span className="hidden sm:inline">Filtros</span>
                 {activeFiltersCount > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center font-bold">
+                  <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] flex items-center justify-center font-bold">
                     {activeFiltersCount}
                   </span>
                 )}
@@ -396,7 +441,7 @@ export default function AirbnbPage() {
               {activeFiltersCount > 0 && (
                 <button
                   onClick={clearFilters}
-                  className="text-rose-500 text-sm font-medium hover:text-rose-600 transition-colors underline underline-offset-2"
+                  className="text-emerald-500 text-sm font-medium hover:text-emerald-600 transition-colors underline underline-offset-2"
                 >
                   Limpar todos
                 </button>
@@ -410,7 +455,7 @@ export default function AirbnbPage() {
                   value={filterCidade}
                   onChange={(e) => setFilterCidade(e.target.value)}
                   placeholder="Ex: Sao Paulo"
-                  className="bg-white border-gray-200 text-gray-900 text-sm placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300 h-10"
+                  className="bg-white border-gray-200 text-gray-900 text-sm placeholder:text-gray-400 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300 h-10"
                 />
               </div>
               <div className="space-y-1.5">
@@ -434,7 +479,7 @@ export default function AirbnbPage() {
                   value={filterPrecoMin}
                   onChange={(e) => setFilterPrecoMin(e.target.value)}
                   placeholder="R$ 0"
-                  className="bg-white border-gray-200 text-gray-900 text-sm placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300 h-10"
+                  className="bg-white border-gray-200 text-gray-900 text-sm placeholder:text-gray-400 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300 h-10"
                 />
               </div>
               <div className="space-y-1.5">
@@ -444,7 +489,7 @@ export default function AirbnbPage() {
                   value={filterPrecoMax}
                   onChange={(e) => setFilterPrecoMax(e.target.value)}
                   placeholder="R$ 999"
-                  className="bg-white border-gray-200 text-gray-900 text-sm placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300 h-10"
+                  className="bg-white border-gray-200 text-gray-900 text-sm placeholder:text-gray-400 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300 h-10"
                 />
               </div>
             </div>
@@ -459,7 +504,7 @@ export default function AirbnbPage() {
                     onClick={() => toggleAmenidadeFilter(key)}
                     className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium transition-all border ${
                       filterAmenidades.includes(key)
-                        ? 'bg-rose-50 border-rose-300 text-rose-600'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-600'
                         : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                     }`}
                   >
@@ -535,7 +580,7 @@ export default function AirbnbPage() {
             ) : (
               <Button
                 onClick={() => setShowCreateModal(true)}
-                className="bg-rose-500 hover:bg-rose-600 text-white rounded-full px-6"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-full px-6"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Anunciar Clinica
@@ -577,7 +622,7 @@ export default function AirbnbPage() {
                     <Heart
                       className={`w-6 h-6 drop-shadow-md transition-colors ${
                         favorites.has(clinica.id)
-                          ? 'fill-rose-500 text-rose-500'
+                          ? 'fill-red-500 text-red-500'
                           : 'fill-black/40 text-white stroke-[2]'
                       }`}
                     />
@@ -587,7 +632,7 @@ export default function AirbnbPage() {
                   <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                     {clinica.destaque && (
                       <div className="flex items-center gap-1 px-2.5 py-1 bg-white rounded-full text-[11px] font-semibold text-gray-900 shadow-sm">
-                        <Award className="w-3 h-3 text-rose-500" />
+                        <Award className="w-3 h-3 text-emerald-500" />
                         Superhost
                       </div>
                     )}
@@ -652,51 +697,122 @@ export default function AirbnbPage() {
         )}
       </main>
 
-      {/* ===== CREATE CLINICA MODAL ===== */}
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-        <DialogContent className="sm:max-w-3xl bg-white border-gray-200 shadow-2xl rounded-2xl max-h-[90vh] overflow-y-auto">
+      {/* ===== CREATE CLINICA MODAL - STEP WIZARD ===== */}
+      <Dialog open={showCreateModal} onOpenChange={(open) => { setShowCreateModal(open); if (!open) { setCurrentStep(1); setClinicaPhotos([]); } }}>
+        <DialogContent className="sm:max-w-2xl bg-white border-gray-200 shadow-2xl rounded-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-gray-900 flex items-center gap-3 text-xl">
-              <div className="p-2.5 rounded-xl bg-rose-50">
-                <Building2 className="w-5 h-5 text-rose-500" />
+              <div className="p-2.5 rounded-xl bg-emerald-50">
+                <Building2 className="w-5 h-5 text-emerald-500" />
               </div>
               Anunciar Minha Clinica
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-8 mt-6">
-            {/* Section 1: Basic Info */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-7 h-7 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs font-bold">1</div>
-                <h4 className="text-gray-900 font-semibold text-sm">Informacoes Basicas</h4>
+          {/* Step indicators */}
+          <div className="flex items-center gap-2 mt-4">
+            {[1, 2, 3, 4, 5].map(step => (
+              <button
+                key={step}
+                onClick={() => setCurrentStep(step)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  currentStep === step
+                    ? 'bg-emerald-500 text-white'
+                    : currentStep > step
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-gray-100 text-gray-400'
+                }`}
+              >
+                {currentStep > step ? <CheckCircle2 className="w-3.5 h-3.5" /> : <span>{step}</span>}
+                <span className="hidden sm:inline">
+                  {step === 1 ? 'Fotos' : step === 2 ? 'Info' : step === 3 ? 'Local' : step === 4 ? 'Preco' : 'Extras'}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6">
+            {/* Step 1: PHOTOS (first!) */}
+            {currentStep === 1 && (
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-gray-900 font-semibold mb-1">Fotos da Clinica</h4>
+                  <p className="text-gray-500 text-sm mb-4">Adicione fotos para atrair mais mentorados. A primeira foto sera a capa.</p>
+                </div>
+
+                {/* Photo grid */}
+                <div className="grid grid-cols-3 gap-3">
+                  {clinicaPhotos.map((url, i) => (
+                    <div key={i} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 group">
+                      <img src={url} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => removePhoto(i)}
+                        className="absolute top-2 right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3.5 h-3.5 text-white" />
+                      </button>
+                      {i === 0 && (
+                        <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-emerald-500 text-white text-[10px] font-bold rounded-full">
+                          CAPA
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Upload button */}
+                  <label className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all ${
+                    uploadingPhotos ? 'border-emerald-300 bg-emerald-50' : 'border-gray-200 hover:border-emerald-400 hover:bg-emerald-50/50'
+                  }`}>
+                    {uploadingPhotos ? (
+                      <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+                    ) : (
+                      <>
+                        <ImagePlus className="w-6 h-6 text-gray-400 mb-1" />
+                        <span className="text-[11px] text-gray-400 font-medium">Adicionar</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) handlePhotoUpload(e.target.files)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {clinicaPhotos.length === 0 && (
+                  <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                    <Camera className="w-10 h-10 mx-auto text-gray-300 mb-2" />
+                    <p className="text-gray-500 text-sm">Nenhuma foto adicionada</p>
+                    <p className="text-gray-400 text-xs mt-1">Clinicas com fotos recebem 3x mais interesse</p>
+                  </div>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-4 pl-10">
-                <div className="col-span-2 space-y-1.5">
+            )}
+
+            {/* Step 2: Basic Info */}
+            {currentStep === 2 && (
+              <div className="space-y-4">
+                <div className="space-y-1.5">
                   <Label className="text-gray-600 text-xs font-medium">Titulo do Anuncio *</Label>
                   <Input
                     value={newClinica.titulo}
                     onChange={(e) => setNewClinica(p => ({ ...p, titulo: e.target.value }))}
                     placeholder="Ex: Consultorio Premium - Centro SP"
-                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
+                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300"
                   />
                 </div>
-                <div className="col-span-2 space-y-1.5">
+                <div className="space-y-1.5">
                   <Label className="text-gray-600 text-xs font-medium">Descricao</Label>
                   <Textarea
                     value={newClinica.descricao}
                     onChange={(e) => setNewClinica(p => ({ ...p, descricao: e.target.value }))}
                     placeholder="Descreva sua clinica, diferenciais, equipamentos..."
-                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 resize-none min-h-[80px] rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-gray-600 text-xs font-medium">URL da Foto de Capa</Label>
-                  <Input
-                    value={newClinica.foto_capa}
-                    onChange={(e) => setNewClinica(p => ({ ...p, foto_capa: e.target.value }))}
-                    placeholder="https://..."
-                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
+                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 resize-none min-h-[100px] rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -706,7 +822,7 @@ export default function AirbnbPage() {
                       type="number"
                       value={newClinica.numero_salas}
                       onChange={(e) => setNewClinica(p => ({ ...p, numero_salas: e.target.value }))}
-                      className="bg-white border-gray-200 text-gray-900 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
+                      className="bg-white border-gray-200 text-gray-900 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -715,194 +831,209 @@ export default function AirbnbPage() {
                       type="number"
                       value={newClinica.area_m2}
                       onChange={(e) => setNewClinica(p => ({ ...p, area_m2: e.target.value }))}
-                      className="bg-white border-gray-200 text-gray-900 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
+                      className="bg-white border-gray-200 text-gray-900 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300"
+                    />
+                  </div>
+                </div>
+                {/* Amenidades */}
+                <div>
+                  <Label className="text-gray-600 text-xs font-medium mb-2 block">Amenidades</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {Object.entries(amenidadeConfig).map(([key, { icon: Icon, label }]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setNewClinica(p => ({ ...p, [key]: !(p as any)[key] }))}
+                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all border ${
+                          (newClinica as any)[key]
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-600'
+                            : 'bg-white border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Location */}
+            {currentStep === 3 && (
+              <div className="space-y-4">
+                <h4 className="text-gray-900 font-semibold mb-1">Localizacao</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 space-y-1.5">
+                    <Label className="text-gray-600 text-xs font-medium">Endereco</Label>
+                    <Input
+                      value={newClinica.endereco}
+                      onChange={(e) => setNewClinica(p => ({ ...p, endereco: e.target.value }))}
+                      placeholder="Rua, numero"
+                      className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-gray-600 text-xs font-medium">Cidade *</Label>
+                    <Input
+                      value={newClinica.cidade}
+                      onChange={(e) => setNewClinica(p => ({ ...p, cidade: e.target.value }))}
+                      placeholder="Sao Paulo"
+                      className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-gray-600 text-xs font-medium">Estado</Label>
+                    <Select value={newClinica.estado} onValueChange={(v) => setNewClinica(p => ({ ...p, estado: v }))}>
+                      <SelectTrigger className="bg-white border-gray-200 text-gray-900 rounded-xl">
+                        <SelectValue placeholder="UF" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-gray-200 rounded-xl">
+                        {estadosBrasil.map(uf => (
+                          <SelectItem key={uf} value={uf} className="text-gray-700">{uf}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-gray-600 text-xs font-medium">Bairro</Label>
+                    <Input
+                      value={newClinica.bairro}
+                      onChange={(e) => setNewClinica(p => ({ ...p, bairro: e.target.value }))}
+                      className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-gray-600 text-xs font-medium">CEP</Label>
+                    <Input
+                      value={newClinica.cep}
+                      onChange={(e) => setNewClinica(p => ({ ...p, cep: e.target.value }))}
+                      className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300"
                     />
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Section 2: Location */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-7 h-7 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs font-bold">2</div>
-                <h4 className="text-gray-900 font-semibold text-sm">Localizacao</h4>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pl-10">
-                <div className="col-span-2 space-y-1.5">
-                  <Label className="text-gray-600 text-xs font-medium">Endereco</Label>
-                  <Input
-                    value={newClinica.endereco}
-                    onChange={(e) => setNewClinica(p => ({ ...p, endereco: e.target.value }))}
-                    placeholder="Rua, numero"
-                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-gray-600 text-xs font-medium">Bairro</Label>
-                  <Input
-                    value={newClinica.bairro}
-                    onChange={(e) => setNewClinica(p => ({ ...p, bairro: e.target.value }))}
-                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-gray-600 text-xs font-medium">CEP</Label>
-                  <Input
-                    value={newClinica.cep}
-                    onChange={(e) => setNewClinica(p => ({ ...p, cep: e.target.value }))}
-                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-gray-600 text-xs font-medium">Cidade *</Label>
-                  <Input
-                    value={newClinica.cidade}
-                    onChange={(e) => setNewClinica(p => ({ ...p, cidade: e.target.value }))}
-                    placeholder="Sao Paulo"
-                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-gray-600 text-xs font-medium">Estado</Label>
-                  <Select value={newClinica.estado} onValueChange={(v) => setNewClinica(p => ({ ...p, estado: v }))}>
-                    <SelectTrigger className="bg-white border-gray-200 text-gray-900 rounded-xl">
-                      <SelectValue placeholder="UF" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-gray-200 rounded-xl">
-                      {estadosBrasil.map(uf => (
-                        <SelectItem key={uf} value={uf} className="text-gray-700">{uf}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            {/* Step 4: Pricing */}
+            {currentStep === 4 && (
+              <div className="space-y-4">
+                <h4 className="text-gray-900 font-semibold mb-1">Precos</h4>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 space-y-1.5">
+                    <Label className="text-emerald-700 text-sm font-semibold">Por Turno (R$)</Label>
+                    <Input
+                      type="number"
+                      value={newClinica.preco_por_turno}
+                      onChange={(e) => setNewClinica(p => ({ ...p, preco_por_turno: e.target.value }))}
+                      placeholder="0,00"
+                      className="bg-white border-emerald-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300 text-lg font-semibold h-12"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-gray-600 text-xs font-medium">Por Dia (R$)</Label>
+                      <Input
+                        type="number"
+                        value={newClinica.preco_por_dia}
+                        onChange={(e) => setNewClinica(p => ({ ...p, preco_por_dia: e.target.value }))}
+                        placeholder="0,00"
+                        className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-gray-600 text-xs font-medium">Por Mes (R$)</Label>
+                      <Input
+                        type="number"
+                        value={newClinica.preco_por_mes}
+                        onChange={(e) => setNewClinica(p => ({ ...p, preco_por_mes: e.target.value }))}
+                        placeholder="0,00"
+                        className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Section 3: Pricing */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-7 h-7 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs font-bold">3</div>
-                <h4 className="text-gray-900 font-semibold text-sm">Precos</h4>
-              </div>
-              <div className="grid grid-cols-3 gap-3 pl-10">
-                <div className="space-y-1.5">
-                  <Label className="text-gray-600 text-xs font-medium">Por Turno (R$)</Label>
-                  <Input
-                    type="number"
-                    value={newClinica.preco_por_turno}
-                    onChange={(e) => setNewClinica(p => ({ ...p, preco_por_turno: e.target.value }))}
-                    placeholder="0,00"
-                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-gray-600 text-xs font-medium">Por Dia (R$)</Label>
-                  <Input
-                    type="number"
-                    value={newClinica.preco_por_dia}
-                    onChange={(e) => setNewClinica(p => ({ ...p, preco_por_dia: e.target.value }))}
-                    placeholder="0,00"
-                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-gray-600 text-xs font-medium">Por Mes (R$)</Label>
-                  <Input
-                    type="number"
-                    value={newClinica.preco_por_mes}
-                    onChange={(e) => setNewClinica(p => ({ ...p, preco_por_mes: e.target.value }))}
-                    placeholder="0,00"
-                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
-                  />
+            {/* Step 5: Extra info */}
+            {currentStep === 5 && (
+              <div className="space-y-4">
+                <h4 className="text-gray-900 font-semibold mb-1">Informacoes Adicionais</h4>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-gray-600 text-xs font-medium">Especialidades Recomendadas</Label>
+                    <Input
+                      value={newClinica.especialidades_recomendadas}
+                      onChange={(e) => setNewClinica(p => ({ ...p, especialidades_recomendadas: e.target.value }))}
+                      placeholder="Dermatologia, Estetica..."
+                      className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-gray-600 text-xs font-medium">Horario de Funcionamento</Label>
+                    <Input
+                      value={newClinica.horario_funcionamento}
+                      onChange={(e) => setNewClinica(p => ({ ...p, horario_funcionamento: e.target.value }))}
+                      placeholder="Seg-Sex 8h-18h"
+                      className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-gray-600 text-xs font-medium">Regras</Label>
+                    <Textarea
+                      value={newClinica.regras}
+                      onChange={(e) => setNewClinica(p => ({ ...p, regras: e.target.value }))}
+                      placeholder="Regras de uso do espaco..."
+                      className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 resize-none min-h-[80px] rounded-xl focus-visible:ring-emerald-500/20 focus-visible:border-emerald-300"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {/* Section 4: Amenidades */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-7 h-7 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs font-bold">4</div>
-                <h4 className="text-gray-900 font-semibold text-sm">Amenidades</h4>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 pl-10">
-                {Object.entries(amenidadeConfig).map(([key, { icon: Icon, label }]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setNewClinica(p => ({ ...p, [key]: !(p as any)[key] }))}
-                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all border ${
-                      (newClinica as any)[key]
-                        ? 'bg-rose-50 border-rose-300 text-rose-600'
-                        : 'bg-white border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Section 5: Extra info */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-7 h-7 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs font-bold">5</div>
-                <h4 className="text-gray-900 font-semibold text-sm">Informacoes Adicionais</h4>
-              </div>
-              <div className="grid grid-cols-2 gap-3 pl-10">
-                <div className="space-y-1.5">
-                  <Label className="text-gray-600 text-xs font-medium">Especialidades Recomendadas</Label>
-                  <Input
-                    value={newClinica.especialidades_recomendadas}
-                    onChange={(e) => setNewClinica(p => ({ ...p, especialidades_recomendadas: e.target.value }))}
-                    placeholder="Dermatologia, Estetica..."
-                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-gray-600 text-xs font-medium">Horario de Funcionamento</Label>
-                  <Input
-                    value={newClinica.horario_funcionamento}
-                    onChange={(e) => setNewClinica(p => ({ ...p, horario_funcionamento: e.target.value }))}
-                    placeholder="Seg-Sex 8h-18h"
-                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
-                  />
-                </div>
-                <div className="col-span-2 space-y-1.5">
-                  <Label className="text-gray-600 text-xs font-medium">Regras</Label>
-                  <Textarea
-                    value={newClinica.regras}
-                    onChange={(e) => setNewClinica(p => ({ ...p, regras: e.target.value }))}
-                    placeholder="Regras de uso do espaco..."
-                    className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 resize-none min-h-[60px] rounded-xl focus-visible:ring-rose-500/20 focus-visible:border-rose-300"
-                  />
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Modal footer */}
-          <div className="flex gap-3 mt-8 pt-5 border-t border-gray-100">
-            <Button
-              variant="outline"
-              onClick={() => setShowCreateModal(false)}
-              className="flex-1 bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-xl h-11"
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleCreateClinica}
-              disabled={creatingClinica || !newClinica.titulo.trim() || !newClinica.cidade.trim()}
-              className="flex-1 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-lg shadow-rose-500/20 disabled:opacity-40 rounded-xl h-11 font-semibold"
-            >
-              {creatingClinica ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Plus className="w-4 h-4 mr-2" />
-              )}
-              {creatingClinica ? 'Enviando...' : 'Anunciar Clinica'}
-            </Button>
+          {/* Modal footer with step navigation */}
+          <div className="flex gap-3 mt-6 pt-5 border-t border-gray-100">
+            {currentStep > 1 ? (
+              <Button
+                variant="outline"
+                onClick={() => setCurrentStep(s => s - 1)}
+                className="bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-xl h-11 px-6"
+              >
+                Voltar
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateModal(false)}
+                className="bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-xl h-11 px-6"
+              >
+                Cancelar
+              </Button>
+            )}
+            <div className="flex-1" />
+            {currentStep < 5 ? (
+              <Button
+                onClick={() => setCurrentStep(s => s + 1)}
+                className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl h-11 px-8 font-semibold"
+              >
+                Proximo
+              </Button>
+            ) : (
+              <Button
+                onClick={handleCreateClinica}
+                disabled={creatingClinica || !newClinica.titulo.trim() || !newClinica.cidade.trim()}
+                className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg shadow-emerald-500/20 disabled:opacity-40 rounded-xl h-11 px-8 font-semibold"
+              >
+                {creatingClinica ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
+                {creatingClinica ? 'Enviando...' : 'Anunciar Clinica'}
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
