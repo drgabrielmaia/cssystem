@@ -131,21 +131,33 @@ export function ProfileCompletionModal() {
     setError('')
 
     try {
-      const photoUrl = fotoPerfil || fotoPreview
+      const photoUrl = fotoPerfil || fotoPreview || null
+      const updatePayload: Record<string, any> = {
+        nome_completo: nomeCompleto.trim(),
+        ano_nascimento: Number(anoNascimento),
+        funcao: funcao,
+        profile_completed: true,
+      }
+      if (photoUrl) {
+        updatePayload.foto_perfil = photoUrl
+      }
 
-      const { error: updateError } = await supabase
+      console.log('Salvando perfil para:', user.email, 'org:', organizationId)
+
+      const { error: updateError, data } = await supabase
         .from('organization_users')
-        .update({
-          nome_completo: nomeCompleto.trim(),
-          ano_nascimento: Number(anoNascimento),
-          funcao: funcao,
-          foto_perfil: photoUrl,
-          profile_completed: true,
-        })
+        .update(updatePayload)
         .eq('email', user.email)
         .eq('organization_id', organizationId)
+        .select()
+
+      console.log('Resultado update:', { data, updateError })
 
       if (updateError) throw updateError
+
+      if (!data || data.length === 0) {
+        throw new Error('Nenhum registro encontrado para atualizar. Verifique seu email/organização.')
+      }
 
       await refreshAuth()
     } catch (err: any) {

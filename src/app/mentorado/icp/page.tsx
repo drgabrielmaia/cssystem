@@ -155,17 +155,53 @@ function ICPFormContent() {
     }
   }
 
+  const compressImage = (file: File): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const img = document.createElement('img')
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const canvas = document.createElement('canvas')
+        let { width, height } = img
+        const MAX_DIM = 400
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = (height / width) * MAX_DIM
+            width = MAX_DIM
+          } else {
+            width = (width / height) * MAX_DIM
+            height = MAX_DIM
+          }
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(
+          (blob) => resolve(blob || file),
+          'image/jpeg',
+          0.6
+        )
+      }
+      img.src = url
+    })
+  }
+
   const handleImageUpload = async (fieldId: string, file: File) => {
+    if (!file.type.startsWith('image/')) return
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
-      const resp = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData })
-      const result = await resp.json()
-      if (result.success) {
-        setResponses({ ...responses, [fieldId]: result.url })
-      }
+      // Comprimir imagem automaticamente (max 400px, JPEG 60%)
+      const compressed = await compressImage(file)
+      const compressedFile = new File([compressed], file.name, { type: 'image/jpeg' })
+
+      // Converter para base64 (evita 413 do nginx)
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = (ev) => resolve(ev.target?.result as string)
+        reader.readAsDataURL(compressedFile)
+      })
+      setResponses({ ...responses, [fieldId]: base64 })
     } catch (err) {
       console.error('Upload error:', err)
     } finally {
