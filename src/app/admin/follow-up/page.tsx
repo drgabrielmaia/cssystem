@@ -57,6 +57,18 @@ import {
 } from '@/types/commission'
 import { processDueFollowups, startFollowupForLead } from '@/services/followup-executor'
 
+// Helper to safely convert any value to an array
+function safeArray(val: unknown): any[] {
+  if (Array.isArray(val)) return val
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val)
+      if (Array.isArray(parsed)) return parsed
+    } catch (_) {}
+  }
+  return []
+}
+
 interface SequenceFormData {
   nome_sequencia: string;
   descricao: string;
@@ -211,7 +223,7 @@ export default function FollowUpConfigPage() {
     // Normalizar steps para garantir que sempre é um array
     const normalized = (data || []).map(seq => ({
       ...seq,
-      steps: Array.isArray(seq.steps) ? seq.steps : []
+      steps: safeArray(seq.steps)
     }))
     setSequences(normalized)
   }
@@ -496,6 +508,11 @@ export default function FollowUpConfigPage() {
       const execId = await startFollowupForLead(leadId, assignSequenceId, organizationId)
       if (execId) {
         toast.success('Lead vinculado ao follow-up com sucesso!')
+        // Trigger immediate processing
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
+          fetch(`${apiUrl}/process-followups`, { method: 'POST' }).catch(() => {})
+        } catch (_) {}
         setAssignModalOpen(false)
         setAssignSequenceId(null)
         setAssignLeadSearch('')
@@ -706,7 +723,7 @@ export default function FollowUpConfigPage() {
       pausar_feriados: sequence.pausar_feriados,
       horario_envio_inicio: sequence.horario_envio_inicio,
       horario_envio_fim: sequence.horario_envio_fim,
-      steps: Array.isArray(sequence.steps) ? sequence.steps : []
+      steps: safeArray(sequence.steps)
     })
     setIsEditModalOpen(true)
   }
@@ -966,7 +983,7 @@ export default function FollowUpConfigPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-white/[0.03] rounded-xl p-3">
                         <p className="text-[11px] text-white/30 uppercase tracking-wider mb-0.5">Steps</p>
-                        <p className="text-lg font-semibold text-white">{sequence.steps.length}</p>
+                        <p className="text-lg font-semibold text-white">{safeArray(sequence.steps).length}</p>
                       </div>
                       <div className="bg-white/[0.03] rounded-xl p-3">
                         <p className="text-[11px] text-white/30 uppercase tracking-wider mb-0.5">Leads</p>
@@ -1828,7 +1845,7 @@ function ActivateFollowupTab({ sequences, onActivated }: {
               <SelectContent className="bg-[#1a1a1e] border-white/[0.08]">
                 {sequences.filter(s => s.ativo).map(sequence => (
                   <SelectItem key={sequence.id} value={sequence.id} className="text-white hover:bg-white/[0.06]">
-                    {sequence.nome_sequencia} ({sequence.steps.length} steps)
+                    {sequence.nome_sequencia} ({safeArray(sequence.steps).length} steps)
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1964,7 +1981,13 @@ function FollowupResponsesTab({ organizationId }: { organizationId: string }) {
         .limit(100)
 
       if (error) throw error
-      setResponseExecutions(data || [])
+      // Normalizar arrays para evitar .map errors
+      const normalized = (data || []).map(exec => ({
+        ...exec,
+        steps_executados: safeArray(exec.steps_executados),
+        respostas_recebidas: safeArray(exec.respostas_recebidas),
+      }))
+      setResponseExecutions(normalized)
     } catch (error) {
       console.error('Erro ao carregar respostas:', error)
       toast.error('Erro ao carregar respostas')
@@ -2026,9 +2049,9 @@ function FollowupResponsesTab({ organizationId }: { organizationId: string }) {
           {responseExecutions.map((exec) => {
             const lead = exec.leads as any
             const sequence = exec.lead_followup_sequences as any
-            const steps = sequence?.steps || []
-            const stepsExecutados = exec.steps_executados || []
-            const respostas = exec.respostas_recebidas || []
+            const steps = safeArray(sequence?.steps)
+            const stepsExecutados = safeArray(exec.steps_executados)
+            const respostas = safeArray(exec.respostas_recebidas)
             const isExpanded = expandedExecution === exec.id
 
             return (

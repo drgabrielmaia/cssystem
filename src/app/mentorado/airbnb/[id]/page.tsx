@@ -97,6 +97,11 @@ const amenidadeConfig: Record<string, { icon: any; label: string }> = {
   tem_acessibilidade: { icon: Accessibility, label: 'Acessibilidade' },
 }
 
+const fixImageUrl = (url: string) => {
+  if (!url) return ''
+  return url.replace('http://', 'https://')
+}
+
 export default function ClinicaDetailPage() {
   const params = useParams()
   const clinicaId = params.id as string
@@ -475,7 +480,7 @@ export default function ClinicaDetailPage() {
           {allPhotos.length > 0 ? (
             <>
               <img
-                src={allPhotos[currentPhotoIndex]}
+                src={fixImageUrl(allPhotos[currentPhotoIndex])}
                 alt={clinica.titulo}
                 className="w-full h-full object-cover"
               />

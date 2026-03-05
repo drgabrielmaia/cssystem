@@ -308,15 +308,23 @@ Assinatura do Contratante`
           console.log('Converting lead to mentorado:', contract.lead_id)
           const enderecoStr = `${formData.rua}${formData.numero ? ', ' + formData.numero : ''}${formData.bairro ? ', ' + formData.bairro : ''}, ${formData.cidade}, ${formData.estado}, CEP: ${formData.cep}`
 
+          // Buscar dados adicionais do lead (telefone, empresa, etc)
+          const { data: leadData } = await supabase
+            .from('leads')
+            .select('telefone, empresa')
+            .eq('id', contract.lead_id)
+            .single()
+
           // Generate a random password for the new mentorado
           const randomPwd = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4)
 
-          // Create mentorado from lead data
+          // Create mentorado from lead + contract data
           const { data: newMentorado, error: mentoradoError } = await supabase
             .from('mentorados')
             .insert({
               nome_completo: contract.recipient_name,
               email: contract.recipient_email,
+              telefone: leadData?.telefone || contract.recipient_phone || null,
               cpf: formData.cpf,
               endereco: enderecoStr,
               lead_id: contract.lead_id,

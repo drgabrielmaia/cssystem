@@ -342,6 +342,29 @@ class WhatsAppMultiService {
   }
 
   /**
+   * Enviar mídia (imagem, vídeo, documento) via URL
+   */
+  async sendMedia(phoneNumber: string, mediaUrl: string, mediaType: 'image' | 'video' | 'document', caption?: string, filename?: string, mimetype?: string): Promise<ApiResponse<any>> {
+    const userId = await this.getUserId();
+    if (!userId) return { success: false, error: 'No user ID' };
+
+    const response = await fetch(`${this.baseUrl}/users/${userId}/send-media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: phoneNumber.replace(/\D/g, ''),
+        mediaUrl,
+        mediaType,
+        caption,
+        filename,
+        mimetype
+      })
+    });
+    const result = await response.json();
+    return result;
+  }
+
+  /**
    * Desconectar WhatsApp
    */
   async disconnect(): Promise<ApiResponse<{ message: string }>> {

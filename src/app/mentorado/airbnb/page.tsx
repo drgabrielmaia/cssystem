@@ -78,6 +78,11 @@ const amenidadeConfig: Record<string, { icon: any; label: string }> = {
   tem_acessibilidade: { icon: Accessibility, label: 'Acessibilidade' },
 }
 
+const fixImageUrl = (url: string) => {
+  if (!url) return ''
+  return url.replace('http://', 'https://')
+}
+
 const estadosBrasil = [
   'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA',
   'PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'
@@ -750,7 +755,7 @@ export default function AirbnbPage() {
                 <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 mb-3">
                   {clinica.foto_capa || (clinica.fotos && clinica.fotos.length > 0) ? (
                     <img
-                      src={clinica.foto_capa || clinica.fotos[0]}
+                      src={fixImageUrl(clinica.foto_capa || clinica.fotos[0])}
                       alt={clinica.titulo}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
                     />
@@ -895,7 +900,7 @@ export default function AirbnbPage() {
                 <div className="grid grid-cols-3 gap-3">
                   {clinicaPhotos.map((url, i) => (
                     <div key={i} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 group">
-                      <img src={url} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                      <img src={fixImageUrl(url)} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
                       <button
                         onClick={() => removePhoto(i)}
                         className="absolute top-2 right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"

@@ -111,6 +111,7 @@ function ICPFormContent() {
           template_id: template.id,
           mentorado_id: mentorado.id,
           responses,
+          respostas: responses,
           completed_at: new Date().toISOString(),
         })
         .select('id')
