@@ -188,7 +188,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
               setUser(customUser)
               setOrganizationId(meData.organization_id)
-              setOrgUser({
+
+              // Buscar dados completos do organization_users (incluindo perfil)
+              const { data: ouDataInit } = await supabase
+                .from('organization_users')
+                .select('organization_id, is_active, role, email, nome_completo, ano_nascimento, foto_perfil, funcao, profile_completed')
+                .eq('email', meData.user.email)
+                .eq('organization_id', meData.organization_id)
+                .limit(1)
+
+              const fullOrgUserInit = ouDataInit?.[0]
+              setOrgUser(fullOrgUserInit || {
                 is_active: meData.is_active,
                 organization_id: meData.organization_id,
                 role: meData.role,
@@ -329,7 +339,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     // Listen for custom API login events
-    const handleApiLogin = ((event: CustomEvent) => {
+    const handleApiLogin = (async (event: CustomEvent) => {
       const { token, user: userData } = event.detail
       const customUser = {
         id: userData.id,
@@ -343,7 +353,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(customUser)
       setOrganizationId(userData.organization_id)
-      setOrgUser({
+
+      // Buscar dados completos do organization_users (incluindo perfil)
+      const { data: ouDataLogin } = await supabase
+        .from('organization_users')
+        .select('organization_id, is_active, role, email, nome_completo, ano_nascimento, foto_perfil, funcao, profile_completed')
+        .eq('email', userData.email)
+        .eq('organization_id', userData.organization_id)
+        .limit(1)
+
+      const fullOrgUserLogin = ouDataLogin?.[0]
+      setOrgUser(fullOrgUserLogin || {
         is_active: true,
         organization_id: userData.organization_id,
         role: userData.role,
@@ -504,7 +524,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } as any
             setUser(customUser)
             setOrganizationId(meData.organization_id)
-            setOrgUser({
+
+            // Buscar dados completos do organization_users (incluindo perfil)
+            const { data: ouData } = await supabase
+              .from('organization_users')
+              .select('organization_id, is_active, role, email, nome_completo, ano_nascimento, foto_perfil, funcao, profile_completed')
+              .eq('email', meData.user.email)
+              .eq('organization_id', meData.organization_id)
+              .limit(1)
+
+            const fullOrgUser = ouData?.[0]
+            setOrgUser(fullOrgUser || {
               is_active: meData.is_active,
               organization_id: meData.organization_id,
               role: meData.role,
