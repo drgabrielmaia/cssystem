@@ -95,10 +95,10 @@ export async function processFollowupStep(execution: ExecutionRecord): Promise<b
     if (currentStep.tipo_acao === 'whatsapp') {
       const phone = lead.telefone || lead.whatsapp
       if (phone) {
+        // Enviar só os dígitos - a API Baileys resolve o formato correto
         const phoneClean = phone.replace(/\D/g, '')
-        const phoneFormatted = phoneClean.includes('@') ? phoneClean : `${phoneClean}@s.whatsapp.net`
 
-        const response = await whatsappMultiService.sendMessage(phoneFormatted, messageContent)
+        const response = await whatsappMultiService.sendMessage(phoneClean, messageContent)
         sent = response.success === true
       }
     }

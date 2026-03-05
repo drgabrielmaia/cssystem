@@ -60,7 +60,7 @@ export class WhatsAppNotificationService {
           'ngrok-skip-browser-warning': 'true'
         },
         body: JSON.stringify({
-          to: org.admin_phone.includes('@') ? org.admin_phone : `${org.admin_phone.replace(/\D/g, '')}@s.whatsapp.net`,
+          to: org.admin_phone.replace(/\D/g, ''),
           message: message
         })
       })

@@ -166,28 +166,10 @@ ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}\n` :
         console.log('📱 Notificação WhatsApp enviada para o admin')
 
         // Função para normalizar telefone brasileiro
+        // Enviar só os dígitos - a API Baileys resolve o formato correto
         const normalizePhone = (phone: string): string => {
           if (!phone) return '';
-
-          // Remover todos os caracteres não numéricos
-          const cleanPhone = phone.replace(/\D/g, '');
-
-          // Se começar com 55, já está no formato internacional
-          if (cleanPhone.startsWith('55')) {
-            return cleanPhone;
-          }
-
-          // Se tem 11 dígitos (celular), adicionar 55
-          if (cleanPhone.length === 11) {
-            return `55${cleanPhone}`;
-          }
-
-          // Se tem 10 dígitos (fixo), adicionar 55
-          if (cleanPhone.length === 10) {
-            return `55${cleanPhone}`;
-          }
-
-          return cleanPhone;
+          return phone.replace(/\D/g, '');
         };
 
         // Enviar mensagem de confirmação para Lead/Mentorado

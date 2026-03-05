@@ -15,19 +15,8 @@ export class ContractWhatsAppService {
   }
 
   private static formatPhone(phone: string): string {
-    // Remove all non-numeric characters
-    const cleaned = phone.replace(/\D/g, '')
-    
-    // Add country code if not present (assuming Brazil)
-    if (cleaned.length === 11 && cleaned.startsWith('11')) {
-      return `55${cleaned}` // Add Brazil country code
-    } else if (cleaned.length === 10) {
-      return `5511${cleaned}` // Add Brazil + SP area code
-    } else if (cleaned.length === 13 && cleaned.startsWith('55')) {
-      return cleaned // Already has country code
-    }
-    
-    return cleaned
+    // Enviar só os dígitos - a API Baileys resolve o formato correto
+    return phone.replace(/\D/g, '')
   }
 
   private static generateContractMessage(data: ContractWhatsAppData): string {

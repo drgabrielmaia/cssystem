@@ -148,17 +148,9 @@ class WhatsAppCoreService {
 
   async sendMessage(to: string, message: string): Promise<boolean> {
     try {
-      // Format phone number to include +55 if needed
-      let formattedNumber = to.replace(/\D/g, ''); // Remove non-digits
-
-      if (!formattedNumber.startsWith('55') && formattedNumber.length === 11) {
-        formattedNumber = '55' + formattedNumber;
-      }
-
-      // Add @s.whatsapp.net suffix if needed (our API format)
-      const phoneWithSuffix = formattedNumber.includes('@')
-        ? formattedNumber
-        : `${formattedNumber}@s.whatsapp.net`;
+      // Enviar só os dígitos - a API Baileys resolve o formato correto automaticamente
+      const cleanDigits = to.replace(/\D/g, '');
+      const phoneWithSuffix = to.includes('@') ? to : cleanDigits;
 
       console.log(`📤 Enviando mensagem para ${phoneWithSuffix}: ${message}`);
 

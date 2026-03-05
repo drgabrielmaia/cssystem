@@ -164,16 +164,8 @@ Será rápido, mas faz toda diferença pro acompanhamento individual que estou p
 
 Link: ${formulario.url}`
 
-      // Limpar o número de telefone para formato WhatsApp
-      let numeroWhatsApp = mentorado.telefone.replace(/\D/g, '') // Remove caracteres não numéricos
-
-      // Se não começar com código do país, adicionar 55 (Brasil)
-      if (!numeroWhatsApp.startsWith('55')) {
-        numeroWhatsApp = '55' + numeroWhatsApp
-      }
-
-      // Adicionar @c.us para formato WhatsApp
-      numeroWhatsApp = numeroWhatsApp + '@c.us'
+      // Enviar só os dígitos - a API Baileys resolve o formato correto
+      const numeroWhatsApp = mentorado.telefone.replace(/\D/g, '')
 
       const { whatsappService } = await import('@/lib/whatsapp-core-service')
       const success = await whatsappService.sendMessage(numeroWhatsApp, mensagemTemplate)

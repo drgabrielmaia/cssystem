@@ -207,12 +207,12 @@ function processTemplate(template: string, variables: Record<string, string>): s
 }
 
 // Função auxiliar para enviar WhatsApp via API Baileys (Docker)
+// A API Baileys resolve automaticamente o formato correto do número brasileiro
 async function sendWhatsApp(phone: string, message: string) {
   try {
+    // Enviar o telefone limpo (só dígitos) - a API faz a resolução inteligente
     const cleanPhone = phone.replace(/\D/g, '')
-    const phoneFormatted = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`
 
-    // Buscar org ID do Médicos de Resultado para usar como userId
     const orgId = '9c8c0033-15ea-4e33-a55f-28d81a19693b'
     const apiUrl = 'http://api.medicosderesultado.com.br'
 
@@ -220,14 +220,14 @@ async function sendWhatsApp(phone: string, message: string) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        to: `${phoneFormatted}@s.whatsapp.net`,
+        to: cleanPhone,
         message: message
       })
     })
 
     const result = await response.json()
     if (result.success) {
-      console.log('✅ WhatsApp enviado via Baileys API')
+      console.log(`✅ WhatsApp enviado para ${cleanPhone}`)
       return { success: true }
     } else {
       console.log('❌ Falha no WhatsApp:', result.error)
