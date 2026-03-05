@@ -173,10 +173,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setIsInitialized(true)
               return
             } else {
-              clearApiAuth()
+              // Don't clear token on mentorado pages - it may be a mentorado-scoped token
+              const isMentoradoPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/mentorado')
+              if (!isMentoradoPage) {
+                clearApiAuth()
+              }
             }
           } catch {
-            clearApiAuth()
+            const isMentoradoPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/mentorado')
+            if (!isMentoradoPage) {
+              clearApiAuth()
+            }
           }
         }
 

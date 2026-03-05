@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { GoogleGenAI } from '@google/genai'
 import { createClient } from '@supabase/supabase-js'
+import { buildAulasPrompt } from '@/data/aulas-resumos'
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'SUA_NOVA_API_KEY_AQUI'
 const supabaseAdmin = createClient(
@@ -199,12 +200,17 @@ REGRAS:
 
     const isChatMode = !context?.tipoPost || context.tipoPost === 'chat'
 
+    // Inject lesson knowledge base for mentorado (student area) requests
+    const aulasKnowledge = mentoradoId ? buildAulasPrompt() : ''
+
     const chatFreePrompt = `Você é a IA assistente do sistema "Médicos de Resultado". Converse de forma natural, direta e útil.
 
 Você ajuda médicos com:
 - Dúvidas sobre marketing médico e posicionamento digital
 - Estratégias de conteúdo e crescimento no Instagram
 - Dúvidas gerais sobre negócios, gestão e carreira médica
+- Consultoria de imagem e posicionamento pessoal
+- Gestão de clínica e equipe de alta performance
 - Qualquer pergunta que o usuário fizer
 
 REGRAS:
@@ -212,7 +218,8 @@ REGRAS:
 - NÃO comece com "Claro!", "Com certeza!", "Aqui está!" ou introduções genéricas.
 - Seja direto, conciso e útil.
 - Use **negrito** para destaques (não CAPS).
-${context?.nome ? `\nO médico que está conversando se chama: ${context.nome}. Especialidade: ${context?.especialidade || 'medicina'}.` : ''}`
+- Quando o mentorado perguntar sobre temas abordados nas aulas, referencie os frameworks e regras pelos nomes ensinados na mentoria.
+${context?.nome ? `\nO médico que está conversando se chama: ${context.nome}. Especialidade: ${context?.especialidade || 'medicina'}.` : ''}${aulasKnowledge}`
 
     const contentPrompt = isSecretaria ? secretariaPrompt : isChatMode ? chatFreePrompt : `Você é a IA "Médicos de Resultado", a máquina de conteúdo viral mais poderosa do marketing médico brasileiro. Você cria textos que PARAM O SCROLL, geram DEBATE e fazem as pessoas COMPARTILHAREM.
 

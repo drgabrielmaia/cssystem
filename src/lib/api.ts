@@ -47,16 +47,16 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 
   if (response.status === 401) {
     // Only clear auth and redirect if user had a token (admin user)
-    // Don't redirect mentorados who don't use JWT
-    if (token) {
-      clearAuth()
-      if (typeof window !== 'undefined') {
-        const isMentoradoPage = window.location.pathname.startsWith('/mentorado')
-        if (!isMentoradoPage) {
-          window.location.href = '/login'
-        }
+    // Don't redirect or clear token for mentorados
+    if (token && typeof window !== 'undefined') {
+      const isMentoradoPage = window.location.pathname.startsWith('/mentorado')
+      if (!isMentoradoPage) {
+        clearAuth()
+        window.location.href = '/login'
+        throw new Error('Sessão expirada')
       }
-      throw new Error('Sessão expirada')
+      // For mentorado pages, just return the response without clearing the token
+      // The mentorado token may be valid for uploads but not for /auth/me
     }
   }
 

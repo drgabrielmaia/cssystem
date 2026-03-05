@@ -20,6 +20,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { isBetaUser } from '@/lib/beta-access'
+import { compressImage } from '@/lib/image-compress'
 
 interface Clinica {
   id: string
@@ -140,9 +141,17 @@ export default function AirbnbPage() {
 
       const uploaded: string[] = []
       for (const file of Array.from(files)) {
+        // Compress image before upload to avoid 413 errors
+        const compressed = await compressImage(file)
         const formData = new FormData()
-        formData.append('file', file)
+        formData.append('file', compressed)
         const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData, headers })
+        if (!res.ok) {
+          const errText = await res.text()
+          console.error(`Upload falhou (${res.status}):`, errText)
+          toast.error(`Erro no upload: ${res.status === 413 ? 'Imagem muito grande' : res.status === 401 ? 'Sessao expirada, faca login novamente' : 'Erro no servidor'}`)
+          continue
+        }
         const result = await res.json()
         if (result.success && result.url) {
           uploaded.push(result.url)
@@ -209,9 +218,44 @@ export default function AirbnbPage() {
     }
   }
 
+  const validateStep = (step: number): boolean => {
+    switch (step) {
+      case 2:
+        if (!newClinica.titulo.trim()) {
+          toast.error('Preencha o titulo do anuncio')
+          return false
+        }
+        return true
+      case 3:
+        if (!newClinica.cidade.trim()) {
+          toast.error('Preencha a cidade')
+          return false
+        }
+        return true
+      case 4:
+        if (!newClinica.preco_por_turno || parseFloat(newClinica.preco_por_turno) <= 0) {
+          toast.error('Preencha o preco por turno')
+          return false
+        }
+        return true
+      default:
+        return true
+    }
+  }
+
+  const nextStep = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(s => s + 1)
+    }
+  }
+
   const handleCreateClinica = async () => {
     if (!newClinica.titulo.trim() || !newClinica.cidade.trim()) {
       toast.error('Preencha titulo e cidade')
+      return
+    }
+    if (!newClinica.preco_por_turno || parseFloat(newClinica.preco_por_turno) <= 0) {
+      toast.error('Preencha o preco por turno')
       return
     }
 
@@ -1015,7 +1059,7 @@ export default function AirbnbPage() {
             <div className="flex-1" />
             {currentStep < 5 ? (
               <Button
-                onClick={() => setCurrentStep(s => s + 1)}
+                onClick={nextStep}
                 className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl h-11 px-8 font-semibold"
               >
                 Proximo

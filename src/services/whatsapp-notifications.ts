@@ -82,6 +82,100 @@ export class WhatsAppNotificationService {
   }
 
   /**
+   * Enviar mensagem para um grupo de WhatsApp
+   */
+  async sendToGroup(organizationId: string, groupId: string, message: string): Promise<boolean> {
+    try {
+      console.log('📱 Enviando mensagem para grupo:', groupId)
+
+      const response = await fetch(`http://api.medicosderesultado.com.br/users/${organizationId}/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
+        body: JSON.stringify({
+          to: groupId, // Group IDs already include @g.us
+          message: message
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('Erro ao enviar para grupo:', result)
+        return false
+      }
+
+      console.log('Mensagem enviada ao grupo com sucesso!')
+      return true
+    } catch (error) {
+      console.error('Erro ao enviar para grupo:', error)
+      return false
+    }
+  }
+
+  /**
+   * Notificar grupo sobre novo evento/aula
+   */
+  async notifyGroupEventCreated(data: {
+    organizationId: string
+    groupId: string
+    eventTitle: string
+    eventDate: string
+    eventTime?: string
+    description?: string
+    meetingLink?: string
+    localEvento?: string
+    isPaid?: boolean
+    valorIngresso?: number
+  }): Promise<boolean> {
+    try {
+      const { eventTitle, eventDate, eventTime, description, meetingLink, localEvento, isPaid, valorIngresso } = data
+
+      const formattedDate = new Date(eventDate).toLocaleDateString('pt-BR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'America/Sao_Paulo'
+      })
+
+      let message = `*NOVO EVENTO*\n\n`
+      message += `*${eventTitle}*\n\n`
+
+      if (description) {
+        message += `${description}\n\n`
+      }
+
+      message += `Data: ${formattedDate}\n`
+
+      if (eventTime) {
+        message += `Horario: ${eventTime}\n`
+      }
+
+      if (localEvento) {
+        message += `Local: ${localEvento}\n`
+      }
+
+      if (isPaid && valorIngresso && valorIngresso > 0) {
+        message += `Ingresso: R$ ${valorIngresso.toLocaleString('pt-BR')}\n`
+      }
+
+      if (meetingLink) {
+        message += `\nLink: ${meetingLink}\n`
+      }
+
+      message += `\nGaranta sua vaga!`
+
+      return await this.sendToGroup(data.organizationId, data.groupId, message)
+    } catch (error) {
+      console.error('Erro ao notificar grupo sobre evento:', error)
+      return false
+    }
+  }
+
+  /**
    * Notificação quando evento é criado
    */
   async notifyEventCreated(data: {

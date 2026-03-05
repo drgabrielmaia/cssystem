@@ -39,6 +39,10 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
+import { compressImage } from '@/lib/image-compress'
+import { toast } from 'sonner'
+import { whatsappCoreAPI, type Chat } from '@/lib/whatsapp-core-api'
+import { whatsappNotifications } from '@/services/whatsapp-notifications'
 
 interface GroupEvent {
   id: string
@@ -67,12 +71,15 @@ interface GroupEvent {
   replay_disponivel_ate?: string
 }
 
+type ParticipantType = 'mentorado' | 'lead' | 'convidado_extra'
+
 interface EventParticipant {
   id: string
   event_id: string
   participant_name: string
   participant_email?: string
   participant_phone?: string
+  participant_type?: ParticipantType
   attendance_status: 'registered' | 'confirmed' | 'attended' | 'no_show' | 'cancelled'
   conversion_status: 'not_converted' | 'interested' | 'qualified' | 'converted' | 'lost'
   conversion_value?: number
@@ -140,6 +147,18 @@ export default function CallsEventosPage() {
   const [selectedParticipant, setSelectedParticipant] = useState<EventParticipant | null>(null)
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [showEditEventModal, setShowEditEventModal] = useState(false)
+  const [editEvent, setEditEvent] = useState<GroupEvent | null>(null)
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
+
+  // WhatsApp group notification
+  const [whatsappGroups, setWhatsappGroups] = useState<Chat[]>([])
+  const [loadingGroups, setLoadingGroups] = useState(false)
+  const [selectedGroupId, setSelectedGroupId] = useState('')
+  const [notifyGroup, setNotifyGroup] = useState(false)
+
+  // Waitlist
+  const [waitlistCounts, setWaitlistCounts] = useState<Record<string, number>>({})
 
   // New event form state
   const [newEvent, setNewEvent] = useState({
@@ -159,25 +178,35 @@ export default function CallsEventosPage() {
   })
   const [uploadingCapa, setUploadingCapa] = useState(false)
 
-  const handleCapaUpload = async (file: File) => {
+  const handleCapaUpload = async (file: File, target: 'new' | 'edit' = 'new') => {
     setUploadingCapa(true)
     try {
+      // Compress image before upload to avoid 413 errors
+      const compressed = await compressImage(file)
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', compressed)
       const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
       const token = localStorage.getItem('cs_auth_token')
       const headers: Record<string, string> = {}
       if (token) headers['Authorization'] = `Bearer ${token}`
       const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData, headers })
+      if (!res.ok) {
+        toast.error(res.status === 413 ? 'Imagem muito grande mesmo comprimida' : 'Erro no upload')
+        return
+      }
       const result = await res.json()
       if (result.success && result.url) {
-        setNewEvent(prev => ({ ...prev, imagem_capa: result.url }))
+        if (target === 'edit') {
+          setEditEvent(prev => prev ? ({ ...prev, imagem_capa: result.url }) : prev)
+        } else {
+          setNewEvent(prev => ({ ...prev, imagem_capa: result.url }))
+        }
       } else {
-        alert('Erro no upload: ' + (result.error || 'Tente novamente'))
+        toast.error('Erro no upload: ' + (result.error || 'Tente novamente'))
       }
     } catch (err) {
       console.error('Erro no upload:', err)
-      alert('Erro no upload da imagem')
+      toast.error('Erro no upload da imagem')
     } finally {
       setUploadingCapa(false)
     }
@@ -187,8 +216,12 @@ export default function CallsEventosPage() {
   const [newParticipant, setNewParticipant] = useState({
     participant_name: '',
     participant_email: '',
-    participant_phone: ''
+    participant_phone: '',
+    participant_type: '' as ParticipantType | ''
   })
+  const [mentoradosList, setMentoradosList] = useState<Array<{ id: string; nome_completo: string; email: string; telefone?: string }>>([])
+  const [leadsList, setLeadsList] = useState<Array<{ id: string; name: string; email?: string; phone?: string }>>([])
+  const [loadingParticipantOptions, setLoadingParticipantOptions] = useState(false)
 
   // Conversion form state
   const [conversion, setConversion] = useState({
@@ -209,12 +242,47 @@ export default function CallsEventosPage() {
     try {
       await Promise.all([
         loadEvents(),
-        loadStatistics()
+        loadStatistics(),
+        loadWaitlistCounts(),
       ])
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadWhatsAppGroups = async () => {
+    if (whatsappGroups.length > 0) return // Already loaded
+    setLoadingGroups(true)
+    try {
+      const result = await whatsappCoreAPI.getChats()
+      if (result.success && result.data) {
+        const groups = result.data.filter(chat => chat.isGroup)
+        setWhatsappGroups(groups)
+      }
+    } catch (err) {
+      console.error('Error loading WhatsApp groups:', err)
+    } finally {
+      setLoadingGroups(false)
+    }
+  }
+
+  const loadWaitlistCounts = async () => {
+    try {
+      const { data } = await supabase
+        .from('evento_lista_espera')
+        .select('event_id')
+
+      if (data) {
+        const counts: Record<string, number> = {}
+        for (const row of data) {
+          counts[row.event_id] = (counts[row.event_id] || 0) + 1
+        }
+        setWaitlistCounts(counts)
+      }
+    } catch (err) {
+      console.error('Error loading waitlist counts:', err)
     }
   }
 
@@ -333,6 +401,34 @@ export default function CallsEventosPage() {
 
       if (error) throw error
 
+      // Send WhatsApp group notification if selected
+      if (notifyGroup && selectedGroupId && organizationId) {
+        try {
+          const eventTime = newEvent.date_time
+            ? new Date(newEvent.date_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            : undefined
+
+          await whatsappNotifications.notifyGroupEventCreated({
+            organizationId,
+            groupId: selectedGroupId,
+            eventTitle: newEvent.name,
+            eventDate: newEvent.date_time,
+            eventTime,
+            description: newEvent.description || undefined,
+            meetingLink: newEvent.meeting_link || undefined,
+            localEvento: newEvent.local_evento || undefined,
+            isPaid: newEvent.valor_ingresso ? parseFloat(newEvent.valor_ingresso) > 0 : false,
+            valorIngresso: newEvent.valor_ingresso ? parseFloat(newEvent.valor_ingresso) : undefined,
+          })
+          toast.success('Evento criado e grupo notificado!')
+        } catch (notifyErr) {
+          console.error('Erro ao notificar grupo:', notifyErr)
+          toast.success('Evento criado! (Erro ao notificar grupo)')
+        }
+      } else {
+        toast.success('Evento criado!')
+      }
+
       await loadData()
       setNewEvent({
         name: '',
@@ -349,10 +445,12 @@ export default function CallsEventosPage() {
         replay_url: '',
         replay_disponivel_ate: '',
       })
+      setNotifyGroup(false)
+      setSelectedGroupId('')
       setShowNewEventModal(false)
     } catch (error) {
       console.error('Error creating event:', error)
-      alert(`Erro ao criar evento: ${(error as any)?.message || 'Erro desconhecido'}`)
+      toast.error(`Erro ao criar evento: ${(error as any)?.message || 'Erro desconhecido'}`)
     }
   }
 
@@ -372,7 +470,7 @@ export default function CallsEventosPage() {
 
       if (data && data[0]?.success) {
         await loadEventParticipants(selectedEvent.id)
-        setNewParticipant({ participant_name: '', participant_email: '', participant_phone: '' })
+        setNewParticipant({ participant_name: '', participant_email: '', participant_phone: '', participant_type: '' })
         setShowAddParticipantModal(false)
       } else {
         alert(data?.[0]?.message || 'Erro ao adicionar participante')
@@ -430,6 +528,108 @@ export default function CallsEventosPage() {
       await loadEventParticipants(selectedEvent!.id)
     } catch (error) {
       console.error('Error updating attendance:', error)
+    }
+  }
+
+  // ── Edit Event ──
+  const openEditModal = (event: GroupEvent) => {
+    setEditEvent({ ...event })
+    setShowEditEventModal(true)
+  }
+
+  const handleEditEvent = async () => {
+    if (!editEvent) return
+    try {
+      const { error } = await supabase
+        .from('group_events')
+        .update({
+          name: editEvent.name,
+          title: editEvent.name,
+          description: editEvent.description || null,
+          type: editEvent.type,
+          event_type: editEvent.type,
+          date_time: editEvent.date_time,
+          start_time: editEvent.date_time,
+          duration_minutes: editEvent.duration_minutes,
+          max_participants: editEvent.max_participants || null,
+          meeting_link: editEvent.meeting_link || null,
+          meet_link: editEvent.meeting_link || null,
+          valor_ingresso: editEvent.valor_ingresso || 0,
+          is_paid: (editEvent.valor_ingresso || 0) > 0,
+          local_evento: editEvent.local_evento || null,
+          imagem_capa: editEvent.imagem_capa || null,
+          visivel_mentorados: editEvent.visivel_mentorados,
+          replay_url: editEvent.replay_url || null,
+          replay_disponivel_ate: editEvent.replay_disponivel_ate || null,
+          status: editEvent.status,
+        })
+        .eq('id', editEvent.id)
+
+      if (error) throw error
+
+      toast.success('Evento atualizado!')
+      setShowEditEventModal(false)
+      setEditEvent(null)
+      await loadData()
+    } catch (error) {
+      console.error('Error updating event:', error)
+      toast.error('Erro ao atualizar evento')
+    }
+  }
+
+  // ── Delete Event ──
+  const handleDeleteEvent = async (eventId: string) => {
+    if (!confirm('Tem certeza que deseja excluir este evento? Esta acao nao pode ser desfeita.')) return
+
+    setDeletingEventId(eventId)
+    try {
+      // Delete participants first
+      await supabase
+        .from('group_event_participants')
+        .delete()
+        .eq('event_id', eventId)
+
+      const { error } = await supabase
+        .from('group_events')
+        .delete()
+        .eq('id', eventId)
+
+      if (error) throw error
+
+      toast.success('Evento excluido!')
+      await loadData()
+    } catch (error) {
+      console.error('Error deleting event:', error)
+      toast.error('Erro ao excluir evento')
+    } finally {
+      setDeletingEventId(null)
+    }
+  }
+
+  // ── Load mentorados/leads for participant type selection ──
+  const loadParticipantOptions = async (type: ParticipantType) => {
+    if (!organizationId) return
+    setLoadingParticipantOptions(true)
+    try {
+      if (type === 'mentorado') {
+        const { data } = await supabase
+          .from('mentorados')
+          .select('id, nome_completo, email, telefone')
+          .eq('organization_id', organizationId)
+          .order('nome_completo')
+        setMentoradosList(data || [])
+      } else if (type === 'lead') {
+        const { data } = await supabase
+          .from('leads')
+          .select('id, name, email, phone')
+          .eq('organization_id', organizationId)
+          .order('name')
+        setLeadsList(data || [])
+      }
+    } catch (err) {
+      console.error('Error loading participant options:', err)
+    } finally {
+      setLoadingParticipantOptions(false)
     }
   }
 
@@ -848,6 +1048,14 @@ export default function CallsEventosPage() {
                               {event.attendee_count || 0} presentes
                             </span>
                           </div>
+                          {waitlistCounts[event.id] > 0 && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <Clock className="w-3 h-3 text-amber-500" />
+                              <span className="text-[10px] text-amber-400 font-medium tabular-nums">
+                                {waitlistCounts[event.id]} na fila
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -887,8 +1095,32 @@ export default function CallsEventosPage() {
                             variant="ghost"
                             onClick={() => openParticipantsModal(event)}
                             className="h-8 w-8 p-0 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg"
+                            title="Participantes"
                           >
                             <Users className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openEditModal(event)}
+                            className="h-8 w-8 p-0 text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg"
+                            title="Editar"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteEvent(event.id)}
+                            disabled={deletingEventId === event.id}
+                            className="h-8 w-8 p-0 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg"
+                            title="Excluir"
+                          >
+                            {deletingEventId === event.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
                           </Button>
                           {event.meeting_link && (
                             <Button
@@ -896,6 +1128,7 @@ export default function CallsEventosPage() {
                               variant="ghost"
                               onClick={() => window.open(event.meeting_link, '_blank')}
                               className="h-8 w-8 p-0 text-gray-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg"
+                              title="Abrir link"
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
                             </Button>
@@ -1124,6 +1357,61 @@ export default function CallsEventosPage() {
             )}
           </div>
 
+          {/* WhatsApp Group Notification */}
+          <div className="space-y-3 p-4 bg-emerald-500/5 rounded-xl border border-emerald-500/10 mt-4">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !notifyGroup
+                  setNotifyGroup(next)
+                  if (next) loadWhatsAppGroups()
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  notifyGroup ? 'bg-emerald-500' : 'bg-white/10'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${
+                  notifyGroup ? 'translate-x-5' : ''
+                }`} />
+              </button>
+              <Label className="text-gray-300 text-sm cursor-pointer" onClick={() => {
+                const next = !notifyGroup
+                setNotifyGroup(next)
+                if (next) loadWhatsAppGroups()
+              }}>
+                Avisar grupo de WhatsApp ao criar
+              </Label>
+            </div>
+
+            {notifyGroup && (
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Selecionar Grupo</Label>
+                {loadingGroups ? (
+                  <div className="flex items-center gap-2 py-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                    <span className="text-xs text-gray-500">Carregando grupos...</span>
+                  </div>
+                ) : whatsappGroups.length === 0 ? (
+                  <p className="text-xs text-gray-500">Nenhum grupo encontrado. Verifique a conexao do WhatsApp.</p>
+                ) : (
+                  <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                    <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white">
+                      <SelectValue placeholder="Escolha um grupo..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a1a20] border-white/[0.06] max-h-[200px]">
+                      {whatsappGroups.map((group) => (
+                        <SelectItem key={group.id} value={group.id} className="text-white focus:bg-white/[0.06]">
+                          {group.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="flex gap-3 mt-6 pt-4 border-t border-white/[0.06]">
             <Button
               variant="outline"
@@ -1139,6 +1427,230 @@ export default function CallsEventosPage() {
             >
               <Plus className="w-4 h-4 mr-2" />
               Criar Evento
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Event Modal ── */}
+      <Dialog open={showEditEventModal} onOpenChange={(open) => { setShowEditEventModal(open); if (!open) setEditEvent(null) }}>
+        <DialogContent className="sm:max-w-2xl bg-[#141418] border-white/[0.06] backdrop-blur-xl shadow-2xl shadow-black/40 max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-amber-500/10">
+                <Edit className="w-4 h-4 text-amber-400" />
+              </div>
+              Editar Evento
+            </DialogTitle>
+          </DialogHeader>
+
+          {editEvent && (
+            <div className="space-y-5 mt-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-gray-400 text-xs font-medium">Nome do Evento *</Label>
+                  <Input
+                    value={editEvent.name}
+                    onChange={(e) => setEditEvent(prev => prev ? ({ ...prev, name: e.target.value }) : prev)}
+                    className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-blue-500/30"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-gray-400 text-xs font-medium">Tipo de Evento</Label>
+                  <Select value={editEvent.type} onValueChange={(value: any) => setEditEvent(prev => prev ? ({ ...prev, type: value }) : prev)}>
+                    <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a1a20] border-white/[0.06]">
+                      {Object.entries(eventTypes).map(([key, { label }]) => (
+                        <SelectItem key={key} value={key} className="text-white focus:bg-white/[0.06]">
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Descricao</Label>
+                <Textarea
+                  value={editEvent.description || ''}
+                  onChange={(e) => setEditEvent(prev => prev ? ({ ...prev, description: e.target.value }) : prev)}
+                  className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 resize-none min-h-[80px] focus-visible:ring-blue-500/30"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-gray-400 text-xs font-medium">Data e Hora *</Label>
+                  <Input
+                    type="datetime-local"
+                    value={editEvent.date_time ? editEvent.date_time.slice(0, 16) : ''}
+                    onChange={(e) => setEditEvent(prev => prev ? ({ ...prev, date_time: e.target.value }) : prev)}
+                    className="bg-white/[0.03] border-white/[0.06] text-white focus-visible:ring-blue-500/30"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-gray-400 text-xs font-medium">Duracao (min)</Label>
+                  <Input
+                    type="number"
+                    value={editEvent.duration_minutes}
+                    onChange={(e) => setEditEvent(prev => prev ? ({ ...prev, duration_minutes: parseInt(e.target.value) || 60 }) : prev)}
+                    className="bg-white/[0.03] border-white/[0.06] text-white focus-visible:ring-blue-500/30"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-gray-400 text-xs font-medium">Max. Participantes</Label>
+                  <Input
+                    type="number"
+                    value={editEvent.max_participants || ''}
+                    onChange={(e) => setEditEvent(prev => prev ? ({ ...prev, max_participants: e.target.value ? parseInt(e.target.value) : undefined }) : prev)}
+                    placeholder="Ilimitado"
+                    className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-blue-500/30"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Link da Reuniao</Label>
+                <Input
+                  value={editEvent.meeting_link || ''}
+                  onChange={(e) => setEditEvent(prev => prev ? ({ ...prev, meeting_link: e.target.value }) : prev)}
+                  placeholder="https://meet.google.com/..."
+                  className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-blue-500/30"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Status</Label>
+                <Select value={editEvent.status} onValueChange={(value: any) => setEditEvent(prev => prev ? ({ ...prev, status: value }) : prev)}>
+                  <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a20] border-white/[0.06]">
+                    <SelectItem value="scheduled" className="text-white focus:bg-white/[0.06]">Agendado</SelectItem>
+                    <SelectItem value="live" className="text-white focus:bg-white/[0.06]">Ao Vivo</SelectItem>
+                    <SelectItem value="completed" className="text-white focus:bg-white/[0.06]">Concluido</SelectItem>
+                    <SelectItem value="cancelled" className="text-white focus:bg-white/[0.06]">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Event-specific fields */}
+              {editEvent.type !== 'call_group' && (
+                <div className="space-y-4 p-4 bg-purple-500/5 rounded-xl border border-purple-500/10">
+                  <p className="text-purple-400 text-xs font-semibold uppercase tracking-wider">Configuracoes do Evento</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-gray-400 text-xs font-medium">Valor do Ingresso (R$)</Label>
+                      <Input
+                        type="number"
+                        value={editEvent.valor_ingresso || ''}
+                        onChange={(e) => setEditEvent(prev => prev ? ({ ...prev, valor_ingresso: e.target.value ? parseFloat(e.target.value) : undefined }) : prev)}
+                        placeholder="0,00 = Gratuito"
+                        className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-purple-500/30"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-400 text-xs font-medium">Local do Evento</Label>
+                      <Input
+                        value={editEvent.local_evento || ''}
+                        onChange={(e) => setEditEvent(prev => prev ? ({ ...prev, local_evento: e.target.value }) : prev)}
+                        className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-purple-500/30"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-xs font-medium">Imagem de Capa</Label>
+                    {editEvent.imagem_capa ? (
+                      <div className="relative">
+                        <img src={editEvent.imagem_capa} alt="Capa" className="w-full h-32 object-cover rounded-lg" />
+                        <button
+                          type="button"
+                          onClick={() => setEditEvent(prev => prev ? ({ ...prev, imagem_capa: '' }) : prev)}
+                          className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-white/10 rounded-lg cursor-pointer hover:border-purple-500/30 transition-colors">
+                        {uploadingCapa ? (
+                          <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+                        ) : (
+                          <div className="text-center">
+                            <Upload className="w-6 h-6 mx-auto mb-1 text-gray-500" />
+                            <span className="text-xs text-gray-500">Clique para enviar imagem</span>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) handleCapaUpload(file, 'edit')
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-gray-400 text-xs font-medium">URL do Replay</Label>
+                      <Input
+                        value={editEvent.replay_url || ''}
+                        onChange={(e) => setEditEvent(prev => prev ? ({ ...prev, replay_url: e.target.value }) : prev)}
+                        className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-purple-500/30"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-400 text-xs font-medium">Replay disponivel ate</Label>
+                      <Input
+                        type="datetime-local"
+                        value={editEvent.replay_disponivel_ate ? editEvent.replay_disponivel_ate.slice(0, 16) : ''}
+                        onChange={(e) => setEditEvent(prev => prev ? ({ ...prev, replay_disponivel_ate: e.target.value }) : prev)}
+                        className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-purple-500/30"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditEvent(prev => prev ? ({ ...prev, visivel_mentorados: !prev.visivel_mentorados }) : prev)}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${
+                        editEvent.visivel_mentorados ? 'bg-purple-500' : 'bg-white/10'
+                      }`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${
+                        editEvent.visivel_mentorados ? 'translate-x-5' : ''
+                      }`} />
+                    </button>
+                    <Label className="text-gray-300 text-sm cursor-pointer" onClick={() => setEditEvent(prev => prev ? ({ ...prev, visivel_mentorados: !prev.visivel_mentorados }) : prev)}>
+                      Visivel para mentorados
+                    </Label>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-3 mt-6 pt-4 border-t border-white/[0.06]">
+            <Button
+              variant="outline"
+              onClick={() => { setShowEditEventModal(false); setEditEvent(null) }}
+              className="flex-1 bg-white/[0.03] border-white/[0.06] text-gray-400 hover:text-white hover:bg-white/[0.06]"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleEditEvent}
+              disabled={!editEvent?.name?.trim() || !editEvent?.date_time}
+              className="flex-1 bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/20 disabled:opacity-40 disabled:shadow-none"
+            >
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Salvar Alteracoes
             </Button>
           </div>
         </DialogContent>
@@ -1311,7 +1823,10 @@ export default function CallsEventosPage() {
       </Dialog>
 
       {/* ── Add Participant Modal ── */}
-      <Dialog open={showAddParticipantModal} onOpenChange={setShowAddParticipantModal}>
+      <Dialog open={showAddParticipantModal} onOpenChange={(open) => {
+        setShowAddParticipantModal(open)
+        if (!open) setNewParticipant({ participant_name: '', participant_email: '', participant_phone: '', participant_type: '' })
+      }}>
         <DialogContent className="sm:max-w-lg bg-[#141418] border-white/[0.06] backdrop-blur-xl shadow-2xl shadow-black/40">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-3">
@@ -1323,40 +1838,163 @@ export default function CallsEventosPage() {
           </DialogHeader>
 
           <div className="space-y-4 mt-2">
+            {/* Participant Type Selection */}
             <div className="space-y-2">
-              <Label className="text-gray-400 text-xs font-medium">Nome Completo *</Label>
-              <Input
-                value={newParticipant.participant_name}
-                onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_name: e.target.value }))}
-                placeholder="Nome do participante"
-                className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-blue-500/30"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-gray-400 text-xs font-medium">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
-                <Input
-                  type="email"
-                  value={newParticipant.participant_email}
-                  onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_email: e.target.value }))}
-                  placeholder="email@exemplo.com"
-                  className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 pl-9 focus-visible:ring-blue-500/30"
-                />
+              <Label className="text-gray-400 text-xs font-medium">Tipo de Participante *</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { value: 'mentorado' as ParticipantType, label: 'Mentorado', color: 'blue' },
+                  { value: 'lead' as ParticipantType, label: 'Lead', color: 'amber' },
+                  { value: 'convidado_extra' as ParticipantType, label: 'Convidado Extra', color: 'purple' },
+                ]).map((type) => (
+                  <button
+                    key={type.value}
+                    onClick={() => {
+                      setNewParticipant(prev => ({
+                        ...prev,
+                        participant_type: type.value,
+                        participant_name: '',
+                        participant_email: '',
+                        participant_phone: ''
+                      }))
+                      if (type.value === 'mentorado' || type.value === 'lead') {
+                        loadParticipantOptions(type.value)
+                      }
+                    }}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-all border ${
+                      newParticipant.participant_type === type.value
+                        ? `bg-${type.color}-500/10 border-${type.color}-500/30 text-${type.color}-400`
+                        : 'bg-white/[0.03] border-white/[0.06] text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
+                    }`}
+                    style={newParticipant.participant_type === type.value ? {
+                      backgroundColor: type.color === 'blue' ? 'rgba(59,130,246,0.1)' : type.color === 'amber' ? 'rgba(245,158,11,0.1)' : 'rgba(168,85,247,0.1)',
+                      borderColor: type.color === 'blue' ? 'rgba(59,130,246,0.3)' : type.color === 'amber' ? 'rgba(245,158,11,0.3)' : 'rgba(168,85,247,0.3)',
+                      color: type.color === 'blue' ? 'rgb(96,165,250)' : type.color === 'amber' ? 'rgb(251,191,36)' : 'rgb(192,132,252)',
+                    } : {}}
+                  >
+                    {type.label}
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-gray-400 text-xs font-medium">Telefone</Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
-                <Input
-                  value={newParticipant.participant_phone}
-                  onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_phone: e.target.value }))}
-                  placeholder="(11) 99999-9999"
-                  className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 pl-9 focus-visible:ring-blue-500/30"
-                />
+
+            {/* Mentorado/Lead selection */}
+            {newParticipant.participant_type === 'mentorado' && (
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Selecionar Mentorado *</Label>
+                {loadingParticipantOptions ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
+                  </div>
+                ) : (
+                  <Select onValueChange={(value) => {
+                    const m = mentoradosList.find(m => m.id === value)
+                    if (m) {
+                      setNewParticipant(prev => ({
+                        ...prev,
+                        participant_name: m.nome_completo,
+                        participant_email: m.email,
+                        participant_phone: m.telefone || ''
+                      }))
+                    }
+                  }}>
+                    <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white">
+                      <SelectValue placeholder="Escolha um mentorado..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a1a20] border-white/[0.06] max-h-[200px]">
+                      {mentoradosList.map((m) => (
+                        <SelectItem key={m.id} value={m.id} className="text-white focus:bg-white/[0.06]">
+                          {m.nome_completo} ({m.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
-            </div>
+            )}
+
+            {newParticipant.participant_type === 'lead' && (
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Selecionar Lead *</Label>
+                {loadingParticipantOptions ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+                  </div>
+                ) : (
+                  <Select onValueChange={(value) => {
+                    const l = leadsList.find(l => l.id === value)
+                    if (l) {
+                      setNewParticipant(prev => ({
+                        ...prev,
+                        participant_name: l.name,
+                        participant_email: l.email || '',
+                        participant_phone: l.phone || ''
+                      }))
+                    }
+                  }}>
+                    <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white">
+                      <SelectValue placeholder="Escolha um lead..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a1a20] border-white/[0.06] max-h-[200px]">
+                      {leadsList.map((l) => (
+                        <SelectItem key={l.id} value={l.id} className="text-white focus:bg-white/[0.06]">
+                          {l.name} {l.email ? `(${l.email})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+
+            {/* Manual fields for convidado_extra OR show selected info */}
+            {newParticipant.participant_type === 'convidado_extra' && (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-gray-400 text-xs font-medium">Nome Completo *</Label>
+                  <Input
+                    value={newParticipant.participant_name}
+                    onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_name: e.target.value }))}
+                    placeholder="Nome do convidado"
+                    className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-blue-500/30"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-gray-400 text-xs font-medium">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+                    <Input
+                      type="email"
+                      value={newParticipant.participant_email}
+                      onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_email: e.target.value }))}
+                      placeholder="email@exemplo.com"
+                      className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 pl-9 focus-visible:ring-blue-500/30"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-gray-400 text-xs font-medium">Telefone</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+                    <Input
+                      value={newParticipant.participant_phone}
+                      onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_phone: e.target.value }))}
+                      placeholder="(11) 99999-9999"
+                      className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 pl-9 focus-visible:ring-blue-500/30"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Show selected info for mentorado/lead */}
+            {(newParticipant.participant_type === 'mentorado' || newParticipant.participant_type === 'lead') && newParticipant.participant_name && (
+              <div className="p-3 rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06]">
+                <p className="text-sm font-medium text-white">{newParticipant.participant_name}</p>
+                {newParticipant.participant_email && <p className="text-xs text-gray-400 mt-1">{newParticipant.participant_email}</p>}
+                {newParticipant.participant_phone && <p className="text-xs text-gray-500 mt-0.5">{newParticipant.participant_phone}</p>}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 mt-6 pt-4 border-t border-white/[0.06]">
@@ -1369,7 +2007,7 @@ export default function CallsEventosPage() {
             </Button>
             <Button
               onClick={handleAddParticipant}
-              disabled={!newParticipant.participant_name.trim()}
+              disabled={!newParticipant.participant_name.trim() || !newParticipant.participant_type}
               className="flex-1 bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 disabled:opacity-40 disabled:shadow-none"
             >
               <UserPlus className="w-4 h-4 mr-2" />
