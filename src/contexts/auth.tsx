@@ -13,6 +13,11 @@ interface OrganizationUser {
   organization_id: string
   role: string
   email: string
+  nome_completo?: string | null
+  ano_nascimento?: number | null
+  foto_perfil?: string | null
+  funcao?: string | null
+  profile_completed?: boolean
 }
 
 interface AuthContextType {
@@ -569,7 +574,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data: userDataArray, error } = await supabase
         .from('organization_users')
-        .select('organization_id, is_active, role, email')
+        .select('organization_id, is_active, role, email, nome_completo, ano_nascimento, foto_perfil, funcao, profile_completed')
         .eq('email', user.email)
         .eq('is_active', true)
         .limit(1)

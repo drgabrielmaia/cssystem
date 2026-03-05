@@ -2,10 +2,12 @@
 
 import { ModularSidebar } from '@/components/ModularSidebar'
 import { AuthGuard } from '@/components/AuthGuard'
+import { ProfileCompletionModal } from '@/components/ProfileCompletionModal'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getToken } from '@/lib/api'
+import { useAuth } from '@/contexts/auth'
 
 export function AppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -107,6 +109,8 @@ export function AppContent({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+      {/* Modal de completar perfil - não pode ser fechado */}
+      <ProfileCompletionModal />
     </div>
   )
 }

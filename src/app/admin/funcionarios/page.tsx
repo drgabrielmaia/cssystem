@@ -15,6 +15,11 @@ interface OrganizationUser {
   is_active: boolean
   created_at: string
   user_id: string
+  nome_completo?: string | null
+  ano_nascimento?: number | null
+  foto_perfil?: string | null
+  funcao?: string | null
+  profile_completed?: boolean
 }
 
 const ROLE_CONFIG: Record<string, { label: string; color: string; dotColor: string; bgGlow: string }> = {
@@ -104,7 +109,7 @@ export default function FuncionariosPage() {
     try {
       const { data, error } = await supabase
         .from('organization_users')
-        .select('id, email, role, is_active, created_at, user_id')
+        .select('id, email, role, is_active, created_at, user_id, nome_completo, ano_nascimento, foto_perfil, funcao, profile_completed')
         .eq('organization_id', organizationId)
         .order('role')
 
@@ -121,9 +126,12 @@ export default function FuncionariosPage() {
     }
   }
 
-  const filteredMembers = members.filter((member) =>
-    member.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredMembers = members.filter((member) => {
+    const search = searchTerm.toLowerCase()
+    return member.email.toLowerCase().includes(search) ||
+      (member.nome_completo && member.nome_completo.toLowerCase().includes(search)) ||
+      (member.funcao && member.funcao.toLowerCase().includes(search))
+  })
 
   // KPI calculations
   const totalMembers = members.length
@@ -252,7 +260,7 @@ export default function FuncionariosPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
             <Input
-              placeholder="Buscar por email..."
+              placeholder="Buscar por nome, email ou funcao..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 bg-white/[0.04] border-white/[0.06] text-white placeholder:text-white/30 focus:ring-1 focus:ring-white/10 focus:border-white/10"
@@ -322,8 +330,12 @@ export default function FuncionariosPage() {
                     <div className="flex items-start gap-4 mb-4">
                       {/* Avatar */}
                       <div className="relative flex-shrink-0">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-white/[0.08] to-white/[0.02] ring-1 ring-white/[0.08] flex items-center justify-center">
-                          <span className="text-sm font-bold text-white/70">{initials}</span>
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-white/[0.08] to-white/[0.02] ring-1 ring-white/[0.08] flex items-center justify-center overflow-hidden">
+                          {member.foto_perfil ? (
+                            <img src={member.foto_perfil} alt={member.nome_completo || ''} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-bold text-white/70">{initials}</span>
+                          )}
                         </div>
                         {/* Active indicator dot */}
                         <div
@@ -335,15 +347,21 @@ export default function FuncionariosPage() {
 
                       {/* Name/Email and Role */}
                       <div className="flex-1 min-w-0">
+                        {member.nome_completo && (
+                          <p className="text-sm font-semibold text-white truncate mb-0.5">{member.nome_completo}</p>
+                        )}
                         <div className="flex items-center gap-2 mb-1">
-                          <Mail className="h-3.5 w-3.5 text-white/30 flex-shrink-0" />
-                          <p className="text-sm font-medium text-white truncate">{member.email}</p>
+                          <Mail className="h-3 w-3 text-white/30 flex-shrink-0" />
+                          <p className="text-xs text-white/50 truncate">{member.email}</p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <Badge className={`${config.color} text-[11px] font-medium px-2 py-0.5 gap-1 border-0`}>
                             {getRoleIcon(member.role)}
                             {config.label}
                           </Badge>
+                          {member.funcao && (
+                            <span className="text-[11px] text-white/40">{member.funcao}</span>
+                          )}
                         </div>
                       </div>
                     </div>
