@@ -30,6 +30,13 @@ interface Clinica {
   owner_nome?: string
   motivo_rejeicao?: string
   revisado_em?: string
+  foto_capa?: string
+  fotos?: string[]
+}
+
+const fixImageUrl = (url: string) => {
+  if (!url) return ''
+  return url.replace('http://', 'https://')
 }
 
 interface Reserva {
@@ -411,7 +418,27 @@ export default function AdminAirbnbPage() {
               </div>
             ) : (
               clinicas.map(c => (
-                <div key={c.id} className="bg-[#141414] rounded-xl p-5 border border-white/5">
+                <div key={c.id} className="bg-[#141414] rounded-xl border border-white/5 overflow-hidden">
+                  {/* Fotos da clínica */}
+                  {(c.foto_capa || (c.fotos && c.fotos.length > 0)) && (
+                    <div className="flex gap-1 h-40 overflow-hidden">
+                      {(() => {
+                        const allPhotos = [c.foto_capa, ...(c.fotos || [])].filter(Boolean) as string[]
+                        const uniquePhotos = [...new Set(allPhotos)].slice(0, 4)
+                        return uniquePhotos.map((url, i) => (
+                          <div key={i} className={`relative ${uniquePhotos.length === 1 ? 'w-full' : uniquePhotos.length === 2 ? 'w-1/2' : uniquePhotos.length === 3 ? (i === 0 ? 'w-1/2' : 'w-1/4') : 'w-1/4'} h-full`}>
+                            <img src={fixImageUrl(url)} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                            {i === uniquePhotos.length - 1 && allPhotos.length > 4 && (
+                              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                <span className="text-white font-bold text-sm">+{allPhotos.length - 4}</span>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      })()}
+                    </div>
+                  )}
+                  <div className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
@@ -487,6 +514,7 @@ export default function AdminAirbnbPage() {
                       <Award className="w-3.5 h-3.5" />
                       {c.destaque ? 'Em Destaque' : 'Promover Destaque'}
                     </button>
+                  </div>
                   </div>
                 </div>
               ))

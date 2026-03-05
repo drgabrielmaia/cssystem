@@ -25,17 +25,24 @@ import {
 
 interface AgendaLink {
   id: string
-  agenda_id: string
+  agenda_id?: string
   lead_id?: string
   mentorado_id?: string
+  closer_id?: string
+  organization_id?: string
+  token_link?: string
   titulo_customizado?: string
+  titulo_personalizado?: string
   descricao_customizada?: string
+  descricao_personalizada?: string
   duracao_customizada?: number
+  cor_tema?: string
   ativo: boolean
   total_agendamentos?: number
+  total_visualizacoes?: number
   ultimo_acesso?: string
   leads?: { nome_completo: string; email: string; telefone?: string }
-  mentorados?: { nome: string; email: string; telefone?: string }
+  mentorados?: { nome_completo: string; email: string; telefone?: string }
   agenda_configuracoes?: {
     nome: string
     descricao: string
@@ -145,7 +152,7 @@ export default function AgendarPage() {
       } else if (data.mentorados) {
         setFormData(prev => ({
           ...prev,
-          nome_completo: data.mentorados?.nome || '',
+          nome_completo: data.mentorados?.nome_completo || '',
           email: data.mentorados?.email || '',
           telefone: data.mentorados?.telefone || ''
         }))
@@ -213,34 +220,83 @@ export default function AgendarPage() {
         currentHour += 1 // Slots de 1 hora
       }
 
-      // Verificar eventos já agendados no calendar_events
+      // Verificar eventos já agendados
       const startOfDay = new Date(selectedDateObj)
       startOfDay.setHours(0, 0, 0, 0)
-      
+
       const endOfDay = new Date(selectedDateObj)
       endOfDay.setHours(23, 59, 59, 999)
 
-      const { data: events } = await supabase
+      const dateStr = date // YYYY-MM-DD format
+
+      // Check calendar_events (filter by closer_id if available)
+      let calendarQuery = supabase
         .from('calendar_events')
         .select('start_datetime, end_datetime')
         .gte('start_datetime', startOfDay.toISOString())
         .lte('start_datetime', endOfDay.toISOString())
         .not('status_confirmacao', 'eq', 'cancelado')
 
+      if (agendaLink?.closer_id) {
+        calendarQuery = calendarQuery.eq('closer_id', agendaLink.closer_id)
+      }
+
+      const { data: events } = await calendarQuery
+
+      // Also check appointments table (closer's own schedule)
+      let appointmentsData: any[] = []
+      if (agendaLink?.closer_id) {
+        const { data: appts } = await supabase
+          .from('appointments')
+          .select('appointment_date, start_time, end_time')
+          .eq('closer_id', agendaLink.closer_id)
+          .eq('appointment_date', dateStr)
+          .not('status', 'eq', 'cancelado')
+
+        appointmentsData = appts || []
+      }
+
+      // Mark slots as unavailable based on calendar_events
       if (events) {
         events.forEach(event => {
           const eventStart = new Date(event.start_datetime)
           const eventEnd = new Date(event.end_datetime)
-          
+
           slots.forEach(slot => {
             const slotStart = new Date(slot.datetime)
             const slotEnd = new Date(slotStart.getTime() + slotDuration * 60 * 1000)
-            
-            // Verificar se há sobreposição de horários
+
             if (
               (slotStart >= eventStart && slotStart < eventEnd) ||
               (slotEnd > eventStart && slotEnd <= eventEnd) ||
               (slotStart <= eventStart && slotEnd >= eventEnd)
+            ) {
+              slot.available = false
+            }
+          })
+        })
+      }
+
+      // Mark slots as unavailable based on appointments
+      if (appointmentsData.length > 0) {
+        appointmentsData.forEach(appt => {
+          const [startH, startM] = (appt.start_time || '').split(':').map(Number)
+          const [endH, endM] = (appt.end_time || '').split(':').map(Number)
+          if (isNaN(startH) || isNaN(endH)) return
+
+          const apptStart = new Date(selectedDateObj)
+          apptStart.setHours(startH, startM || 0, 0, 0)
+          const apptEnd = new Date(selectedDateObj)
+          apptEnd.setHours(endH, endM || 0, 0, 0)
+
+          slots.forEach(slot => {
+            const slotStart = new Date(slot.datetime)
+            const slotEnd = new Date(slotStart.getTime() + slotDuration * 60 * 1000)
+
+            if (
+              (slotStart >= apptStart && slotStart < apptEnd) ||
+              (slotEnd > apptStart && slotEnd <= apptEnd) ||
+              (slotStart <= apptStart && slotEnd >= apptEnd)
             ) {
               slot.available = false
             }
@@ -324,19 +380,23 @@ export default function AgendarPage() {
       const selectedSlot = availableSlots.find(slot => slot.time === selectedTime)
       if (!selectedSlot) throw new Error('Horário não encontrado')
 
-      // Criar evento no calendar_events
       const [year, month, day] = selectedDate.split('-')
       const [hours, minutes] = selectedTime.split(':')
       const startDateTime = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes))
       const endDateTime = new Date(startDateTime.getTime() + (60 * 60 * 1000)) // 1 hora padrão
 
-      const eventData = {
-        title: `${agendaLink.titulo_customizado || 'Reunião Agendada'} - ${formData.nome_completo}`,
+      const titleText = agendaLink.titulo_personalizado || agendaLink.titulo_customizado || 'Reunião Agendada'
+
+      // 1. Criar evento no calendar_events
+      const eventData: any = {
+        title: `${titleText} - ${formData.nome_completo}`,
         description: `Agendamento via formulário.\n\nObjetivo: ${formData.objetivo_call}\n\nContato: ${formData.email} | ${formData.telefone}`,
         start_datetime: startDateTime.toISOString(),
         end_datetime: endDateTime.toISOString(),
         lead_id: agendaLink.lead_id || null,
         mentorado_id: agendaLink.mentorado_id || null,
+        closer_id: agendaLink.closer_id || null,
+        organization_id: agendaLink.organization_id || null,
         nome_contato: formData.nome_completo,
         email_contato: formData.email,
         telefone_contato: formData.telefone,
@@ -355,7 +415,32 @@ export default function AgendarPage() {
 
       if (error) throw error
 
-      // Atualizar contador de agendamentos do link
+      // 2. Also create an appointment record so the closer can see it in their agenda
+      if (agendaLink.closer_id) {
+        try {
+          await supabase
+            .from('appointments')
+            .insert({
+              closer_id: agendaLink.closer_id,
+              organization_id: agendaLink.organization_id || null,
+              lead_id: agendaLink.lead_id || null,
+              appointment_date: selectedDate,
+              start_time: selectedTime,
+              end_time: `${endDateTime.getHours().toString().padStart(2, '0')}:${endDateTime.getMinutes().toString().padStart(2, '0')}`,
+              status: 'agendado',
+              appointment_type: 'qualificacao',
+              title: `${titleText} - ${formData.nome_completo}`,
+              description: formData.objetivo_call || 'Agendado via formulário público',
+              lead_name: formData.nome_completo,
+              lead_email: formData.email,
+              lead_phone: formData.telefone,
+            })
+        } catch (apptErr) {
+          console.warn('Não foi possível criar appointment para o closer:', apptErr)
+        }
+      }
+
+      // 3. Atualizar contador de agendamentos do link
       await supabase
         .from('agendamento_links')
         .update({
@@ -406,7 +491,7 @@ export default function AgendarPage() {
     )
   }
 
-  const themeColor = agendaLink?.agenda_configuracoes?.cor_tema || '#059669'
+  const themeColor = agendaLink?.cor_tema || agendaLink?.agenda_configuracoes?.cor_tema || '#3b82f6'
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -414,10 +499,10 @@ export default function AgendarPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {agendaLink?.titulo_customizado || 'Agendar Reunião'}
+            {agendaLink?.titulo_personalizado || agendaLink?.titulo_customizado || 'Agendar Reunião'}
           </h1>
           <p className="text-gray-600">
-            {agendaLink?.descricao_customizada || 'Escolha o melhor horário para nossa conversa'}
+            {agendaLink?.descricao_personalizada || agendaLink?.descricao_customizada || 'Escolha o melhor horário para nossa conversa'}
           </p>
           <div className="flex items-center justify-center gap-4 mt-4 text-sm text-gray-500">
             <div className="flex items-center gap-1">

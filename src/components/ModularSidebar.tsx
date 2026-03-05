@@ -135,7 +135,6 @@ const modules = [
       { name: 'Follow-up Automático', href: '/admin/follow-up', icon: Clock, description: 'Configurar sequências de follow-up automático' },
       { name: 'Contratos', href: '/admin/contratos', icon: FileText, description: 'Gestão de contratos eletrônicos' },
       { name: 'Clínicas (Airbnb)', href: '/admin/airbnb', icon: Activity, description: 'Gestão de clínicas em análise' },
-      { name: 'Mentorados', href: '/admin/mentorados-lista', icon: Users, description: 'Ver todos os mentorados' },
       { name: 'Funcionários', href: '/admin/funcionarios', icon: Briefcase, description: 'Membros da organização' },
     ]
   },

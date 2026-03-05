@@ -1,20 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { PageLayout } from '@/components/ui/page-layout'
-import { MetricCard } from '@/components/ui/metric-card'
-import { DataTable } from '@/components/ui/data-table'
-import { StatusBadge } from '@/components/ui/status-badge'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { AddMentoradoModalSafe } from '@/components/add-mentorado-modal-safe'
 import { EditMentoradoModal } from '@/components/edit-mentorado-modal'
 import { ChurnModal } from '@/components/churn-modal'
 import { useAuth } from '@/contexts/auth'
+import { Header } from '@/components/header'
+import { Input } from '@/components/ui/input'
 import {
   Users,
   TrendingUp,
-  Star,
-  Plus,
   Search,
   RefreshCw,
   UserCheck,
@@ -24,7 +20,10 @@ import {
   Lock,
   Unlock,
   Clock,
-  Download
+  Download,
+  Plus,
+  Phone,
+  Mail,
 } from 'lucide-react'
 
 interface Mentorado {
@@ -32,38 +31,46 @@ interface Mentorado {
   nome_completo: string
   email: string
   telefone?: string
+  data_nascimento: string | null
   data_entrada: string
   estado_atual: string
   status_login?: string
+  avatar_url: string | null
   pontuacao?: number
   observacoes_privadas?: string
   created_at: string
   updated_at: string
 }
 
-interface MentoradoStats {
-  total_mentorados: number
-  ativos: number
-  inativos: number
-  novos_mes: number
-  taxa_retencao: number
-  pontuacao_media: number
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
+}
+
+function getEstadoBadgeClasses(estado: string | null): string {
+  if (!estado) return 'bg-white/[0.06] text-white/50'
+  const normalized = estado.toLowerCase().trim()
+  if (normalized === 'ativo' || normalized === 'ativa') {
+    return 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/20'
+  }
+  if (normalized === 'inativo' || normalized === 'inativa') {
+    return 'bg-red-500/15 text-red-400 ring-1 ring-red-500/20'
+  }
+  if (normalized === 'bloqueado' || normalized === 'bloqueada') {
+    return 'bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/20'
+  }
+  if (normalized === 'pendente') {
+    return 'bg-yellow-500/15 text-yellow-400 ring-1 ring-yellow-500/20'
+  }
+  return 'bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/20'
 }
 
 export default function MentoradosClientPage() {
   const { user, organizationId } = useAuth()
   const [mentorados, setMentorados] = useState<Mentorado[]>([])
-  const [stats, setStats] = useState<MentoradoStats>({
-    total_mentorados: 0,
-    ativos: 0,
-    inativos: 0,
-    novos_mes: 0,
-    taxa_retencao: 0,
-    pontuacao_media: 0
-  })
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filteredMentorados, setFilteredMentorados] = useState<Mentorado[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingMentorado, setEditingMentorado] = useState<Mentorado | null>(null)
@@ -77,81 +84,55 @@ export default function MentoradosClientPage() {
     }
   }, [organizationId])
 
-  useEffect(() => {
-    filterMentorados()
-  }, [mentorados, searchTerm])
-
   const loadMentorados = async () => {
+    if (!organizationId) return
+    setLoading(true)
     try {
-      setLoading(true)
-
-      if (!organizationId) {
-        console.log('⚠️ Aguardando organização do usuário...')
-        return
-      }
-
-      console.log('📊 Carregando mentorados para organização:', organizationId)
-
       const { data, error } = await supabase
         .from('mentorados')
         .select('*')
         .eq('organization_id', organizationId)
         .eq('excluido', false)
         .neq('estado_atual', 'churned')
-        .order('created_at', { ascending: false })
+        .order('nome_completo')
 
       if (error) {
         console.error('Erro ao carregar mentorados:', error)
-        throw error
+        return
       }
 
-      console.log('✅ Mentorados carregados:', data?.length || 0)
       setMentorados(data || [])
-
-      // Calcular estatísticas
-      const total = data?.length || 0
-      const ativos = data?.filter(m => m.estado_atual === 'ativo').length || 0
-      const inativos = total - ativos
-
-      // Mentorados criados este mês
-      const thisMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
-      const novos_mes = data?.filter(m =>
-        m.created_at?.startsWith(thisMonth)
-      ).length || 0
-
-      // Taxa de retenção (simplificada)
-      const taxa_retencao = total > 0 ? (ativos / total) * 100 : 0
-
-      setStats({
-        total_mentorados: total,
-        ativos,
-        inativos,
-        novos_mes,
-        taxa_retencao: Math.round(taxa_retencao),
-        pontuacao_media: 0
-      })
-
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error)
+    } catch (err) {
+      console.error('Erro inesperado:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  const filterMentorados = () => {
-    if (!searchTerm.trim()) {
-      setFilteredMentorados(mentorados)
-      return
-    }
-
-    const filtered = mentorados.filter(mentorado =>
-      mentorado.nome_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentorado.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentorado.telefone?.includes(searchTerm)
+  const filteredMentorados = useMemo(() => {
+    if (!searchTerm.trim()) return mentorados
+    const term = searchTerm.toLowerCase()
+    return mentorados.filter(
+      (m) =>
+        m.nome_completo?.toLowerCase().includes(term) ||
+        m.email?.toLowerCase().includes(term) ||
+        m.telefone?.includes(term)
     )
+  }, [mentorados, searchTerm])
 
-    setFilteredMentorados(filtered)
-  }
+  const stats = useMemo(() => {
+    const total = mentorados.length
+    const ativos = mentorados.filter(
+      (m) => m.estado_atual?.toLowerCase() === 'ativo' || m.estado_atual?.toLowerCase() === 'ativa'
+    ).length
+    const inativos = mentorados.filter(
+      (m) => m.estado_atual?.toLowerCase() === 'inativo' || m.estado_atual?.toLowerCase() === 'inativa'
+    ).length
+    const thisMonth = new Date().toISOString().slice(0, 7)
+    const novos_mes = mentorados.filter(m => m.created_at?.startsWith(thisMonth)).length
+    const taxa_retencao = total > 0 ? Math.round((ativos / total) * 100) : 0
+    return { total, ativos, inativos, novos_mes, taxa_retencao }
+  }, [mentorados])
 
   const handleEdit = (mentorado: Mentorado) => {
     setEditingMentorado(mentorado)
@@ -164,12 +145,11 @@ export default function MentoradosClientPage() {
   }
 
   const handleChurnProcessed = () => {
-    loadMentorados() // Reload the list after churn is processed
+    loadMentorados()
   }
 
   const toggleStatus = async (mentorado: Mentorado) => {
     const newStatus = mentorado.estado_atual === 'ativo' ? 'inativo' : 'ativo'
-
     try {
       const { error } = await supabase
         .from('mentorados')
@@ -177,84 +157,16 @@ export default function MentoradosClientPage() {
         .eq('id', mentorado.id)
 
       if (error) throw error
-
       await loadMentorados()
-      alert(`Status atualizado para ${newStatus}`)
     } catch (error) {
       console.error('Erro ao atualizar status:', error)
       alert('Erro ao atualizar status')
     }
   }
 
-  const columns = [
-    {
-      key: 'nome_completo',
-      header: 'Nome',
-      label: 'Nome',
-      render: (mentorado: Mentorado) => (
-        <div>
-          <div className="font-medium text-white">{mentorado.nome_completo}</div>
-          <div className="text-sm text-gray-400">{mentorado.email}</div>
-        </div>
-      )
-    },
-    {
-      key: 'estado_atual',
-      header: 'Status',
-      label: 'Status',
-      render: (mentorado: Mentorado) => (
-        <StatusBadge status={mentorado.estado_atual as any} />
-      )
-    },
-    {
-      key: 'data_entrada',
-      header: 'Data Entrada',
-      label: 'Data Entrada',
-      render: (mentorado: Mentorado) => (
-        new Date(mentorado.data_entrada).toLocaleDateString('pt-BR')
-      )
-    },
-    {
-      key: 'actions',
-      header: 'Ações',
-      label: 'Ações',
-      render: (mentorado: Mentorado) => (
-        <div className="flex space-x-2">
-          <button
-            onClick={() => handleEdit(mentorado)}
-            className="p-1 hover:bg-gray-700 rounded"
-            title="Editar"
-          >
-            <Edit className="w-4 h-4 text-blue-400" />
-          </button>
-          <button
-            onClick={() => toggleStatus(mentorado)}
-            className="p-1 hover:bg-gray-700 rounded"
-            title={mentorado.estado_atual === 'ativo' ? 'Desativar' : 'Ativar'}
-          >
-            {mentorado.estado_atual === 'ativo' ? (
-              <Lock className="w-4 h-4 text-yellow-400" />
-            ) : (
-              <Unlock className="w-4 h-4 text-green-400" />
-            )}
-          </button>
-          <button
-            onClick={() => handleDelete(mentorado)}
-            className="p-1 hover:bg-gray-700 rounded"
-            title="Excluir"
-          >
-            <Trash2 className="w-4 h-4 text-red-400" />
-          </button>
-        </div>
-      )
-    }
-  ]
-
   const exportToPDF = async () => {
     try {
       setExportingPDF(true)
-
-      // Criar conteúdo HTML para o PDF
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -269,8 +181,8 @@ export default function MentoradosClientPage() {
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
             th { background-color: #f4f4f4; font-weight: bold; }
-            .status-active { color: green; font-weight: bold; }
-            .status-inactive { color: red; font-weight: bold; }
+            .status-ativo { color: green; font-weight: bold; }
+            .status-inativo { color: red; font-weight: bold; }
             .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
           </style>
         </head>
@@ -279,65 +191,34 @@ export default function MentoradosClientPage() {
             <h1>Lista de Mentorados</h1>
             <p>Relatório gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
           </div>
-
           <div class="stats">
-            <div class="stat">
-              <h3>${stats.total_mentorados}</h3>
-              <p>Total</p>
-            </div>
-            <div class="stat">
-              <h3>${stats.ativos}</h3>
-              <p>Ativos</p>
-            </div>
-            <div class="stat">
-              <h3>${stats.inativos}</h3>
-              <p>Inativos</p>
-            </div>
-            <div class="stat">
-              <h3>${stats.novos_mes}</h3>
-              <p>Novos no Mês</p>
-            </div>
-            <div class="stat">
-              <h3>${stats.taxa_retencao.toFixed(1)}%</h3>
-              <p>Taxa Retenção</p>
-            </div>
+            <div class="stat"><h3>${stats.total}</h3><p>Total</p></div>
+            <div class="stat"><h3>${stats.ativos}</h3><p>Ativos</p></div>
+            <div class="stat"><h3>${stats.inativos}</h3><p>Inativos</p></div>
+            <div class="stat"><h3>${stats.novos_mes}</h3><p>Novos no Mês</p></div>
+            <div class="stat"><h3>${stats.taxa_retencao}%</h3><p>Taxa Retenção</p></div>
           </div>
-
           <table>
             <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Email</th>
-                <th>Telefone</th>
-                <th>Data Entrada</th>
-                <th>Status</th>
-              </tr>
+              <tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Status</th></tr>
             </thead>
             <tbody>
-              ${filteredMentorados.map(mentorado => `
+              ${filteredMentorados.map(m => `
                 <tr>
-                  <td>${mentorado.nome_completo}</td>
-                  <td>${mentorado.email}</td>
-                  <td>${mentorado.telefone || '-'}</td>
-                  <td>${new Date(mentorado.data_entrada).toLocaleDateString('pt-BR')}</td>
-                  <td class="status-${mentorado.estado_atual}">${mentorado.estado_atual === 'ativo' ? 'Ativo' : 'Inativo'}</td>
+                  <td>${m.nome_completo}</td>
+                  <td>${m.email}</td>
+                  <td>${m.telefone || '-'}</td>
+                  <td class="status-${m.estado_atual}">${m.estado_atual || '-'}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
-
-          <div class="footer">
-            <p>Relatório gerado automaticamente pelo sistema de gestão de mentorados</p>
-          </div>
+          <div class="footer"><p>Relatório gerado automaticamente</p></div>
         </body>
         </html>
       `
-
-      // Criar blob e fazer download
       const blob = new Blob([htmlContent], { type: 'text/html' })
       const url = URL.createObjectURL(blob)
-
-      // Criar link temporário para download
       const link = document.createElement('a')
       link.href = url
       link.download = `mentorados-${new Date().toISOString().split('T')[0]}.html`
@@ -345,110 +226,315 @@ export default function MentoradosClientPage() {
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
-
-      console.log('✅ Arquivo HTML gerado com sucesso')
-
     } catch (error) {
-      console.error('❌ Erro ao exportar PDF:', error)
+      console.error('Erro ao exportar:', error)
     } finally {
       setExportingPDF(false)
     }
   }
 
+  // Skeleton loading
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen bg-[#0A0A0A]">
+        <Header title="Mentorados" subtitle="Gestão de mentorados da organização" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] animate-pulse">
+                <div className="h-3 w-20 bg-white/[0.06] rounded mb-3" />
+                <div className="h-8 w-16 bg-white/[0.06] rounded" />
+              </div>
+            ))}
+          </div>
+          <div className="bg-[#141418] rounded-2xl p-4 ring-1 ring-white/[0.06] animate-pulse">
+            <div className="h-10 bg-white/[0.04] rounded-xl" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="bg-[#141418] rounded-2xl p-6 ring-1 ring-white/[0.06] animate-pulse">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-16 h-16 rounded-full bg-white/[0.06]" />
+                  <div className="h-4 w-32 bg-white/[0.06] rounded" />
+                  <div className="h-5 w-20 bg-white/[0.06] rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <PageLayout
-      title="Lista de Mentorados"
-      subtitle={`Gerencie ${stats.total_mentorados} mentorados da sua organização`}
-    >
-      {/* Métricas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
-        <MetricCard
-          title="Total"
-          value={stats.total_mentorados.toString()}
-          icon={Users}
-          iconColor="blue"
-        />
-        <MetricCard
-          title="Ativos"
-          value={stats.ativos.toString()}
-          icon={UserCheck}
-          iconColor="green"
-        />
-        <MetricCard
-          title="Inativos"
-          value={stats.inativos.toString()}
-          icon={UserX}
-          iconColor="orange"
-        />
-        <MetricCard
-          title="Novos (Mês)"
-          value={stats.novos_mes.toString()}
-          icon={TrendingUp}
-          iconColor="blue"
-        />
-        <MetricCard
-          title="Retenção"
-          value={`${stats.taxa_retencao}%`}
-          icon={Clock}
-          iconColor="purple"
-        />
-      </div>
+    <div className="min-h-screen bg-[#0A0A0A]">
+      <Header title="Mentorados" subtitle={`Gestão de ${stats.total} mentorados da organização`} />
 
-      {/* Barra de Ações */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Buscar por nome, email ou telefone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          {/* Total */}
+          <div className="group relative bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] hover:ring-blue-500/20 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-blue-400" />
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Total</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-3xl font-bold text-white tabular-nums">{stats.total}</p>
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-blue-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Ativos */}
+          <div className="group relative bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] hover:ring-emerald-500/20 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-emerald-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Ativos</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-3xl font-bold text-white tabular-nums">{stats.ativos}</p>
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                  <UserCheck className="h-5 w-5 text-emerald-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Inativos */}
+          <div className="group relative bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] hover:ring-red-500/20 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-red-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-red-400" />
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Inativos</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-3xl font-bold text-white tabular-nums">{stats.inativos}</p>
+                <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                  <UserX className="h-5 w-5 text-red-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Novos no Mês */}
+          <div className="group relative bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] hover:ring-purple-500/20 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-purple-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-purple-400" />
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Novos (Mês)</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-3xl font-bold text-white tabular-nums">{stats.novos_mes}</p>
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-purple-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Taxa de Retenção */}
+          <div className="group relative bg-[#141418] rounded-2xl p-5 ring-1 ring-white/[0.06] hover:ring-amber-500/20 transition-all duration-300 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-amber-500/[0.06] to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-amber-400" />
+                <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Retenção</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-3xl font-bold text-white tabular-nums">{stats.taxa_retencao}%</p>
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-amber-400" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="flex space-x-3">
-          <button
-            onClick={exportToPDF}
-            disabled={exportingPDF || filteredMentorados.length === 0}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center disabled:bg-gray-600 disabled:cursor-not-allowed"
-          >
-            <Download className={`w-4 h-4 mr-2 ${exportingPDF ? 'animate-spin' : ''}`} />
-            {exportingPDF ? 'Exportando...' : 'Exportar PDF'}
-          </button>
-          <button
-            onClick={loadMentorados}
-            className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Atualizar
-          </button>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Mentorado
-          </button>
+        {/* Search Bar + Actions */}
+        <div className="bg-[#141418] rounded-2xl p-4 ring-1 ring-white/[0.06]">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
+              <Input
+                placeholder="Buscar por nome, email ou telefone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-11 h-11 bg-white/[0.04] border-white/[0.06] text-white placeholder:text-white/30 rounded-xl focus-visible:ring-blue-500/30 focus-visible:border-blue-500/30"
+              />
+              {searchTerm && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/30">
+                  {filteredMentorados.length} resultado{filteredMentorados.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={exportToPDF}
+                disabled={exportingPDF || filteredMentorados.length === 0}
+                className="h-11 px-4 rounded-xl bg-white/[0.04] ring-1 ring-white/[0.06] text-white/60 hover:text-white hover:bg-white/[0.08] transition-all flex items-center gap-2 text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <Download className={`h-4 w-4 ${exportingPDF ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Exportar</span>
+              </button>
+              <button
+                onClick={loadMentorados}
+                className="h-11 px-4 rounded-xl bg-white/[0.04] ring-1 ring-white/[0.06] text-white/60 hover:text-white hover:bg-white/[0.08] transition-all flex items-center gap-2 text-sm"
+              >
+                <RefreshCw className="h-4 w-4" />
+                <span className="hidden sm:inline">Atualizar</span>
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="h-11 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-all flex items-center gap-2 text-sm font-medium"
+              >
+                <Plus className="h-4 w-4" />
+                Novo Mentorado
+              </button>
+            </div>
+          </div>
         </div>
+
+        {/* Mentorados Grid */}
+        {filteredMentorados.length === 0 ? (
+          <div className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] p-16 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-white/[0.04] flex items-center justify-center mx-auto mb-4">
+              <Users className="h-7 w-7 text-white/20" />
+            </div>
+            <h3 className="text-base font-semibold text-white/60 mb-1">
+              Nenhum mentorado encontrado
+            </h3>
+            <p className="text-sm text-white/30">
+              {searchTerm
+                ? 'Tente ajustar o termo de busca'
+                : 'Nenhum mentorado cadastrado nesta organização'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredMentorados.map((mentorado) => (
+              <div
+                key={mentorado.id}
+                className="group bg-[#141418] rounded-2xl p-6 ring-1 ring-white/[0.06] hover:ring-white/[0.12] transition-all duration-300"
+              >
+                {/* Avatar + Name + Badge */}
+                <div className="flex flex-col items-center text-center mb-4">
+                  <div className="relative mb-3">
+                    {mentorado.avatar_url ? (
+                      <img
+                        src={mentorado.avatar_url}
+                        alt={mentorado.nome_completo}
+                        className="w-16 h-16 rounded-full object-cover ring-2 ring-white/[0.08]"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.style.display = 'none'
+                          const fallback = target.nextElementSibling as HTMLElement
+                          if (fallback) fallback.style.display = 'flex'
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 ring-2 ring-white/[0.08] items-center justify-center"
+                      style={{ display: mentorado.avatar_url ? 'none' : 'flex' }}
+                    >
+                      <span className="text-lg font-bold text-white/70">
+                        {getInitials(mentorado.nome_completo)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <h3 className="text-sm font-semibold text-white truncate max-w-full">
+                    {mentorado.nome_completo}
+                  </h3>
+
+                  <div className="mt-2">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${getEstadoBadgeClasses(mentorado.estado_atual)}`}
+                    >
+                      {mentorado.estado_atual || 'Sem estado'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Contact Info */}
+                <div className="space-y-2 border-t border-white/[0.06] pt-4">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-white/[0.04] flex items-center justify-center flex-shrink-0">
+                      <Mail className="h-3.5 w-3.5 text-white/30" />
+                    </div>
+                    <a
+                      href={`mailto:${mentorado.email}`}
+                      className="text-xs text-white/50 hover:text-white/80 transition-colors truncate"
+                      title={mentorado.email}
+                    >
+                      {mentorado.email}
+                    </a>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-white/[0.04] flex items-center justify-center flex-shrink-0">
+                      <Phone className="h-3.5 w-3.5 text-white/30" />
+                    </div>
+                    {mentorado.telefone ? (
+                      <a
+                        href={`tel:${mentorado.telefone}`}
+                        className="text-xs text-white/50 hover:text-white/80 transition-colors"
+                      >
+                        {mentorado.telefone}
+                      </a>
+                    ) : (
+                      <span className="text-xs text-white/20 italic">Sem telefone</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-white/[0.06]">
+                  <button
+                    onClick={() => handleEdit(mentorado)}
+                    className="p-2 rounded-lg bg-white/[0.04] hover:bg-blue-500/15 text-white/40 hover:text-blue-400 transition-all"
+                    title="Editar"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => toggleStatus(mentorado)}
+                    className={`p-2 rounded-lg bg-white/[0.04] transition-all ${
+                      mentorado.estado_atual === 'ativo'
+                        ? 'hover:bg-yellow-500/15 text-white/40 hover:text-yellow-400'
+                        : 'hover:bg-emerald-500/15 text-white/40 hover:text-emerald-400'
+                    }`}
+                    title={mentorado.estado_atual === 'ativo' ? 'Desativar' : 'Ativar'}
+                  >
+                    {mentorado.estado_atual === 'ativo' ? (
+                      <Lock className="w-4 h-4" />
+                    ) : (
+                      <Unlock className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(mentorado)}
+                    className="p-2 rounded-lg bg-white/[0.04] hover:bg-red-500/15 text-white/40 hover:text-red-400 transition-all"
+                    title="Excluir / Churn"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Tabela */}
-      <DataTable
-        title="Mentorados"
-        data={filteredMentorados}
-        columns={columns}
-      />
-
-      {/* Modais */}
+      {/* Modals */}
       <AddMentoradoModalSafe
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
@@ -482,6 +568,6 @@ export default function MentoradosClientPage() {
         mentorado={churnMentorado}
         onChurnProcessed={handleChurnProcessed}
       />
-    </PageLayout>
+    </div>
   )
 }
