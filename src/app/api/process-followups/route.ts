@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
 const ORG_ID = '9c8c0033-15ea-4e33-a55f-28d81a19693b'
-const API_URL = 'http://api.medicosderesultado.com.br'
+const API_URL = 'https://api.medicosderesultado.com.br'
 
 // API para processar follow-ups agendados
 // IMPORTANTE: Processa TODOS os steps pendentes de cada execução em uma única chamada.

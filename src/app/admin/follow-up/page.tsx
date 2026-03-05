@@ -475,9 +475,11 @@ export default function FollowUpConfigPage() {
     if (!organizationId) return
     setIsProcessing(true)
     try {
-      const count = await processDueFollowups(organizationId)
-      if (count > 0) {
-        toast.success(`${count} follow-up(s) processado(s) e enviado(s)!`)
+      const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
+      const res = await fetch(`${apiUrl}/process-followups`, { method: 'POST' })
+      const result = await res.json()
+      if (result.success) {
+        toast.success('Follow-ups processados com sucesso!')
       } else {
         toast.info('Nenhum follow-up pendente no momento')
       }
