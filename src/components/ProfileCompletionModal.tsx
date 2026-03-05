@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { User, Camera, AlertCircle, Briefcase, Calendar } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
-import Image from 'next/image'
 
 const funcoes = [
   'Proprietário',
@@ -42,6 +41,39 @@ export function ProfileCompletionModal() {
 
   if (!needsCompletion || !user || !orgUser) return null
 
+  const compressImage = (file: File, maxSizeMB = 2): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const img = document.createElement('img')
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const canvas = document.createElement('canvas')
+        let { width, height } = img
+        // Redimensionar se muito grande
+        const MAX_DIM = 800
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = (height / width) * MAX_DIM
+            width = MAX_DIM
+          } else {
+            width = (width / height) * MAX_DIM
+            height = MAX_DIM
+          }
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(
+          (blob) => resolve(blob || file),
+          'image/jpeg',
+          0.8
+        )
+      }
+      img.src = url
+    })
+  }
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -51,39 +83,42 @@ export function ProfileCompletionModal() {
       return
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError('A imagem deve ter no máximo 5MB')
-      return
-    }
-
     setUploadingPhoto(true)
     setError('')
 
     try {
-      // Preview local
-      const reader = new FileReader()
-      reader.onload = (ev) => setFotoPreview(ev.target?.result as string)
-      reader.readAsDataURL(file)
+      // Comprimir imagem automaticamente
+      const compressed = await compressImage(file)
+      const compressedFile = new File([compressed], file.name, { type: 'image/jpeg' })
 
-      // Upload to Supabase Storage
-      const fileExt = file.name.split('.').pop()
-      const fileName = `profile_${user.id}_${Date.now()}.${fileExt}`
-      const filePath = `profile-photos/${fileName}`
+      // Preview local imediato
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = (ev) => resolve(ev.target?.result as string)
+        reader.readAsDataURL(compressedFile)
+      })
+      setFotoPreview(base64)
 
-      const { error: uploadError } = await supabase.storage
-        .from('uploads')
-        .upload(filePath, file, { upsert: true })
+      // Upload to API server
+      const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
+      const formData = new FormData()
+      formData.append('file', compressedFile)
 
-      if (uploadError) {
-        // Fallback: store as base64 data URL
-        console.warn('Storage upload failed, using base64:', uploadError)
-        // fotoPreview already has the base64 from FileReader
-        setFotoPerfil(fotoPreview)
+      const res = await fetch(`${apiUrl}/api/upload`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && data.url) {
+          setFotoPerfil(data.url)
+        } else {
+          setFotoPerfil(base64)
+        }
       } else {
-        const { data: urlData } = supabase.storage
-          .from('uploads')
-          .getPublicUrl(filePath)
-        setFotoPerfil(urlData.publicUrl)
+        console.warn('Upload API failed, using base64')
+        setFotoPerfil(base64)
       }
     } catch (err: any) {
       console.error('Erro no upload:', err)
@@ -173,11 +208,10 @@ export function ProfileCompletionModal() {
               className="relative w-24 h-24 rounded-full bg-gray-800 border-2 border-dashed border-gray-600 hover:border-[#D4AF37] cursor-pointer flex items-center justify-center overflow-hidden transition-all group"
             >
               {fotoPreview ? (
-                <Image
+                <img
                   src={fotoPreview}
                   alt="Foto de perfil"
-                  fill
-                  className="object-cover"
+                  className="w-full h-full object-cover"
                 />
               ) : (
                 <Camera className="h-8 w-8 text-gray-500 group-hover:text-[#D4AF37] transition-colors" />
