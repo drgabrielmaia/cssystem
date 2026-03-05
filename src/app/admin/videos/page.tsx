@@ -7,6 +7,7 @@ import { DataTable } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { supabase } from '@/lib/supabase'
 import { useDraggable } from '@/hooks/use-draggable'
+import { useAuth } from '@/contexts/auth'
 import {
   Play,
   BookOpen,
@@ -29,7 +30,10 @@ import {
   Archive,
   CheckCircle,
   AlertCircle,
-  Star
+  Star,
+  MessageCircle,
+  Bell,
+  BellOff
 } from 'lucide-react'
 
 interface VideoModule {
@@ -77,6 +81,7 @@ interface VideoStats {
 }
 
 export default function AdminVideosPage() {
+  const { organizationId } = useAuth()
   const [modules, setModules] = useState<VideoModule[]>([])
   const [lessons, setLessons] = useState<VideoLesson[]>([])
   const [stats, setStats] = useState<VideoStats>({
@@ -110,6 +115,14 @@ export default function AdminVideosPage() {
   const [lessonPdfs, setLessonPdfs] = useState<any[]>([])
   const [loadingPdfs, setLoadingPdfs] = useState(false)
 
+  // WhatsApp group notification config
+  const [showWhatsAppConfig, setShowWhatsAppConfig] = useState(false)
+  const [whatsAppGroups, setWhatsAppGroups] = useState<{ id: string; name: string }[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState('')
+  const [autoNotifyAula, setAutoNotifyAula] = useState(false)
+  const [loadingGroups, setLoadingGroups] = useState(false)
+  const [savingConfig, setSavingConfig] = useState(false)
+
   // Draggable hooks for modals
   const { ref: draggableModuleRef, isDragging: isModuleDragging } = useDraggable({
     enabled: showModuleModal,
@@ -129,9 +142,68 @@ export default function AdminVideosPage() {
     await Promise.all([
       loadModules(),
       loadLessons(),
-      loadStats()
+      loadStats(),
+      loadWhatsAppConfig()
     ])
     setLoading(false)
+  }
+
+  const loadWhatsAppConfig = async () => {
+    const orgId = organizationId || '9c8c0033-15ea-4e33-a55f-28d81a19693b'
+    try {
+      const { data } = await supabase
+        .from('organizations')
+        .select('whatsapp_group_aulas, whatsapp_auto_notify_aula')
+        .eq('id', orgId)
+        .single()
+
+      if (data) {
+        setSelectedGroupId(data.whatsapp_group_aulas || '')
+        setAutoNotifyAula(data.whatsapp_auto_notify_aula || false)
+      }
+    } catch (err) {
+      console.error('Erro ao carregar config WhatsApp:', err)
+    }
+  }
+
+  const loadWhatsAppGroups = async () => {
+    setLoadingGroups(true)
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
+      const orgId = organizationId || '9c8c0033-15ea-4e33-a55f-28d81a19693b'
+      const res = await fetch(`${apiUrl}/api/whatsapp/groups?userId=default`)
+      const json = await res.json()
+      if (json.success && json.groups) {
+        setWhatsAppGroups(json.groups.map((g: any) => ({ id: g.id, name: g.name || g.subject || g.id })))
+      }
+    } catch (err) {
+      console.error('Erro ao carregar grupos WhatsApp:', err)
+    } finally {
+      setLoadingGroups(false)
+    }
+  }
+
+  const handleSaveWhatsAppConfig = async () => {
+    setSavingConfig(true)
+    try {
+      const orgId = organizationId || '9c8c0033-15ea-4e33-a55f-28d81a19693b'
+      const { error } = await supabase
+        .from('organizations')
+        .update({
+          whatsapp_group_aulas: selectedGroupId || null,
+          whatsapp_auto_notify_aula: autoNotifyAula
+        })
+        .eq('id', orgId)
+
+      if (error) throw error
+      alert('Configuracao salva com sucesso!')
+      setShowWhatsAppConfig(false)
+    } catch (err: any) {
+      console.error('Erro ao salvar config:', err)
+      alert('Erro ao salvar: ' + err.message)
+    } finally {
+      setSavingConfig(false)
+    }
   }
 
   const loadModules = async () => {
@@ -885,6 +957,18 @@ export default function AdminVideosPage() {
             </div>
 
             <div className="flex gap-2">
+              <button
+                onClick={() => { setShowWhatsAppConfig(true); loadWhatsAppGroups() }}
+                className={`flex items-center gap-2 p-2.5 rounded-lg ring-1 transition-colors ${
+                  autoNotifyAula
+                    ? 'text-emerald-400 bg-emerald-500/10 ring-emerald-500/20 hover:bg-emerald-500/20'
+                    : 'text-gray-400 hover:text-white hover:bg-white/[0.06] ring-white/[0.06]'
+                }`}
+                title={autoNotifyAula ? 'Notificacoes WhatsApp ativas' : 'Configurar notificacoes WhatsApp'}
+              >
+                <MessageCircle className="w-4 h-4" />
+                {autoNotifyAula ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
+              </button>
               <button
                 onClick={loadData}
                 className="p-2.5 text-gray-400 hover:text-white hover:bg-white/[0.06] rounded-lg ring-1 ring-white/[0.06] transition-colors"
@@ -1712,6 +1796,113 @@ export default function AdminVideosPage() {
                     <Save className="w-4 h-4" />
                     Salvar Aula
                   </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =============== WHATSAPP CONFIG MODAL =============== */}
+      {showWhatsAppConfig && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowWhatsAppConfig(false)} />
+          <div className="relative bg-[#141418] rounded-2xl ring-1 ring-white/[0.08] w-full max-w-md mx-4 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                  <MessageCircle className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">Notificacoes WhatsApp</h3>
+                  <p className="text-xs text-gray-500">Enviar aviso ao grupo quando nova aula for criada</p>
+                </div>
+              </div>
+              <button onClick={() => setShowWhatsAppConfig(false)} className="p-1.5 text-gray-500 hover:text-white rounded-lg hover:bg-white/[0.06] transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 space-y-5">
+              {/* Toggle */}
+              <div className="flex items-center justify-between p-4 bg-white/[0.02] rounded-xl ring-1 ring-white/[0.04]">
+                <div className="flex items-center gap-3">
+                  {autoNotifyAula ? <Bell className="w-5 h-5 text-emerald-400" /> : <BellOff className="w-5 h-5 text-gray-500" />}
+                  <div>
+                    <p className="text-sm font-medium text-white">Notificacao automatica</p>
+                    <p className="text-xs text-gray-500">Ao criar aula, avisa o grupo</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setAutoNotifyAula(!autoNotifyAula)}
+                  className={`relative w-12 h-6 rounded-full transition-colors ${autoNotifyAula ? 'bg-emerald-500' : 'bg-gray-700'}`}
+                >
+                  <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${autoNotifyAula ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+
+              {/* Group select */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">Grupo WhatsApp</label>
+                {loadingGroups ? (
+                  <div className="flex items-center gap-2 p-3 bg-white/[0.02] rounded-lg ring-1 ring-white/[0.04]">
+                    <RefreshCw className="w-4 h-4 text-gray-500 animate-spin" />
+                    <span className="text-sm text-gray-500">Carregando grupos...</span>
+                  </div>
+                ) : whatsAppGroups.length === 0 ? (
+                  <div className="p-3 bg-white/[0.02] rounded-lg ring-1 ring-white/[0.04]">
+                    <p className="text-sm text-gray-500">Nenhum grupo encontrado. Verifique se o WhatsApp esta conectado.</p>
+                    <button
+                      onClick={loadWhatsAppGroups}
+                      className="mt-2 text-xs text-[#D4AF37] hover:text-[#F5D76E] transition-colors"
+                    >
+                      Tentar novamente
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={selectedGroupId}
+                    onChange={(e) => setSelectedGroupId(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40"
+                  >
+                    <option value="">Selecione um grupo</option>
+                    {whatsAppGroups.map((group) => (
+                      <option key={group.id} value={group.id}>{group.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Preview message */}
+              {autoNotifyAula && selectedGroupId && (
+                <div className="p-3 bg-emerald-500/5 rounded-xl ring-1 ring-emerald-500/10">
+                  <p className="text-xs font-medium text-emerald-400 mb-2">Preview da mensagem:</p>
+                  <p className="text-xs text-gray-400 whitespace-pre-line">
+                    {`📚 *Nova Aula Disponivel!*\n\n📖 *Nome da Aula*\n📁 Modulo: Nome do Modulo\n\n🔗 Acesse a area do aluno para assistir!`}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-3 p-5 border-t border-white/[0.06]">
+              <button
+                onClick={() => setShowWhatsAppConfig(false)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] rounded-lg ring-1 ring-white/[0.06] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveWhatsAppConfig}
+                disabled={savingConfig}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-black bg-[#D4AF37] hover:bg-[#c4a030] rounded-lg transition-colors disabled:opacity-50"
+              >
+                {savingConfig ? (
+                  <><RefreshCw className="w-4 h-4 animate-spin" /> Salvando...</>
+                ) : (
+                  <><Save className="w-4 h-4" /> Salvar</>
                 )}
               </button>
             </div>
