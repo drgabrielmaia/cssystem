@@ -33,13 +33,13 @@ interface LeadInfo {
 }
 
 interface LeadNote {
-  id: number;
+  id: string;
   lead_id: string;
-  nota: string;
-  tipo: string;
-  categoria: string;
-  is_important: boolean;
-  responsavel: string;
+  conteudo: string;
+  tipo_nota: string;
+  titulo?: string;
+  visibilidade: string;
+  prioridade: string;
   created_at: string;
 }
 
@@ -351,11 +351,10 @@ export default function WhatsAppPage() {
         .from('lead_notes')
         .insert({
           lead_id: leadInfo.id,
-          nota: newNote.trim(),
-          tipo: 'geral',
-          categoria: 'whatsapp',
-          is_important: false,
-          responsavel: user?.email || 'sistema'
+          conteudo: newNote.trim(),
+          tipo_nota: 'geral',
+          visibilidade: 'team',
+          prioridade: 'normal',
         })
         .select()
         .single();
@@ -1136,23 +1135,17 @@ export default function WhatsAppPage() {
                     ) : (
                       leadNotes.map(note => (
                         <div key={note.id} className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 border border-[#E9ECEF]/40 shadow-sm">
-                          {note.is_important && (
+                          {(note.prioridade === 'alta' || note.prioridade === 'urgente') && (
                             <div className="flex items-center gap-1 mb-2">
                               <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                              <span className="text-[10px] font-semibold text-amber-600 uppercase">Importante</span>
+                              <span className="text-[10px] font-semibold text-amber-600 uppercase">{note.prioridade === 'urgente' ? 'Urgente' : 'Importante'}</span>
                             </div>
                           )}
-                          <p className="text-sm text-[#1A1A2E] whitespace-pre-wrap">{note.nota}</p>
+                          <p className="text-sm text-[#1A1A2E] whitespace-pre-wrap">{note.conteudo}</p>
                           <div className="flex items-center gap-2 mt-2 text-[10px] text-[#ADB5BD]">
-                            <span>{note.responsavel}</span>
+                            <span>{note.tipo_nota}</span>
                             <span>•</span>
                             <span>{new Date(note.created_at).toLocaleDateString('pt-BR')} {new Date(note.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-                            {note.categoria && (
-                              <>
-                                <span>•</span>
-                                <span className="px-1.5 py-0.5 bg-[#F1F3F5] rounded text-[9px]">{note.categoria}</span>
-                              </>
-                            )}
                           </div>
                         </div>
                       ))
@@ -1281,7 +1274,7 @@ export default function WhatsAppPage() {
                 ) : (
                   leadNotes.slice(0, 3).map(note => (
                     <div key={note.id} className="py-2 border-b border-[#F1F3F5] last:border-0">
-                      <p className="text-xs text-[#6C757D] line-clamp-2">{note.nota}</p>
+                      <p className="text-xs text-[#6C757D] line-clamp-2">{note.conteudo}</p>
                       <p className="text-[10px] text-[#ADB5BD] mt-0.5">
                         {new Date(note.created_at).toLocaleDateString('pt-BR')}
                       </p>
