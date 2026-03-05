@@ -105,7 +105,7 @@ function ICPFormContent() {
     setSubmitting(true)
     try {
       // Save response
-      const { data: respData } = await supabase
+      const { data: respData, error: insertError } = await supabase
         .from('icp_responses')
         .insert({
           template_id: template.id,
@@ -116,30 +116,39 @@ function ICPFormContent() {
         .select('id')
         .single()
 
+      if (insertError || !respData) {
+        console.error('Error inserting ICP response:', insertError)
+        alert('Erro ao salvar suas respostas. Tente novamente.')
+        return
+      }
+
       // Update mentorado
-      if (respData) {
-        const updateData: Record<string, any> = {
-          icp_completed: true,
-          icp_response_id: respData.id,
-        }
+      const updateData: Record<string, any> = {
+        icp_completed: true,
+        icp_response_id: respData.id,
+      }
 
-        // If any image field has id containing 'foto', 'avatar', or 'perfil', save as avatar_url
-        const avatarField = template.fields.find(f =>
-          f.type === 'image' && /foto|avatar|perfil|profile|photo/i.test(f.id)
-        )
-        if (avatarField && responses[avatarField.id]) {
-          updateData.avatar_url = responses[avatarField.id]
-        }
+      // If any image field has id containing 'foto', 'avatar', or 'perfil', save as avatar_url
+      const avatarField = template.fields.find(f =>
+        f.type === 'image' && /foto|avatar|perfil|profile|photo/i.test(f.id)
+      )
+      if (avatarField && responses[avatarField.id]) {
+        updateData.avatar_url = responses[avatarField.id]
+      }
 
-        await supabase
-          .from('mentorados')
-          .update(updateData)
-          .eq('id', mentorado.id)
+      const { error: updateError } = await supabase
+        .from('mentorados')
+        .update(updateData)
+        .eq('id', mentorado.id)
+
+      if (updateError) {
+        console.error('Error updating mentorado:', updateError)
       }
 
       setSubmitted(true)
     } catch (error) {
       console.error('Error submitting ICP:', error)
+      alert('Erro ao salvar suas respostas. Tente novamente.')
     } finally {
       setSubmitting(false)
     }
@@ -253,15 +262,14 @@ function ICPFormContent() {
     )
   }
 
-  // NO TEMPLATE
+  // NO TEMPLATE - redirect to dashboard instead of showing error
   if (!template || !template.fields?.length) {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/mentorado'
+    }
     return (
       <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center p-4">
-        <Card className="p-8 bg-white/5 backdrop-blur-xl border-white/10 max-w-md w-full text-center">
-          <Brain className="w-16 h-16 mx-auto mb-4 text-white/20" />
-          <h2 className="text-xl font-bold text-white mb-2">Formulário não disponível</h2>
-          <p className="text-white/40">O formulário ICP ainda não foi configurado pelo administrador.</p>
-        </Card>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
       </div>
     )
   }

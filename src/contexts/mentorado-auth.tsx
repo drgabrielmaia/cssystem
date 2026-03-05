@@ -158,6 +158,11 @@ export function MentoradoAuthProvider({ children }: { children: ReactNode }) {
             const result = await response.json()
             if (result.success && result.mentorado) {
               setMentorado(result.mentorado)
+              // Store/refresh JWT token from validate (so write operations work after refresh)
+              if (result.token) {
+                localStorage.setItem('cs_auth_token', result.token)
+                document.cookie = `cs_auth_token=${result.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
+              }
             } else {
               removeCookie(COOKIE_NAME)
               localStorage.removeItem('mentorado')

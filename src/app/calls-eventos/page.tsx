@@ -32,7 +32,10 @@ import {
   FileText,
   Phone,
   Mail,
-  RefreshCw
+  RefreshCw,
+  Upload,
+  X,
+  Loader2
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
@@ -154,6 +157,25 @@ export default function CallsEventosPage() {
     replay_url: '',
     replay_disponivel_ate: '',
   })
+  const [uploadingCapa, setUploadingCapa] = useState(false)
+
+  const handleCapaUpload = async (file: File) => {
+    setUploadingCapa(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
+      const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData })
+      const result = await res.json()
+      if (result.success && result.url) {
+        setNewEvent(prev => ({ ...prev, imagem_capa: result.url }))
+      }
+    } catch (err) {
+      console.error('Erro no upload:', err)
+    } finally {
+      setUploadingCapa(false)
+    }
+  }
 
   // New participant form state
   const [newParticipant, setNewParticipant] = useState({
@@ -1020,13 +1042,39 @@ export default function CallsEventosPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-gray-400 text-xs font-medium">URL da Imagem de Capa</Label>
-                  <Input
-                    value={newEvent.imagem_capa}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, imagem_capa: e.target.value }))}
-                    placeholder="https://..."
-                    className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-purple-500/30"
-                  />
+                  <Label className="text-gray-400 text-xs font-medium">Imagem de Capa</Label>
+                  {newEvent.imagem_capa ? (
+                    <div className="relative">
+                      <img src={newEvent.imagem_capa} alt="Capa" className="w-full h-32 object-cover rounded-lg" />
+                      <button
+                        type="button"
+                        onClick={() => setNewEvent(prev => ({ ...prev, imagem_capa: '' }))}
+                        className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-white/10 rounded-lg cursor-pointer hover:border-purple-500/30 transition-colors">
+                      {uploadingCapa ? (
+                        <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+                      ) : (
+                        <div className="text-center">
+                          <Upload className="w-6 h-6 mx-auto mb-1 text-gray-500" />
+                          <span className="text-xs text-gray-500">Clique para enviar imagem</span>
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) handleCapaUpload(file)
+                        }}
+                      />
+                    </label>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

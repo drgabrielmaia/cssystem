@@ -20,8 +20,12 @@ import {
   Settings,
   Target,
   Sun,
-  Moon
+  Moon,
+  Calendar,
+  Building2,
+  Users
 } from 'lucide-react'
+import { isBetaUser } from '@/lib/beta-access'
 
 interface MentoradoLayoutProps {
   children: React.ReactNode
@@ -61,6 +65,18 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
   const [isLoading, setIsLoading] = useState(true)
   const pathname = usePathname()
   const { theme, toggleTheme, isDark } = useTheme()
+
+  const isBeta = isBetaUser(mentorado?.email)
+
+  // Build navigation dynamically based on beta access
+  const fullNavigation = [
+    ...navigation,
+    ...(isBeta ? [
+      { name: 'Eventos', href: '/mentorado/eventos', icon: Calendar },
+      { name: 'Airbnb', href: '/mentorado/airbnb', icon: Building2 },
+      { name: 'Comunidade', href: '/mentorado/comunidade', icon: Users },
+    ] : []),
+  ]
 
   useEffect(() => {
     checkAuth()
@@ -172,7 +188,7 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
 
             {/* Navegação Principal */}
             <nav className="hidden md:flex items-center space-x-6">
-              {navigation.map((item) => {
+              {fullNavigation.map((item) => {
                 const isActive = pathname === item.href ||
                   (item.href === '/mentorado' && pathname === '/mentorado') ||
                   (item.href !== '/mentorado' && pathname.startsWith(item.href))
@@ -269,7 +285,7 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
           {/* Menu de Navegação */}
           <nav className="flex-1 p-6">
             <div className="space-y-2">
-              {navigation.map((item) => {
+              {fullNavigation.map((item) => {
                 const isActive = pathname === item.href ||
                   (item.href === '/mentorado' && pathname === '/mentorado') ||
                   (item.href !== '/mentorado' && pathname.startsWith(item.href))
@@ -326,7 +342,7 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
       {/* Mobile Navigation */}
       <div className={`md:hidden fixed bottom-0 left-0 right-0 border-t px-4 py-2 ${isDark ? 'bg-[#141414] border-white/5' : 'bg-white border-[#F3F3F5]'}`}>
         <div className="flex items-center justify-around">
-          {navigation.map((item) => {
+          {fullNavigation.map((item) => {
             const isActive = pathname === item.href ||
               (item.href === '/mentorado' && pathname === '/mentorado') ||
               (item.href !== '/mentorado' && pathname.startsWith(item.href))

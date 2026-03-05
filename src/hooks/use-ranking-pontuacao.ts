@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
 
 interface RankingMentorado {
   mentorado_id: string
@@ -67,53 +68,65 @@ export function useRankingPontuacao(refreshInterval = 60000) {
     setState(prev => ({ ...prev, loading: true, error: null }))
 
     try {
-      const response = await fetch('/api/ranking', {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
+      // Query mentorados directly via ApiQueryBuilder (client-side)
+      const { data: mentorados, error } = await supabase
+        .from('mentorados')
+        .select('id, nome_completo, genero, especialidade, pontuacao_total')
+        .gt('pontuacao_total', 0)
+        .order('pontuacao_total', { ascending: false })
+        .limit(50)
+
+      if (error) throw error
+
+      // Build ranking from mentorados
+      const ranking = (mentorados || []).map((m: any, index: number) => ({
+        mentorado_id: m.id,
+        nome_completo: m.nome_completo,
+        pontuacao_total: m.pontuacao_total || 0,
+        total_indicacoes: 0,
+        genero: m.genero || 'nao_informado',
+        especialidade: m.especialidade,
+        posicao: index + 1
+      }))
+
+      // Separate by gender
+      const rankingMasculino = ranking
+        .filter((r: any) => r.genero === 'masculino')
+        .map((r: any, index: number) => ({ ...r, posicao: index + 1 }))
+      const rankingFeminino = ranking
+        .filter((r: any) => r.genero === 'feminino')
+        .map((r: any, index: number) => ({ ...r, posicao: index + 1 }))
+
+      const newState: RankingState = {
+        ranking: {
+          geral: ranking,
+          masculino: rankingMasculino,
+          feminino: rankingFeminino
+        },
+        stats: {
+          total_mentorados: ranking.length,
+          total_masculino: rankingMasculino.length,
+          total_feminino: rankingFeminino.length,
+          total_pontos: ranking.reduce((sum: number, r: any) => sum + r.pontuacao_total, 0)
+        },
+        loading: false,
+        error: null,
+        lastUpdated: new Date()
+      }
+
+      setState(newState)
+
+      // Update cache
+      rankingCache = {
+        data: newState,
+        timestamp: Date.now()
+      }
+
+      console.log('✅ Ranking loaded:', {
+        total: ranking.length,
+        masculino: rankingMasculino.length,
+        feminino: rankingFeminino.length
       })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      const result = await response.json()
-
-      if (result.success) {
-        const newState: RankingState = {
-          ranking: {
-            geral: result.ranking.geral || [],
-            masculino: result.ranking.masculino || [],
-            feminino: result.ranking.feminino || []
-          },
-          stats: result.stats || {
-            total_mentorados: 0,
-            total_masculino: 0,
-            total_feminino: 0,
-            total_pontos: 0
-          },
-          loading: false,
-          error: null,
-          lastUpdated: new Date()
-        }
-
-        setState(newState)
-
-        // Update cache
-        rankingCache = {
-          data: newState,
-          timestamp: Date.now()
-        }
-
-        console.log('✅ Ranking loaded:', {
-          total: result.ranking.geral.length,
-          masculino: result.ranking.masculino.length,
-          feminino: result.ranking.feminino.length,
-          total_pontos: result.stats.total_pontos
-        })
-      } else {
-        throw new Error(result.error || 'Erro na API')
-      }
 
     } catch (error) {
       console.error('❌ Error loading ranking:', error)

@@ -46,10 +46,21 @@ function MentoradoPageContent() {
 
   useEffect(() => {
     if (mentorado) {
-      // ICP redirect: se o mentorado ainda nao preencheu o ICP, redirecionar
+      // ICP redirect: only redirect if mentorado hasn't completed AND there's an active template
       if (!MOCK_MODE && !mentorado.icp_completed) {
-        window.location.href = '/mentorado/icp'
-        return
+        // Check if ICP template exists before redirecting
+        supabase
+          .from('icp_form_templates')
+          .select('id')
+          .eq('is_active', true)
+          .limit(1)
+          .then(({ data }: any) => {
+            if (data && data.length > 0) {
+              window.location.href = '/mentorado/icp'
+            }
+            // If no template exists, skip ICP and show dashboard normally
+          })
+        // Don't return - continue loading dashboard while checking
       }
       if (!MOCK_MODE) {
         checkProfileComplete()
