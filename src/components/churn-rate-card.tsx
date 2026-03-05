@@ -108,6 +108,7 @@ export function ChurnRateCard() {
         .select('id, nome_completo, motivo_exclusao, data_entrada, data_exclusao, excluido')
         .eq('organization_id', organizationId)
         .eq('excluido', true)
+        .eq('motivo_exclusao', 'churn')
 
       // Aplicar filtro de data para churns no periodo selecionado
       if (dateRange) {

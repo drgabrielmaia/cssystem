@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { useStableMutation } from '@/hooks/use-stable-mutation'
 import { useActiveOrganization } from '@/contexts/organization'
-import { apiFetch } from '@/lib/api'
 import { ChurnRateCard } from '@/components/churn-rate-card'
 import EmbeddedAIChat from '@/components/embedded-ai-chat'
 import { supabase } from '@/lib/supabase'
@@ -141,25 +140,85 @@ export default function LeadsPage() {
     setLeadsError(null)
 
     try {
-      const response = await apiFetch('/api/leads/search', {
-        method: 'POST',
-        body: JSON.stringify({
-          organization_id: activeOrganizationId,
-          search: debouncedSearch || undefined,
-          status: statusFilter !== 'todos' ? statusFilter : undefined,
-          origem: origemFilter !== 'todas' ? origemFilter : undefined,
-          date_filter: dateFilter,
-          custom_start: dateFilter === 'personalizado' ? customStartDate : undefined,
-          custom_end: dateFilter === 'personalizado' ? customEndDate : undefined,
-          page: currentPage,
-          limit: leadsPerPage
-        })
-      })
-      const result = await response.json()
-      if (result.error) throw new Error(result.error.message || 'Erro ao carregar leads')
-      setLeads(result.data || [])
-      setTotalLeadsCount(result.count || 0)
-      setTotalServerPages(result.totalPages || 1)
+      // Build query via ApiQueryBuilder (goes through /api/query)
+      let query = supabase
+        .from('leads')
+        .select('*', { count: 'exact' })
+        .eq('organization_id', activeOrganizationId)
+
+      // Status filter
+      if (statusFilter && statusFilter !== 'todos') {
+        query = query.eq('status', statusFilter)
+      }
+
+      // Origem filter
+      if (origemFilter && origemFilter !== 'todas') {
+        query = query.eq('origem', origemFilter)
+      }
+
+      // Search filter (OR across multiple columns)
+      if (debouncedSearch && debouncedSearch.trim()) {
+        const term = `%${debouncedSearch.trim()}%`
+        query = query.or(`nome_completo.ilike.${term},email.ilike.${term},telefone.ilike.${term},empresa.ilike.${term}`)
+      }
+
+      // Date filtering
+      if (dateFilter && dateFilter !== 'todos') {
+        const now = new Date()
+        let startDate: Date | null = null
+        let endDate: Date | null = null
+
+        if (dateFilter === 'mes_atual') {
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+          endDate = now
+        } else if (dateFilter === 'ano_atual') {
+          startDate = new Date(now.getFullYear(), 0, 1)
+          endDate = now
+        } else if (dateFilter === 'semana_atual') {
+          const day = now.getDay()
+          const diff = day === 0 ? 6 : day - 1
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - diff)
+          startDate.setHours(0, 0, 0, 0)
+          endDate = now
+        } else if (dateFilter === 'semana_passada') {
+          const day = now.getDay()
+          const diff = day === 0 ? 6 : day - 1
+          const thisMonday = new Date(now)
+          thisMonday.setDate(now.getDate() - diff)
+          thisMonday.setHours(0, 0, 0, 0)
+          startDate = new Date(thisMonday)
+          startDate.setDate(thisMonday.getDate() - 7)
+          endDate = new Date(thisMonday)
+          endDate.setSeconds(-1)
+        } else if (dateFilter === 'mes_passado') {
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0)
+          endDate.setHours(23, 59, 59, 999)
+        } else if (dateFilter === 'personalizado' && customStartDate && customEndDate) {
+          startDate = new Date(customStartDate)
+          endDate = new Date(customEndDate)
+          endDate.setHours(23, 59, 59, 999)
+        }
+
+        if (startDate && endDate) {
+          query = query.gte('created_at', startDate.toISOString())
+          query = query.lte('created_at', endDate.toISOString())
+        }
+      }
+
+      // Order and pagination
+      query = query.order('created_at', { ascending: false })
+      const from = (currentPage - 1) * leadsPerPage
+      const to = from + leadsPerPage - 1
+      query = query.range(from, to)
+
+      const { data, error, count } = await query
+
+      if (error) throw new Error(error.message || 'Erro ao carregar leads')
+      setLeads(data || [])
+      setTotalLeadsCount(count || 0)
+      setTotalServerPages(Math.ceil((count || 0) / leadsPerPage))
     } catch (err: any) {
       console.error('Erro ao carregar leads:', err)
       setLeadsError(err.message)
@@ -1576,6 +1635,12 @@ ${conversionData.map(c => `${c.month}: ${c.leads} leads, ${c.vendas} vendas, ${c
                     ✕
                   </button>
                 </div>
+
+                {(createLead.error || updateLead.error) && (
+                  <div className="mb-4 p-3 bg-red-500/20 border border-red-500/40 rounded-lg text-red-300 text-sm">
+                    Erro: {createLead.error || updateLead.error}
+                  </div>
+                )}
 
                 <EditLeadForm
                   lead={editingLead}
