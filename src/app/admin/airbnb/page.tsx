@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   Building2, DollarSign, TrendingUp, Users, Calendar,
   Check, X, Eye, Loader2, Settings, BarChart3,
-  MapPin, Star, Clock, Percent
+  MapPin, Star, Clock, Percent, Award, CheckCircle2, ImageIcon
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
@@ -24,6 +24,8 @@ interface Clinica {
   owner_mentorado_id: string
   status: string
   preco_por_turno: number
+  fotos_verificadas?: boolean
+  destaque?: boolean
   created_at: string
   owner_nome?: string
 }
@@ -152,6 +154,22 @@ export default function AdminAirbnbPage() {
     } catch (err) {
       console.error('Error updating clinica:', err)
       toast.error('Erro ao atualizar clinica')
+    }
+  }
+
+  const handleToggleClinicaField = async (clinicaId: string, field: 'fotos_verificadas' | 'destaque', currentValue: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('clinicas')
+        .update({ [field]: !currentValue })
+        .eq('id', clinicaId)
+
+      if (error) throw error
+      toast.success(`${field === 'fotos_verificadas' ? 'Fotos verificadas' : 'Destaque'} ${!currentValue ? 'ativado' : 'desativado'}!`)
+      loadData()
+    } catch (err) {
+      console.error('Error toggling field:', err)
+      toast.error('Erro ao atualizar')
     }
   }
 
@@ -361,45 +379,82 @@ export default function AdminAirbnbPage() {
               </div>
             ) : (
               clinicas.map(c => (
-                <div key={c.id} className="bg-[#141414] rounded-xl p-5 border border-white/5 flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-white font-semibold text-sm">{c.titulo}</h3>
-                      <Badge className={
-                        c.status === 'ativa' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                        c.status === 'em_revisao' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                        'bg-red-500/10 text-red-400 border-red-500/20'
-                      }>
-                        {c.status}
-                      </Badge>
+                <div key={c.id} className="bg-[#141414] rounded-xl p-5 border border-white/5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-white font-semibold text-sm">{c.titulo}</h3>
+                        <Badge className={
+                          c.status === 'ativa' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+                          c.status === 'em_revisao' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                          'bg-red-500/10 text-red-400 border-red-500/20'
+                        }>
+                          {c.status}
+                        </Badge>
+                        {c.destaque && (
+                          <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[10px]">
+                            <Award className="w-3 h-3 mr-1" />Destaque
+                          </Badge>
+                        )}
+                        {c.fotos_verificadas && (
+                          <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px]">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />Verificado
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-gray-500 text-xs">
+                        {c.owner_nome} · {[c.cidade, c.estado].filter(Boolean).join(', ')} · R$ {Number(c.preco_por_turno).toFixed(0)}/turno
+                        {' · '}Criada em {new Date(c.created_at).toLocaleDateString('pt-BR')}
+                      </p>
                     </div>
-                    <p className="text-gray-500 text-xs">
-                      {c.owner_nome} · {[c.cidade, c.estado].filter(Boolean).join(', ')} · R$ {Number(c.preco_por_turno).toFixed(0)}/turno
-                      {' · '}Criada em {new Date(c.created_at).toLocaleDateString('pt-BR')}
-                    </p>
+                    <div className="flex gap-2 ml-4">
+                      {c.status !== 'ativa' && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleUpdateClinicaStatus(c.id, 'ativa')}
+                          className="bg-green-500/10 text-green-400 hover:bg-green-500/20 text-xs"
+                        >
+                          <Check className="w-3.5 h-3.5 mr-1" />
+                          Ativar
+                        </Button>
+                      )}
+                      {c.status !== 'inativa' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleUpdateClinicaStatus(c.id, 'inativa')}
+                          className="border-white/10 text-gray-400 hover:text-red-400 text-xs"
+                        >
+                          <X className="w-3.5 h-3.5 mr-1" />
+                          Desativar
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex gap-2 ml-4">
-                    {c.status !== 'ativa' && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleUpdateClinicaStatus(c.id, 'ativa')}
-                        className="bg-green-500/10 text-green-400 hover:bg-green-500/20 text-xs"
-                      >
-                        <Check className="w-3.5 h-3.5 mr-1" />
-                        Ativar
-                      </Button>
-                    )}
-                    {c.status !== 'inativa' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleUpdateClinicaStatus(c.id, 'inativa')}
-                        className="border-white/10 text-gray-400 hover:text-red-400 text-xs"
-                      >
-                        <X className="w-3.5 h-3.5 mr-1" />
-                        Desativar
-                      </Button>
-                    )}
+                  {/* Toggle buttons for fotos verificadas and destaque */}
+                  <div className="flex gap-2 pt-2 border-t border-white/5">
+                    <button
+                      onClick={() => handleToggleClinicaField(c.id, 'fotos_verificadas', !!c.fotos_verificadas)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        c.fotos_verificadas
+                          ? 'bg-blue-500/15 border border-blue-500/30 text-blue-400'
+                          : 'bg-white/[0.03] border border-white/[0.06] text-gray-500 hover:text-blue-400'
+                      }`}
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      {c.fotos_verificadas ? 'Fotos Verificadas' : 'Verificar Fotos'}
+                    </button>
+                    <button
+                      onClick={() => handleToggleClinicaField(c.id, 'destaque', !!c.destaque)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        c.destaque
+                          ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400'
+                          : 'bg-white/[0.03] border border-white/[0.06] text-gray-500 hover:text-amber-400'
+                      }`}
+                    >
+                      <Award className="w-3.5 h-3.5" />
+                      {c.destaque ? 'Em Destaque' : 'Promover Destaque'}
+                    </button>
                   </div>
                 </div>
               ))

@@ -16,6 +16,7 @@ import { RankingPorGenero } from '@/components/ranking/RankingPorGenero'
 import MentoradoInfoWrapper from '@/components/MentoradoInfoWrapper'
 import Link from 'next/link'
 import { MOCK_MODE, MOCK_MODULES } from '@/lib/mock-data'
+import { isBetaUser as checkBetaUser } from '@/lib/beta-access'
 
 interface VideoModule {
   id: string
@@ -41,14 +42,15 @@ function MentoradoPageContent() {
   const [animateStats, setAnimateStats] = useState(false)
 
   // Beta users - features em teste
-  const BETA_USERS = ['emersonbljr2802@gmail.com']
-  const isBetaUser = BETA_USERS.includes(mentorado?.email?.toLowerCase() || '')
-
-  // ICP auto-redirect DESATIVADO por enquanto (perguntas erradas)
-  // TODO: Reativar quando o admin corrigir o template de perguntas
+  const isBetaUser = checkBetaUser(mentorado?.email)
 
   useEffect(() => {
     if (mentorado) {
+      // ICP redirect: se o mentorado ainda nao preencheu o ICP, redirecionar
+      if (!MOCK_MODE && !mentorado.icp_completed) {
+        window.location.href = '/mentorado/icp'
+        return
+      }
       if (!MOCK_MODE) {
         checkProfileComplete()
       }

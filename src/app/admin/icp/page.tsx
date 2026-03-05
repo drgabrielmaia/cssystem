@@ -11,7 +11,7 @@ import {
   Save, Eye, ChevronDown, ChevronUp, Loader2, Settings,
   PieChart, TrendingUp, Target, Brain, Search, Download,
   Edit3, Check, X, ArrowLeft, Sparkles, AlertCircle, CheckCircle2,
-  ToggleLeft, ToggleRight, Type, List, AlignLeft, Hash, ListChecks
+  ToggleLeft, ToggleRight, Type, List, AlignLeft, Hash, ListChecks, Camera
 } from 'lucide-react'
 
 // ============================================================
@@ -20,7 +20,7 @@ import {
 interface ICPField {
   id: string
   label: string
-  type: 'text' | 'textarea' | 'select' | 'multiselect' | 'number'
+  type: 'text' | 'textarea' | 'select' | 'multiselect' | 'number' | 'image'
   required: boolean
   placeholder?: string
   options?: string[]
@@ -59,6 +59,7 @@ const FIELD_TYPES: { value: ICPField['type']; label: string; icon: any }[] = [
   { value: 'select', label: 'Seleção Única', icon: List },
   { value: 'multiselect', label: 'Múltipla Escolha', icon: ListChecks },
   { value: 'number', label: 'Número', icon: Hash },
+  { value: 'image', label: 'Upload de Imagem', icon: Camera },
 ]
 
 // ============================================================

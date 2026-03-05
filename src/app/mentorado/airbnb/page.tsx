@@ -12,12 +12,15 @@ import {
   Search, MapPin, Star, Building2, Plus, Filter, X,
   Wifi, Car, Users, Wind, Zap, Camera, Stethoscope,
   Shield, Accessibility, Bath, ChevronRight, Heart,
-  DollarSign, Clock, Home, Loader2, ImageIcon, ArrowLeft
+  DollarSign, Clock, Home, Loader2, ImageIcon, ArrowLeft,
+  CheckCircle2, Award
 } from 'lucide-react'
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { isBetaUser } from '@/lib/beta-access'
+import { Card } from '@/components/ui/card'
 
 interface Clinica {
   id: string
@@ -50,6 +53,8 @@ interface Clinica {
   regras?: string
   foto_capa?: string
   fotos: string[]
+  fotos_verificadas?: boolean
+  destaque?: boolean
   status: string
   created_at: string
   updated_at: string
@@ -253,7 +258,7 @@ export default function AirbnbPage() {
   }
 
   const filteredClinicas = useMemo(() => {
-    return clinicas.filter(c => {
+    const filtered = clinicas.filter(c => {
       if (searchTerm) {
         const term = searchTerm.toLowerCase()
         if (!c.titulo.toLowerCase().includes(term) &&
@@ -274,6 +279,8 @@ export default function AirbnbPage() {
       }
       return true
     })
+    // Destaque clinics first
+    return filtered.sort((a, b) => (b.destaque ? 1 : 0) - (a.destaque ? 1 : 0))
   }, [clinicas, searchTerm, filterCidade, filterEstado, filterPrecoMin, filterPrecoMax, filterAmenidades])
 
   const activeFiltersCount = [filterCidade, filterEstado, filterPrecoMin, filterPrecoMax].filter(Boolean).length + filterAmenidades.length
@@ -288,6 +295,25 @@ export default function AirbnbPage() {
 
   const getClinicaAmenidades = (clinica: Clinica) => {
     return Object.entries(amenidadeConfig).filter(([key]) => (clinica as any)[key])
+  }
+
+  // Beta access check
+  if (mentorado && !isBetaUser(mentorado.email)) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+        <Card className="p-8 bg-white/5 backdrop-blur-xl border-white/10 max-w-md w-full text-center">
+          <Shield className="w-16 h-16 mx-auto mb-4 text-amber-400/50" />
+          <h2 className="text-2xl font-bold text-white mb-2">Acesso Restrito</h2>
+          <p className="text-white/50 mb-6">Esta funcionalidade está em fase beta e disponível apenas para usuários selecionados.</p>
+          <Link href="/mentorado">
+            <Button className="bg-amber-500 hover:bg-amber-600 text-black font-semibold">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar ao Portal
+            </Button>
+          </Link>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -493,7 +519,11 @@ export default function AirbnbPage() {
               <Link
                 key={clinica.id}
                 href={`/mentorado/airbnb/${clinica.id}`}
-                className="group bg-[#141414] rounded-2xl overflow-hidden border border-white/5 hover:border-white/15 transition-all duration-500 hover:shadow-2xl hover:shadow-amber-500/5 hover:-translate-y-1"
+                className={`group bg-[#141414] rounded-2xl overflow-hidden border transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 ${
+                  clinica.destaque
+                    ? 'border-amber-500/30 hover:border-amber-400/50 hover:shadow-amber-500/10 ring-1 ring-amber-500/10'
+                    : 'border-white/5 hover:border-white/15 hover:shadow-amber-500/5'
+                }`}
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
                 {/* Image */}
@@ -520,12 +550,26 @@ export default function AirbnbPage() {
                   >
                     <Heart className={`w-4 h-4 ${favorites.has(clinica.id) ? 'fill-red-500 text-red-500' : 'text-white'}`} />
                   </button>
-                  {/* Status badge */}
-                  {clinica.status === 'em_revisao' && (
-                    <div className="absolute top-3 left-3 px-2.5 py-1 bg-amber-500/90 backdrop-blur-md rounded-lg text-[10px] font-semibold text-white uppercase tracking-wider">
-                      Em revisao
-                    </div>
-                  )}
+                  {/* Status / Destaque / Verified badges */}
+                  <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+                    {clinica.destaque && (
+                      <div className="flex items-center gap-1 px-2.5 py-1 bg-amber-500/90 backdrop-blur-md rounded-lg text-[10px] font-semibold text-white uppercase tracking-wider">
+                        <Award className="w-3 h-3" />
+                        Destaque
+                      </div>
+                    )}
+                    {clinica.fotos_verificadas && (
+                      <div className="flex items-center gap-1 px-2.5 py-1 bg-blue-500/90 backdrop-blur-md rounded-lg text-[10px] font-semibold text-white uppercase tracking-wider">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Verificado
+                      </div>
+                    )}
+                    {clinica.status === 'em_revisao' && (
+                      <div className="px-2.5 py-1 bg-gray-500/90 backdrop-blur-md rounded-lg text-[10px] font-semibold text-white uppercase tracking-wider">
+                        Em revisao
+                      </div>
+                    )}
+                  </div>
                   {/* Price overlay */}
                   <div className="absolute bottom-3 left-3 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-lg">
                     <span className="text-white font-bold text-sm">

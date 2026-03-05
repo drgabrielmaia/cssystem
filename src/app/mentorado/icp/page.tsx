@@ -9,14 +9,14 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   Brain, Loader2, ChevronRight, ChevronLeft, Check, Sparkles,
-  User, ArrowLeft, CheckCircle2, Target, Star
+  User, ArrowLeft, CheckCircle2, Target, Star, Camera, Upload, X
 } from 'lucide-react'
 import Link from 'next/link'
 
 interface ICPField {
   id: string
   label: string
-  type: 'text' | 'textarea' | 'select' | 'multiselect' | 'number'
+  type: 'text' | 'textarea' | 'select' | 'multiselect' | 'number' | 'image'
   required: boolean
   placeholder?: string
   options?: string[]
@@ -38,6 +38,7 @@ function ICPFormContent() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [alreadyCompleted, setAlreadyCompleted] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
   const loadTemplate = useCallback(async () => {
     const { data } = await supabase
@@ -117,12 +118,22 @@ function ICPFormContent() {
 
       // Update mentorado
       if (respData) {
+        const updateData: Record<string, any> = {
+          icp_completed: true,
+          icp_response_id: respData.id,
+        }
+
+        // If any image field has id containing 'foto', 'avatar', or 'perfil', save as avatar_url
+        const avatarField = template.fields.find(f =>
+          f.type === 'image' && /foto|avatar|perfil|profile|photo/i.test(f.id)
+        )
+        if (avatarField && responses[avatarField.id]) {
+          updateData.avatar_url = responses[avatarField.id]
+        }
+
         await supabase
           .from('mentorados')
-          .update({
-            icp_completed: true,
-            icp_response_id: respData.id,
-          })
+          .update(updateData)
           .eq('id', mentorado.id)
       }
 
@@ -131,6 +142,24 @@ function ICPFormContent() {
       console.error('Error submitting ICP:', error)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleImageUpload = async (fieldId: string, file: File) => {
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
+      const resp = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData })
+      const result = await resp.json()
+      if (result.success) {
+        setResponses({ ...responses, [fieldId]: result.url })
+      }
+    } catch (err) {
+      console.error('Upload error:', err)
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -393,6 +422,47 @@ function ICPFormContent() {
                         )
                       })}
                     </div>
+                  </div>
+                )}
+
+                {currentField.type === 'image' && (
+                  <div className="space-y-4">
+                    {responses[currentField.id] ? (
+                      <div className="relative inline-block">
+                        <img
+                          src={responses[currentField.id]}
+                          alt="Preview"
+                          className="w-40 h-40 rounded-2xl object-cover border-2 border-amber-500/30 shadow-lg shadow-amber-500/10"
+                        />
+                        <button
+                          onClick={() => setResponses({ ...responses, [currentField.id]: '' })}
+                          className="absolute -top-2 -right-2 w-7 h-7 bg-rose-500 rounded-full flex items-center justify-center text-white hover:bg-rose-600 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:border-amber-500/30 hover:bg-white/[0.02] transition-all">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) handleImageUpload(currentField.id, file)
+                          }}
+                        />
+                        {uploading ? (
+                          <Loader2 className="w-10 h-10 text-amber-400 animate-spin" />
+                        ) : (
+                          <>
+                            <Camera className="w-10 h-10 text-white/20 mb-3" />
+                            <span className="text-sm text-white/40">Clique para enviar uma foto</span>
+                            <span className="text-xs text-white/20 mt-1">JPG, PNG ou WebP (max 5MB)</span>
+                          </>
+                        )}
+                      </label>
+                    )}
                   </div>
                 )}
               </div>

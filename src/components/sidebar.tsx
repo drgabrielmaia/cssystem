@@ -53,6 +53,10 @@ const navigation = [
   { name: 'Metas', href: '/metas', icon: Target, description: 'Performance e Metas' },
   { name: 'Pendências', href: '/pendencias', icon: TrendingUp, description: 'Financeiro' },
   { name: 'Configurações', href: '/configuracoes', icon: Settings, description: 'Metas e preferências' },
+  { name: 'ICP Admin', href: '/admin/icp', icon: Brain, description: 'Configurar perguntas ICP' },
+  { name: 'QR Check-in', href: '/admin/check-in', icon: Eye, description: 'Check-in de eventos' },
+  { name: 'Airbnb Admin', href: '/admin/airbnb', icon: Activity, description: 'Gestão de clínicas' },
+  { name: 'Calls/Eventos', href: '/calls-eventos', icon: Calendar, description: 'Gestão de eventos' },
 ]
 
 function UserSection() {

@@ -7,13 +7,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   Calendar, MapPin, Ticket, Clock, Users, ArrowLeft,
   DollarSign, QrCode, Check, Loader2, ChevronRight,
-  Star, Sparkles, X, Download
+  Star, Sparkles, X, Download, Play, UserPlus
 } from 'lucide-react'
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { QRCodeSVG } from 'qrcode.react'
+import { isBetaUser } from '@/lib/beta-access'
+import { Card } from '@/components/ui/card'
+import { Shield } from 'lucide-react'
 
 interface EventoVisivel {
   id: string
@@ -31,6 +34,8 @@ interface EventoVisivel {
   imagem_capa?: string
   visivel_mentorados: boolean
   participant_count?: number
+  replay_url?: string
+  replay_disponivel_ate?: string
 }
 
 interface MeuTicket {
@@ -69,9 +74,18 @@ export default function EventosPage() {
   const [selectedTicket, setSelectedTicket] = useState<MeuTicket | null>(null)
   const [showQRModal, setShowQRModal] = useState(false)
 
+  // Countdown
+  const [, setTick] = useState(0)
+
   useEffect(() => {
     if (mentorado) loadData()
   }, [mentorado])
+
+  // Refresh countdown every 60s
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 60000)
+    return () => clearInterval(interval)
+  }, [])
 
   const loadData = async () => {
     try {
@@ -197,6 +211,46 @@ export default function EventosPage() {
     return new Date(dateTime) < new Date()
   }
 
+  const getCountdown = (dateTime: string): { text: string; urgent: boolean } => {
+    const diff = new Date(dateTime).getTime() - Date.now()
+    if (diff < 0) return { text: '', urgent: false }
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+    if (days > 0) return { text: `Faltam ${days}d ${hours}h`, urgent: days <= 2 }
+    if (hours > 0) return { text: `Comeca em ${hours}h ${mins}min`, urgent: true }
+    return { text: `Comeca em ${mins}min!`, urgent: true }
+  }
+
+  const handleWaitlist = async (eventoId: string) => {
+    if (!mentorado) return
+    try {
+      // Get current max position
+      const { data: existing } = await supabase
+        .from('evento_lista_espera')
+        .select('posicao')
+        .eq('event_id', eventoId)
+        .order('posicao', { ascending: false })
+        .limit(1)
+
+      const nextPos = (existing && existing.length > 0 ? existing[0].posicao : 0) + 1
+
+      await supabase.from('evento_lista_espera').insert({
+        event_id: eventoId,
+        mentorado_id: mentorado.id,
+        posicao: nextPos,
+      })
+
+      toast.success(`Voce entrou na lista de espera! Posicao: ${nextPos}`)
+    } catch (err: any) {
+      if (err?.message?.includes('duplicate') || err?.message?.includes('unique')) {
+        toast.info('Voce ja esta na lista de espera deste evento')
+      } else {
+        toast.error('Erro ao entrar na lista de espera')
+      }
+    }
+  }
+
   const formatEventDate = (dateTime: string) => {
     const d = new Date(dateTime)
     return {
@@ -205,6 +259,25 @@ export default function EventosPage() {
       time: d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       full: d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
     }
+  }
+
+  // Beta access check
+  if (mentorado && !isBetaUser(mentorado.email)) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+        <Card className="p-8 bg-white/5 backdrop-blur-xl border-white/10 max-w-md w-full text-center">
+          <Shield className="w-16 h-16 mx-auto mb-4 text-amber-400/50" />
+          <h2 className="text-2xl font-bold text-white mb-2">Acesso Restrito</h2>
+          <p className="text-white/50 mb-6">Esta funcionalidade está em fase beta e disponível apenas para usuários selecionados.</p>
+          <Link href="/mentorado">
+            <Button className="bg-amber-500 hover:bg-amber-600 text-black font-semibold">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar ao Portal
+            </Button>
+          </Link>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -289,6 +362,9 @@ export default function EventosPage() {
                 const past = isEventPast(evento.date_time)
                 const hasTicket = hasTicketForEvent(evento.id)
                 const typeInfo = eventTypeLabels[evento.type] || { label: evento.type, color: 'bg-gray-500/10 text-gray-400 border-gray-500/20' }
+                const countdown = !past ? getCountdown(evento.date_time) : null
+                const isFull = evento.max_participants ? (evento.participant_count || 0) >= evento.max_participants : false
+                const hasReplay = past && evento.replay_url && evento.replay_disponivel_ate && new Date(evento.replay_disponivel_ate) > new Date()
 
                 return (
                   <div
@@ -324,6 +400,14 @@ export default function EventosPage() {
                           <span className="text-white text-[10px] font-semibold">Inscrito</span>
                         </div>
                       )}
+                      {/* Countdown badge */}
+                      {countdown && countdown.text && (
+                        <div className={`absolute bottom-3 left-3 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-semibold ${
+                          countdown.urgent ? 'bg-red-500/90 text-white' : 'bg-black/70 text-purple-300'
+                        }`}>
+                          {countdown.text}
+                        </div>
+                      )}
                     </div>
 
                     {/* Content */}
@@ -348,9 +432,9 @@ export default function EventosPage() {
                           </div>
                         )}
                         {evento.max_participants && (
-                          <div className="flex items-center gap-2 text-gray-400 text-xs">
+                          <div className={`flex items-center gap-2 text-xs ${isFull ? 'text-red-400' : 'text-gray-400'}`}>
                             <Users className="w-3 h-3" />
-                            {evento.max_participants} vagas
+                            {isFull ? 'Esgotado' : `${evento.max_participants - (evento.participant_count || 0)} vagas restantes`}
                           </div>
                         )}
                       </div>
@@ -366,7 +450,16 @@ export default function EventosPage() {
                           )}
                         </div>
 
-                        {past ? (
+                        {past && hasReplay ? (
+                          <Button
+                            size="sm"
+                            onClick={() => window.open(evento.replay_url!, '_blank')}
+                            className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white text-xs shadow-lg shadow-blue-500/20"
+                          >
+                            <Play className="w-3.5 h-3.5 mr-1.5" />
+                            Assistir Replay
+                          </Button>
+                        ) : past ? (
                           <Badge className="bg-gray-500/10 text-gray-500 border-gray-500/20 text-[10px]">Encerrado</Badge>
                         ) : hasTicket ? (
                           <Button
@@ -382,6 +475,15 @@ export default function EventosPage() {
                           >
                             <QrCode className="w-3.5 h-3.5 mr-1.5" />
                             Ver QR Code
+                          </Button>
+                        ) : isFull ? (
+                          <Button
+                            size="sm"
+                            onClick={() => handleWaitlist(evento.id)}
+                            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs shadow-lg shadow-amber-500/20"
+                          >
+                            <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+                            Lista de Espera
                           </Button>
                         ) : (
                           <Button

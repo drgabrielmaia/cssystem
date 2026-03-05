@@ -13,12 +13,15 @@ import {
   ArrowLeft, Star, MapPin, Building2, Calendar, Clock,
   Wifi, Car, Users, Wind, Zap, Camera, Shield, Accessibility,
   Bath, Home, ChevronLeft, ChevronRight, Heart, Share2,
-  DollarSign, Loader2, Check, X, MessageSquare, User
+  DollarSign, Loader2, Check, X, MessageSquare, User,
+  Send, CheckCircle2, Award, FileText
 } from 'lucide-react'
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { isBetaUser } from '@/lib/beta-access'
+import { Card } from '@/components/ui/card'
 
 interface Clinica {
   id: string
@@ -51,6 +54,8 @@ interface Clinica {
   regras?: string
   foto_capa?: string
   fotos: string[]
+  fotos_verificadas?: boolean
+  destaque?: boolean
   status: string
   created_at: string
 }
@@ -70,6 +75,13 @@ interface Reserva {
   turno: string
   valor_total: number
   status: string
+}
+
+interface ChatMessage {
+  id: string
+  mensagem: string
+  remetente_id: string
+  created_at: string
 }
 
 const amenidadeConfig: Record<string, { icon: any; label: string }> = {
@@ -111,6 +123,20 @@ export default function ClinicaDetailPage() {
   const [reviewNota, setReviewNota] = useState(5)
   const [reviewComentario, setReviewComentario] = useState('')
   const [reviewLoading, setReviewLoading] = useState(false)
+
+  // Chat state
+  const [showChat, setShowChat] = useState(false)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [sendingChat, setSendingChat] = useState(false)
+
+  // Availability state
+  const [occupiedDates, setOccupiedDates] = useState<Set<string>>(new Set())
+
+  // Contract state
+  const [showContractModal, setShowContractModal] = useState(false)
+  const [contractAccepted, setContractAccepted] = useState(false)
+  const [termosUso, setTermosUso] = useState('')
 
   // Config
   const [taxaPlataforma, setTaxaPlataforma] = useState(10)
@@ -171,13 +197,40 @@ export default function ClinicaDetailPage() {
         setMinhasReservas(reservasData || [])
       }
 
-      // Load platform config
+      // Load platform config + terms
       const { data: configData } = await supabase
         .from('airbnb_config')
-        .select('percentual_lucro')
+        .select('percentual_lucro, termos_uso')
         .eq('organization_id', '9c8c0033-15ea-4e33-a55f-28d81a19693b')
         .single()
-      if (configData) setTaxaPlataforma(configData.percentual_lucro)
+      if (configData) {
+        setTaxaPlataforma(configData.percentual_lucro)
+        if (configData.termos_uso) setTermosUso(configData.termos_uso)
+      }
+
+      // Load availability (occupied dates from pending/confirmed reservations)
+      const { data: allReservas } = await supabase
+        .from('clinica_reservas')
+        .select('data_inicio, data_fim, status')
+        .eq('clinica_id', clinicaId)
+        .in('status', ['pendente', 'confirmada'])
+
+      if (allReservas) {
+        const occupied = new Set<string>()
+        allReservas.forEach((r: any) => {
+          const start = new Date(r.data_inicio)
+          const end = new Date(r.data_fim)
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            occupied.add(d.toISOString().split('T')[0])
+          }
+        })
+        setOccupiedDates(occupied)
+      }
+
+      // Load chat messages
+      if (mentorado?.id && clinicaData) {
+        loadChatMessages(clinicaData.owner_mentorado_id)
+      }
 
     } catch (err) {
       console.error('Error loading clinica:', err)
@@ -186,6 +239,61 @@ export default function ClinicaDetailPage() {
       setLoading(false)
     }
   }
+
+  const loadChatMessages = async (ownerId?: string) => {
+    if (!mentorado?.id) return
+    const targetOwner = ownerId || clinica?.owner_mentorado_id
+    if (!targetOwner) return
+
+    const { data } = await supabase
+      .from('clinica_mensagens')
+      .select('*')
+      .eq('clinica_id', clinicaId)
+      .or(`remetente_id.eq.${mentorado.id},destinatario_id.eq.${mentorado.id}`)
+      .order('created_at', { ascending: true })
+
+    if (data) setChatMessages(data)
+  }
+
+  const sendChatMessage = async () => {
+    if (!chatInput.trim() || !mentorado?.id || !clinica?.owner_mentorado_id || sendingChat) return
+    setSendingChat(true)
+    try {
+      await supabase.from('clinica_mensagens').insert({
+        clinica_id: clinicaId,
+        remetente_id: mentorado.id,
+        destinatario_id: clinica.owner_mentorado_id,
+        mensagem: chatInput.trim(),
+      })
+      setChatInput('')
+      loadChatMessages()
+    } catch (err) {
+      toast.error('Erro ao enviar mensagem')
+    } finally {
+      setSendingChat(false)
+    }
+  }
+
+  // Chat polling
+  useEffect(() => {
+    if (!showChat || !mentorado?.id) return
+    const interval = setInterval(() => loadChatMessages(), 10000)
+    return () => clearInterval(interval)
+  }, [showChat, mentorado?.id])
+
+  // Generate availability calendar (next 30 days)
+  const calendarDays = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() + i)
+    const dateStr = d.toISOString().split('T')[0]
+    return {
+      date: d,
+      dateStr,
+      occupied: occupiedDates.has(dateStr),
+      dayNum: d.getDate(),
+      weekday: d.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 3),
+    }
+  })
 
   const calcularValorTotal = () => {
     if (!clinica || !bookingDataInicio || !bookingDataFim) return { subtotal: 0, taxa: 0, total: 0 }
@@ -229,6 +337,8 @@ export default function ClinicaDetailPage() {
           percentual_taxa: taxaPlataforma,
           status: 'pendente',
           observacoes: bookingObs || null,
+          termos_aceitos: true,
+          termos_aceitos_em: new Date().toISOString(),
         })
 
       if (error) throw error
@@ -286,6 +396,25 @@ export default function ClinicaDetailPage() {
     : []
 
   const isOwner = mentorado?.id === clinica?.owner_mentorado_id
+
+  // Beta access check
+  if (mentorado && !isBetaUser(mentorado.email)) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+        <Card className="p-8 bg-white/5 backdrop-blur-xl border-white/10 max-w-md w-full text-center">
+          <Shield className="w-16 h-16 mx-auto mb-4 text-amber-400/50" />
+          <h2 className="text-2xl font-bold text-white mb-2">Acesso Restrito</h2>
+          <p className="text-white/50 mb-6">Esta funcionalidade está em fase beta.</p>
+          <Link href="/mentorado">
+            <Button className="bg-amber-500 hover:bg-amber-600 text-black font-semibold">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar ao Portal
+            </Button>
+          </Link>
+        </Card>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -391,7 +520,21 @@ export default function ClinicaDetailPage() {
           <div className="lg:col-span-2 space-y-8">
             {/* Title & Location */}
             <div>
-              <h1 className="text-[24px] md:text-[32px] font-bold text-white mb-2">{clinica.titulo}</h1>
+              <div className="flex items-center gap-3 mb-2 flex-wrap">
+                <h1 className="text-[24px] md:text-[32px] font-bold text-white">{clinica.titulo}</h1>
+                {clinica.destaque && (
+                  <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-xs">
+                    <Award className="w-3 h-3 mr-1" />
+                    Destaque
+                  </Badge>
+                )}
+                {clinica.fotos_verificadas && (
+                  <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Fotos Verificadas
+                  </Badge>
+                )}
+              </div>
               <div className="flex flex-wrap items-center gap-4 text-sm">
                 <div className="flex items-center gap-1.5 text-gray-400">
                   <MapPin className="w-4 h-4" />
@@ -417,11 +560,74 @@ export default function ClinicaDetailPage() {
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold">
                 {ownerNome.charAt(0).toUpperCase()}
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="text-white font-semibold text-sm">{ownerNome}</p>
                 <p className="text-gray-500 text-xs">Proprietario</p>
               </div>
+              {!isOwner && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowChat(!showChat)}
+                  className="border-white/10 text-gray-400 hover:text-white text-xs"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
+                  Mensagem
+                </Button>
+              )}
             </div>
+
+            {/* Chat Panel */}
+            {showChat && !isOwner && (
+              <div className="bg-[#141414] rounded-xl border border-white/5 overflow-hidden">
+                <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+                  <p className="text-white font-semibold text-sm">Chat com {ownerNome}</p>
+                  <button onClick={() => setShowChat(false)} className="text-gray-500 hover:text-white">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="h-64 overflow-y-auto p-4 space-y-3">
+                  {chatMessages.length === 0 ? (
+                    <p className="text-gray-600 text-sm text-center py-8">Nenhuma mensagem ainda. Envie a primeira!</p>
+                  ) : (
+                    chatMessages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex ${msg.remetente_id === mentorado?.id ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`max-w-[75%] px-3 py-2 rounded-xl text-sm ${
+                          msg.remetente_id === mentorado?.id
+                            ? 'bg-amber-500/20 text-amber-100'
+                            : 'bg-white/[0.06] text-gray-300'
+                        }`}>
+                          <p>{msg.mensagem}</p>
+                          <p className="text-[10px] text-gray-500 mt-1">
+                            {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="px-4 py-3 border-t border-white/5 flex gap-2">
+                  <Input
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
+                    placeholder="Digite sua mensagem..."
+                    className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 text-sm"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={sendChatMessage}
+                    disabled={!chatInput.trim() || sendingChat}
+                    className="bg-amber-500 hover:bg-amber-600 text-white px-3"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Description */}
             {clinica.descricao && (
@@ -555,8 +761,37 @@ export default function ClinicaDetailPage() {
             )}
           </div>
 
-          {/* Right Column - Booking Card */}
-          <div className="lg:col-span-1">
+          {/* Right Column - Availability + Booking */}
+          <div className="lg:col-span-1 space-y-4">
+            {/* Availability Calendar */}
+            <div className="p-4 bg-[#141414] rounded-2xl border border-white/5">
+              <h3 className="text-white font-semibold text-sm mb-3 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-amber-400" />
+                Disponibilidade (30 dias)
+              </h3>
+              <div className="grid grid-cols-7 gap-1">
+                {calendarDays.map((day) => (
+                  <div
+                    key={day.dateStr}
+                    className={`text-center py-1.5 rounded-lg text-xs ${
+                      day.occupied
+                        ? 'bg-red-500/15 text-red-400 line-through'
+                        : 'bg-green-500/10 text-green-400'
+                    }`}
+                    title={`${day.dateStr} - ${day.occupied ? 'Ocupado' : 'Disponivel'}`}
+                  >
+                    <p className="text-[9px] text-gray-500">{day.weekday}</p>
+                    <p className="font-semibold">{day.dayNum}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-4 mt-3 text-[10px]">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 bg-green-500/40 rounded-full" /> Disponivel</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 bg-red-500/40 rounded-full" /> Ocupado</span>
+              </div>
+            </div>
+
+            {/* Booking Card */}
             <div className="sticky top-6 p-6 bg-[#141414] rounded-2xl border border-white/5 space-y-5">
               {/* Price display */}
               <div>
@@ -630,7 +865,14 @@ export default function ClinicaDetailPage() {
                   )}
 
                   <Button
-                    onClick={() => setShowBookingModal(true)}
+                    onClick={() => {
+                      if (termosUso) {
+                        setContractAccepted(false)
+                        setShowContractModal(true)
+                      } else {
+                        setShowBookingModal(true)
+                      }
+                    }}
                     disabled={!bookingDataInicio || !bookingDataFim}
                     className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-amber-500/20 disabled:opacity-40"
                   >
@@ -758,6 +1000,61 @@ export default function ClinicaDetailPage() {
             >
               {reviewLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Star className="w-4 h-4 mr-2" />}
               Enviar Avaliacao
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Contract Modal */}
+      <Dialog open={showContractModal} onOpenChange={setShowContractModal}>
+        <DialogContent className="sm:max-w-lg bg-[#141418] border-white/[0.06] backdrop-blur-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-amber-500/10">
+                <FileText className="w-4 h-4 text-amber-400" />
+              </div>
+              Termos e Condicoes
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            <div className="p-4 bg-white/[0.03] rounded-xl border border-white/[0.06] max-h-60 overflow-y-auto">
+              <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">
+                {termosUso || 'Sem termos configurados.'}
+              </p>
+            </div>
+
+            <label className="flex items-start gap-3 cursor-pointer p-3 bg-white/[0.02] rounded-xl border border-white/[0.06] hover:bg-white/[0.04] transition-colors">
+              <input
+                type="checkbox"
+                checked={contractAccepted}
+                onChange={(e) => setContractAccepted(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-gray-600 text-amber-500 focus:ring-amber-500"
+              />
+              <span className="text-gray-300 text-sm">
+                Li e aceito os termos e condicoes acima para prosseguir com a reserva.
+              </span>
+            </label>
+          </div>
+
+          <div className="flex gap-3 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowContractModal(false)}
+              className="flex-1 bg-white/[0.03] border-white/[0.06] text-gray-400 hover:text-white"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                setShowContractModal(false)
+                setShowBookingModal(true)
+              }}
+              disabled={!contractAccepted}
+              className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white disabled:opacity-40"
+            >
+              <Check className="w-4 h-4 mr-2" />
+              Aceitar e Continuar
             </Button>
           </div>
         </DialogContent>

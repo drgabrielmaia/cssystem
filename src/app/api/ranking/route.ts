@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
         especialidade,
         pontuacao_total
       `)
-      .not('pontuacao_total', 'is', null)
+      .gt('pontuacao_total', 0)
       .order('pontuacao_total', { ascending: false })
 
     if (genero) {

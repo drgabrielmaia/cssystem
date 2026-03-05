@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { MOCK_MODE, createMockMentorado } from '@/lib/mock-data'
 import Link from 'next/link'
 import { MentoradoAuthProvider } from '@/contexts/mentorado-auth'
+import { ThemeProvider, useTheme } from '@/contexts/theme-context'
 import {
   Home,
   Video,
@@ -17,7 +18,9 @@ import {
   BookOpen,
   LogOut,
   Settings,
-  Target
+  Target,
+  Sun,
+  Moon
 } from 'lucide-react'
 
 interface MentoradoLayoutProps {
@@ -57,6 +60,7 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const pathname = usePathname()
+  const { theme, toggleTheme, isDark } = useTheme()
 
   useEffect(() => {
     checkAuth()
@@ -153,17 +157,17 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-white font-sans">
+    <div className={`min-h-screen font-sans ${isDark ? 'bg-[#0a0a0a]' : 'bg-white'}`}>
       {/* Header Superior */}
-      <header className="bg-white border-b border-[#F3F3F5] px-8 py-4">
+      <header className={`px-8 py-4 border-b ${isDark ? 'bg-[#141414] border-white/5' : 'bg-white border-[#F3F3F5]'}`}>
         <div className="flex items-center justify-between">
           {/* Logo e Navegação Principal */}
           <div className="flex items-center space-x-8">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-[#1A1A1A] rounded-lg flex items-center justify-center">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'bg-emerald-500' : 'bg-[#1A1A1A]'}`}>
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
-              <span className="ml-3 text-lg font-semibold text-[#1A1A1A]">Portal</span>
+              <span className={`ml-3 text-lg font-semibold ${isDark ? 'text-white' : 'text-[#1A1A1A]'}`}>Portal</span>
             </div>
 
             {/* Navegação Principal */}
@@ -179,8 +183,8 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
                     href={item.href}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-[#1A1A1A] text-white'
-                        : 'text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F3F5]'
+                        ? isDark ? 'bg-white text-black' : 'bg-[#1A1A1A] text-white'
+                        : isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F3F5]'
                     }`}
                   >
                     {item.name}
@@ -198,7 +202,7 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
               <input
                 type="text"
                 placeholder="Buscar aulas, módulos..."
-                className="pl-10 pr-4 py-2 bg-[#F3F3F5] border-0 rounded-full text-sm text-[#1A1A1A] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all"
+                className={`pl-10 pr-4 py-2 border-0 rounded-full text-sm placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all ${isDark ? 'bg-white/10 text-white focus:bg-white/15' : 'bg-[#F3F3F5] text-[#1A1A1A] focus:bg-white'}`}
                 onChange={(e) => {
                   // Implementar busca global
                   const searchTerm = e.target.value.toLowerCase()
@@ -210,8 +214,17 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
               />
             </div>
 
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className={`p-2 rounded-lg transition-colors ${isDark ? 'text-amber-400 hover:bg-white/10' : 'text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F3F5]'}`}
+              title={isDark ? 'Modo claro' : 'Modo escuro'}
+            >
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+
             {/* Notificações */}
-            <button className="p-2 text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F3F5] rounded-lg transition-colors">
+            <button className={`p-2 rounded-lg transition-colors ${isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F3F5]'}`}>
               <Bell className="w-5 h-5" />
             </button>
 
@@ -219,13 +232,17 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
             <div className="flex items-center space-x-3">
               <Link
                 href="/mentorado/perfil"
-                className="flex items-center space-x-3 hover:bg-[#F3F3F5] rounded-lg p-2 transition-colors"
+                className={`flex items-center space-x-3 rounded-lg p-2 transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-[#F3F3F5]'}`}
               >
-                <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
-                </div>
+                {mentorado?.avatar_url ? (
+                  <img src={mentorado.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
+                    <User className="w-4 h-4 text-white" />
+                  </div>
+                )}
                 <div className="hidden sm:block">
-                  <p className="text-sm font-medium text-[#1A1A1A]">
+                  <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-[#1A1A1A]'}`}>
                     {mentorado?.nome_completo?.split(' ')[0]}
                   </p>
                   <p className="text-xs text-[#6B7280]">
@@ -235,7 +252,7 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
               </Link>
               <button
                 onClick={handleLogout}
-                className="p-1 text-[#6B7280] hover:text-[#1A1A1A] transition-colors"
+                className={`p-1 transition-colors ${isDark ? 'text-gray-400 hover:text-white' : 'text-[#6B7280] hover:text-[#1A1A1A]'}`}
                 title="Sair"
               >
                 <LogOut className="w-4 h-4" />
@@ -248,7 +265,7 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
       {/* Layout de 3 Colunas */}
       <div className="flex h-[calc(100vh-73px)]">
         {/* Sidebar Esquerda - Menu do Portal do Mentorado */}
-        <aside className="w-64 bg-white border-r border-[#F3F3F5] flex flex-col">
+        <aside className={`w-64 border-r flex flex-col ${isDark ? 'bg-[#141414] border-white/5' : 'bg-white border-[#F3F3F5]'}`}>
           {/* Menu de Navegação */}
           <nav className="flex-1 p-6">
             <div className="space-y-2">
@@ -263,8 +280,8 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
                     href={item.href}
                     className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-[#1A1A1A] text-white'
-                        : 'text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F3F5]'
+                        ? isDark ? 'bg-white text-black' : 'bg-[#1A1A1A] text-white'
+                        : isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F3F5]'
                     }`}
                   >
                     <item.icon className="w-5 h-5 mr-3" />
@@ -276,16 +293,20 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
           </nav>
 
           {/* Rodapé do Menu */}
-          <div className="p-6 border-t border-[#F3F3F5]">
+          <div className={`p-6 border-t ${isDark ? 'border-white/5' : 'border-[#F3F3F5]'}`}>
             <Link
               href="/mentorado/perfil"
-              className="flex items-center hover:bg-[#F3F3F5] rounded-lg p-3 transition-colors"
+              className={`flex items-center rounded-lg p-3 transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-[#F3F3F5]'}`}
             >
-              <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-white" />
-              </div>
+              {mentorado?.avatar_url ? (
+                <img src={mentorado.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+              ) : (
+                <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center">
+                  <User className="w-5 h-5 text-white" />
+                </div>
+              )}
               <div className="ml-3">
-                <p className="text-sm font-medium text-[#1A1A1A]">
+                <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-[#1A1A1A]'}`}>
                   {mentorado?.nome_completo?.split(' ')[0]}
                 </p>
                 <p className="text-xs text-[#6B7280]">
@@ -297,13 +318,13 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
         </aside>
 
         {/* Conteúdo Principal */}
-        <main className="flex-1 overflow-y-auto">
+        <main className={`flex-1 overflow-y-auto ${isDark ? 'bg-[#0a0a0a]' : ''}`}>
           {children}
         </main>
       </div>
 
       {/* Mobile Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#F3F3F5] px-4 py-2">
+      <div className={`md:hidden fixed bottom-0 left-0 right-0 border-t px-4 py-2 ${isDark ? 'bg-[#141414] border-white/5' : 'bg-white border-[#F3F3F5]'}`}>
         <div className="flex items-center justify-around">
           {navigation.map((item) => {
             const isActive = pathname === item.href ||
@@ -316,7 +337,7 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
                 href={item.href}
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
                   isActive
-                    ? 'text-[#1A1A1A]'
+                    ? isDark ? 'text-white' : 'text-[#1A1A1A]'
                     : 'text-[#6B7280]'
                 }`}
               >
@@ -334,10 +355,12 @@ function MentoradoLayoutContent({ children }: MentoradoLayoutProps) {
 
 export default function MentoradoLayout({ children }: MentoradoLayoutProps) {
   return (
-    <MentoradoAuthProvider>
-      <MentoradoLayoutContent>
-        {children}
-      </MentoradoLayoutContent>
-    </MentoradoAuthProvider>
+    <ThemeProvider>
+      <MentoradoAuthProvider>
+        <MentoradoLayoutContent>
+          {children}
+        </MentoradoLayoutContent>
+      </MentoradoAuthProvider>
+    </ThemeProvider>
   )
 }

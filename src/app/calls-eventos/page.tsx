@@ -60,6 +60,8 @@ interface GroupEvent {
   local_evento?: string
   imagem_capa?: string
   visivel_mentorados?: boolean
+  replay_url?: string
+  replay_disponivel_ate?: string
 }
 
 interface EventParticipant {
@@ -149,6 +151,8 @@ export default function CallsEventosPage() {
     local_evento: '',
     imagem_capa: '',
     visivel_mentorados: false,
+    replay_url: '',
+    replay_disponivel_ate: '',
   })
 
   // New participant form state
@@ -288,6 +292,8 @@ export default function CallsEventosPage() {
           local_evento: newEvent.local_evento || null,
           imagem_capa: newEvent.imagem_capa || null,
           visivel_mentorados: newEvent.visivel_mentorados,
+          replay_url: newEvent.replay_url || null,
+          replay_disponivel_ate: newEvent.replay_disponivel_ate || null,
           status: 'scheduled',
           created_by_email: user?.email,
           organization_id: organizationId,
@@ -310,6 +316,8 @@ export default function CallsEventosPage() {
         local_evento: '',
         imagem_capa: '',
         visivel_mentorados: false,
+        replay_url: '',
+        replay_disponivel_ate: '',
       })
       setShowNewEventModal(false)
     } catch (error) {
@@ -1019,6 +1027,26 @@ export default function CallsEventosPage() {
                     placeholder="https://..."
                     className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-purple-500/30"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-xs font-medium">URL do Replay</Label>
+                    <Input
+                      value={newEvent.replay_url}
+                      onChange={(e) => setNewEvent(prev => ({ ...prev, replay_url: e.target.value }))}
+                      placeholder="https://..."
+                      className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-purple-500/30"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-xs font-medium">Replay disponivel ate</Label>
+                    <Input
+                      type="datetime-local"
+                      value={newEvent.replay_disponivel_ate}
+                      onChange={(e) => setNewEvent(prev => ({ ...prev, replay_disponivel_ate: e.target.value }))}
+                      className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-purple-500/30"
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <button
