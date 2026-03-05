@@ -150,21 +150,33 @@ const modules = [
 ]
 
 function UserSection() {
-  const { user, signOut } = useAuth()
+  const { user, orgUser, signOut } = useAuth()
+
+  const displayName = orgUser?.nome_completo || user?.email?.split('@')[0] || 'Usuário'
+  const displayRole = orgUser?.funcao || 'Administrador'
+  const avatarUrl = orgUser?.foto_perfil
 
   return (
     <div className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-gray-800 to-gray-900 border border-gray-700 shadow-xl">
       <div className="flex items-center space-x-3 flex-1">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#D4AF37] to-[#FFD700] shadow-lg ring-2 ring-gray-600">
-          <span className="text-lg font-bold text-gray-900">
-            {user?.email?.charAt(0).toUpperCase()}
-          </span>
-        </div>
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt={displayName}
+            className="h-12 w-12 rounded-xl object-cover shadow-lg ring-2 ring-gray-600"
+          />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#D4AF37] to-[#FFD700] shadow-lg ring-2 ring-gray-600">
+            <span className="text-lg font-bold text-gray-900">
+              {displayName.charAt(0).toUpperCase()}
+            </span>
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-white truncate">
-            {user?.email?.split('@')[0] || 'Usuário'}
+            {displayName}
           </p>
-          <p className="text-xs text-gray-400">Administrador</p>
+          <p className="text-xs text-gray-400">{displayRole}</p>
         </div>
       </div>
       <Button
