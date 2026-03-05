@@ -33,7 +33,8 @@ import {
   Settings,
   Trash2,
   Download,
-  AlertTriangle
+  AlertTriangle,
+  DollarSign
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { sendContractAfterCreation } from '@/lib/contract-whatsapp'
@@ -57,7 +58,22 @@ interface Contract {
   signed_at?: string
   expires_at: string
   lead_id?: string
+  mentorado_id?: string
   whatsapp_sent_at?: string
+  valor?: number
+  valor_pago?: number
+  valor_restante?: number
+  forma_negociacao?: string
+  data_contrato?: string
+  recipient_phone?: string
+}
+
+interface Mentorado {
+  id: string
+  nome_completo: string
+  email: string
+  telefone?: string
+  estado_atual?: string
 }
 
 interface Lead {
@@ -82,6 +98,7 @@ export default function ContractsPage() {
   const [templates, setTemplates] = useState<ContractTemplate[]>([])
   const [contracts, setContracts] = useState<Contract[]>([])
   const [leads, setLeads] = useState<Lead[]>([])
+  const [mentorados, setMentorados] = useState<Mentorado[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('contracts')
 
@@ -98,12 +115,18 @@ export default function ContractsPage() {
 
   const [contractForm, setContractForm] = useState({
     template_id: '',
-    recipient_type: 'lead', // 'lead' or 'custom'
+    recipient_type: 'mentorado', // 'mentorado', 'lead' or 'custom'
     lead_id: '',
+    mentorado_id: '',
     custom_name: '',
     custom_email: '',
     custom_phone: '',
-    placeholders: {}
+    placeholders: {},
+    valor: '',
+    valor_pago: '',
+    valor_restante: '',
+    forma_negociacao: '',
+    data_contrato: new Date().toISOString().split('T')[0]
   })
 
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -217,6 +240,15 @@ export default function ContractsPage() {
       if (leadsError) throw leadsError
       setLeads(leadsData || [])
 
+      // Load mentorados for contract creation
+      const { data: mentoradosData, error: mentoradosError } = await supabase
+        .from('mentorados')
+        .select('id, nome_completo, email, telefone, estado_atual')
+        .eq('organization_id', organizationId)
+        .order('nome_completo')
+
+      if (!mentoradosError) setMentorados(mentoradosData || [])
+
       // Load signature settings
       const { data: signatureData, error: signatureError } = await supabase
         .from('organization_signature_settings')
@@ -300,9 +332,20 @@ export default function ContractsPage() {
     if (!organizationId || !user?.email) return
 
     try {
-      let recipientName, recipientEmail, recipientPhone, leadId
+      let recipientName, recipientEmail, recipientPhone, leadId, mentoradoId
 
-      if (contractForm.recipient_type === 'lead') {
+      if (contractForm.recipient_type === 'mentorado') {
+        const selectedMentorado = mentorados.find(m => m.id === contractForm.mentorado_id)
+        if (!selectedMentorado) {
+          alert('Selecione um mentorado')
+          return
+        }
+        recipientName = selectedMentorado.nome_completo
+        recipientEmail = selectedMentorado.email
+        recipientPhone = selectedMentorado.telefone
+        leadId = null
+        mentoradoId = selectedMentorado.id
+      } else if (contractForm.recipient_type === 'lead') {
         const selectedLead = leads.find(l => l.id === contractForm.lead_id)
         if (!selectedLead) {
           alert('Selecione um lead')
@@ -312,27 +355,45 @@ export default function ContractsPage() {
         recipientEmail = selectedLead.email
         recipientPhone = selectedLead.telefone
         leadId = selectedLead.id
+        mentoradoId = null
       } else {
         recipientName = contractForm.custom_name
         recipientEmail = contractForm.custom_email
         recipientPhone = contractForm.custom_phone
         leadId = null
+        mentoradoId = null
       }
 
       const { data, error } = await supabase.rpc('create_contract_from_template', {
         p_template_id: contractForm.template_id,
         p_recipient_name: recipientName,
         p_recipient_email: recipientEmail,
-        p_recipient_phone: recipientPhone,
         p_organization_id: organizationId,
-        p_created_by_email: user.email,
         p_lead_id: leadId,
-        p_placeholders: contractForm.placeholders
+        p_mentorado_id: mentoradoId
       })
 
       if (error) throw error
 
       const contractId = data
+
+      // Update payment fields
+      if (contractId) {
+        const valorNum = contractForm.valor ? parseFloat(contractForm.valor) : null
+        const valorPagoNum = contractForm.valor_pago ? parseFloat(contractForm.valor_pago) : 0
+        const valorRestanteNum = contractForm.valor_restante ? parseFloat(contractForm.valor_restante) : (valorNum ? valorNum - valorPagoNum : 0)
+
+        await supabase
+          .from('contracts')
+          .update({
+            valor: valorNum,
+            valor_pago: valorPagoNum,
+            valor_restante: valorRestanteNum,
+            forma_negociacao: contractForm.forma_negociacao || null,
+            data_contrato: contractForm.data_contrato || null
+          })
+          .eq('id', contractId)
+      }
 
       // Try to send WhatsApp notification automatically
       if (contractId && recipientPhone) {
@@ -389,12 +450,18 @@ export default function ContractsPage() {
   const resetContractForm = () => {
     setContractForm({
       template_id: '',
-      recipient_type: 'lead',
+      recipient_type: 'mentorado',
       lead_id: '',
+      mentorado_id: '',
       custom_name: '',
       custom_email: '',
       custom_phone: '',
-      placeholders: {}
+      placeholders: {},
+      valor: '',
+      valor_pago: '',
+      valor_restante: '',
+      forma_negociacao: '',
+      data_contrato: new Date().toISOString().split('T')[0]
     })
   }
 
@@ -613,6 +680,11 @@ Assinatura do Contratante`
   const signedContracts = contracts.filter(c => c.status === 'signed').length
   const expiredContracts = contracts.filter(c => c.status === 'expired').length
   const activeTemplates = templates.filter(t => t.is_active).length
+  const totalValor = contracts.reduce((sum, c) => sum + (Number(c.valor) || 0), 0)
+  const totalPago = contracts.reduce((sum, c) => sum + (Number(c.valor_pago) || 0), 0)
+  const totalRestante = contracts.reduce((sum, c) => sum + (Number(c.valor_restante) || 0), 0)
+
+  const formatCurrency = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
@@ -659,16 +731,18 @@ Assinatura do Contratante`
             <p className="text-xs text-white/30 mt-1">Aguardando assinatura</p>
           </div>
 
-          {/* Expirados */}
+          {/* Financeiro */}
           <div className="bg-[#141418] border border-white/[0.06] rounded-2xl p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-white/40 text-sm font-medium">Expirados</span>
-              <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center">
-                <AlertTriangle className="h-4 w-4 text-red-400" />
+              <span className="text-white/40 text-sm font-medium">Financeiro</span>
+              <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-blue-400" />
               </div>
             </div>
-            <p className="text-3xl font-bold text-red-400 tracking-tight">{expiredContracts}</p>
-            <p className="text-xs text-white/30 mt-1">Prazo expirado</p>
+            <p className="text-xl font-bold text-white tracking-tight">R$ {formatCurrency(totalPago)}</p>
+            <p className="text-xs text-white/30 mt-1">
+              {totalRestante > 0 ? `R$ ${formatCurrency(totalRestante)} a receber` : 'Tudo pago'}
+            </p>
           </div>
         </div>
 
@@ -754,13 +828,34 @@ Assinatura do Contratante`
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-[#141418] border-white/[0.08]">
+                          <SelectItem value="mentorado" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Mentorado</SelectItem>
                           <SelectItem value="lead" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Lead Existente</SelectItem>
                           <SelectItem value="custom" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Pessoa Externa</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
-                    {contractForm.recipient_type === 'lead' ? (
+                    {contractForm.recipient_type === 'mentorado' ? (
+                      <div className="space-y-2">
+                        <Label className="text-white/60 text-sm">Mentorado *</Label>
+                        <Select
+                          value={contractForm.mentorado_id}
+                          onValueChange={(value) => setContractForm(prev => ({ ...prev, mentorado_id: value }))}
+                          required
+                        >
+                          <SelectTrigger className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10">
+                            <SelectValue placeholder="Selecione um mentorado" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#141418] border-white/[0.08]">
+                            {mentorados.map((m) => (
+                              <SelectItem key={m.id} value={m.id} className="text-white/70 focus:bg-white/[0.06] focus:text-white">
+                                {m.nome_completo}{m.estado_atual ? ` (${m.estado_atual})` : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : contractForm.recipient_type === 'lead' ? (
                       <div className="space-y-2">
                         <Label className="text-white/60 text-sm">Lead *</Label>
                         <Select
@@ -812,6 +907,90 @@ Assinatura do Contratante`
                       </div>
                     )}
 
+                    {/* Dados Financeiros */}
+                    <div className="border-t border-white/[0.06] pt-4">
+                      <h4 className="text-white/70 text-sm font-medium mb-3 flex items-center gap-2">
+                        <DollarSign className="h-4 w-4" />
+                        Dados Financeiros
+                      </h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-white/60 text-sm">Data do Contrato</Label>
+                          <Input
+                            type="date"
+                            value={contractForm.data_contrato}
+                            onChange={(e) => setContractForm(prev => ({ ...prev, data_contrato: e.target.value }))}
+                            className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-white/60 text-sm">Valor Total (R$)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={contractForm.valor}
+                            onChange={(e) => {
+                              const valor = e.target.value
+                              const valorPago = contractForm.valor_pago ? parseFloat(contractForm.valor_pago) : 0
+                              const restante = valor ? (parseFloat(valor) - valorPago).toFixed(2) : ''
+                              setContractForm(prev => ({ ...prev, valor, valor_restante: restante }))
+                            }}
+                            className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10 placeholder:text-white/20"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-white/60 text-sm">Valor Pago (R$)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={contractForm.valor_pago}
+                            onChange={(e) => {
+                              const valorPago = e.target.value
+                              const valorTotal = contractForm.valor ? parseFloat(contractForm.valor) : 0
+                              const restante = valorTotal ? (valorTotal - (valorPago ? parseFloat(valorPago) : 0)).toFixed(2) : ''
+                              setContractForm(prev => ({ ...prev, valor_pago: valorPago, valor_restante: restante }))
+                            }}
+                            className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10 placeholder:text-white/20"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-white/60 text-sm">Valor Restante (R$)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={contractForm.valor_restante}
+                            onChange={(e) => setContractForm(prev => ({ ...prev, valor_restante: e.target.value }))}
+                            className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10 placeholder:text-white/20"
+                            placeholder="Calculado automaticamente"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-4 space-y-2">
+                        <Label className="text-white/60 text-sm">Forma de Negociacao</Label>
+                        <Select
+                          value={contractForm.forma_negociacao}
+                          onValueChange={(value) => setContractForm(prev => ({ ...prev, forma_negociacao: value }))}
+                        >
+                          <SelectTrigger className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10">
+                            <SelectValue placeholder="Selecione a forma de negociacao" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#141418] border-white/[0.08]">
+                            <SelectItem value="a_vista" className="text-white/70 focus:bg-white/[0.06] focus:text-white">A Vista</SelectItem>
+                            <SelectItem value="parcelado_cartao" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Parcelado no Cartao</SelectItem>
+                            <SelectItem value="boleto" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Boleto</SelectItem>
+                            <SelectItem value="pix" className="text-white/70 focus:bg-white/[0.06] focus:text-white">PIX</SelectItem>
+                            <SelectItem value="pix_parcelado" className="text-white/70 focus:bg-white/[0.06] focus:text-white">PIX Parcelado</SelectItem>
+                            <SelectItem value="negociacao_especial" className="text-white/70 focus:bg-white/[0.06] focus:text-white">Negociacao Especial</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
                     <div className="flex gap-3 pt-2">
                       <Button
                         type="button"
@@ -836,11 +1015,11 @@ Assinatura do Contratante`
                 <TableHeader>
                   <TableRow className="border-white/[0.06] hover:bg-transparent">
                     <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Destinatario</TableHead>
-                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Template</TableHead>
                     <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Status</TableHead>
-                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Criado</TableHead>
-                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Expira</TableHead>
-                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">WhatsApp</TableHead>
+                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Valor</TableHead>
+                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Pagamento</TableHead>
+                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Negociacao</TableHead>
+                    <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Data</TableHead>
                     <TableHead className="text-white/40 text-xs font-medium uppercase tracking-wider">Acoes</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -853,30 +1032,39 @@ Assinatura do Contratante`
                           <div className="text-xs text-white/30 mt-0.5">{contract.recipient_email}</div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-white/60 text-sm">{contract.template_name}</TableCell>
                       <TableCell>{getStatusBadge(contract.status)}</TableCell>
-                      <TableCell className="text-white/50 text-sm">
-                        {new Date(contract.created_at).toLocaleDateString('pt-BR')}
-                      </TableCell>
-                      <TableCell className="text-white/50 text-sm">
-                        {new Date(contract.expires_at).toLocaleDateString('pt-BR')}
+                      <TableCell>
+                        {contract.valor ? (
+                          <span className="text-white font-medium text-sm">
+                            R$ {Number(contract.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        ) : (
+                          <span className="text-white/20 text-sm">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
-                        {contract.whatsapp_sent_at ? (
+                        {contract.valor ? (
                           <div>
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                              <MessageCircle className="h-3 w-3" />
-                              Enviado
-                            </span>
-                            <p className="text-white/20 text-xs mt-1">
-                              {new Date(contract.whatsapp_sent_at).toLocaleDateString('pt-BR')}
-                            </p>
+                            <div className="text-emerald-400 text-xs font-medium">
+                              Pago: R$ {Number(contract.valor_pago || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </div>
+                            {(contract.valor_restante || 0) > 0 && (
+                              <div className="text-amber-400 text-xs mt-0.5">
+                                Falta: R$ {Number(contract.valor_restante).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </div>
+                            )}
                           </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border bg-white/[0.04] text-white/30 border-white/[0.06]">
-                            Nao enviado
-                          </span>
+                          <span className="text-white/20 text-sm">-</span>
                         )}
+                      </TableCell>
+                      <TableCell className="text-white/50 text-sm">
+                        {contract.forma_negociacao ? contract.forma_negociacao.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : '-'}
+                      </TableCell>
+                      <TableCell className="text-white/50 text-sm">
+                        {contract.data_contrato
+                          ? new Date(contract.data_contrato + 'T00:00:00').toLocaleDateString('pt-BR')
+                          : new Date(contract.created_at).toLocaleDateString('pt-BR')}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1.5">
