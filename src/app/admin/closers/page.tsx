@@ -34,6 +34,7 @@ import {
 import { useClosers, CloserWithMetrics } from '@/hooks/use-closers'
 import { supabase, organizationService } from '@/lib/supabase'
 import { useAuth } from '@/hooks/use-auth'
+import { toast } from 'sonner'
 
 export default function AdminClosersPage() {
   const { user } = useAuth()
@@ -225,9 +226,9 @@ export default function AdminClosersPage() {
       
       setShowAddModal(false)
       resetForm()
-      alert('Closer adicionado com sucesso!')
+      toast.success('Closer adicionado com sucesso!')
     } catch (error: any) {
-      alert('Erro ao adicionar closer: ' + error.message)
+      toast.error('Erro ao adicionar closer: ' + error.message)
     }
   }
 
@@ -238,9 +239,9 @@ export default function AdminClosersPage() {
       await updateCloser(selectedCloser.id, formData)
       setShowEditModal(false)
       resetForm()
-      alert('Closer atualizado com sucesso!')
+      toast.success('Closer atualizado com sucesso!')
     } catch (error: any) {
-      alert('Erro ao atualizar closer: ' + error.message)
+      toast.error('Erro ao atualizar closer: ' + error.message)
     }
   }
 
@@ -253,7 +254,7 @@ export default function AdminClosersPage() {
       }
       refetch()
     } catch (error: any) {
-      alert('Erro ao alterar status: ' + error.message)
+      toast.error('Erro ao alterar status: ' + error.message)
     }
   }
 

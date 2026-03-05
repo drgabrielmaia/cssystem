@@ -246,6 +246,26 @@ export default function EventosPage() {
         console.error('Erro ao notificar grupo WhatsApp:', notifyErr)
       }
 
+      // Send personal WhatsApp message to the registrant
+      try {
+        if (mentorado.telefone) {
+          const eventDate = new Date(selectedEvento.date_time)
+          const dateStr = eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          const timeStr = eventDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+          const personalMsg = `Olá, *${mentorado.nome_completo?.split(' ')[0] || 'mentorado(a)'}*! 🎉\n\n` +
+            `Sua inscrição no evento *${selectedEvento.name}* foi confirmada! ✅\n\n` +
+            `📅 *Data:* ${dateStr}\n` +
+            `⏰ *Horário:* ${timeStr}\n` +
+            (selectedEvento.local_evento ? `📍 *Local:* ${selectedEvento.local_evento}\n` : '') +
+            (selectedEvento.meeting_link ? `🔗 *Link:* ${selectedEvento.meeting_link}\n` : '') +
+            `\n🎟️ *Código do ingresso:* ${codigoTicket}\n\n` +
+            `Nos vemos lá! 🚀`
+          await whatsappMultiService.sendMessage(mentorado.telefone, personalMsg)
+        }
+      } catch (personalErr) {
+        console.error('Erro ao enviar WhatsApp pessoal:', personalErr)
+      }
+
       // Auto-show QR
       const newTicket: MeuTicket = {
         id: '',

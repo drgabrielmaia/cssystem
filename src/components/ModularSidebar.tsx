@@ -34,7 +34,8 @@ import {
   Trophy,
   PieChart,
   FileText,
-  Award
+  Award,
+  Activity
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -119,7 +120,6 @@ const modules = [
     items: [
       { name: 'Kanban', href: '/kanban', icon: Target, description: 'Gerenciar tarefas e atividades' },
       { name: 'Calendário', href: '/calendario', icon: Calendar, description: 'Agendar eventos' },
-      { name: 'Config. Agenda', href: '/calendar-settings', icon: Settings, description: 'Configurar horários disponíveis' },
       { name: 'Form Builder', href: '/form-builder', icon: Wrench, description: 'Criar formulários' },
       { name: 'Respostas Forms', href: '/form-responses', icon: Eye, description: 'Ver respostas' },
     ]
@@ -133,6 +133,7 @@ const modules = [
       { name: 'Configurar Organização', href: '/admin/organization', icon: Building2, description: 'Configurações da organização' },
       { name: 'Follow-up Automático', href: '/admin/follow-up', icon: Clock, description: 'Configurar sequências de follow-up automático' },
       { name: 'Contratos', href: '/admin/contratos', icon: FileText, description: 'Gestão de contratos eletrônicos' },
+      { name: 'Clínicas (Airbnb)', href: '/admin/airbnb', icon: Activity, description: 'Gestão de clínicas em análise' },
     ]
   },
   {

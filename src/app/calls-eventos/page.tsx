@@ -61,6 +61,8 @@ interface GroupEvent {
   attendee_count?: number
   conversion_count?: number
   conversion_value?: number
+  closer_id?: string
+  closer_nome?: string
   // Eventos com ingressos
   valor_ingresso?: number
   is_paid?: boolean
@@ -160,6 +162,9 @@ export default function CallsEventosPage() {
   // Waitlist
   const [waitlistCounts, setWaitlistCounts] = useState<Record<string, number>>({})
 
+  // Closers list for event assignment
+  const [closersList, setClosersList] = useState<Array<{ id: string; nome_completo: string }>>([])
+
   // New event form state
   const [newEvent, setNewEvent] = useState({
     name: '',
@@ -175,6 +180,7 @@ export default function CallsEventosPage() {
     visivel_mentorados: false,
     replay_url: '',
     replay_disponivel_ate: '',
+    closer_id: '',
   })
   const [uploadingCapa, setUploadingCapa] = useState(false)
 
@@ -237,6 +243,19 @@ export default function CallsEventosPage() {
     }
   }, [organizationId])
 
+  const loadClosers = async () => {
+    try {
+      const { data } = await supabase
+        .from('closers')
+        .select('id, nome_completo')
+        .eq('organization_id', organizationId)
+        .order('nome_completo')
+      if (data) setClosersList(data)
+    } catch (err) {
+      console.error('Error loading closers:', err)
+    }
+  }
+
   const loadData = async () => {
     setLoading(true)
     try {
@@ -244,6 +263,7 @@ export default function CallsEventosPage() {
         loadEvents(),
         loadStatistics(),
         loadWaitlistCounts(),
+        loadClosers(),
       ])
     } catch (error) {
       console.error('Error loading data:', error)
@@ -347,12 +367,26 @@ export default function CallsEventosPage() {
         }
       }
 
+      // Resolve closer names
+      const closerIds = [...new Set(eventsData.filter(e => e.closer_id).map(e => e.closer_id))]
+      let closerNameMap: Record<string, string> = {}
+      if (closerIds.length > 0) {
+        const { data: closersData } = await supabase
+          .from('closers')
+          .select('id, nome_completo')
+          .in('id', closerIds)
+        if (closersData) {
+          for (const c of closersData) closerNameMap[c.id] = c.nome_completo
+        }
+      }
+
       const enrichedEvents = eventsData.map(e => ({
         ...e,
         participant_count: (countsMap[e.id]?.participants || 0) + (countsMap[e.id]?.ticketCount || 0),
         attendee_count: countsMap[e.id]?.attendees || 0,
         conversion_count: countsMap[e.id]?.conversions || 0,
         conversion_value: countsMap[e.id]?.conversionValue || 0,
+        closer_nome: e.closer_id ? closerNameMap[e.closer_id] || null : null,
       }))
 
       setEvents(enrichedEvents)
@@ -427,6 +461,7 @@ export default function CallsEventosPage() {
           visivel_mentorados: newEvent.visivel_mentorados,
           replay_url: newEvent.replay_url || null,
           replay_disponivel_ate: newEvent.replay_disponivel_ate || null,
+          closer_id: newEvent.closer_id && newEvent.closer_id !== 'none' ? newEvent.closer_id : null,
           status: 'scheduled',
           created_by_email: user?.email,
           organization_id: organizationId,
@@ -477,6 +512,7 @@ export default function CallsEventosPage() {
         visivel_mentorados: false,
         replay_url: '',
         replay_disponivel_ate: '',
+        closer_id: '',
       })
       setNotifyGroup(false)
       setSelectedGroupId('')
@@ -502,6 +538,30 @@ export default function CallsEventosPage() {
       if (error) throw error
 
       if (data && data[0]?.success) {
+        // Send auto WhatsApp to participant if phone provided
+        if (newParticipant.participant_phone) {
+          try {
+            const eventDate = new Date(selectedEvent.date_time)
+            const dateStr = eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            const timeStr = eventDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            const firstName = newParticipant.participant_name.split(' ')[0]
+            const msg = `Olá, *${firstName}*! 🎉\n\n` +
+              `Você foi inscrito(a) no evento *${selectedEvent.name}*! ✅\n\n` +
+              `📅 *Data:* ${dateStr}\n` +
+              `⏰ *Horário:* ${timeStr}\n` +
+              (selectedEvent.meeting_link ? `🔗 *Link:* ${selectedEvent.meeting_link}\n` : '') +
+              `\nNos vemos lá! 🚀`
+            const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
+            await fetch(`${apiUrl}/users/${organizationId}/send-message`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ phoneNumber: newParticipant.participant_phone, message: msg }),
+            })
+          } catch (wpErr) {
+            console.error('Erro ao enviar WhatsApp:', wpErr)
+          }
+        }
+        toast.success('Participante adicionado!')
         await loadEventParticipants(selectedEvent.id)
         setNewParticipant({ participant_name: '', participant_email: '', participant_phone: '', participant_type: '' })
         setShowAddParticipantModal(false)
@@ -598,6 +658,7 @@ export default function CallsEventosPage() {
           visivel_mentorados: editEvent.visivel_mentorados,
           replay_url: editEvent.replay_url || null,
           replay_disponivel_ate: editEvent.replay_disponivel_ate || null,
+          closer_id: (editEvent as any).closer_id || null,
           status: editEvent.status,
         })
         .eq('id', editEvent.id)
@@ -1028,7 +1089,10 @@ export default function CallsEventosPage() {
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-white truncate">{event.name}</p>
-                            {event.description && (
+                            {event.closer_nome && (
+                              <p className="text-xs text-blue-400 mt-0.5">Closer: {event.closer_nome}</p>
+                            )}
+                            {event.description && !event.closer_nome && (
                               <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[200px]">{event.description}</p>
                             )}
                           </div>
@@ -1292,6 +1356,24 @@ export default function CallsEventosPage() {
                 placeholder="https://meet.google.com/..."
                 className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-blue-500/30"
               />
+            </div>
+
+            {/* Closer vinculado */}
+            <div className="space-y-2">
+              <Label className="text-gray-400 text-xs font-medium">Closer Responsável</Label>
+              <Select value={newEvent.closer_id} onValueChange={(value) => setNewEvent(prev => ({ ...prev, closer_id: value }))}>
+                <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white">
+                  <SelectValue placeholder="Selecione um closer..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a20] border-white/[0.06] max-h-[200px]">
+                  <SelectItem value="none" className="text-gray-400 focus:bg-white/[0.06]">Nenhum</SelectItem>
+                  {closersList.map((closer) => (
+                    <SelectItem key={closer.id} value={closer.id} className="text-white focus:bg-white/[0.06]">
+                      {closer.nome_completo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Campos para Eventos (nao call_group) */}
@@ -1570,6 +1652,24 @@ export default function CallsEventosPage() {
                     <SelectItem value="live" className="text-white focus:bg-white/[0.06]">Ao Vivo</SelectItem>
                     <SelectItem value="completed" className="text-white focus:bg-white/[0.06]">Concluido</SelectItem>
                     <SelectItem value="cancelled" className="text-white focus:bg-white/[0.06]">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Closer vinculado */}
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-xs font-medium">Closer Responsável</Label>
+                <Select value={(editEvent as any).closer_id || 'none'} onValueChange={(value) => setEditEvent(prev => prev ? ({ ...prev, closer_id: value === 'none' ? '' : value }) : prev)}>
+                  <SelectTrigger className="bg-white/[0.03] border-white/[0.06] text-white">
+                    <SelectValue placeholder="Selecione um closer..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a20] border-white/[0.06] max-h-[200px]">
+                    <SelectItem value="none" className="text-gray-400 focus:bg-white/[0.06]">Nenhum</SelectItem>
+                    {closersList.map((closer) => (
+                      <SelectItem key={closer.id} value={closer.id} className="text-white focus:bg-white/[0.06]">
+                        {closer.nome_completo}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

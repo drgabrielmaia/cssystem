@@ -25,9 +25,11 @@ import { supabase } from '@/lib/supabase'
 interface Mentorado {
   id: string
   nome: string
+  nome_completo?: string
   email: string
   telefone: string | null
-  turma: string
+  turma?: string
+  estado_atual?: string
 }
 
 interface Lead {
@@ -77,15 +79,20 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Buscar mentorados
-        const mentoradosResponse = await fetch('/api/mentorados', {
-          headers: {
-            'ngrok-skip-browser-warning': 'true'
-          }
-        })
-        const mentoradosData = await mentoradosResponse.json()
-        if (mentoradosData.success) {
-          setMentorados(mentoradosData.mentorados || [])
+        // Buscar mentorados via supabase
+        const { data: mentoradosData, error: mentoradosError } = await supabase
+          .from('mentorados')
+          .select('id, nome_completo, email, telefone, estado_atual')
+          .order('nome_completo')
+        if (!mentoradosError && mentoradosData) {
+          setMentorados(mentoradosData.map(m => ({
+            id: m.id,
+            nome: m.nome_completo || '',
+            nome_completo: m.nome_completo,
+            email: m.email || '',
+            telefone: m.telefone,
+            estado_atual: m.estado_atual,
+          })))
         }
 
         // Buscar leads
@@ -204,23 +211,15 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
 
       console.log('Atualizando evento:', eventData)
 
-      const response = await fetch(`/routes/calendar/events/${event.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-        },
-        body: JSON.stringify(eventData)
-      })
+      const { error: updateError } = await supabase
+        .from('calendar_events')
+        .update(eventData)
+        .eq('id', event.id)
 
-      const result = await response.json()
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Erro ao atualizar evento')
-      }
+      if (updateError) throw updateError
 
       onSuccess()
       onClose()
-      alert('Evento atualizado com sucesso!')
     } catch (error) {
       console.error('Erro ao atualizar evento:', error)
       alert('Erro ao atualizar evento')
@@ -298,7 +297,7 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
                   <SelectItem value="none">Nenhum mentorado</SelectItem>
                   {mentorados.map((mentorado) => (
                     <SelectItem key={mentorado.id} value={mentorado.id}>
-                      {mentorado.nome} ({mentorado.turma})
+                      {mentorado.nome}{mentorado.estado_atual ? ` (${mentorado.estado_atual})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
