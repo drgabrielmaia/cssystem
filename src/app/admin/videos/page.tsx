@@ -171,7 +171,7 @@ export default function AdminVideosPage() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
       const orgId = organizationId || '9c8c0033-15ea-4e33-a55f-28d81a19693b'
-      const res = await fetch(`${apiUrl}/api/whatsapp/groups?userId=default`)
+      const res = await fetch(`${apiUrl}/api/whatsapp/groups?userId=${orgId}`)
       const json = await res.json()
       if (json.success && json.groups) {
         setWhatsAppGroups(json.groups.map((g: any) => ({ id: g.id, name: g.name || g.subject || g.id })))
