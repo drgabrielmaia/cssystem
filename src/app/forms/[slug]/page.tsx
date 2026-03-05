@@ -229,12 +229,14 @@ export default function FormPageSafe() {
       const { error: linkError } = await supabase
         .from('agendamento_links').insert([linkData]).select().single()
       if (linkError) {
+        console.error('Erro ao criar link de agendamento:', linkError)
         setSubmitted(true)
       } else {
         setBookingToken(token)
         setTimeout(() => { window.location.href = `/agenda/agendar/${token}` }, 2000)
       }
-    } catch {
+    } catch (err) {
+      console.error('Erro ao criar link de agendamento:', err)
       setSubmitted(true)
     }
   }
@@ -274,9 +276,17 @@ export default function FormPageSafe() {
           submission_data: formData, score, temperatura, closer_id: closerId,
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
         }])
-        if (template.leadQualification.enableCalendar && closerId && leadId) {
-          await createBookingLink(leadId, closerId)
-          return
+        if (template.leadQualification.enableCalendar && leadId) {
+          // Use closer from score or fallback to any configured closer
+          const finalCloserId = closerId
+            || template.leadQualification.quenteCloserId
+            || template.leadQualification.mornoCloserId
+            || template.leadQualification.frioCloserId
+            || null
+          if (finalCloserId) {
+            await createBookingLink(leadId, finalCloserId)
+            return
+          }
         }
         setSubmitted(true)
         return

@@ -92,6 +92,16 @@ Contratacao Estrategica: Nao procure um secretario; procure um vendedor. Voce en
 
 Cultura e o que acontece na sua ausencia: A cultura da clinica e definida pelo que sua equipe faz quando voce nao esta la. Se voce nao e o exemplo de pontualidade e postura, sua equipe nunca sera.
 
+Hiring: Nao contrate secretarias, contrate vendedores. E mais facil ensinar processos administrativos a um vendedor do que ensinar "sangue nos olhos" para fechamento a um administrativo.
+
+Comunicacao em Circuito Fechado: Como em uma reanimacao cardiaca (PCR), a gestao deve ser clara e direta. Delege a tarefa e exija o retorno da confirmacao. Se voce nao e claro, a culpa do erro e sua, nao da equipe.
+
+O Aluguel do Sucesso: A cultura da empresa e o que sua equipe faz quando voce nao esta. Se voce nao e o exemplo de disciplina, sua equipe sera desleixada.
+
+Indicadores (KPIs): Voce precisa saber: Numero de interessados (leads), taxa de agendamento e taxa de conversao. 80% do seu faturamento deve vir da reativacao de pacientes antigos e nao apenas de novos leads.
+
+Financas e Tizerpatida: Cuidado com o fluxo de caixa de medicamentos caros. Nunca gaste o valor total; separe o custo da reposicao imediatamente para nao criar uma divida de centenas de milhares em poucos meses.
+
 ---
 
 O Framework do Atendimento Premium
@@ -124,6 +134,75 @@ Frases de Efeito (A "Mentalidade Guto/Gabriel")
 ---
 
 Ponto-chave: Gestao e comunicacao. O gestor e um comunicador de circuito fechado (como em uma sala de emergencia medica). Se a mensagem nao e clara, direta e objetiva, a equipe vai falhar.
+`,
+  },
+
+  // ══════════════════════════════════════════════════════════════
+  // EXPERIENCIA DO PACIENTE - MODELO DISNEY
+  // ══════════════════════════════════════════════════════════════
+  {
+    titulo: 'Experiencia do Paciente - Modelo Disney e Jornada',
+    categoria: 'vendas',
+    conteudo: `
+O resultado clinico e o basico. O que retem o publico High-Ticket e a experiencia sensorial.
+
+Marketing Sensorial (Os 5 Sentidos):
+- Olfato: Ter um cheiro exclusivo na clinica (piramide olfativa com notas de base amadeiradas para fixacao).
+- Visao: Cenarios "instagramaveis" (cimento queimado, iluminacao estrategica).
+- Paladar: Cafe personalizado, agua de qualidade.
+- Audicao: Musica ambiente adequada ao perfil do paciente.
+- Tato: Texturas premium em mobiliario e materiais de contato.
+
+Jornada do Paciente: O atendimento comeca no primeiro contato do WhatsApp (que deve ser humano e rapido) e vai ate o pos-venda (follow-up).
+
+Follow-up Agressivo: Um "nao" hoje e um "talvez" amanha. O sistema deve cobrar o paciente de forma elegante em intervalos de 2, 5, 7 e 15 dias. Quem nao cobra, nao vende.
+
+Erros Fatais na Experiencia:
+- Demorar para demitir: Se um funcionario errou o mesmo processo tres vezes apos o feedback, rua. Um funcionario desalinhado destroi a experiencia de 50 pacientes.
+- Focar so em novos pacientes: O lucro real esta em vender novos protocolos para quem ja e seu paciente ou reativar quem sumiu.
+`,
+  },
+
+  // ══════════════════════════════════════════════════════════════
+  // POSICIONAMENTO DIGITAL - AUTORIDADE E ESCALA
+  // ══════════════════════════════════════════════════════════════
+  {
+    titulo: 'Posicionamento Digital - Autoridade e Escala',
+    categoria: 'marketing',
+    conteudo: `
+O Instagram e seu programa de TV. O objetivo e criar relacionamento e autoridade percebida.
+
+O Aluguel e Diario: Conteudo deve ser postado todo dia. Se voce nao aparece, voce nao e lembrado.
+
+Funil de Conteudo:
+- Topo (70%): Videos rapidos, frases de impacto, lifestyle (mostrando que voce vive o que prega).
+- Meio: Conteudo tecnico denso que justifica o preco do seu protocolo.
+- Fundo: Provas sociais (depoimentos) e chamada para acao (CTA).
+
+Inteligencia Artificial: Use o ChatGPT (versao paga) para criar as headlines (titulos) e legendas. Nao perca tempo sendo redator; seja o estrategista.
+
+Autoridade Percebida vs. Declarada: Nao use o jaleco para "gritar" que e medico. Use sua imagem, seu lifestyle e seu conhecimento para que as pessoas concluam sozinhas que voce e o melhor. O jaleco entra apenas como acessorio de procedimento.
+
+Trafego Pago: Organico e bom, mas o trafego segmentado e que coloca o seu anuncio na cara da pessoa de 50 anos com libido baixa e dinheiro no bolso (Persona especifica). Nunca subestime o trafego pago.
+`,
+  },
+
+  // ══════════════════════════════════════════════════════════════
+  // ERROS FATAIS QUE DEVEM SER EVITADOS
+  // ══════════════════════════════════════════════════════════════
+  {
+    titulo: 'Erros Fatais que Devem ser Evitados',
+    categoria: 'mindset',
+    conteudo: `
+Demorar para demitir: Se um funcionario errou o mesmo processo tres vezes apos o feedback, rua. Um funcionario desalinhado destroi a experiencia de 50 pacientes.
+
+Focar so em novos pacientes: O lucro real esta em vender novos protocolos para quem ja e seu paciente ou reativar quem sumiu.
+
+Ser um personagem: A imagem deve ser sua melhor versao, nao uma mentira. Se voce nao sustenta o estilo na padaria, o paciente percebera que voce e "fake" no consultorio.
+
+Subestimar o Trafego Pago: Organico e bom, mas o trafego segmentado e que coloca o seu anuncio na cara da pessoa de 50 anos com libido baixa e dinheiro no bolso (Persona especifica).
+
+Conclusao de Gabriel Maia: Gerir uma clinica de sucesso e dominar a ciencia medica e a arte da persuasao visual e operacional. O sucesso e o resultado de pequenos detalhes ajustados: da barra da calca ao delay da resposta no WhatsApp.
 `,
   },
 ]

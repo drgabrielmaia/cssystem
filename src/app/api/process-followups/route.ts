@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
             const nextExecution = new Date()
             nextExecution.setDate(nextExecution.getDate() + nextStep.delay_days)
             nextExecution.setHours(nextExecution.getHours() + (nextStep.delay_hours || 0))
+            nextExecution.setMinutes(nextExecution.getMinutes() + (nextStep.delay_minutes || 0))
             updateData.proxima_execucao = nextExecution.toISOString()
           } else {
             updateData.status = 'completed'
@@ -205,28 +206,32 @@ function processTemplate(template: string, variables: Record<string, string>): s
   return processed
 }
 
-// Função auxiliar para enviar WhatsApp
+// Função auxiliar para enviar WhatsApp via API Baileys (Docker)
 async function sendWhatsApp(phone: string, message: string) {
   try {
     const cleanPhone = phone.replace(/\D/g, '')
-    
-    const response = await fetch(`${process.env.ZAPI_BASE_URL || 'https://api.z-api.io'}/instances/${process.env.ZAPI_INSTANCE_ID}/token/${process.env.ZAPI_TOKEN}/send-text`, {
+    const phoneFormatted = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`
+
+    // Buscar org ID do Médicos de Resultado para usar como userId
+    const orgId = '9c8c0033-15ea-4e33-a55f-28d81a19693b'
+    const apiUrl = 'http://api.medicosderesultado.com.br'
+
+    const response = await fetch(`${apiUrl}/users/${orgId}/send`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        phone: `55${cleanPhone}`,
+        to: `${phoneFormatted}@s.whatsapp.net`,
         message: message
       })
     })
 
-    if (response.ok) {
-      console.log('✅ WhatsApp enviado')
+    const result = await response.json()
+    if (result.success) {
+      console.log('✅ WhatsApp enviado via Baileys API')
       return { success: true }
     } else {
-      console.log('❌ Falha no WhatsApp')
-      return { success: false, error: 'Falha na API do WhatsApp' }
+      console.log('❌ Falha no WhatsApp:', result.error)
+      return { success: false, error: result.error || 'Falha na API' }
     }
   } catch (error) {
     console.error('💥 Erro WhatsApp:', error)

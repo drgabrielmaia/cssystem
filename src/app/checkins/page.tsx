@@ -223,13 +223,26 @@ export default function CheckInsPage() {
   // Filtrar mentorados baseado no status e busca
   const filteredMentorados = mentorados.filter(mentorado => {
     const status = checkinsStatus.find(s => s.mentorado_id === mentorado.id)
-    if (!status) return false
 
     // Filtro por busca
     const matchesSearch = mentorado.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          mentorado.email.toLowerCase().includes(searchTerm.toLowerCase())
 
     if (!matchesSearch) return false
+
+    // Se não há status, tratar como tudo pendente
+    if (!status) {
+      switch (filtroStatus) {
+        case 'onboarding_pendente':
+        case 'consultoria_pendente':
+          return true
+        case 'onboarding_agendado':
+        case 'consultoria_agendado':
+          return false
+        default:
+          return true
+      }
+    }
 
     // Filtro por status
     switch (filtroStatus) {
@@ -246,11 +259,12 @@ export default function CheckInsPage() {
     }
   })
 
-  // Estatísticas para os cards
+  // Estatísticas para os cards (mentorados sem checkin status = pendente em tudo)
+  const mentoradosSemStatus = mentorados.filter(m => !checkinsStatus.find(s => s.mentorado_id === m.id)).length
   const stats = {
-    onboardingPendente: checkinsStatus.filter(s => !s.onboarding_realizado && !s.onboarding_agendado).length,
+    onboardingPendente: checkinsStatus.filter(s => !s.onboarding_realizado && !s.onboarding_agendado).length + mentoradosSemStatus,
     onboardingAgendado: checkinsStatus.filter(s => s.onboarding_agendado && !s.onboarding_realizado).length,
-    consultoriaPendente: checkinsStatus.filter(s => !s.consultoria_imagem_realizada && !s.consultoria_imagem_agendada).length,
+    consultoriaPendente: checkinsStatus.filter(s => !s.consultoria_imagem_realizada && !s.consultoria_imagem_agendada).length + mentoradosSemStatus,
     consultoriaAgendado: checkinsStatus.filter(s => s.consultoria_imagem_agendada && !s.consultoria_imagem_realizada).length,
   }
 
@@ -409,8 +423,13 @@ export default function CheckInsPage() {
           <CardContent>
             <div className="space-y-4">
               {filteredMentorados.map(mentorado => {
-                const status = checkinsStatus.find(s => s.mentorado_id === mentorado.id)
-                if (!status) return null
+                const status: CheckinStatus = checkinsStatus.find(s => s.mentorado_id === mentorado.id) || {
+                  mentorado_id: mentorado.id,
+                  onboarding_realizado: false,
+                  onboarding_agendado: false,
+                  consultoria_imagem_realizada: false,
+                  consultoria_imagem_agendada: false,
+                } as CheckinStatus
 
                 const badgeOnboarding = getStatusBadge(status, 'onboarding')
                 const badgeConsultoria = getStatusBadge(status, 'consultoria')

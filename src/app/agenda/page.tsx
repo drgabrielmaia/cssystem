@@ -134,6 +134,8 @@ export default function AgendaPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('todos')
+  const [closerFilter, setCloserFilter] = useState('todos')
+  const [closers, setClosers] = useState<{ id: string; nome_completo: string }[]>([])
   const [chartData, setChartData] = useState<any[]>([])
 
   // Estados para modais e formulários
@@ -148,7 +150,7 @@ export default function AgendaPage() {
 
   useEffect(() => {
     loadAgendamentos()
-  }, [statusFilter])
+  }, [statusFilter, closerFilter])
 
   const loadAgendaData = async () => {
     try {
@@ -157,13 +159,23 @@ export default function AgendaPage() {
         loadAgendamentos(),
         loadLinksPersonalizados(),
         loadStats(),
-        loadChartData()
+        loadChartData(),
+        loadClosers()
       ])
     } catch (error) {
       console.error('Erro ao carregar dados da agenda:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadClosers = async () => {
+    const { data } = await supabase
+      .from('closers')
+      .select('id, nome_completo')
+      .eq('ativo', true)
+      .order('nome_completo')
+    if (data) setClosers(data)
   }
 
   const loadAgendaConfig = async () => {
@@ -188,12 +200,17 @@ export default function AgendaPage() {
         *,
         leads:lead_id(nome_completo, email, empresa),
         mentorados:mentorado_id(nome, email),
-        agenda_configuracoes:agenda_id(nome, cor_tema)
+        agenda_configuracoes:agenda_id(nome, cor_tema),
+        closer:closer_id(id, nome_completo)
       `)
       .order('data_agendada', { ascending: false })
 
     if (statusFilter !== 'todos') {
       query = query.eq('status', statusFilter)
+    }
+
+    if (closerFilter !== 'todos') {
+      query = query.eq('closer_id', closerFilter)
     }
 
     const { data, error } = await query
@@ -389,14 +406,6 @@ export default function AgendaPage() {
           <p className="text-gray-600 mt-1">Sistema de agendamento tipo Calendly</p>
         </div>
         <div className="flex gap-3">
-          <Button
-            onClick={() => setIsConfigModalOpen(true)}
-            variant="outline"
-            className="border-[#059669] text-[#059669] hover:bg-[#059669] hover:text-white"
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            Configurar Agenda
-          </Button>
           <Button className="bg-[#059669] hover:bg-[#047857] text-white">
             <Plus className="h-4 w-4 mr-2" />
             Novo Agendamento
@@ -405,11 +414,10 @@ export default function AgendaPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="agendamentos">Agendamentos</TabsTrigger>
           <TabsTrigger value="links">Links Personalizados</TabsTrigger>
-          <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
         </TabsList>
 
         {/* Dashboard Tab */}
@@ -549,6 +557,16 @@ export default function AgendaPage() {
                 <option value="concluido">Concluído</option>
                 <option value="cancelado">Cancelado</option>
                 <option value="no_show">No-show</option>
+              </select>
+              <select
+                value={closerFilter}
+                onChange={(e) => setCloserFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#059669] focus:border-[#059669]"
+              >
+                <option value="todos">Todos os Closers</option>
+                {closers.map(c => (
+                  <option key={c.id} value={c.id}>{c.nome_completo}</option>
+                ))}
               </select>
             </div>
             <Button variant="outline">
