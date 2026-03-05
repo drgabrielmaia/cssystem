@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { UserCheck, Mail, Eye, EyeOff, LogIn, Play, BookOpen, DollarSign, TrendingUp, Target, Trophy, Brain, Star, Medal, Award, FileText, Heart, ChevronRight, Sparkles, Zap } from 'lucide-react'
+import { UserCheck, Mail, Eye, EyeOff, LogIn, Play, BookOpen, DollarSign, TrendingUp, Target, Trophy, Brain, Star, Medal, Award, FileText, Heart, ChevronRight, Sparkles, Zap, Building2, Ticket } from 'lucide-react'
 import { MentoradoAuthProvider, useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { supabase } from '@/lib/supabase'
 import { GeneroEspecialidadeModal } from '@/components/GeneroEspecialidadeModal'
@@ -39,6 +39,10 @@ function MentoradoPageContent() {
   const [needsProfileUpdate, setNeedsProfileUpdate] = useState(false)
   const [allModulesCount, setAllModulesCount] = useState(0)
   const [animateStats, setAnimateStats] = useState(false)
+
+  // Beta users - features em teste
+  const BETA_USERS = ['emersonbljr2802@gmail.com']
+  const isBetaUser = BETA_USERS.includes(mentorado?.email?.toLowerCase() || '')
 
   // ICP auto-redirect DESATIVADO por enquanto (perguntas erradas)
   // TODO: Reativar quando o admin corrigir o template de perguntas
@@ -433,6 +437,24 @@ function MentoradoPageContent() {
                   <DollarSign className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
                   Ver Comissoes
                 </Link>
+                {isBetaUser && (
+                  <>
+                    <Link
+                      href="/mentorado/airbnb"
+                      className="group bg-gradient-to-r from-amber-500/80 to-orange-600/80 backdrop-blur-sm text-white px-6 md:px-7 py-3 md:py-3.5 rounded-xl font-semibold hover:from-amber-500 hover:to-orange-600 transition-all duration-300 flex items-center text-[14px] md:text-[15px] shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 hover:scale-[1.03] active:scale-[0.98]"
+                    >
+                      <Building2 className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                      Airbnb Medicos
+                    </Link>
+                    <Link
+                      href="/mentorado/eventos"
+                      className="group bg-gradient-to-r from-purple-500/80 to-pink-600/80 backdrop-blur-sm text-white px-6 md:px-7 py-3 md:py-3.5 rounded-xl font-semibold hover:from-purple-500 hover:to-pink-600 transition-all duration-300 flex items-center text-[14px] md:text-[15px] shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 hover:scale-[1.03] active:scale-[0.98]"
+                    >
+                      <Ticket className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                      Eventos
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -727,6 +749,10 @@ function MentoradoPageContent() {
                 { href: '/mentorado/conquistas', icon: Trophy, label: 'Conquistas', tooltip: 'Veja suas conquistas e badges', gradient: 'from-red-500/15 to-rose-500/15', iconBg: 'from-red-500 to-rose-500' },
                 { href: '/mentorado/onboarding', icon: Brain, label: 'Onboarding', tooltip: 'Reveja o processo de integracao', gradient: 'from-purple-500/15 to-violet-500/15', iconBg: 'from-purple-500 to-violet-500' },
                 { href: '/mentorado/progress', icon: Star, label: 'Progresso', tooltip: 'Veja seu progresso detalhado', gradient: 'from-cyan-500/15 to-sky-500/15', iconBg: 'from-cyan-500 to-sky-500' },
+                ...(isBetaUser ? [
+                  { href: '/mentorado/airbnb', icon: Building2, label: 'Airbnb', tooltip: 'Alugue clinicas para atender', gradient: 'from-amber-500/15 to-orange-500/15', iconBg: 'from-amber-500 to-orange-600', special: true },
+                  { href: '/mentorado/eventos', icon: Ticket, label: 'Eventos', tooltip: 'Eventos exclusivos com ingressos', gradient: 'from-purple-500/15 to-pink-500/15', iconBg: 'from-purple-500 to-pink-600', special: true },
+                ] : []),
               ].map((action, i) => {
                 const Icon = action.icon
                 return (

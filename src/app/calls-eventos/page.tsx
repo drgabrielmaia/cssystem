@@ -54,6 +54,12 @@ interface GroupEvent {
   attendee_count?: number
   conversion_count?: number
   conversion_value?: number
+  // Eventos com ingressos
+  valor_ingresso?: number
+  is_paid?: boolean
+  local_evento?: string
+  imagem_capa?: string
+  visivel_mentorados?: boolean
 }
 
 interface EventParticipant {
@@ -138,7 +144,11 @@ export default function CallsEventosPage() {
     date_time: '',
     duration_minutes: '60',
     max_participants: '',
-    meeting_link: ''
+    meeting_link: '',
+    valor_ingresso: '',
+    local_evento: '',
+    imagem_capa: '',
+    visivel_mentorados: false,
   })
 
   // New participant form state
@@ -273,6 +283,11 @@ export default function CallsEventosPage() {
           duration_minutes: parseInt(newEvent.duration_minutes) || 60,
           max_participants: newEvent.max_participants ? parseInt(newEvent.max_participants) : null,
           meeting_link: newEvent.meeting_link || null,
+          valor_ingresso: newEvent.valor_ingresso ? parseFloat(newEvent.valor_ingresso) : 0,
+          is_paid: newEvent.valor_ingresso ? parseFloat(newEvent.valor_ingresso) > 0 : false,
+          local_evento: newEvent.local_evento || null,
+          imagem_capa: newEvent.imagem_capa || null,
+          visivel_mentorados: newEvent.visivel_mentorados,
           status: 'scheduled',
           created_by_email: user?.email,
           organization_id: organizationId,
@@ -290,7 +305,11 @@ export default function CallsEventosPage() {
         date_time: '',
         duration_minutes: '60',
         max_participants: '',
-        meeting_link: ''
+        meeting_link: '',
+        valor_ingresso: '',
+        local_evento: '',
+        imagem_capa: '',
+        visivel_mentorados: false,
       })
       setShowNewEventModal(false)
     } catch (error) {
@@ -966,6 +985,59 @@ export default function CallsEventosPage() {
                 className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-blue-500/30"
               />
             </div>
+
+            {/* Campos para Eventos (nao call_group) */}
+            {newEvent.type !== 'call_group' && (
+              <div className="space-y-4 p-4 bg-purple-500/5 rounded-xl border border-purple-500/10">
+                <p className="text-purple-400 text-xs font-semibold uppercase tracking-wider">Configuracoes do Evento</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-xs font-medium">Valor do Ingresso (R$)</Label>
+                    <Input
+                      type="number"
+                      value={newEvent.valor_ingresso}
+                      onChange={(e) => setNewEvent(prev => ({ ...prev, valor_ingresso: e.target.value }))}
+                      placeholder="0,00 = Gratuito"
+                      className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-purple-500/30"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-xs font-medium">Local do Evento</Label>
+                    <Input
+                      value={newEvent.local_evento}
+                      onChange={(e) => setNewEvent(prev => ({ ...prev, local_evento: e.target.value }))}
+                      placeholder="Ex: Hotel XYZ, Sala 5"
+                      className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-purple-500/30"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-gray-400 text-xs font-medium">URL da Imagem de Capa</Label>
+                  <Input
+                    value={newEvent.imagem_capa}
+                    onChange={(e) => setNewEvent(prev => ({ ...prev, imagem_capa: e.target.value }))}
+                    placeholder="https://..."
+                    className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-gray-600 focus-visible:ring-purple-500/30"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setNewEvent(prev => ({ ...prev, visivel_mentorados: !prev.visivel_mentorados }))}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                      newEvent.visivel_mentorados ? 'bg-purple-500' : 'bg-white/10'
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${
+                      newEvent.visivel_mentorados ? 'translate-x-5' : ''
+                    }`} />
+                  </button>
+                  <Label className="text-gray-300 text-sm cursor-pointer" onClick={() => setNewEvent(prev => ({ ...prev, visivel_mentorados: !prev.visivel_mentorados }))}>
+                    Visivel para mentorados
+                  </Label>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 mt-6 pt-4 border-t border-white/[0.06]">
