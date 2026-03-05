@@ -208,7 +208,12 @@ export default function FollowUpConfigPage() {
       throw error
     }
 
-    setSequences(data || [])
+    // Normalizar steps para garantir que sempre é um array
+    const normalized = (data || []).map(seq => ({
+      ...seq,
+      steps: Array.isArray(seq.steps) ? seq.steps : []
+    }))
+    setSequences(normalized)
   }
 
   const loadSequenceStats = async () => {
@@ -338,9 +343,9 @@ export default function FollowUpConfigPage() {
       setIsCreateModalOpen(false)
       resetForm()
       loadData()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating sequence:', error)
-      toast.error('Erro ao criar sequencia')
+      toast.error(`Erro ao criar sequência: ${error?.message || error?.details || 'Erro desconhecido'}`)
     }
   }
 
@@ -701,7 +706,7 @@ export default function FollowUpConfigPage() {
       pausar_feriados: sequence.pausar_feriados,
       horario_envio_inicio: sequence.horario_envio_inicio,
       horario_envio_fim: sequence.horario_envio_fim,
-      steps: sequence.steps
+      steps: Array.isArray(sequence.steps) ? sequence.steps : []
     })
     setIsEditModalOpen(true)
   }
