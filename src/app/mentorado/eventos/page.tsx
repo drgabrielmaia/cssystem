@@ -133,6 +133,27 @@ export default function EventosPage() {
 
       // Filter out call_group type
       const filtered = (eventosData || []).filter((e: any) => e.type !== 'call_group')
+
+      // Load actual participant count per event (from evento_tickets)
+      const eventIds = filtered.map((e: any) => e.id)
+      if (eventIds.length > 0) {
+        const { data: allTickets } = await supabase
+          .from('evento_tickets')
+          .select('event_id')
+          .in('event_id', eventIds)
+
+        if (allTickets) {
+          const ticketCounts: Record<string, number> = {}
+          for (const t of allTickets) {
+            ticketCounts[t.event_id] = (ticketCounts[t.event_id] || 0) + 1
+          }
+          // Set the actual participant_count on each event
+          for (const ev of filtered) {
+            ev.participant_count = ticketCounts[ev.id] || 0
+          }
+        }
+      }
+
       setEventos(filtered)
 
       // Load my tickets

@@ -1,6 +1,16 @@
 // WhatsApp Core API Client for Bohr.io integration
 import { supabase } from './supabase';
 
+// Org ID validado pelo servidor (setado pelo auth context após /auth/me)
+let _validatedOrgId: string | null = null;
+
+/**
+ * Setter chamado pelo auth context após validação server-side.
+ */
+export function setValidatedOrgId(orgId: string) {
+  _validatedOrgId = orgId;
+}
+
 export interface WhatsAppStatus {
   isReady: boolean;
   isConnecting: boolean;
@@ -75,29 +85,16 @@ class WhatsAppCoreAPI {
   }
 
   // Função para determinar userId baseado na organização
+  // PRIORIDADE: org ID validado pelo servidor (setado pelo auth context)
   private async getOrganizationId(): Promise<string> {
     try {
-      // 1. Try localStorage first (works for custom JWT users)
-      if (typeof window !== 'undefined') {
-        const cachedOrg = localStorage.getItem('customer_success_org');
-        if (cachedOrg) {
-          console.log('✅ Organização encontrada via localStorage:', cachedOrg);
-          return cachedOrg;
-        }
-
-        const cachedAuth = localStorage.getItem('customer_success_auth');
-        if (cachedAuth) {
-          try {
-            const parsed = JSON.parse(cachedAuth);
-            if (parsed.organization_id) {
-              console.log('✅ Organização encontrada via auth cache:', parsed.organization_id);
-              return parsed.organization_id;
-            }
-          } catch {}
-        }
+      // 1. Usar org ID validado pelo servidor (setado pelo auth context após /auth/me)
+      if (_validatedOrgId) {
+        console.log('✅ Organização validada pelo servidor:', _validatedOrgId);
+        return _validatedOrgId;
       }
 
-      // 2. Try Supabase auth
+      // 2. Fallback: Try Supabase auth
       const { data: { user }, error: userError } = await supabase.auth.getUser();
 
       if (userError || !user) {

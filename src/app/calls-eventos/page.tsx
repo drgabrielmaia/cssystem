@@ -302,18 +302,26 @@ export default function CallsEventosPage() {
         return
       }
 
-      // Load participant counts per event
+      // Load participant counts per event (from manual participants + tickets)
       const eventIds = eventsData.map(e => e.id)
+
+      // 1. Manual participants (group_event_participants)
       const { data: participantsData } = await supabase
         .from('group_event_participants')
         .select('event_id, attendance_status, conversion_status, conversion_value')
         .in('event_id', eventIds)
 
+      // 2. Ticket-based signups (evento_tickets - where mentorados sign up)
+      const { data: ticketsData } = await supabase
+        .from('evento_tickets')
+        .select('event_id, status')
+        .in('event_id', eventIds)
+
       // Aggregate counts per event
-      const countsMap: Record<string, { participants: number; attendees: number; conversions: number; conversionValue: number }> = {}
+      const countsMap: Record<string, { participants: number; attendees: number; conversions: number; conversionValue: number; ticketCount: number }> = {}
       for (const p of participantsData || []) {
         if (!countsMap[p.event_id]) {
-          countsMap[p.event_id] = { participants: 0, attendees: 0, conversions: 0, conversionValue: 0 }
+          countsMap[p.event_id] = { participants: 0, attendees: 0, conversions: 0, conversionValue: 0, ticketCount: 0 }
         }
         countsMap[p.event_id].participants++
         if (p.attendance_status === 'attended') countsMap[p.event_id].attendees++
@@ -322,10 +330,19 @@ export default function CallsEventosPage() {
           countsMap[p.event_id].conversionValue += Number(p.conversion_value) || 0
         }
       }
+      // Count active tickets as participants too
+      for (const t of ticketsData || []) {
+        if (!countsMap[t.event_id]) {
+          countsMap[t.event_id] = { participants: 0, attendees: 0, conversions: 0, conversionValue: 0, ticketCount: 0 }
+        }
+        if (t.status === 'ativo' || t.status === 'usado') {
+          countsMap[t.event_id].ticketCount++
+        }
+      }
 
       const enrichedEvents = eventsData.map(e => ({
         ...e,
-        participant_count: countsMap[e.id]?.participants || 0,
+        participant_count: (countsMap[e.id]?.participants || 0) + (countsMap[e.id]?.ticketCount || 0),
         attendee_count: countsMap[e.id]?.attendees || 0,
         conversion_count: countsMap[e.id]?.conversions || 0,
         conversion_value: countsMap[e.id]?.conversionValue || 0,

@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 import { getToken, getStoredUser, clearAuth as clearApiAuth, getApiBaseUrl } from '@/lib/api'
+import { setValidatedOrgId as setWhatsAppOrgId } from '@/lib/whatsapp-multi-service'
+import { setValidatedOrgId as setWhatsAppCoreOrgId } from '@/lib/whatsapp-core-api'
 
 interface OrganizationUser {
   is_active: boolean
@@ -153,39 +155,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return res.json()
     }
 
-    // Get initial session
+    // Helper: propagate validated org ID to WhatsApp services
+    const propagateOrgId = (orgId: string) => {
+      try { setWhatsAppOrgId(orgId) } catch {}
+      try { setWhatsAppCoreOrgId(orgId) } catch {}
+    }
+
+    // Get initial session — ALWAYS validates server-side, never trusts localStorage
     const getInitialSession = async () => {
       try {
         const token = getToken()
 
-        // STEP 0: Restore from localStorage cache for instant UI (no spinner on refresh)
-        if (token) {
-          try {
-            const cachedAuth = localStorage.getItem(AUTH_STORAGE_KEY)
-            if (cachedAuth) {
-              const cached = JSON.parse(cachedAuth)
-              if (cached.user && cached.organization_id && cached.expires_at > Date.now()) {
-                const cachedUser = {
-                  id: cached.user.id,
-                  email: cached.user.email,
-                  created_at: cached.user.created_at || new Date().toISOString(),
-                  app_metadata: cached.user.app_metadata || {},
-                  user_metadata: cached.user.user_metadata || {},
-                  aud: 'authenticated',
-                  role: 'authenticated',
-                } as any
-                setUser(cachedUser)
-                setOrganizationId(cached.organization_id)
-                setIsAuthenticated(true)
-                setLoading(false) // Stop spinner immediately - user sees the app
-              }
-            }
-          } catch {
-            // Cache parse error - continue to validation
-          }
-        }
-
-        // STEP 1: Validate custom JWT via direct fetch (not apiFetch)
+        // STEP 1: Validate custom JWT via direct fetch to our backend (/auth/me)
         if (token) {
           try {
             const meData = await validateToken(token)
@@ -210,6 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               })
               setIsAuthenticated(true)
               saveAuthData(customUser, meData.organization_id)
+              propagateOrgId(meData.organization_id)
               setLoading(false)
               setIsInitialized(true)
               return
@@ -221,20 +203,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
           } catch {
-            // Network error - if we have cache, keep using it and don't clear
-            try {
-              const cachedAuth = localStorage.getItem(AUTH_STORAGE_KEY)
-              if (cachedAuth) {
-                const cached = JSON.parse(cachedAuth)
-                if (cached.user && cached.expires_at > Date.now()) {
-                  // Valid cache exists, keep using it despite network error
-                  setLoading(false)
-                  setIsInitialized(true)
-                  return
-                }
-              }
-            } catch {}
-            // No valid cache and network error
+            // Network error - clear token, don't trust cache
             const isMentoradoPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/mentorado')
             if (!isMentoradoPage) {
               clearApiAuth()
@@ -264,7 +233,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (refreshData.session?.user) {
             setUser(refreshData.session.user)
             const orgId = await getOrganizationForUser(refreshData.session.user)
-            if (orgId) saveAuthData(refreshData.session.user, orgId)
+            if (orgId) {
+              saveAuthData(refreshData.session.user, orgId)
+              propagateOrgId(orgId)
+            }
           } else {
             clearAuthData()
             setUser(null)
@@ -283,6 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (orgId) {
           saveAuthData(validatedUser, orgId)
+          propagateOrgId(orgId)
         } else {
           clearAuthData()
           setUser(null)
@@ -296,18 +269,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       } catch (error) {
         console.error('Erro na verificação inicial:', error)
-        // On error, keep cache if valid before clearing
-        try {
-          const cachedAuth = localStorage.getItem(AUTH_STORAGE_KEY)
-          if (cachedAuth) {
-            const cached = JSON.parse(cachedAuth)
-            if (cached.user && cached.expires_at > Date.now()) {
-              setLoading(false)
-              setIsInitialized(true)
-              return
-            }
-          }
-        } catch {}
         clearAuthData()
         setUser(null)
         setOrganizationId(null)
@@ -385,6 +346,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       setIsAuthenticated(true)
       saveAuthData(customUser, userData.organization_id)
+      propagateOrgId(userData.organization_id)
       setLoading(false)
     }) as EventListener
     window.addEventListener('apiLoginSuccess', handleApiLogin)
@@ -545,6 +507,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             })
             setIsAuthenticated(true)
             saveAuthData(customUser, meData.organization_id)
+            // Propagate validated org ID to WhatsApp services
+            try { setWhatsAppOrgId(meData.organization_id) } catch {}
+            try { setWhatsAppCoreOrgId(meData.organization_id) } catch {}
             return
           }
         } catch {

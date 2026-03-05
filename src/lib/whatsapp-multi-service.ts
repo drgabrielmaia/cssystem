@@ -1,6 +1,17 @@
 // WhatsApp Multi-Organization Service - Nova implementação
 import { supabase } from './supabase';
 
+// Org ID validado pelo servidor (setado pelo auth context após /auth/me)
+let _validatedOrgId: string | null = null;
+
+/**
+ * Setter chamado pelo auth context após validação server-side.
+ * Garante que o org ID usado nos requests veio do backend, não de localStorage.
+ */
+export function setValidatedOrgId(orgId: string) {
+  _validatedOrgId = orgId;
+}
+
 export interface WhatsAppStatus {
   isReady: boolean;
   isConnecting: boolean;
@@ -75,32 +86,18 @@ class WhatsAppMultiService {
 
   /**
    * Obter userId único para a organização atual
-   * Usa o id da organização como identificador único
+   * Usa o id da organização como identificador único.
+   * PRIORIDADE: org ID validado pelo servidor (setado pelo auth context)
    */
   private async getUserId(): Promise<string> {
     try {
-      // 1. Try localStorage first (works for custom JWT users logged in via Docker PostgreSQL)
-      if (typeof window !== 'undefined') {
-        const cachedOrg = localStorage.getItem('customer_success_org');
-        if (cachedOrg) {
-          console.log('✅ Organização encontrada via localStorage:', cachedOrg);
-          return cachedOrg;
-        }
-
-        // Also check the full auth cache
-        const cachedAuth = localStorage.getItem('customer_success_auth');
-        if (cachedAuth) {
-          try {
-            const parsed = JSON.parse(cachedAuth);
-            if (parsed.organization_id) {
-              console.log('✅ Organização encontrada via auth cache:', parsed.organization_id);
-              return parsed.organization_id;
-            }
-          } catch {}
-        }
+      // 1. Usar org ID validado pelo servidor (setado pelo auth context após /auth/me)
+      if (_validatedOrgId) {
+        console.log('✅ Organização validada pelo servidor:', _validatedOrgId);
+        return _validatedOrgId;
       }
 
-      // 2. Try Supabase auth (for Supabase-authenticated users)
+      // 2. Fallback: Try Supabase auth (for Supabase-authenticated users)
       const { data: { user }, error: userError } = await supabase.auth.getUser();
 
       if (userError || !user) {
