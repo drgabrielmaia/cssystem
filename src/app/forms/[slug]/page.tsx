@@ -271,9 +271,10 @@ export default function FormPageSafe() {
         const { data: lead } = await supabase.from('leads').insert([leadData]).select('id').single()
         const leadId = lead?.id
         await supabase.from('form_submissions').insert([{
-          template_id: template.id, template_slug: slug,
+          form_id: template.id,
           organization_id: template.organization_id || null, lead_id: leadId,
-          submission_data: formData, score, temperatura, closer_id: closerId,
+          data: { ...formData, score, temperatura, closer_id: closerId, template_slug: slug },
+          metadata: { score, temperatura, closer_id: closerId },
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
         }])
         if (template.leadQualification.enableCalendar && leadId) {
@@ -283,10 +284,9 @@ export default function FormPageSafe() {
             || template.leadQualification.mornoCloserId
             || template.leadQualification.frioCloserId
             || null
-          if (finalCloserId) {
-            await createBookingLink(leadId, finalCloserId)
-            return
-          }
+          // Sempre criar link de agendamento quando enableCalendar está ativo
+          await createBookingLink(leadId, finalCloserId)
+          return
         }
         setSubmitted(true)
         return
@@ -296,10 +296,10 @@ export default function FormPageSafe() {
       if (slug === 'qualificacao-medica') {
         const organizationId = template?.organization_id || null
         const submissionData = {
-          template_id: template?.id, template_slug: slug,
+          form_id: template?.id,
           organization_id: organizationId,
-          source_url: window.location.search ? window.location.search.replace('?source=', '') || 'form_direto' : 'form_direto',
-          submission_data: formData,
+          data: { ...formData, template_slug: slug, source_url: window.location.search ? window.location.search.replace('?source=', '') || 'form_direto' : 'form_direto' },
+          metadata: { source_url: window.location.search ? window.location.search.replace('?source=', '') || 'form_direto' : 'form_direto' },
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
           ip_address: null,
         }
@@ -314,8 +314,8 @@ export default function FormPageSafe() {
         if (submissionError) throw new Error('Erro ao salvar formulário')
         await new Promise(resolve => setTimeout(resolve, 2000))
         const { data: updatedSubmission } = await supabase
-          .from('form_submissions').select('submission_data').eq('id', submission.id).single()
-        const agendamentoToken = updatedSubmission?.submission_data?.agendamento_token
+          .from('form_submissions').select('data').eq('id', submission.id).single()
+        const agendamentoToken = updatedSubmission?.data?.agendamento_token
         if (agendamentoToken) {
           setBookingToken(agendamentoToken)
           setSubmitted(true)
@@ -344,10 +344,11 @@ export default function FormPageSafe() {
         if (lead) leadId = lead.id
       }
       await supabase.from('form_submissions').insert([{
-        template_id: template?.id, template_slug: slug,
+        form_id: template?.id,
         organization_id: template?.organization_id || null,
-        lead_id: leadId, mentorado_id: null, source_url: 'form_safe',
-        submission_data: formData,
+        lead_id: leadId,
+        data: { ...formData, template_slug: slug, source_url: 'form_safe' },
+        metadata: { source_url: 'form_safe' },
         user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
       }])
       if (template?.form_type === 'lead' && leadId) {

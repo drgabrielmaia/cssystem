@@ -306,10 +306,17 @@ export default function CallsEventosPage() {
       const eventIds = eventsData.map(e => e.id)
 
       // 1. Manual participants (group_event_participants)
-      const { data: participantsData } = await supabase
+      const { data: participantsRaw } = await supabase
         .from('group_event_participants')
-        .select('event_id, attendance_status, conversion_status, conversion_value')
+        .select('event_id, attendance_status, conversion_status, conversion_value, attended, converted, status')
         .in('event_id', eventIds)
+
+      // Normalizar campos
+      const participantsData = (participantsRaw || []).map((p: any) => ({
+        ...p,
+        attendance_status: p.attendance_status || (p.attended ? 'attended' : p.status || 'registered'),
+        conversion_status: p.conversion_status || (p.converted ? 'converted' : 'not_converted'),
+      }))
 
       // 2. Ticket-based signups (evento_tickets - where mentorados sign up)
       const { data: ticketsData } = await supabase
@@ -376,11 +383,20 @@ export default function CallsEventosPage() {
         .from('group_event_participants')
         .select('*')
         .eq('event_id', eventId)
-        .order('registration_date', { ascending: false })
+        .order('created_at', { ascending: false })
 
       if (error) throw error
 
-      setParticipants(data || [])
+      // Normalizar colunas (DB pode ter nome/email/telefone OU participant_name/email/phone)
+      const normalized = (data || []).map((p: any) => ({
+        ...p,
+        participant_name: p.participant_name || p.nome || 'Sem nome',
+        participant_email: p.participant_email || p.email || '',
+        participant_phone: p.participant_phone || p.telefone || '',
+        attendance_status: p.attendance_status || (p.attended ? 'attended' : p.status || 'registered'),
+        conversion_status: p.conversion_status || (p.converted ? 'converted' : 'not_converted'),
+      }))
+      setParticipants(normalized)
     } catch (error) {
       console.error('Error loading participants:', error)
     }
@@ -537,7 +553,11 @@ export default function CallsEventosPage() {
     try {
       const { error } = await supabase
         .from('group_event_participants')
-        .update({ attendance_status: status })
+        .update({
+          attendance_status: status,
+          attended: status === 'attended',
+          status: status
+        })
         .eq('id', participantId)
 
       if (error) throw error

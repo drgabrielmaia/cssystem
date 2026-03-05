@@ -1157,11 +1157,11 @@ export default function CloserLevelsPage() {
                                 {/* Conversao */}
                                 <td className="p-3">
                                   <span className={`text-sm tabular-nums font-medium ${
-                                    (closer.conversao_rate || 0) >= 20 ? 'text-green-400' :
-                                    (closer.conversao_rate || 0) >= 10 ? 'text-yellow-400' :
+                                    (Number(closer.conversao_rate) || 0) >= 20 ? 'text-green-400' :
+                                    (Number(closer.conversao_rate) || 0) >= 10 ? 'text-yellow-400' :
                                     'text-gray-400'
                                   }`}>
-                                    {(closer.conversao_rate || 0).toFixed(1)}%
+                                    {(Number(closer.conversao_rate) || 0).toFixed(1)}%
                                   </span>
                                 </td>
                                 {/* Status */}

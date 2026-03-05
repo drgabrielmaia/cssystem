@@ -43,7 +43,8 @@ import {
   Video,
   TrendingUp,
   Activity,
-  Loader2
+  Loader2,
+  ChevronDown
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
@@ -914,6 +915,12 @@ export default function FollowUpConfigPage() {
             >
               Estatísticas
             </TabsTrigger>
+            <TabsTrigger
+              value="respostas"
+              className="rounded-lg px-4 py-2.5 text-sm text-white/40 data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-none transition-all duration-200"
+            >
+              Respostas
+            </TabsTrigger>
           </TabsList>
 
           {/* =================== SEQUENCES TAB =================== */}
@@ -1173,6 +1180,11 @@ export default function FollowUpConfigPage() {
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          {/* =================== RESPOSTAS TAB =================== */}
+          <TabsContent value="respostas" className="space-y-4 mt-6">
+            <FollowupResponsesTab organizationId={organizationId || ''} />
           </TabsContent>
         </Tabs>
 
@@ -1912,6 +1924,222 @@ function ActivateFollowupTab({ sequences, onActivated }: {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// =================== FOLLOWUP RESPONSES TAB COMPONENT ===================
+function FollowupResponsesTab({ organizationId }: { organizationId: string }) {
+  const [responseExecutions, setResponseExecutions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [expandedExecution, setExpandedExecution] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (organizationId) loadResponses()
+  }, [organizationId])
+
+  const loadResponses = async () => {
+    setLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('lead_followup_executions')
+        .select(`
+          *,
+          leads!inner(nome_completo, email, telefone),
+          lead_followup_sequences!inner(nome_sequencia, steps)
+        `)
+        .eq('organization_id', organizationId)
+        .order('updated_at', { ascending: false })
+        .limit(100)
+
+      if (error) throw error
+      setResponseExecutions(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar respostas:', error)
+      toast.error('Erro ao carregar respostas')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '-'
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <RefreshCw className="h-6 w-6 animate-spin text-blue-400 mr-3" />
+        <span className="text-white/40 text-sm">Carregando respostas...</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/15 flex items-center justify-center ring-1 ring-purple-500/20">
+            <MessageCircle className="w-5 h-5 text-purple-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-white">Respostas dos Follow-ups</h2>
+            <p className="text-sm text-white/40">Veja as respostas recebidas de cada lead por mensagem enviada</p>
+          </div>
+        </div>
+        <Button
+          onClick={loadResponses}
+          variant="outline"
+          size="sm"
+          className="bg-transparent border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white hover:border-white/[0.12] transition-all duration-200"
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Atualizar
+        </Button>
+      </div>
+
+      {responseExecutions.length === 0 ? (
+        <div className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] p-12">
+          <div className="text-center">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-white/[0.04] flex items-center justify-center ring-1 ring-white/[0.06]">
+              <MessageCircle className="h-7 w-7 text-white/20" />
+            </div>
+            <p className="text-white/40 text-sm">Nenhuma execução de follow-up encontrada</p>
+            <p className="text-white/25 text-xs mt-1">As respostas aparecerão aqui quando leads responderem aos follow-ups</p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {responseExecutions.map((exec) => {
+            const lead = exec.leads as any
+            const sequence = exec.lead_followup_sequences as any
+            const steps = sequence?.steps || []
+            const stepsExecutados = exec.steps_executados || []
+            const respostas = exec.respostas_recebidas || []
+            const isExpanded = expandedExecution === exec.id
+
+            return (
+              <div
+                key={exec.id}
+                className="bg-[#141418] rounded-2xl ring-1 ring-white/[0.06] overflow-hidden hover:ring-white/[0.12] transition-all duration-300"
+              >
+                {/* Header */}
+                <button
+                  onClick={() => setExpandedExecution(isExpanded ? null : exec.id)}
+                  className="w-full p-5 flex items-center justify-between text-left"
+                >
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center ring-1 ring-blue-500/20 flex-shrink-0">
+                      <Target className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-white text-sm truncate">{lead?.nome_completo || 'Lead sem nome'}</p>
+                      <p className="text-xs text-white/30 truncate">{sequence?.nome_sequencia || 'Sequência'} • {lead?.telefone}</p>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right">
+                        <p className="text-xs text-white/30">Step {exec.step_atual}/{steps.length}</p>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                          exec.status === 'active' ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/20' :
+                          exec.status === 'completed' ? 'bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/20' :
+                          exec.status === 'responded' ? 'bg-purple-500/15 text-purple-400 ring-1 ring-purple-500/20' :
+                          'bg-white/[0.06] text-white/40 ring-1 ring-white/[0.06]'
+                        }`}>
+                          {exec.status}
+                        </span>
+                      </div>
+                      {respostas.length > 0 && (
+                        <div className="w-7 h-7 rounded-full bg-purple-500/15 flex items-center justify-center ring-1 ring-purple-500/20">
+                          <span className="text-xs font-bold text-purple-400">{respostas.length}</span>
+                        </div>
+                      )}
+                      <ChevronDown className={`w-4 h-4 text-white/30 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                    </div>
+                  </div>
+                </button>
+
+                {/* Expanded Content */}
+                {isExpanded && (
+                  <div className="border-t border-white/[0.06] p-5 space-y-4">
+                    {/* Steps Executados */}
+                    <div className="space-y-2">
+                      <p className="text-xs text-white/40 uppercase tracking-wider font-medium">Mensagens Enviadas</p>
+                      {stepsExecutados.length === 0 ? (
+                        <p className="text-xs text-white/25 italic">Nenhuma mensagem enviada ainda</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {stepsExecutados.map((stepExec: any, idx: number) => {
+                            const stepData = steps[stepExec.step] || {}
+                            const stepResposta = respostas.find((r: any) => r.step === stepExec.step || r.step_index === idx)
+
+                            return (
+                              <div key={idx} className="bg-[#111113] rounded-xl p-4 ring-1 ring-white/[0.04]">
+                                <div className="flex items-start gap-3">
+                                  <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center ring-1 ring-blue-500/20 flex-shrink-0 mt-0.5">
+                                    <span className="text-xs font-bold text-blue-400">{idx + 1}</span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                      <p className="text-sm font-medium text-white">{stepExec.titulo || stepData.titulo || `Step ${idx + 1}`}</p>
+                                      <span className="text-[10px] text-white/25">{formatDate(stepExec.executed_at || stepExec.executado_em)}</span>
+                                    </div>
+                                    <p className="text-xs text-white/40 mt-1 line-clamp-2">{stepData.conteudo || ''}</p>
+                                    {stepData.media_type && (
+                                      <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md text-[10px] bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/15">
+                                        {stepData.media_type === 'video' ? <Video className="w-3 h-3" /> :
+                                         stepData.media_type === 'image' ? <ImageIcon className="w-3 h-3" /> :
+                                         <FileText className="w-3 h-3" />}
+                                        {stepData.media_type}
+                                      </span>
+                                    )}
+
+                                    {/* Resposta do lead para este step */}
+                                    {stepResposta ? (
+                                      <div className="mt-3 p-3 rounded-lg bg-purple-500/[0.06] ring-1 ring-purple-500/15">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <MessageCircle className="w-3 h-3 text-purple-400" />
+                                          <span className="text-[10px] text-purple-400 font-medium uppercase tracking-wider">Resposta do Lead</span>
+                                          <span className="text-[10px] text-white/20 ml-auto">{formatDate(stepResposta.received_at || stepResposta.data)}</span>
+                                        </div>
+                                        <p className="text-sm text-white/80">{stepResposta.mensagem || stepResposta.content || stepResposta.texto || '-'}</p>
+                                      </div>
+                                    ) : (
+                                      <p className="text-[10px] text-white/20 mt-2 italic">Sem resposta</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Respostas Gerais (if any not linked to specific steps) */}
+                    {respostas.length > 0 && stepsExecutados.length === 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-white/40 uppercase tracking-wider font-medium">Todas as Respostas</p>
+                        {respostas.map((resp: any, idx: number) => (
+                          <div key={idx} className="p-3 rounded-lg bg-purple-500/[0.06] ring-1 ring-purple-500/15">
+                            <div className="flex items-center gap-2 mb-1">
+                              <MessageCircle className="w-3 h-3 text-purple-400" />
+                              <span className="text-[10px] text-purple-400 font-medium">Resposta {idx + 1}</span>
+                              <span className="text-[10px] text-white/20 ml-auto">{formatDate(resp.received_at || resp.data)}</span>
+                            </div>
+                            <p className="text-sm text-white/80">{resp.mensagem || resp.content || resp.texto || '-'}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

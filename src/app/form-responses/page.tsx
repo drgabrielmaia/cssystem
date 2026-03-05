@@ -111,26 +111,29 @@ export default function FormResponsesPage() {
         throw error
       }
 
-      const transformedSubmissions: FormSubmission[] = (rawSubmissions || []).map(submission => ({
-        id: submission.id,
-        form_id: submission.form_id,
-        lead_id: submission.lead_id,
-        submission_data: (submission as any).data || {},
-        metadata: (submission as any).metadata || null,
-        created_at: submission.created_at,
-        template: submission.form_templates ? {
-          id: (submission.form_templates as any).id,
-          slug: (submission.form_templates as any).slug,
-          title: (submission.form_templates as any).title,
-          description: (submission.form_templates as any).description,
-          fields: (submission.form_templates as any).fields || []
-        } : null,
-        lead: submission.leads ? {
-          nome_completo: (submission.leads as any).nome_completo,
-          email: (submission.leads as any).email,
-          telefone: (submission.leads as any).telefone
-        } : null
-      }))
+      const transformedSubmissions: FormSubmission[] = (rawSubmissions || []).map(submission => {
+        const sub = submission as any
+        return {
+          id: submission.id,
+          form_id: submission.form_id || sub.template_id,
+          lead_id: submission.lead_id,
+          submission_data: sub.data || sub.submission_data || {},
+          metadata: sub.metadata || null,
+          created_at: submission.created_at,
+          template: submission.form_templates ? {
+            id: (submission.form_templates as any).id,
+            slug: (submission.form_templates as any).slug,
+            title: (submission.form_templates as any).title,
+            description: (submission.form_templates as any).description,
+            fields: (submission.form_templates as any).fields || []
+          } : null,
+          lead: submission.leads ? {
+            nome_completo: (submission.leads as any).nome_completo,
+            email: (submission.leads as any).email,
+            telefone: (submission.leads as any).telefone
+          } : null
+        }
+      })
 
       setSubmissions(transformedSubmissions)
 
