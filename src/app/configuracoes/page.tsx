@@ -1,11 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Header } from '@/components/header'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useSettings } from '@/contexts/settings'
-import { Target, Bell, Palette, Workflow, Save, Check } from 'lucide-react'
+import { useAuth } from '@/contexts/auth'
+import { supabase } from '@/lib/supabase'
+import { Target, Bell, Palette, Workflow, Save, Check, User, Camera, Briefcase, Calendar, Pencil } from 'lucide-react'
 
 interface UserSettings {
   id: string
@@ -25,9 +27,96 @@ interface UserSettings {
   cor_primaria: string
 }
 
+const funcoes = [
+  'Proprietário', 'Diretor', 'Gerente', 'Closer', 'SDR', 'Social Seller',
+  'Administrativo', 'Financeiro', 'Marketing', 'Suporte', 'Desenvolvedor', 'Outro',
+]
+
+const compressImage = (file: File): Promise<Blob> => {
+  return new Promise((resolve) => {
+    const img = document.createElement('img')
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const canvas = document.createElement('canvas')
+      let { width, height } = img
+      const MAX_DIM = 800
+      if (width > MAX_DIM || height > MAX_DIM) {
+        if (width > height) { height = (height / width) * MAX_DIM; width = MAX_DIM }
+        else { width = (width / height) * MAX_DIM; height = MAX_DIM }
+      }
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+      canvas.toBlob((blob) => resolve(blob || file), 'image/jpeg', 0.8)
+    }
+    img.src = url
+  })
+}
+
 export default function ConfiguracoesPage() {
   const { settings, updateSettings, loading } = useSettings()
+  const { user, orgUser, organizationId, refreshAuth } = useAuth()
   const [message, setMessage] = useState('')
+
+  // Profile state
+  const [editingProfile, setEditingProfile] = useState(false)
+  const [profileName, setProfileName] = useState(orgUser?.nome_completo || '')
+  const [profileYear, setProfileYear] = useState(orgUser?.ano_nascimento?.toString() || '')
+  const [profileFunc, setProfileFunc] = useState(orgUser?.funcao || '')
+  const [profilePhoto, setProfilePhoto] = useState(orgUser?.foto_perfil || '')
+  const [photoPreview, setPhotoPreview] = useState(orgUser?.foto_perfil || '')
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  const handleProfilePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !file.type.startsWith('image/')) return
+    setUploadingPhoto(true)
+    try {
+      const compressed = await compressImage(file)
+      const compressedFile = new File([compressed], file.name, { type: 'image/jpeg' })
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = (ev) => resolve(ev.target?.result as string)
+        reader.readAsDataURL(compressedFile)
+      })
+      setPhotoPreview(base64)
+      setProfilePhoto(base64)
+    } catch { /* ignore */ }
+    finally { setUploadingPhoto(false) }
+  }
+
+  const handleSaveProfile = async () => {
+    if (!profileName.trim() || !profileYear || !profileFunc) {
+      setMessage('Preencha todos os campos do perfil')
+      return
+    }
+    setSavingProfile(true)
+    try {
+      const { error } = await supabase
+        .from('organization_users')
+        .update({
+          nome_completo: profileName.trim(),
+          ano_nascimento: Number(profileYear),
+          funcao: profileFunc,
+          foto_perfil: profilePhoto || photoPreview || orgUser?.foto_perfil,
+          profile_completed: true,
+        })
+        .eq('email', user?.email)
+        .eq('organization_id', organizationId)
+      if (error) throw error
+      await refreshAuth()
+      setEditingProfile(false)
+      setMessage('Perfil atualizado com sucesso!')
+      setTimeout(() => setMessage(''), 3000)
+    } catch (err: any) {
+      setMessage('Erro ao salvar perfil: ' + err.message)
+    } finally {
+      setSavingProfile(false)
+    }
+  }
 
   const updateSetting = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
     updateSettings({ [key]: value } as Partial<UserSettings>)
@@ -67,6 +156,126 @@ export default function ConfiguracoesPage() {
               {message}
             </div>
           )}
+
+          {/* Meu Perfil */}
+          <div className="bg-[#141418] border border-white/[0.06] rounded-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-white/[0.06] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center">
+                  <User className="h-4 w-4 text-[#D4AF37]" />
+                </div>
+                <h2 className="text-white font-semibold text-base">Meu Perfil</h2>
+              </div>
+              {!editingProfile && (
+                <button
+                  onClick={() => setEditingProfile(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] rounded-lg ring-1 ring-white/[0.06] transition-colors"
+                >
+                  <Pencil className="w-3 h-3" />
+                  Editar
+                </button>
+              )}
+            </div>
+
+            <div className="p-6">
+              {editingProfile ? (
+                <div className="space-y-5">
+                  {/* Photo */}
+                  <div className="flex items-center gap-5">
+                    <div
+                      onClick={() => photoInputRef.current?.click()}
+                      className="relative w-20 h-20 rounded-full bg-gray-800 border-2 border-dashed border-gray-600 hover:border-[#D4AF37] cursor-pointer flex items-center justify-center overflow-hidden transition-all group flex-shrink-0"
+                    >
+                      {photoPreview ? (
+                        <img src={photoPreview} alt="Foto" className="w-full h-full object-cover" />
+                      ) : (
+                        <Camera className="h-6 w-6 text-gray-500 group-hover:text-[#D4AF37]" />
+                      )}
+                      {uploadingPhoto && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <div className="w-5 h-5 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                    <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handleProfilePhoto} />
+                    <div className="flex-1 space-y-3">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Nome completo</label>
+                        <input
+                          value={profileName}
+                          onChange={(e) => setProfileName(e.target.value)}
+                          className="w-full px-3 py-2 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">Ano de nascimento</label>
+                      <input
+                        type="number"
+                        value={profileYear}
+                        onChange={(e) => setProfileYear(e.target.value)}
+                        placeholder="Ex: 1990"
+                        min={1940} max={2010}
+                        className="w-full px-3 py-2 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">Funcao</label>
+                      <select
+                        value={profileFunc}
+                        onChange={(e) => setProfileFunc(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a1a1e] ring-1 ring-white/[0.06] rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40"
+                      >
+                        <option value="">Selecione</option>
+                        {funcoes.map((f) => <option key={f} value={f}>{f}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setEditingProfile(false)}
+                      className="px-4 py-2 text-sm text-gray-400 hover:text-white bg-white/[0.04] rounded-lg ring-1 ring-white/[0.06] transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSaveProfile}
+                      disabled={savingProfile}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-black bg-[#D4AF37] hover:bg-[#c4a030] rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {savingProfile ? 'Salvando...' : <><Save className="w-3.5 h-3.5" /> Salvar</>}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-5">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-white/[0.08] to-white/[0.02] ring-1 ring-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {orgUser?.foto_perfil ? (
+                      <img src={orgUser.foto_perfil} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-6 h-6 text-white/40" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base font-semibold text-white truncate">{orgUser?.nome_completo || user?.email?.split('@')[0]}</p>
+                    <p className="text-sm text-gray-500">{user?.email}</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      {orgUser?.funcao && (
+                        <span className="text-xs text-gray-400 flex items-center gap-1"><Briefcase className="w-3 h-3" /> {orgUser.funcao}</span>
+                      )}
+                      {orgUser?.ano_nascimento && (
+                        <span className="text-xs text-gray-400 flex items-center gap-1"><Calendar className="w-3 h-3" /> {orgUser.ano_nascimento}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Metas Mensais */}
           <div className="bg-[#141418] border border-white/[0.06] rounded-2xl overflow-hidden">

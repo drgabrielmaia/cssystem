@@ -41,7 +41,7 @@ export function ProfileCompletionModal() {
 
   if (!needsCompletion || !user || !orgUser) return null
 
-  const compressImage = (file: File, maxSizeMB = 2): Promise<Blob> => {
+  const compressImage = (file: File): Promise<Blob> => {
     return new Promise((resolve) => {
       const img = document.createElement('img')
       const url = URL.createObjectURL(file)
@@ -49,8 +49,8 @@ export function ProfileCompletionModal() {
         URL.revokeObjectURL(url)
         const canvas = document.createElement('canvas')
         let { width, height } = img
-        // Redimensionar se muito grande
-        const MAX_DIM = 800
+        // Redimensionar para foto de perfil (max 400px)
+        const MAX_DIM = 400
         if (width > MAX_DIM || height > MAX_DIM) {
           if (width > height) {
             height = (height / width) * MAX_DIM
@@ -67,7 +67,7 @@ export function ProfileCompletionModal() {
         canvas.toBlob(
           (blob) => resolve(blob || file),
           'image/jpeg',
-          0.8
+          0.6
         )
       }
       img.src = url
@@ -99,27 +99,8 @@ export function ProfileCompletionModal() {
       })
       setFotoPreview(base64)
 
-      // Upload to API server
-      const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
-      const formData = new FormData()
-      formData.append('file', compressedFile)
-
-      const res = await fetch(`${apiUrl}/api/upload`, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        if (data.success && data.url) {
-          setFotoPerfil(data.url)
-        } else {
-          setFotoPerfil(base64)
-        }
-      } else {
-        console.warn('Upload API failed, using base64')
-        setFotoPerfil(base64)
-      }
+      // Usar base64 direto (foto ja comprimida ~30-50KB)
+      setFotoPerfil(base64)
     } catch (err: any) {
       console.error('Erro no upload:', err)
       setError('Erro ao enviar foto. Tente novamente.')
