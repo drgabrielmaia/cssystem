@@ -413,24 +413,53 @@ export default function CallsEventosPage() {
 
   const loadEventParticipants = async (eventId: string) => {
     try {
-      const { data, error } = await supabase
+      // Buscar da tabela group_event_participants
+      const { data: gepData } = await supabase
         .from('group_event_participants')
         .select('*')
         .eq('event_id', eventId)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      // Buscar também da tabela evento_tickets (mentorados que compraram ingresso)
+      const { data: ticketData } = await supabase
+        .from('evento_tickets')
+        .select('*, mentorados(nome_completo, email, telefone)')
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: false })
 
-      // Normalizar colunas (DB pode ter nome/email/telefone OU participant_name/email/phone)
-      const normalized = (data || []).map((p: any) => ({
+      // Normalizar group_event_participants
+      const fromGEP = (gepData || []).map((p: any) => ({
         ...p,
         participant_name: p.participant_name || p.nome || 'Sem nome',
         participant_email: p.participant_email || p.email || '',
         participant_phone: p.participant_phone || p.telefone || '',
         attendance_status: p.attendance_status || (p.attended ? 'attended' : p.status || 'registered'),
         conversion_status: p.conversion_status || (p.converted ? 'converted' : 'not_converted'),
+        _source: 'gep',
       }))
-      setParticipants(normalized)
+
+      // Normalizar evento_tickets como participantes
+      const gepEmails = new Set(fromGEP.map((p: any) => p.participant_email?.toLowerCase()).filter(Boolean))
+      const fromTickets = (ticketData || [])
+        .filter((t: any) => {
+          const email = t.mentorados?.email?.toLowerCase()
+          return !email || !gepEmails.has(email) // Evitar duplicatas
+        })
+        .map((t: any) => ({
+          id: t.id,
+          event_id: t.event_id,
+          mentorado_id: t.mentorado_id,
+          participant_name: t.mentorados?.nome_completo || 'Mentorado',
+          participant_email: t.mentorados?.email || '',
+          participant_phone: t.mentorados?.telefone || '',
+          attendance_status: t.status === 'usado' ? 'attended' : 'registered',
+          conversion_status: 'not_converted',
+          created_at: t.created_at,
+          codigo_ticket: t.codigo_ticket,
+          _source: 'ticket',
+        }))
+
+      setParticipants([...fromGEP, ...fromTickets])
     } catch (error) {
       console.error('Error loading participants:', error)
     }

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { UserCheck, Mail, Eye, EyeOff, LogIn, Play, BookOpen, DollarSign, TrendingUp, Target, Trophy, Brain, Star, Medal, Award, FileText, Heart, ChevronRight, Sparkles, Zap, Building2, Ticket } from 'lucide-react'
+import { UserCheck, Mail, Eye, EyeOff, LogIn, Play, BookOpen, DollarSign, TrendingUp, Target, Trophy, Brain, Star, Medal, Award, FileText, Heart, ChevronRight, Sparkles, Zap, Building2, Ticket, Users } from 'lucide-react'
 import { MentoradoAuthProvider, useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { supabase } from '@/lib/supabase'
 import { GeneroEspecialidadeModal } from '@/components/GeneroEspecialidadeModal'
@@ -762,6 +762,7 @@ function MentoradoPageContent() {
                 { href: '/mentorado/conquistas', icon: Trophy, label: 'Conquistas', tooltip: 'Veja suas conquistas e badges', gradient: 'from-red-500/15 to-rose-500/15', iconBg: 'from-red-500 to-rose-500' },
                 { href: '/mentorado/onboarding', icon: Brain, label: 'Onboarding', tooltip: 'Reveja o processo de integracao', gradient: 'from-purple-500/15 to-violet-500/15', iconBg: 'from-purple-500 to-violet-500' },
                 { href: '/mentorado/progress', icon: Star, label: 'Progresso', tooltip: 'Veja seu progresso detalhado', gradient: 'from-cyan-500/15 to-sky-500/15', iconBg: 'from-cyan-500 to-sky-500' },
+                { href: '/mentorado/equipe', icon: Users, label: 'Equipe', tooltip: 'Conheça a equipe', gradient: 'from-[#D4AF37]/15 to-[#FFD700]/15', iconBg: 'from-[#D4AF37] to-[#FFD700]' },
                 ...(isBetaUser ? [
                   { href: '/mentorado/airbnb', icon: Building2, label: 'Airbnb', tooltip: 'Alugue clinicas para atender', gradient: 'from-amber-500/15 to-orange-500/15', iconBg: 'from-amber-500 to-orange-600', special: true },
                   { href: '/mentorado/eventos', icon: Ticket, label: 'Eventos', tooltip: 'Eventos exclusivos com ingressos', gradient: 'from-purple-500/15 to-pink-500/15', iconBg: 'from-purple-500 to-pink-600', special: true },
