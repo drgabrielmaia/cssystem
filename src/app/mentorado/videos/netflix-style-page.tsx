@@ -620,6 +620,7 @@ export default function NetflixStyleVideosPage() {
                       {module.lessons.map((lesson) => {
                         const isUnlocked = isLessonUnlocked(lesson, module.lessons)
                         const isCompleted = lesson.progress?.is_completed || false
+                        const isPdfOnly = !lesson.panda_video_embed_url && lesson.pdf_url
 
                         return (
                           <div
@@ -628,7 +629,30 @@ export default function NetflixStyleVideosPage() {
                             onClick={() => isUnlocked && handleWatchLesson(lesson)}
                           >
                             <div className="relative bg-[#2A2A2A] rounded-[8px] overflow-hidden aspect-video mb-3 group-hover:scale-105 transition-transform duration-300">
-                              {module.cover_image_url ? (
+                              {isPdfOnly ? (
+                                <div className="w-full h-full bg-gradient-to-br from-red-500/20 via-[#1A1A1A] to-orange-500/10 flex items-center justify-center">
+                                  <div className="text-center">
+                                    <div className={`w-12 md:w-16 h-12 md:h-16 rounded-2xl flex items-center justify-center mb-2 ${
+                                      isCompleted
+                                        ? 'bg-green-500'
+                                        : isUnlocked
+                                          ? 'bg-gradient-to-br from-red-500 to-orange-500'
+                                          : 'bg-gray-600'
+                                    }`}>
+                                      {isCompleted ? (
+                                        <CheckCircle className="w-6 md:w-8 h-6 md:h-8 text-white" />
+                                      ) : isUnlocked ? (
+                                        <FileText className="w-6 md:w-8 h-6 md:h-8 text-white" />
+                                      ) : (
+                                        <Lock className="w-6 md:w-8 h-6 md:h-8 text-white" />
+                                      )}
+                                    </div>
+                                    <p className="text-white text-xs font-medium">
+                                      Material PDF
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : module.cover_image_url ? (
                                 <div className="relative w-full h-full">
                                   <img
                                     src={module.cover_image_url}
@@ -943,13 +967,32 @@ export default function NetflixStyleVideosPage() {
         <DialogContent className="sm:max-w-[95vw] sm:max-h-[95vh] p-0 bg-[#181818] border-gray-800 rounded-[8px] overflow-y-auto">
           {selectedLesson && (
             <div className="space-y-0">
-              <div className="aspect-video bg-[#1A1A1A] rounded-t-[8px] overflow-hidden">
-                <PandaVideoPlayer
-                  embedUrl={selectedLesson.panda_video_embed_url}
-                  title={selectedLesson.title}
-                  className="w-full h-full rounded-t-[8px]"
-                />
-              </div>
+              {!selectedLesson.panda_video_embed_url && selectedLesson.pdf_url ? (
+                <div className="aspect-video bg-gradient-to-br from-red-500/10 via-[#1A1A1A] to-orange-500/10 rounded-t-[8px] flex items-center justify-center">
+                  <div className="text-center p-8">
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center mx-auto mb-4">
+                      <FileText className="w-10 h-10 text-white" />
+                    </div>
+                    <h3 className="text-white text-xl font-semibold mb-2">Material em PDF</h3>
+                    <p className="text-gray-400 text-sm mb-4">{selectedLesson.pdf_filename || 'Material de apoio'}</p>
+                    <button
+                      onClick={() => window.open(selectedLesson.pdf_url, '_blank')}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg text-base font-medium hover:from-red-600 hover:to-orange-600 transition-all"
+                    >
+                      <Download className="w-5 h-5" />
+                      Baixar PDF
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="aspect-video bg-[#1A1A1A] rounded-t-[8px] overflow-hidden">
+                  <PandaVideoPlayer
+                    embedUrl={selectedLesson.panda_video_embed_url}
+                    title={selectedLesson.title}
+                    className="w-full h-full rounded-t-[8px]"
+                  />
+                </div>
+              )}
 
               <div className="p-6 text-white">
                 <h3 className="text-[18px] font-semibold text-white mb-2">
