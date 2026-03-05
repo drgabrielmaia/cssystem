@@ -606,7 +606,7 @@ function MentoradoComissoesPageContent() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-[13px] text-gray-400 font-medium mb-2">Taxa de Conversão</p>
-                    <p className="text-[20px] font-bold text-white">{displayStats.conversionRate.toFixed(1)}%</p>
+                    <p className="text-[20px] font-bold text-white">{Number(displayStats.conversionRate || 0).toFixed(1)}%</p>
                   </div>
                   <div className="w-12 h-12 bg-[#8B5CF6] rounded-[8px] flex items-center justify-center">
                     <TrendingUp className="w-6 h-6 text-white" />
@@ -1142,7 +1142,7 @@ function MentoradoComissoesPageContent() {
                             <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
                             <span className="font-medium text-white">Status do Pagamento do Cliente</span>
                           </div>
-                          <span className="text-2xl font-bold text-blue-400">{comissao.progresso_cliente.toFixed(1)}%</span>
+                          <span className="text-2xl font-bold text-blue-400">{Number(comissao.progresso_cliente || 0).toFixed(1)}%</span>
                         </div>
                         
                         <div className="w-full bg-gray-700 rounded-full h-4 mb-3">
@@ -1154,7 +1154,7 @@ function MentoradoComissoesPageContent() {
                           >
                             {comissao.progresso_cliente > 15 && (
                               <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-white text-xs font-bold">
-                                {comissao.progresso_cliente.toFixed(0)}%
+                                {Number(comissao.progresso_cliente || 0).toFixed(0)}%
                               </span>
                             )}
                           </div>

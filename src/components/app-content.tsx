@@ -72,10 +72,11 @@ export function AppContent({ children }: { children: React.ReactNode }) {
                       pathname.startsWith('/assinar-contrato')
 
   // Páginas que requerem autenticação mas sem sidebar
-  const noSidebarPages = pathname.startsWith('/mentorado') || 
+  const noSidebarPages = pathname.startsWith('/mentorado') ||
                          pathname.startsWith('/closer') ||
                          pathname.startsWith('/financas') ||
-                         pathname.startsWith('/area-do-aluno') || 
+                         pathname.startsWith('/area-do-aluno') ||
+                         pathname.startsWith('/mindmap') ||
                          isMentorado
 
   // Se for página pública, não aplicar AuthGuard

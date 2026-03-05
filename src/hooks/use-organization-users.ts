@@ -40,12 +40,12 @@ interface UseOrganizationUsersReturn {
   error: string | null
 }
 
-export function useOrganizationUsers(userId: string | null): UseOrganizationUsersReturn {
+export function useOrganizationUsers(userId: string | null, options?: { organizationId?: string | null, userEmail?: string | null, userRole?: string | null }): UseOrganizationUsersReturn {
   const [organization, setOrganization] = useState<Organization | null>(null)
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null)
-  const [organizationId, setOrganizationId] = useState<string | null>(null)
+  const [organizationId, setOrganizationId] = useState<string | null>(options?.organizationId || null)
 
-  // Use stable hook for organization data
+  // Use stable hook for organization data (query by user_id)
   const {
     data: organizationData,
     loading: orgLoading,
@@ -58,11 +58,33 @@ export function useOrganizationUsers(userId: string | null): UseOrganizationUser
       organization:organizations(id, name),
       role,
       user_id,
+      email,
       created_at
     `,
     filters: { user_id: userId },
     dependencies: [userId],
-    autoLoad: !!userId,
+    autoLoad: !!userId && !options?.organizationId,
+    debounceMs: 200
+  })
+
+  // Fallback: query by email if user_id query returned nothing (custom JWT users)
+  const {
+    data: orgDataByEmail,
+    loading: orgEmailLoading,
+    refetch: refetchOrgByEmail
+  } = useStableData<any>({
+    tableName: 'organization_users',
+    select: `
+      id,
+      organization:organizations(id, name),
+      role,
+      user_id,
+      email,
+      created_at
+    `,
+    filters: { email: options?.userEmail || '' },
+    dependencies: [options?.userEmail, organizationData],
+    autoLoad: !!options?.userEmail && !organizationData?.length && !options?.organizationId,
     debounceMs: 200
   })
 
@@ -88,19 +110,43 @@ export function useOrganizationUsers(userId: string | null): UseOrganizationUser
     debounceMs: 200
   })
 
-  // Memoized organization setup
+  // Memoized organization setup — tries user_id match, then email fallback, then auth context override
   const organizationSetup = useMemo(() => {
-    if (!organizationData?.length) return null
-    
-    const orgUser = organizationData[0]
-    if (!orgUser?.organization) return null
-    
-    return {
-      organization: orgUser.organization,
-      role: orgUser.role,
-      organizationId: orgUser.organization.id
+    // 1. Direct match by user_id
+    if (organizationData?.length) {
+      const orgUser = organizationData[0]
+      if (orgUser?.organization) {
+        return {
+          organization: orgUser.organization,
+          role: orgUser.role,
+          organizationId: orgUser.organization.id
+        }
+      }
     }
-  }, [organizationData])
+
+    // 2. Fallback: match by email (custom JWT users)
+    if (orgDataByEmail?.length) {
+      const orgUser = orgDataByEmail[0]
+      if (orgUser?.organization) {
+        return {
+          organization: orgUser.organization,
+          role: orgUser.role,
+          organizationId: orgUser.organization.id
+        }
+      }
+    }
+
+    // 3. Override from auth context (org already known)
+    if (options?.organizationId) {
+      return {
+        organization: { id: options.organizationId, name: '' } as Organization,
+        role: options?.userRole || 'viewer',
+        organizationId: options.organizationId
+      }
+    }
+
+    return null
+  }, [organizationData, orgDataByEmail, options?.organizationId, options?.userRole])
 
   // Update organization state when data changes
   useMemo(() => {
@@ -108,12 +154,12 @@ export function useOrganizationUsers(userId: string | null): UseOrganizationUser
       setOrganization(organizationSetup.organization)
       setCurrentUserRole(organizationSetup.role)
       setOrganizationId(organizationSetup.organizationId)
-    } else if (!orgLoading) {
+    } else if (!orgLoading && !orgEmailLoading) {
       setOrganization(null)
       setCurrentUserRole(null)
       setOrganizationId(null)
     }
-  }, [organizationSetup, orgLoading])
+  }, [organizationSetup, orgLoading, orgEmailLoading])
 
   // Memoized users transformation
   const users = useMemo(() => {
@@ -128,7 +174,7 @@ export function useOrganizationUsers(userId: string | null): UseOrganizationUser
     })) as UserRole[]
   }, [usersData])
 
-  const loading = orgLoading || usersLoading
+  const loading = orgLoading || orgEmailLoading || usersLoading
   const error = orgError || usersError
 
   // Stable mutation hooks for user operations
@@ -258,8 +304,8 @@ export function useOrganizationUsers(userId: string | null): UseOrganizationUser
 
   // Stable refresh function
   const refreshData = useCallback(async () => {
-    await Promise.all([refetchOrganization(), refetchUsers()])
-  }, [refetchOrganization, refetchUsers])
+    await Promise.all([refetchOrganization(), refetchOrgByEmail(), refetchUsers()])
+  }, [refetchOrganization, refetchOrgByEmail, refetchUsers])
 
   // Combine all loading states
   const isOperationInProgress = isAddingUser || isUpdatingUser || isRemovingUser

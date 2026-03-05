@@ -23,7 +23,7 @@ export default function UsersManagementPage() {
   const [newUser, setNewUser] = useState({ email: '', role: 'viewer' as const })
   const [editRole, setEditRole] = useState('')
 
-  const { user } = useAuth()
+  const { user, organizationId: authOrgId, orgUser } = useAuth()
 
   const {
     users,
@@ -36,7 +36,11 @@ export default function UsersManagementPage() {
     removeUser,
     canManageUsers,
     canManageRole
-  } = useOrganizationUsers(user?.id || null)
+  } = useOrganizationUsers(user?.id || null, {
+    organizationId: authOrgId,
+    userEmail: user?.email || null,
+    userRole: orgUser?.role || null
+  })
 
   const adicionarUsuario = async () => {
     try {

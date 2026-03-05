@@ -47,7 +47,7 @@ interface FormSubmission {
 // ---------------------------------------------------------------------------
 
 export default function FormResponsesPage() {
-  const { user } = useAuth()
+  const { user, organizationId } = useAuth()
   const [submissions, setSubmissions] = useState<FormSubmission[]>([])
   const [filteredSubmissions, setFilteredSubmissions] = useState<FormSubmission[]>([])
   const [templates, setTemplates] = useState<string[]>([])
@@ -65,7 +65,7 @@ export default function FormResponsesPage() {
     try {
       setLoading(true)
 
-      if (!user?.organizationId) {
+      if (!organizationId) {
         setSubmissions([])
         setTemplates([])
         setLoading(false)
@@ -96,7 +96,7 @@ export default function FormResponsesPage() {
             telefone
           )
         `)
-        .eq('organization_id', user.organizationId)
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
         .limit(100)
 
@@ -145,20 +145,20 @@ export default function FormResponsesPage() {
     } finally {
       setLoading(false)
     }
-  }, [user?.organizationId])
+  }, [organizationId])
 
-  // FIX: depend on user?.organizationId via the memoised callback
+  // FIX: depend on organizationId via the memoised callback
   useEffect(() => {
-    if (user?.organizationId) {
+    if (organizationId) {
       fetchSubmissions()
     }
-  }, [user?.organizationId, fetchSubmissions])
+  }, [organizationId, fetchSubmissions])
 
   // Retry mechanism: if user loads slowly, retry after a short delay
   useEffect(() => {
-    if (!user?.organizationId && loading) {
+    if (!organizationId && loading) {
       const timer = setTimeout(() => {
-        if (user?.organizationId) {
+        if (organizationId) {
           fetchSubmissions()
         }
       }, 1500)

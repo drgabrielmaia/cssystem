@@ -1,5 +1,6 @@
 // WhatsApp Core API Client for Bohr.io integration
 import { supabase } from './supabase';
+import { getToken } from './api';
 
 // Org ID validado pelo servidor (setado pelo auth context após /auth/me)
 let _validatedOrgId: string | null = null;
@@ -159,14 +160,21 @@ class WhatsAppCoreAPI {
 
       // Adicionar token de autenticação se necessário
       if (requireAuth) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          headers['Authorization'] = `Bearer ${session.access_token}`;
+        // 1. Check custom JWT token first (Docker PostgreSQL backend)
+        const customToken = getToken();
+        if (customToken) {
+          headers['Authorization'] = `Bearer ${customToken}`;
         } else {
-          return {
-            success: false,
-            error: 'Usuário não autenticado. Faça login para enviar mensagens.',
-          } as ApiResponse<T>;
+          // 2. Fallback: Supabase session token
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
+          } else {
+            return {
+              success: false,
+              error: 'Usuário não autenticado. Faça login para enviar mensagens.',
+            } as ApiResponse<T>;
+          }
         }
       }
 

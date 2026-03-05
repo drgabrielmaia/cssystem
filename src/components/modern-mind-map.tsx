@@ -464,7 +464,7 @@ const ModernMindMap = ({
         setTranslateY(container.offsetHeight / 2 - rootNode.y)
       }
     }
-  }, [nodes.length === 1])
+  }, [nodes.length])
 
   const saveMindMap = useCallback(async () => {
     if (!user || !hasChanges) return
@@ -478,7 +478,8 @@ const ModernMindMap = ({
         updated_at: new Date().toISOString()
       }
       if (mindMapId) {
-        await supabase.from('mind_maps').update(mindMapData).eq('id', mindMapId)
+        const { error } = await supabase.from('mind_maps').update(mindMapData).eq('id', mindMapId).select().single()
+        if (error) throw error
       } else {
         const { data } = await supabase.from('mind_maps').insert([mindMapData]).select().single()
         if (data) setMindMapId(data.id)

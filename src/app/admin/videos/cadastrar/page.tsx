@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/auth'
+import whatsappMultiService from '@/lib/whatsapp-multi-service'
 import { ArrowLeft, Upload, Video, FileText, CheckCircle, AlertCircle, Save, Eye } from 'lucide-react'
 import Link from 'next/link'
 
@@ -12,6 +14,7 @@ interface VideoModule {
 }
 
 export default function CadastrarAulaPage() {
+  const { organizationId } = useAuth()
   const [modules, setModules] = useState<VideoModule[]>([])
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState(1)
@@ -66,12 +69,23 @@ export default function CadastrarAulaPage() {
     try {
       setLoading(true)
 
+      const insertData: Record<string, unknown> = {
+        module_id: lessonData.module_id,
+        title: lessonData.title,
+        description: lessonData.description,
+        duration_minutes: lessonData.duration_minutes,
+        order_index: lessonData.order_index,
+        is_active: true
+      }
+
+      // Only include panda_video_embed_url if it was provided
+      if (lessonData.panda_video_embed_url.trim()) {
+        insertData.panda_video_embed_url = lessonData.panda_video_embed_url.trim()
+      }
+
       const { data, error } = await supabase
         .from('video_lessons')
-        .insert([{
-          ...lessonData,
-          is_active: true
-        }])
+        .insert([insertData])
         .select()
 
       if (error) throw error
@@ -80,6 +94,27 @@ export default function CadastrarAulaPage() {
         setLessonId(data[0].id)
         setLessonCreated(true)
         setStep(3)
+
+        // Send WhatsApp group notification if configured
+        try {
+          const { data: orgData } = await supabase
+            .from('organizations')
+            .select('whatsapp_group_aulas, whatsapp_auto_notify_aula')
+            .eq('id', organizationId)
+            .single()
+
+          if (orgData?.whatsapp_auto_notify_aula && orgData?.whatsapp_group_aulas) {
+            const moduleName = modules.find(m => m.id === lessonData.module_id)?.title || ''
+            const msg = `📚 *Nova Aula Disponível!*\n\n` +
+              `📖 *${lessonData.title}*\n` +
+              (moduleName ? `📁 Módulo: ${moduleName}\n` : '') +
+              (lessonData.description ? `\n${lessonData.description}\n` : '') +
+              `\n🔗 Acesse a área do aluno para assistir!`
+            await whatsappMultiService.sendMessage(orgData.whatsapp_group_aulas, msg)
+          }
+        } catch (notifyErr) {
+          console.error('Erro ao notificar grupo WhatsApp:', notifyErr)
+        }
       }
     } catch (error) {
       console.error('Erro ao criar aula:', error)
@@ -187,7 +222,7 @@ export default function CadastrarAulaPage() {
           <div className="text-center mt-4">
             <p className="text-sm text-[#64748B]">
               {step === 1 && 'Informações Básicas'}
-              {step === 2 && 'Configurações do Vídeo'}
+              {step === 2 && 'Configurações do Vídeo (Opcional)'}
               {step === 3 && 'Material de Apoio (Opcional)'}
               {step === 4 && 'Aula Criada com Sucesso!'}
             </p>
@@ -273,16 +308,16 @@ export default function CadastrarAulaPage() {
                   <Video className="w-8 h-8 text-[#3B82F6]" />
                 </div>
                 <h2 className="text-2xl font-semibold text-[#1A1A1A] mb-2">
-                  Agora o vídeo da aula
+                  Vídeo da aula (opcional)
                 </h2>
                 <p className="text-[#64748B]">
-                  Link do Panda Video e configurações
+                  Link do Panda Video e configurações. Pode pular se a aula tiver apenas material/PDF.
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-[#374151] mb-3">
-                  URL do Vídeo (Panda Video) *
+                  URL do Vídeo (Panda Video) - Opcional
                 </label>
                 <input
                   type="url"
@@ -322,6 +357,14 @@ export default function CadastrarAulaPage() {
                 </div>
               </div>
 
+              {!lessonData.panda_video_embed_url.trim() && (
+                <div className="bg-[#FFF7ED] border border-[#FDBA74] rounded-xl p-4 text-center">
+                  <p className="text-sm text-[#9A3412]">
+                    Nenhum vídeo adicionado. A aula será criada apenas com material/PDF.
+                  </p>
+                </div>
+              )}
+
               <div className="flex gap-4">
                 <button
                   onClick={() => setStep(1)}
@@ -332,7 +375,7 @@ export default function CadastrarAulaPage() {
 
                 <button
                   onClick={handleCreateLesson}
-                  disabled={loading || !lessonData.title.trim() || !lessonData.panda_video_embed_url.trim()}
+                  disabled={loading || !lessonData.title.trim()}
                   className="flex-1 py-4 bg-[#E879F9] text-white rounded-xl font-semibold hover:bg-[#D865E8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {loading ? (
@@ -343,7 +386,7 @@ export default function CadastrarAulaPage() {
                   ) : (
                     <>
                       <Save className="w-5 h-5" />
-                      Criar Aula
+                      {lessonData.panda_video_embed_url.trim() ? 'Criar Aula' : 'Criar Aula sem Vídeo'}
                     </>
                   )}
                 </button>

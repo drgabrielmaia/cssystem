@@ -58,9 +58,9 @@ interface MentoradoComDividas {
 
 interface Comissao {
   id: string
-  valor_comissao: number
-  percentual_comissao: number
-  status_pagamento: string
+  valor: number
+  percentual: number
+  status: string
   leads: any
   mentorados: any
 }
@@ -181,7 +181,7 @@ export default function PendenciasPage() {
           mentorados:mentorado_id(nome_completo, email)
         `)
         .eq('organization_id', organizationId)
-        .eq('status_pagamento', 'pendente')
+        .eq('status', 'pendente')
 
       if (error) throw error
       setComissoesPendentes(data || [])
@@ -428,7 +428,7 @@ export default function PendenciasPage() {
 
   const getMetricas = () => {
     const totalPendente = mentorados.reduce((sum, m) => sum + m.totalPendente, 0)
-    const totalComissoes = comissoesPendentes.reduce((sum, c) => sum + (c.valor_comissao || 0), 0)
+    const totalComissoes = comissoesPendentes.reduce((sum, c) => sum + (c.valor || 0), 0)
 
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
@@ -627,7 +627,7 @@ export default function PendenciasPage() {
       setValorPago('')
       setObservacoesPagamento('')
 
-      toast.success(`Pagamento de R$ ${valorPagoNum.toFixed(2)} registrado com sucesso!`)
+      toast.success(`Pagamento de R$ ${(valorPagoNum ?? 0).toFixed(2)} registrado com sucesso!`)
     } catch (error) {
       console.error('Erro ao confirmar pagamento:', error)
       toast.error('Erro ao confirmar pagamento')

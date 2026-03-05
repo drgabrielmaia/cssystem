@@ -61,6 +61,8 @@ interface Clinica {
   nota_media?: number
   total_avaliacoes?: number
   owner_nome?: string
+  motivo_rejeicao?: string
+  revisado_em?: string
 }
 
 const amenidadeConfig: Record<string, { icon: any; label: string }> = {
@@ -84,8 +86,10 @@ const estadosBrasil = [
 export default function AirbnbPage() {
   const { mentorado } = useMentoradoAuth()
   const [clinicas, setClinicas] = useState<Clinica[]>([])
+  const [meusAnuncios, setMeusAnuncios] = useState<Clinica[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [activeView, setActiveView] = useState<'explorar' | 'meus'>('explorar')
   const [showFilters, setShowFilters] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [creatingClinica, setCreatingClinica] = useState(false)
@@ -174,7 +178,10 @@ export default function AirbnbPage() {
   }
 
   useEffect(() => {
-    if (mentorado) loadClinicas()
+    if (mentorado) {
+      loadClinicas()
+      loadMeusAnuncios()
+    }
   }, [mentorado])
 
   const loadClinicas = async () => {
@@ -215,6 +222,21 @@ export default function AirbnbPage() {
       toast.error('Erro ao carregar clinicas')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadMeusAnuncios = async () => {
+    if (!mentorado?.id) return
+    try {
+      const { data, error } = await supabase
+        .from('clinicas')
+        .select('*')
+        .eq('owner_mentorado_id', mentorado.id)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      setMeusAnuncios(data || [])
+    } catch (err) {
+      console.error('Error loading meus anuncios:', err)
     }
   }
 
@@ -423,6 +445,26 @@ export default function AirbnbPage() {
                   clinicbnb
                 </span>
               </Link>
+              {/* Tabs */}
+              <div className="flex items-center gap-1 ml-6">
+                <button
+                  onClick={() => setActiveView('explorar')}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${activeView === 'explorar' ? 'bg-emerald-500 text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
+                >
+                  Explorar
+                </button>
+                <button
+                  onClick={() => setActiveView('meus')}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${activeView === 'meus' ? 'bg-emerald-500 text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
+                >
+                  Meus Anúncios
+                  {meusAnuncios.length > 0 && (
+                    <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
+                      {meusAnuncios.length}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Right: CTA */}
@@ -562,8 +604,73 @@ export default function AirbnbPage() {
         </div>
       )}
 
+      {/* ===== MEUS ANÚNCIOS VIEW ===== */}
+      {activeView === 'meus' && (
+        <div className="max-w-[2520px] mx-auto px-4 sm:px-6 md:px-10 xl:px-20 pt-6 pb-16">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Meus Anúncios</h2>
+          {meusAnuncios.length === 0 ? (
+            <div className="text-center py-16">
+              <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 mb-4">Você ainda não anunciou nenhuma clínica</p>
+              <Button onClick={() => setShowCreateModal(true)} className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-full">
+                <Plus className="w-4 h-4 mr-2" /> Anunciar Clínica
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {meusAnuncios.map(anuncio => (
+                <div key={anuncio.id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900">{anuncio.titulo}</h3>
+                      <p className="text-gray-500 text-sm mt-0.5">
+                        {[anuncio.bairro, anuncio.cidade, anuncio.estado].filter(Boolean).join(', ')}
+                      </p>
+                      <p className="text-gray-400 text-xs mt-1">
+                        Criado em {new Date(anuncio.created_at).toLocaleDateString('pt-BR')}
+                        {anuncio.revisado_em && ` · Revisado em ${new Date(anuncio.revisado_em).toLocaleDateString('pt-BR')}`}
+                      </p>
+                    </div>
+                    <div className="ml-4">
+                      {anuncio.status === 'ativa' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-50 text-green-700 text-xs font-medium border border-green-200">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Aprovada
+                        </span>
+                      )}
+                      {anuncio.status === 'em_revisao' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium border border-amber-200">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Em Revisão
+                        </span>
+                      )}
+                      {anuncio.status === 'inativa' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 text-xs font-medium border border-red-200">
+                          <X className="w-3.5 h-3.5" /> Rejeitada
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Show rejection reason if rejected */}
+                  {anuncio.status === 'inativa' && anuncio.motivo_rejeicao && (
+                    <div className="mt-3 bg-red-50 border border-red-100 rounded-xl p-3">
+                      <p className="text-xs text-red-500 font-medium mb-0.5">Motivo da rejeição:</p>
+                      <p className="text-sm text-red-700">{anuncio.motivo_rejeicao}</p>
+                    </div>
+                  )}
+                  {/* Pricing info */}
+                  <div className="mt-3 flex gap-4 text-sm text-gray-600">
+                    {Number(anuncio.preco_por_turno) > 0 && <span>R$ {Number(anuncio.preco_por_turno).toFixed(0)}/turno</span>}
+                    {Number(anuncio.preco_por_dia) > 0 && <span>R$ {Number(anuncio.preco_por_dia).toFixed(0)}/dia</span>}
+                    {Number(anuncio.preco_por_mes) > 0 && <span>R$ {Number(anuncio.preco_por_mes).toFixed(0)}/mês</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ===== RESULTS COUNT ===== */}
-      <div className="max-w-[2520px] mx-auto px-4 sm:px-6 md:px-10 xl:px-20 pt-6 pb-2">
+      {activeView === 'explorar' && <div className="max-w-[2520px] mx-auto px-4 sm:px-6 md:px-10 xl:px-20 pt-6 pb-2">
         <div className="flex items-center justify-between">
           <p className="text-gray-600 text-sm font-medium">
             {loading
@@ -581,10 +688,10 @@ export default function AirbnbPage() {
             </button>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* ===== CLINICS GRID ===== */}
-      <main className="max-w-[2520px] mx-auto px-4 sm:px-6 md:px-10 xl:px-20 pb-16 pt-4">
+      {activeView === 'explorar' && <main className="max-w-[2520px] mx-auto px-4 sm:px-6 md:px-10 xl:px-20 pb-16 pt-4">
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
@@ -739,7 +846,7 @@ export default function AirbnbPage() {
             ))}
           </div>
         )}
-      </main>
+      </main>}
 
       {/* ===== CREATE CLINICA MODAL - STEP WIZARD ===== */}
       <Dialog open={showCreateModal} onOpenChange={(open) => { setShowCreateModal(open); if (!open) { setCurrentStep(1); setClinicaPhotos([]); } }}>

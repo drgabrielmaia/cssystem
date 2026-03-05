@@ -418,7 +418,7 @@ export default function ThirdPartyCommissionsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-400">
-              R$ {totalPending.toFixed(2)}
+              R$ {Number(totalPending || 0).toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -432,7 +432,7 @@ export default function ThirdPartyCommissionsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-400">
-              R$ {totalPaid.toFixed(2)}
+              R$ {Number(totalPaid || 0).toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -514,7 +514,7 @@ export default function ThirdPartyCommissionsPage() {
                   </TableCell>
                   <TableCell className="text-gray-300">{commission.user_pix_key}</TableCell>
                   <TableCell className="text-white font-medium">
-                    R$ {commission.amount.toFixed(2)}
+                    R$ {Number(commission.amount || 0).toFixed(2)}
                   </TableCell>
                   <TableCell className="text-gray-300">
                     {commission.description || '-'}

@@ -42,7 +42,8 @@ import {
   Image as ImageIcon,
   Video,
   TrendingUp,
-  Activity
+  Activity,
+  Loader2
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
@@ -53,6 +54,7 @@ import {
   FollowupStep,
   LeadFollowupExecution
 } from '@/types/commission'
+import { processDueFollowups, startFollowupForLead } from '@/services/followup-executor'
 
 interface SequenceFormData {
   nome_sequencia: string;
@@ -443,6 +445,66 @@ export default function FollowUpConfigPage() {
     }
   }
 
+  // Process due follow-ups (execute pending WhatsApp messages)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [assignModalOpen, setAssignModalOpen] = useState(false)
+  const [assignSequenceId, setAssignSequenceId] = useState<string | null>(null)
+  const [assignLeadSearch, setAssignLeadSearch] = useState('')
+  const [assignLeadResults, setAssignLeadResults] = useState<any[]>([])
+  const [assigningLeadId, setAssigningLeadId] = useState<string | null>(null)
+
+  const handleProcessFollowups = async () => {
+    if (!organizationId) return
+    setIsProcessing(true)
+    try {
+      const count = await processDueFollowups(organizationId)
+      if (count > 0) {
+        toast.success(`${count} follow-up(s) processado(s) e enviado(s)!`)
+      } else {
+        toast.info('Nenhum follow-up pendente no momento')
+      }
+      loadData()
+    } catch (error) {
+      console.error('Error processing follow-ups:', error)
+      toast.error('Erro ao processar follow-ups')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const searchLeadsForAssign = async (search: string) => {
+    if (!search || search.length < 2) { setAssignLeadResults([]); return }
+    const { data } = await supabase
+      .from('leads')
+      .select('id, nome_completo, email, telefone')
+      .eq('organization_id', organizationId)
+      .or(`nome_completo.ilike.%${search}%,email.ilike.%${search}%`)
+      .limit(10)
+    setAssignLeadResults(data || [])
+  }
+
+  const handleAssignLead = async (leadId: string) => {
+    if (!assignSequenceId || !organizationId) return
+    setAssigningLeadId(leadId)
+    try {
+      const execId = await startFollowupForLead(leadId, assignSequenceId, organizationId)
+      if (execId) {
+        toast.success('Lead vinculado ao follow-up com sucesso!')
+        setAssignModalOpen(false)
+        setAssignSequenceId(null)
+        setAssignLeadSearch('')
+        setAssignLeadResults([])
+        loadData()
+      } else {
+        toast.error('Erro ao vincular lead')
+      }
+    } catch (error) {
+      toast.error('Erro ao vincular lead')
+    } finally {
+      setAssigningLeadId(null)
+    }
+  }
+
   const addStep = () => {
     const newStep: FollowupStep = {
       step_numero: formData.steps.length + 1,
@@ -670,10 +732,10 @@ export default function FollowUpConfigPage() {
   const activeSequences = sequences.filter(s => s.ativo).length
   const totalLeadsInFollowup = sequenceStats.reduce((sum, s) => sum + s.leads_ativos, 0)
   const avgResponseRate = sequenceStats.length > 0
-    ? sequenceStats.reduce((sum, s) => sum + s.taxa_resposta, 0) / sequenceStats.length
+    ? sequenceStats.reduce((sum, s) => sum + Number(s.taxa_resposta || 0), 0) / sequenceStats.length
     : 0
   const avgConversionRate = sequenceStats.length > 0
-    ? sequenceStats.reduce((sum, s) => sum + s.taxa_conversao, 0) / sequenceStats.length
+    ? sequenceStats.reduce((sum, s) => sum + Number(s.taxa_conversao || 0), 0) / sequenceStats.length
     : 0
   const totalActiveExecutions = executions.length
 
@@ -793,6 +855,16 @@ export default function FollowUpConfigPage() {
           <div /> {/* spacer */}
           <div className="flex gap-3">
             <Button
+              onClick={handleProcessFollowups}
+              disabled={isProcessing}
+              variant="outline"
+              size="sm"
+              className="bg-transparent border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 transition-all duration-200"
+            >
+              {isProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Zap className="h-4 w-4 mr-2" />}
+              {isProcessing ? 'Processando...' : 'Executar Follow-ups'}
+            </Button>
+            <Button
               onClick={loadData}
               variant="outline"
               size="sm"
@@ -890,11 +962,11 @@ export default function FollowUpConfigPage() {
                       </div>
                       <div className="bg-white/[0.03] rounded-xl p-3">
                         <p className="text-[11px] text-white/30 uppercase tracking-wider mb-0.5">Resposta</p>
-                        <p className="text-lg font-semibold text-cyan-400">{sequence.taxa_resposta.toFixed(1)}%</p>
+                        <p className="text-lg font-semibold text-cyan-400">{Number(sequence.taxa_resposta || 0).toFixed(1)}%</p>
                       </div>
                       <div className="bg-white/[0.03] rounded-xl p-3">
                         <p className="text-[11px] text-white/30 uppercase tracking-wider mb-0.5">Conversão</p>
-                        <p className="text-lg font-semibold text-emerald-400">{sequence.taxa_conversao.toFixed(1)}%</p>
+                        <p className="text-lg font-semibold text-emerald-400">{Number(sequence.taxa_conversao || 0).toFixed(1)}%</p>
                       </div>
                     </div>
                   </div>
@@ -904,18 +976,28 @@ export default function FollowUpConfigPage() {
                     <button
                       onClick={() => openEditModal(sequence)}
                       className="flex items-center justify-center w-8 h-8 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-all duration-200"
+                      title="Editar"
                     >
                       <Edit className="h-4 w-4" />
                     </button>
                     <button
+                      onClick={() => { setAssignSequenceId(sequence.id); setAssignModalOpen(true) }}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg text-white/40 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all duration-200"
+                      title="Vincular Leads"
+                    >
+                      <Users className="h-4 w-4" />
+                    </button>
+                    <button
                       onClick={() => duplicateSequence(sequence)}
                       className="flex items-center justify-center w-8 h-8 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-all duration-200"
+                      title="Duplicar"
                     >
                       <Copy className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => deleteSequence(sequence.id)}
                       className="flex items-center justify-center w-8 h-8 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+                      title="Excluir"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -1052,7 +1134,7 @@ export default function FollowUpConfigPage() {
                       <div>
                         <div className="flex justify-between text-sm mb-1.5">
                           <span className="text-white/40">Taxa de Resposta</span>
-                          <span className="font-medium text-white">{stats.taxa_resposta.toFixed(1)}%</span>
+                          <span className="font-medium text-white">{Number(stats.taxa_resposta || 0).toFixed(1)}%</span>
                         </div>
                         <div className="w-full bg-white/[0.06] rounded-full h-1.5">
                           <div
@@ -1065,7 +1147,7 @@ export default function FollowUpConfigPage() {
                       <div>
                         <div className="flex justify-between text-sm mb-1.5">
                           <span className="text-white/40">Taxa de Conversão</span>
-                          <span className="font-medium text-white">{stats.taxa_conversao.toFixed(1)}%</span>
+                          <span className="font-medium text-white">{Number(stats.taxa_conversao || 0).toFixed(1)}%</span>
                         </div>
                         <div className="w-full bg-white/[0.06] rounded-full h-1.5">
                           <div
@@ -1502,6 +1584,87 @@ export default function FollowUpConfigPage() {
                 <Save className="h-4 w-4 mr-2" />
                 {selectedSequence ? 'Atualizar' : 'Criar'} Sequência
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* =================== ASSIGN LEADS MODAL =================== */}
+        <Dialog open={assignModalOpen} onOpenChange={(open) => {
+          if (!open) {
+            setAssignModalOpen(false)
+            setAssignSequenceId(null)
+            setAssignLeadSearch('')
+            setAssignLeadResults([])
+          }
+        }}>
+          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto bg-[#141418] border border-white/[0.08] text-white">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-white">Vincular Lead ao Follow-up</DialogTitle>
+              <DialogDescription className="text-white/40">
+                Busque e selecione um lead para iniciar a sequência de follow-up
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 mt-2">
+              <div className="space-y-2">
+                <Label className="text-sm text-white/60">Buscar Lead</Label>
+                <Input
+                  value={assignLeadSearch}
+                  onChange={(e) => {
+                    setAssignLeadSearch(e.target.value)
+                    searchLeadsForAssign(e.target.value)
+                  }}
+                  placeholder="Nome ou email do lead..."
+                  className="bg-[#111113] border-white/[0.08] text-white placeholder:text-white/20 focus:border-blue-500/50"
+                />
+              </div>
+
+              {assignLeadResults.length > 0 && (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {assignLeadResults.map((lead) => (
+                    <div
+                      key={lead.id}
+                      className="flex items-center justify-between p-3 bg-white/[0.03] rounded-xl ring-1 ring-white/[0.06] hover:ring-emerald-500/20 hover:bg-emerald-500/[0.03] transition-all duration-200"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-white truncate">{lead.nome_completo || 'Sem nome'}</p>
+                        <p className="text-xs text-white/30 truncate">{lead.email}</p>
+                        {lead.telefone && (
+                          <p className="text-xs text-white/20">{lead.telefone}</p>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleAssignLead(lead.id)}
+                        disabled={assigningLeadId === lead.id}
+                        className="ml-3 bg-emerald-600 hover:bg-emerald-500 text-white border-0 text-xs"
+                      >
+                        {assigningLeadId === lead.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <>
+                            <Plus className="h-3 w-3 mr-1" />
+                            Vincular
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {assignLeadSearch.length >= 2 && assignLeadResults.length === 0 && (
+                <div className="text-center py-6">
+                  <p className="text-white/30 text-sm">Nenhum lead encontrado</p>
+                </div>
+              )}
+
+              {assignLeadSearch.length < 2 && (
+                <div className="text-center py-6">
+                  <Users className="h-8 w-8 mx-auto text-white/15 mb-2" />
+                  <p className="text-white/30 text-sm">Digite pelo menos 2 caracteres para buscar</p>
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>

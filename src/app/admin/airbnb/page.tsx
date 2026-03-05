@@ -28,6 +28,8 @@ interface Clinica {
   destaque?: boolean
   created_at: string
   owner_nome?: string
+  motivo_rejeicao?: string
+  revisado_em?: string
 }
 
 interface Reserva {
@@ -55,6 +57,8 @@ export default function AdminAirbnbPage() {
   const [percentualLucro, setPercentualLucro] = useState(10)
   const [savingConfig, setSavingConfig] = useState(false)
   const [activeTab, setActiveTab] = useState<'overview' | 'clinicas' | 'reservas' | 'config'>('overview')
+  const [rejectingClinicaId, setRejectingClinicaId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
 
   useEffect(() => {
     loadData()
@@ -141,19 +145,28 @@ export default function AdminAirbnbPage() {
     }
   }
 
-  const handleUpdateClinicaStatus = async (clinicaId: string, newStatus: string) => {
+  const handleUpdateClinicaStatus = async (clinicaId: string, newStatus: string, motivoRejeicao?: string) => {
     try {
+      const updateData: any = { status: newStatus, revisado_em: new Date().toISOString() }
+      if (newStatus === 'inativa' && motivoRejeicao) {
+        updateData.motivo_rejeicao = motivoRejeicao
+      }
+      if (newStatus === 'ativa') {
+        updateData.motivo_rejeicao = null
+      }
       const { error } = await supabase
         .from('clinicas')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', clinicaId)
 
       if (error) throw error
-      toast.success(`Clinica ${newStatus === 'ativa' ? 'aprovada' : newStatus === 'inativa' ? 'desativada' : 'atualizada'}!`)
+      toast.success(`Clínica ${newStatus === 'ativa' ? 'aprovada' : 'rejeitada'}!`)
+      setRejectingClinicaId(null)
+      setRejectReason('')
       loadData()
     } catch (err) {
       console.error('Error updating clinica:', err)
-      toast.error('Erro ao atualizar clinica')
+      toast.error('Erro ao atualizar clínica')
     }
   }
 
@@ -326,13 +339,32 @@ export default function AdminAirbnbPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleUpdateClinicaStatus(c.id, 'inativa')}
+                          onClick={() => setRejectingClinicaId(c.id)}
                           className="border-red-500/20 text-red-400 hover:bg-red-500/10 text-xs"
                         >
                           <X className="w-3.5 h-3.5 mr-1" />
                           Rejeitar
                         </Button>
                       </div>
+                      {rejectingClinicaId === c.id && (
+                        <div className="mt-3 w-full bg-red-500/5 rounded-lg p-3 border border-red-500/10">
+                          <Label className="text-red-400 text-xs mb-1.5 block">Motivo da rejeição</Label>
+                          <Input
+                            value={rejectReason}
+                            onChange={e => setRejectReason(e.target.value)}
+                            placeholder="Descreva o motivo..."
+                            className="bg-[#0A0A0A] border-red-500/20 text-white text-sm mb-2"
+                          />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => handleUpdateClinicaStatus(c.id, 'inativa', rejectReason)} className="bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs">
+                              Confirmar Rejeição
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => { setRejectingClinicaId(null); setRejectReason('') }} className="text-gray-400 text-xs">
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

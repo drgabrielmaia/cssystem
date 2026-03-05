@@ -645,7 +645,7 @@ export default function ComissoesPage() {
         />
         <MetricCard
           title="Taxa de Pagamento"
-          value={`${stats.taxa_pagamento.toFixed(1)}%`}
+          value={`${Number(stats.taxa_pagamento || 0).toFixed(1)}%`}
           change={3.5}
           changeType="increase"
           icon={TrendingUp}

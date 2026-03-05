@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { supabase } from '@/lib/supabase'
+import whatsappMultiService from '@/lib/whatsapp-multi-service'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { QRCodeSVG } from 'qrcode.react'
@@ -220,6 +221,30 @@ export default function EventosPage() {
 
       toast.success('Ingresso adquirido com sucesso!')
       setShowPurchaseModal(false)
+
+      // Send WhatsApp group notification if configured
+      try {
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('whatsapp_group_eventos, whatsapp_auto_notify_evento')
+          .eq('id', '9c8c0033-15ea-4e33-a55f-28d81a19693b')
+          .single()
+
+        if (orgData?.whatsapp_auto_notify_evento && orgData?.whatsapp_group_eventos) {
+          const eventDate = new Date(selectedEvento.date_time)
+          const dateStr = eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          const timeStr = eventDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+          const msg = `🎟️ *Nova Inscrição em Evento!*\n\n` +
+            `👤 ${mentorado.nome_completo}\n` +
+            `📅 *${selectedEvento.name}*\n` +
+            `🗓️ ${dateStr} às ${timeStr}\n` +
+            (selectedEvento.local_evento ? `📍 ${selectedEvento.local_evento}\n` : '') +
+            `\n✅ Inscrição confirmada!`
+          await whatsappMultiService.sendMessage(orgData.whatsapp_group_eventos, msg)
+        }
+      } catch (notifyErr) {
+        console.error('Erro ao notificar grupo WhatsApp:', notifyErr)
+      }
 
       // Auto-show QR
       const newTicket: MeuTicket = {
