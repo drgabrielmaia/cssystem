@@ -77,6 +77,27 @@ class WhatsAppCoreAPI {
   // Função para determinar userId baseado na organização
   private async getOrganizationId(): Promise<string> {
     try {
+      // 1. Try localStorage first (works for custom JWT users)
+      if (typeof window !== 'undefined') {
+        const cachedOrg = localStorage.getItem('customer_success_org');
+        if (cachedOrg) {
+          console.log('✅ Organização encontrada via localStorage:', cachedOrg);
+          return cachedOrg;
+        }
+
+        const cachedAuth = localStorage.getItem('customer_success_auth');
+        if (cachedAuth) {
+          try {
+            const parsed = JSON.parse(cachedAuth);
+            if (parsed.organization_id) {
+              console.log('✅ Organização encontrada via auth cache:', parsed.organization_id);
+              return parsed.organization_id;
+            }
+          } catch {}
+        }
+      }
+
+      // 2. Try Supabase auth
       const { data: { user }, error: userError } = await supabase.auth.getUser();
 
       if (userError || !user) {
@@ -91,7 +112,7 @@ class WhatsAppCoreAPI {
 
       console.log('🔍 Buscando organização para usuário:', user.email, 'ID:', user.id);
 
-      // Tentar buscar por email primeiro (mais confiável)
+      // 3. Tentar buscar por email primeiro (mais confiável)
       const { data: orgByEmail, error: emailError } = await supabase
         .from('organization_users')
         .select('organization_id')
@@ -103,7 +124,7 @@ class WhatsAppCoreAPI {
         return orgByEmail.organization_id;
       }
 
-      // Fallback: tentar buscar pela tabela organizations usando owner_email
+      // 4. Fallback: tentar buscar pela tabela organizations usando owner_email
       const { data: orgDirectData, error: orgDirectError } = await supabase
         .from('organizations')
         .select('id')

@@ -3,6 +3,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.me
 const AUTH_TOKEN_KEY = 'cs_auth_token'
 const AUTH_USER_KEY = 'cs_auth_user'
 
+export function getApiBaseUrl() {
+  return API_BASE_URL
+}
+
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null
   return localStorage.getItem(AUTH_TOKEN_KEY)
@@ -45,18 +49,13 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     headers,
   })
 
-  if (response.status === 401) {
-    // Only clear auth and redirect if user had a token (admin user)
-    // Don't redirect or clear token for mentorados
-    if (token && typeof window !== 'undefined') {
-      const isMentoradoPage = window.location.pathname.startsWith('/mentorado')
-      if (!isMentoradoPage) {
-        clearAuth()
-        window.location.href = '/login'
-        throw new Error('Sessão expirada')
-      }
-      // For mentorado pages, just return the response without clearing the token
-      // The mentorado token may be valid for uploads but not for /auth/me
+  // On 401, notify auth context via event but DON'T clear auth or redirect here.
+  // The auth context is the single source of truth for session management.
+  // apiFetch should never cause side effects beyond making the request.
+  if (response.status === 401 && token && typeof window !== 'undefined') {
+    const isMentoradoPage = window.location.pathname.startsWith('/mentorado')
+    if (!isMentoradoPage) {
+      window.dispatchEvent(new CustomEvent('cs:sessionExpired'))
     }
   }
 

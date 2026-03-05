@@ -31,7 +31,7 @@ export default function WhatsAppConnectPage() {
       console.log('🔍 Verificando status da conexão...');
 
       const response = await whatsappMultiService.getStatus();
-      
+
       if (response.success && response.data) {
         setStatus(response.data);
         console.log('✅ Status obtido:', response.data);
@@ -42,6 +42,15 @@ export default function WhatsAppConnectPage() {
           setTimeout(() => {
             router.push('/whatsapp');
           }, 2000);
+        }
+
+        // Auto-fetch QR code when available and not yet loaded
+        if (response.data.hasQR && response.data.registered && !response.data.isReady) {
+          console.log('📱 QR disponível, buscando automaticamente...');
+          const qrResponse = await whatsappMultiService.getQRCode();
+          if (qrResponse.success && qrResponse.data) {
+            setQrData(qrResponse.data);
+          }
         }
       } else {
         console.log('⚠️ Erro ao obter status:', response.error);
@@ -88,15 +97,21 @@ export default function WhatsAppConnectPage() {
       console.log('📝 Registrando usuário no sistema...');
 
       const response = await whatsappMultiService.registerUser();
-      
+
       if (response.success) {
         console.log('✅ Usuário registrado:', response.data);
-        
-        // Aguardar um pouco e verificar status novamente
-        setTimeout(() => {
-          checkStatus();
-          fetchQRCode();
-        }, 1000);
+
+        // After registration, QR code may take a moment to generate.
+        // Poll status every 2 seconds for up to 10 seconds to catch it.
+        let attempts = 0;
+        const pollForQR = async () => {
+          attempts++;
+          await checkStatus(); // checkStatus now auto-fetches QR when hasQR=true
+          if (attempts < 5 && !qrData) {
+            setTimeout(pollForQR, 2000);
+          }
+        };
+        setTimeout(pollForQR, 1500);
       } else {
         console.log('❌ Erro no registro:', response.error);
         setError(response.error || 'Erro ao registrar usuário');
@@ -107,7 +122,7 @@ export default function WhatsAppConnectPage() {
     } finally {
       setRegistering(false);
     }
-  }, [checkStatus, fetchQRCode]);
+  }, [checkStatus, qrData]);
 
   /**
    * Atualizar status e QR Code
@@ -129,7 +144,7 @@ export default function WhatsAppConnectPage() {
 
   // Auto-refresh a cada 5 segundos se estiver esperando conexão
   useEffect(() => {
-    if (status && !status.isReady && !status.isConnecting) {
+    if (status && !status.isReady) {
       const interval = setInterval(checkStatus, 5000);
       return () => clearInterval(interval);
     }

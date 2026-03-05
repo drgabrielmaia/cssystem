@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef } f
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
-import { apiFetch, getToken, getStoredUser, clearAuth as clearApiAuth } from '@/lib/api'
+import { getToken, getStoredUser, clearAuth as clearApiAuth, getApiBaseUrl } from '@/lib/api'
 
 interface OrganizationUser {
   is_active: boolean
@@ -139,16 +139,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
+    const API_BASE = getApiBaseUrl()
+
+    // Direct fetch to /auth/me without using apiFetch (avoids circular 401 handling)
+    const validateToken = async (token: string) => {
+      const res = await fetch(`${API_BASE}/auth/me`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      if (!res.ok) return null
+      return res.json()
+    }
+
     // Get initial session
     const getInitialSession = async () => {
       try {
-        // 1. Check custom JWT first (Docker PostgreSQL auth)
         const token = getToken()
+
+        // STEP 0: Restore from localStorage cache for instant UI (no spinner on refresh)
         if (token) {
           try {
-            const meResponse = await apiFetch('/auth/me')
-            if (meResponse.ok) {
-              const meData = await meResponse.json()
+            const cachedAuth = localStorage.getItem(AUTH_STORAGE_KEY)
+            if (cachedAuth) {
+              const cached = JSON.parse(cachedAuth)
+              if (cached.user && cached.organization_id && cached.expires_at > Date.now()) {
+                const cachedUser = {
+                  id: cached.user.id,
+                  email: cached.user.email,
+                  created_at: cached.user.created_at || new Date().toISOString(),
+                  app_metadata: cached.user.app_metadata || {},
+                  user_metadata: cached.user.user_metadata || {},
+                  aud: 'authenticated',
+                  role: 'authenticated',
+                } as any
+                setUser(cachedUser)
+                setOrganizationId(cached.organization_id)
+                setIsAuthenticated(true)
+                setLoading(false) // Stop spinner immediately - user sees the app
+              }
+            }
+          } catch {
+            // Cache parse error - continue to validation
+          }
+        }
+
+        // STEP 1: Validate custom JWT via direct fetch (not apiFetch)
+        if (token) {
+          try {
+            const meData = await validateToken(token)
+            if (meData) {
               const customUser = {
                 id: meData.user.id,
                 email: meData.user.email,
@@ -173,13 +214,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setIsInitialized(true)
               return
             } else {
-              // Don't clear token on mentorado pages - it may be a mentorado-scoped token
+              // Token invalid - clear it but don't redirect yet (try Supabase fallback)
               const isMentoradoPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/mentorado')
               if (!isMentoradoPage) {
                 clearApiAuth()
               }
             }
           } catch {
+            // Network error - if we have cache, keep using it and don't clear
+            try {
+              const cachedAuth = localStorage.getItem(AUTH_STORAGE_KEY)
+              if (cachedAuth) {
+                const cached = JSON.parse(cachedAuth)
+                if (cached.user && cached.expires_at > Date.now()) {
+                  // Valid cache exists, keep using it despite network error
+                  setLoading(false)
+                  setIsInitialized(true)
+                  return
+                }
+              }
+            } catch {}
+            // No valid cache and network error
             const isMentoradoPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/mentorado')
             if (!isMentoradoPage) {
               clearApiAuth()
@@ -187,7 +242,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // 2. Fallback: Supabase auth (for pages not yet migrated)
+        // STEP 2: Fallback Supabase auth (for users not using custom JWT)
         const { data: { user: validatedUser }, error: userError } = await supabase.auth.getUser()
 
         if (userError || !validatedUser) {
@@ -199,6 +254,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(null)
             setOrganizationId(null)
             setOrgUser(null)
+            setIsAuthenticated(false)
             setLoading(false)
             setIsInitialized(true)
             return
@@ -214,6 +270,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(null)
             setOrganizationId(null)
             setOrgUser(null)
+            setIsAuthenticated(false)
           }
 
           setLoading(false)
@@ -231,6 +288,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null)
           setOrganizationId(null)
           setOrgUser(null)
+          setIsAuthenticated(false)
         }
 
         setLoading(false)
@@ -238,10 +296,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       } catch (error) {
         console.error('Erro na verificação inicial:', error)
+        // On error, keep cache if valid before clearing
+        try {
+          const cachedAuth = localStorage.getItem(AUTH_STORAGE_KEY)
+          if (cachedAuth) {
+            const cached = JSON.parse(cachedAuth)
+            if (cached.user && cached.expires_at > Date.now()) {
+              setLoading(false)
+              setIsInitialized(true)
+              return
+            }
+          }
+        } catch {}
         clearAuthData()
         setUser(null)
         setOrganizationId(null)
         setOrgUser(null)
+        setIsAuthenticated(false)
         setLoading(false)
         setIsInitialized(true)
       }
@@ -345,12 +416,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }, SESSION_HEARTBEAT_MS)
 
+    // Listen for cs:sessionExpired events from apiFetch (401 on data queries)
+    // This is the centralized handler — apiFetch no longer clears auth or redirects
+    let sessionExpiredTimer: NodeJS.Timeout | null = null
+    const handleSessionExpired = () => {
+      // Debounce: only handle once per 5 seconds to avoid multiple rapid revalidations
+      if (sessionExpiredTimer) return
+      sessionExpiredTimer = setTimeout(() => { sessionExpiredTimer = null }, 5000)
+
+      const token = getToken()
+      if (!token) return
+
+      console.log('Session expired event — re-validating token...')
+      validateToken(token)
+        .then((meData) => {
+          if (!meData) {
+            console.log('Token truly expired, logging out...')
+            clearApiAuth()
+            clearAuthData()
+            setUser(null)
+            setOrganizationId(null)
+            setOrgUser(null)
+            setIsAuthenticated(false)
+            router.push('/login')
+          }
+        })
+        .catch(() => {
+          // Network error — don't log out on transient failures
+        })
+    }
+    window.addEventListener('cs:sessionExpired', handleSessionExpired)
+
     // Cleanup
     return () => {
       subscription.unsubscribe()
       window.removeEventListener('apiLoginSuccess', handleApiLogin)
+      window.removeEventListener('cs:sessionExpired', handleSessionExpired)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+      if (sessionExpiredTimer) clearTimeout(sessionExpiredTimer)
     }
   }, [])
 
@@ -407,12 +511,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('Refresh auth forçado...')
     setLoading(true)
 
+    const API_BASE = getApiBaseUrl()
+
     try {
-      // If using custom JWT, validate via API
+      // If using custom JWT, validate via direct fetch (not apiFetch)
       const token = getToken()
       if (token) {
         try {
-          const meResponse = await apiFetch('/auth/me')
+          const meResponse = await fetch(`${API_BASE}/auth/me`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+          })
           if (meResponse.ok) {
             const meData = await meResponse.json()
             const customUser = {
@@ -437,7 +548,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return
           }
         } catch {
-          // JWT expired, fall through to clear
+          // JWT expired or network error, fall through to clear
         }
         clearApiAuth()
         setUser(null)

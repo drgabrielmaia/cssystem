@@ -79,6 +79,28 @@ class WhatsAppMultiService {
    */
   private async getUserId(): Promise<string> {
     try {
+      // 1. Try localStorage first (works for custom JWT users logged in via Docker PostgreSQL)
+      if (typeof window !== 'undefined') {
+        const cachedOrg = localStorage.getItem('customer_success_org');
+        if (cachedOrg) {
+          console.log('✅ Organização encontrada via localStorage:', cachedOrg);
+          return cachedOrg;
+        }
+
+        // Also check the full auth cache
+        const cachedAuth = localStorage.getItem('customer_success_auth');
+        if (cachedAuth) {
+          try {
+            const parsed = JSON.parse(cachedAuth);
+            if (parsed.organization_id) {
+              console.log('✅ Organização encontrada via auth cache:', parsed.organization_id);
+              return parsed.organization_id;
+            }
+          } catch {}
+        }
+      }
+
+      // 2. Try Supabase auth (for Supabase-authenticated users)
       const { data: { user }, error: userError } = await supabase.auth.getUser();
 
       if (userError || !user) {
@@ -94,7 +116,7 @@ class WhatsAppMultiService {
 
       console.log('🔍 Buscando organização para usuário:', user.email);
 
-      // 1. Buscar organização por email na tabela organization_users
+      // 3. Buscar organização por email na tabela organization_users
       const { data: orgUser, error: orgUserError } = await supabase
         .from('organization_users')
         .select('organization_id')
@@ -107,7 +129,7 @@ class WhatsAppMultiService {
         organizationId = orgUser.organization_id;
         console.log('✅ Organização encontrada via organization_users:', organizationId);
       } else {
-        // 2. Fallback: buscar diretamente na tabela organizations
+        // 4. Fallback: buscar diretamente na tabela organizations
         const { data: orgData, error: orgError } = await supabase
           .from('organizations')
           .select('id')
