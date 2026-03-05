@@ -40,16 +40,29 @@ interface OrganizationStats {
   created_at: string
 }
 
+const ADMIN_ORG_ID = '9c8c0033-15ea-4e33-a55f-28d81a19693b'
+
 export default function GMBVClubPage() {
-  const { user } = useAuth()
+  const { user, organizationId } = useAuth()
   const router = useRouter()
   const [organizations, setOrganizations] = useState<OrganizationStats[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedOrg, setSelectedOrg] = useState<OrganizationStats | null>(null)
+  const [authorized, setAuthorized] = useState(false)
 
   useEffect(() => {
+    if (!user || !organizationId) {
+      if (!loading) router.push('/login')
+      return
+    }
+    // Only allow access from the admin organization
+    if (organizationId !== ADMIN_ORG_ID) {
+      router.push('/dashboard')
+      return
+    }
+    setAuthorized(true)
     loadOrganizations()
-  }, [])
+  }, [user, organizationId])
 
   const loadOrganizations = async () => {
     try {
@@ -108,7 +121,8 @@ export default function GMBVClubPage() {
         const orgAtividades = atividadesStats?.filter(a => a.organization_id === org.id) || []
 
         const faturamentoTotal = orgFaturamento.reduce((sum, lead) => {
-          return sum + (lead.valor_vendido || 0)
+          const val = parseFloat(lead.valor_vendido) || 0
+          return sum + (isNaN(val) ? 0 : val)
         }, 0)
 
         const comissoesCount = orgLeads.filter(lead => lead.possui_comissao === true).length
@@ -137,10 +151,11 @@ export default function GMBVClubPage() {
   }
 
   const formatCurrency = (value: number) => {
+    const safeValue = isNaN(value) || !isFinite(value) ? 0 : value
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
-    }).format(value)
+    }).format(safeValue)
   }
 
   const formatDate = (dateString: string) => {
@@ -165,7 +180,7 @@ export default function GMBVClubPage() {
   const avgFaturamentoPorOrg = totalOrganizations > 0 ? totalFaturamento / totalOrganizations : 0
   const avgLeadsPorOrg = totalOrganizations > 0 ? totalLeads / totalOrganizations : 0
 
-  if (loading) {
+  if (!authorized || loading) {
     return (
       <div className="min-h-screen bg-[#0A0A0A]">
         <Header title="GMBV Club" subtitle="Visao administrativa de todas as organizacoes" />
