@@ -1769,6 +1769,12 @@ function ActivateFollowupTab({ sequences, onActivated }: {
       setSelectedLeads(new Set())
       setSelectedSequence('')
       onActivated()
+
+      // Disparar processamento imediato na API
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
+        fetch(`${apiUrl}/process-followups`, { method: 'POST' }).catch(() => {})
+      } catch (_) {}
     } catch (error) {
       console.error('Erro ao ativar follow-up:', error)
       toast.error('Erro ao ativar follow-up')

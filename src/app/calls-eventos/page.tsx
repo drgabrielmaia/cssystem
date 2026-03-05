@@ -1367,7 +1367,7 @@ export default function CallsEventosPage() {
                 </SelectTrigger>
                 <SelectContent className="bg-[#1a1a20] border-white/[0.06] max-h-[200px]">
                   <SelectItem value="none" className="text-gray-400 focus:bg-white/[0.06]">Nenhum</SelectItem>
-                  {closersList.map((closer) => (
+                  {(closersList || []).map((closer) => (
                     <SelectItem key={closer.id} value={closer.id} className="text-white focus:bg-white/[0.06]">
                       {closer.nome_completo}
                     </SelectItem>
@@ -1665,7 +1665,7 @@ export default function CallsEventosPage() {
                   </SelectTrigger>
                   <SelectContent className="bg-[#1a1a20] border-white/[0.06] max-h-[200px]">
                     <SelectItem value="none" className="text-gray-400 focus:bg-white/[0.06]">Nenhum</SelectItem>
-                    {closersList.map((closer) => (
+                    {(closersList || []).map((closer) => (
                       <SelectItem key={closer.id} value={closer.id} className="text-white focus:bg-white/[0.06]">
                         {closer.nome_completo}
                       </SelectItem>
