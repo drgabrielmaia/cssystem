@@ -40,10 +40,23 @@ interface Divida {
   mentorado_id: string
   mentorado_nome: string
   valor: number
+  valor_total?: number
+  valor_pago?: number
+  valor_restante?: number
   data_vencimento: string
   status: 'pendente' | 'pago' | 'atrasado'
   data_pagamento: string | null
   observacoes: string | null
+}
+
+// Normaliza data para YYYY-MM-DD (remove timezone/time se vier ISO completo)
+function normalizeDate(d: string | null): string {
+  if (!d) return ''
+  // Se já é YYYY-MM-DD, retorna direto
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d
+  // Se é ISO com T, pega só a parte da data
+  if (d.includes('T')) return d.split('T')[0]
+  return d
 }
 
 interface MentoradoComDividas {
@@ -132,7 +145,19 @@ export default function PendenciasPage() {
         .eq('organization_id', organizationId)
 
       if (error) throw error
-      setRawDividas(data || [])
+
+      // Normalizar dados: mapear valor_total/valor_restante → valor, e datas
+      const normalized = (data || []).map((d: any) => ({
+        ...d,
+        valor: d.valor ?? d.valor_total ?? 0,
+        valor_total: d.valor_total ?? d.valor ?? 0,
+        valor_pago: d.valor_pago ?? 0,
+        valor_restante: d.valor_restante ?? d.valor_total ?? d.valor ?? 0,
+        data_vencimento: normalizeDate(d.data_vencimento),
+        data_pagamento: d.data_pagamento ? normalizeDate(d.data_pagamento) : null,
+      }))
+
+      setRawDividas(normalized)
     } catch (error) {
       console.error('Erro ao carregar dívidas:', error)
     } finally {
@@ -234,7 +259,9 @@ export default function PendenciasPage() {
 
     // Filtrar dívidas por ano de forma otimizada
     const dividasDoAno = rawDividas.filter((divida: any) => {
-      const ano = new Date(divida.data_vencimento).getFullYear()
+      if (!divida.data_vencimento) return false
+      const dateStr = normalizeDate(divida.data_vencimento)
+      const ano = new Date(dateStr + 'T12:00:00').getFullYear()
       return ano === anoSelecionado
     })
 
@@ -268,8 +295,8 @@ export default function PendenciasPage() {
 
       if (mentorado) {
         mentorado.dividas.push(divida)
-        if (divida.status === 'pendente') {
-          mentorado.totalPendente += divida.valor
+        if (divida.status === 'pendente' || divida.status === 'atrasado') {
+          mentorado.totalPendente += (divida.valor_restante ?? divida.valor ?? 0)
         }
         mentorado.totalDividas++
       }
@@ -291,9 +318,12 @@ export default function PendenciasPage() {
     await createDivida.mutate({
       mentorado_id: selectedMentorado,
       mentorado_nome: mentoradoSelecionado?.nome_completo,
-      valor: valorNumerico,
+      valor_total: valorNumerico,
+      valor_pago: 0,
+      valor_restante: valorNumerico,
       data_vencimento: dataVencimento,
-      status: 'pendente'
+      status: 'pendente',
+      organization_id: organizationId,
     })
   }, [selectedMentorado, valorDivida, dataVencimento, mentoradosDisponiveis, createDivida])
 
@@ -303,9 +333,11 @@ export default function PendenciasPage() {
       return
     }
 
+    const novoValorNum = parseFloat(novoValor.replace(',', '.'))
     await updateDivida.mutate({
       id: editingDivida.id,
-      valor: parseFloat(novoValor.replace(',', '.')),
+      valor_total: novoValorNum,
+      valor_restante: novoValorNum - (editingDivida.valor_pago || 0),
       data_vencimento: novaDataVencimento
     })
   }, [editingDivida, novoValor, novaDataVencimento, updateDivida])
@@ -391,8 +423,9 @@ export default function PendenciasPage() {
       hoje.setHours(0, 0, 0, 0)
 
       const temAtraso = mentorado.dividas.some((divida: any) => {
-        if (divida.status === 'pendente') {
-          const dataVencimento = new Date(divida.data_vencimento + 'T12:00:00')
+        if (divida.status === 'pendente' || divida.status === 'atrasado') {
+          const dvStr = normalizeDate(divida.data_vencimento)
+          const dataVencimento = new Date(dvStr + 'T12:00:00')
           dataVencimento.setHours(0, 0, 0, 0)
           return dataVencimento < hoje
         }
@@ -408,7 +441,8 @@ export default function PendenciasPage() {
 
       const temVencimentoHoje = mentorado.dividas.some((divida: any) => {
         if (divida.status === 'pendente') {
-          const dataVencimento = new Date(divida.data_vencimento + 'T12:00:00')
+          const dvStr = normalizeDate(divida.data_vencimento)
+          const dataVencimento = new Date(dvStr + 'T12:00:00')
           dataVencimento.setHours(0, 0, 0, 0)
           return dataVencimento.toDateString() === hoje.toDateString()
         }
@@ -470,12 +504,14 @@ export default function PendenciasPage() {
     mentorados.forEach(mentorado => {
       let temAtraso = false
       mentorado.dividas.forEach((divida: any) => {
-        if (divida.status === 'pendente') {
-          const dataVencimento = new Date(divida.data_vencimento + 'T12:00:00')
+        if (divida.status === 'pendente' || divida.status === 'atrasado') {
+          const dvStr = normalizeDate(divida.data_vencimento)
+          const dataVencimento = new Date(dvStr + 'T12:00:00')
           dataVencimento.setHours(0, 0, 0, 0)
+          const val = divida.valor_restante ?? divida.valor ?? 0
 
           if (dataVencimento < hoje) {
-            valorAtrasado += divida.valor
+            valorAtrasado += val
             if (!temAtraso) {
               pessoasEmAtraso++
               temAtraso = true
@@ -483,32 +519,32 @@ export default function PendenciasPage() {
           }
 
           if (dataVencimento.toDateString() === hoje.toDateString()) {
-            vencimentosHoje += divida.valor
-            previsaoHoje += divida.valor
+            vencimentosHoje += val
+            previsaoHoje += val
           }
 
           if (dataVencimento >= inicioSemana && dataVencimento <= fimSemana) {
-            vencimentosSemana += divida.valor
+            vencimentosSemana += val
           }
 
           if (dataVencimento >= hoje && dataVencimento <= fimSemana) {
-            previsaoSemana += divida.valor
+            previsaoSemana += val
           }
 
           if (dataVencimento >= hoje && dataVencimento <= fimMes) {
-            previsaoMes += divida.valor
+            previsaoMes += val
           }
 
           if (dataVencimento >= inicioProximoMes && dataVencimento <= fimProximoMes) {
-            previsaoProximoMes += divida.valor
+            previsaoProximoMes += val
           }
 
           if (dataVencimento >= hoje && dataVencimento <= fimTrimestre) {
-            previsaoTrimestre += divida.valor
+            previsaoTrimestre += val
           }
 
           if (dataVencimento >= hoje && dataVencimento <= fimSemestre) {
-            previsaoSemestre += divida.valor
+            previsaoSemestre += val
           }
         }
       })
@@ -538,7 +574,7 @@ export default function PendenciasPage() {
 
   const abrirModalPagamento = (divida: Divida) => {
     setDividaSelecionada(divida)
-    setValorPago(divida.valor.toString())
+    setValorPago((divida.valor_restante ?? divida.valor ?? 0).toString())
     setObservacoesPagamento('')
     setIsModalPagamentoOpen(true)
   }
@@ -572,10 +608,16 @@ export default function PendenciasPage() {
         .single()
 
       // Atualizar status da dívida
+      const novoValorPago = (divida.valor_pago || 0) + valorPagoNum
+      const novoValorRestante = Math.max(0, (divida.valor_total || divida.valor || 0) - novoValorPago)
+      const novoStatus = novoValorRestante <= 0 ? 'pago' : 'pendente'
+
       const { error: updateDividaError } = await supabase
         .from('dividas')
         .update({
-          status: 'pago',
+          status: novoStatus,
+          valor_pago: novoValorPago,
+          valor_restante: novoValorRestante,
           data_pagamento: new Date().toISOString().split('T')[0]
         })
         .eq('id', dividaSelecionada.id)
@@ -638,8 +680,8 @@ export default function PendenciasPage() {
 
   const editarDivida = (divida: Divida) => {
     setEditingDivida(divida)
-    setNovoValor(divida.valor.toString())
-    setNovaDataVencimento(divida.data_vencimento)
+    setNovoValor((divida.valor_total ?? divida.valor ?? 0).toString())
+    setNovaDataVencimento(normalizeDate(divida.data_vencimento))
     setIsEditModalOpen(true)
   }
 
@@ -934,12 +976,13 @@ export default function PendenciasPage() {
         <TooltipProvider delayDuration={200}>
           <div className="space-y-3 md:space-y-4">
             {filteredMentorados.map((mentorado) => {
-              const dividasPendentes = mentorado.dividas.filter((d: any) => d.status === 'pendente')
+              const dividasPendentes = mentorado.dividas.filter((d: any) => d.status === 'pendente' || d.status === 'atrasado')
               const isExpanded = expandedCards.has(mentorado.id)
               const gruposPorMes = MESES.reduce((grupos, mes) => {
-                grupos[mes.numero] = dividasPendentes.filter((d: any) =>
-                  new Date(d.data_vencimento).getMonth() + 1 === mes.numero
-                )
+                grupos[mes.numero] = dividasPendentes.filter((d: any) => {
+                  const dvStr = normalizeDate(d.data_vencimento)
+                  return new Date(dvStr + 'T12:00:00').getMonth() + 1 === mes.numero
+                })
                 return grupos
               }, {} as { [key: number]: Divida[] })
 
@@ -1003,8 +1046,8 @@ export default function PendenciasPage() {
                             )
                           }
 
-                          const valorTotal = dividasDoMes.reduce((sum, d) => sum + d.valor, 0)
-                          const primeiraData = dividasDoMes[0].data_vencimento
+                          const valorTotal = dividasDoMes.reduce((sum, d) => sum + (d.valor_restante ?? d.valor ?? 0), 0)
+                          const primeiraData = normalizeDate(dividasDoMes[0].data_vencimento)
                           const diasRestantes = calcularDiasRestantes(primeiraData)
                           const status = getStatusDivida(diasRestantes)
                           const cellColor = getStatusCellColor(diasRestantes)
@@ -1128,7 +1171,7 @@ export default function PendenciasPage() {
                     </div>
                     <div>
                       <span className="text-muted-foreground text-xs">Valor Original</span>
-                      <p className="font-medium">{formatCurrency(dividaSelecionada.valor)}</p>
+                      <p className="font-medium">{formatCurrency(dividaSelecionada.valor_total ?? dividaSelecionada.valor ?? 0)}</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground text-xs">Vencimento</span>
