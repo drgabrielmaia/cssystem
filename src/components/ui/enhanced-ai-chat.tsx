@@ -200,6 +200,7 @@ export default function EnhancedAIChat() {
   const [postCreationModalOpen, setPostCreationModalOpen] = useState(false);
   const [postInitialTemplate, setPostInitialTemplate] = useState<string | undefined>(undefined);
   const [postInitialData, setPostInitialData] = useState<Record<string, any> | undefined>(undefined);
+  const [postInitialPages, setPostInitialPages] = useState<Array<{template: string, templateData: Record<string, any>}> | undefined>(undefined);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Chat image attachment
@@ -586,15 +587,17 @@ export default function EnhancedAIChat() {
           const cleaned = aiReply.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
           const parsed = JSON.parse(cleaned);
           if (parsed.carousel && Array.isArray(parsed.slides) && parsed.slides.length > 0) {
-            // Carousel: open first slide in the modal
+            // Carousel: pass ALL slides to the modal
             const firstSlide = parsed.slides[0];
             setPostInitialTemplate(firstSlide.template);
             setPostInitialData(firstSlide.templateData);
+            setPostInitialPages(parsed.slides);
             setPostCreationModalOpen(true);
             autoOpened = true;
           } else if (parsed.template && parsed.templateData) {
             setPostInitialTemplate(parsed.template);
             setPostInitialData(parsed.templateData);
+            setPostInitialPages(undefined);
             setPostCreationModalOpen(true);
             autoOpened = true;
           }
@@ -1375,13 +1378,14 @@ export default function EnhancedAIChat() {
       {/* ======================== POST CREATION MODAL (new) ======================== */}
       <PostCreationModal
         open={postCreationModalOpen}
-        onClose={() => { setPostCreationModalOpen(false); setPostInitialTemplate(undefined); setPostInitialData(undefined); }}
+        onClose={() => { setPostCreationModalOpen(false); setPostInitialTemplate(undefined); setPostInitialData(undefined); setPostInitialPages(undefined); }}
         profileName={editableName || mentorado.nome_completo}
         profileHandle={profile.instagram || `@${(editableName || mentorado.nome_completo).toLowerCase().replace(/\s+/g, ".")}`}
         avatarUrl={profile.avatar_url || undefined}
         userEmail={mentorado.email}
         initialTemplate={postInitialTemplate}
         initialTemplateData={postInitialData}
+        initialPages={postInitialPages}
       />
 
       {/* ======================== CONTENT CALENDAR ======================== */}

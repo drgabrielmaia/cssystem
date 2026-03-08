@@ -62,7 +62,10 @@ interface TemplateGalleryProps {
   onRender: (element: React.ReactNode) => void;
   initialTemplate?: string;
   initialData?: Record<string, any>;
+  initialBgColor?: string;
+  initialAccentColor?: string;
   filterCategory?: TemplateCategory;
+  onDataChange?: (data: { templateId: string; formData: Record<string, any>; bgColor: string; accentColor: string }) => void;
 }
 
 // Helper: convert file to base64 data URL
@@ -78,7 +81,9 @@ function fileToDataUrl(file: File): Promise<string> {
 export default function TemplateGallery({
   profileName, profileHandle, avatarUrl, onRender,
   initialTemplate, initialData,
+  initialBgColor, initialAccentColor,
   filterCategory,
+  onDataChange,
 }: TemplateGalleryProps) {
   const filteredTemplates = filterCategory
     ? TEMPLATE_GALLERY.filter(t => t.category === filterCategory)
@@ -94,8 +99,8 @@ export default function TemplateGallery({
   const [formData, setFormData] = useState<Record<string, any>>(
     initialData || (autoSelect ? { ...autoSelect.defaultValues } : {})
   );
-  const [bgColor, setBgColor] = useState('#052E16');
-  const [accentColor, setAccentColor] = useState('#C5A55A');
+  const [bgColor, setBgColor] = useState(initialBgColor || '#052E16');
+  const [accentColor, setAccentColor] = useState(initialAccentColor || '#C5A55A');
   const imageInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const BG_PRESETS = [
@@ -147,7 +152,7 @@ export default function TemplateGallery({
     }
   }, [handleImageUpload]);
 
-  // Keep preview in sync
+  // Keep preview in sync + report data changes to parent
   React.useEffect(() => {
     if (!selectedTemplate) {
       onRender(
@@ -171,7 +176,13 @@ export default function TemplateGallery({
       backgroundColor: bgColor,
     };
     onRender(<Component {...props} />);
-  }, [selectedTemplate, formData, bgColor, accentColor, profileName, profileHandle, avatarUrl, onRender]);
+    onDataChange?.({
+      templateId: selectedTemplate.id,
+      formData,
+      bgColor,
+      accentColor,
+    });
+  }, [selectedTemplate, formData, bgColor, accentColor, profileName, profileHandle, avatarUrl, onRender, onDataChange]);
 
   // Group fields into sections for better UX
   const getFieldSections = (fields: TemplateDefinition['fields']) => {
