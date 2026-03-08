@@ -9,15 +9,18 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true
   },
-  
+
+  // SWC minifier (faster than Terser)
+  swcMinify: true,
+
   // Otimizações de bundle
   experimental: {
     esmExternals: true,
+    optimizePackageImports: ['lucide-react'],
   },
-  
+
   // Tree shaking e otimizações webpack
   webpack: (config, { isServer }) => {
-    // Otimizações para client-side
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -26,13 +29,16 @@ const nextConfig = {
         crypto: false,
       };
     }
-    
+
     return config;
   },
-  
+
   // Compressão
   compress: true,
-  
+
+  // Powered by header off (minor perf)
+  poweredByHeader: false,
+
   // Remover console.logs em produção
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
