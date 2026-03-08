@@ -161,12 +161,13 @@ export default function PendenciasPage() {
       if (error) throw error
 
       // Normalizar dados: mapear valor_total/valor_restante → valor, e datas
+      // IMPORTANTE: usar Number() pois PostgreSQL pode retornar strings para NUMERIC/DECIMAL
       const normalized = (data || []).map((d: any) => ({
         ...d,
-        valor: d.valor ?? d.valor_total ?? 0,
-        valor_total: d.valor_total ?? d.valor ?? 0,
-        valor_pago: d.valor_pago ?? 0,
-        valor_restante: d.valor_restante ?? d.valor_total ?? d.valor ?? 0,
+        valor: Number(d.valor ?? d.valor_total ?? 0) || 0,
+        valor_total: Number(d.valor_total ?? d.valor ?? 0) || 0,
+        valor_pago: Number(d.valor_pago ?? 0) || 0,
+        valor_restante: Number(d.valor_restante ?? d.valor_total ?? d.valor ?? 0) || 0,
         data_vencimento: normalizeDate(d.data_vencimento),
         data_pagamento: d.data_pagamento ? normalizeDate(d.data_pagamento) : null,
       }))
@@ -310,7 +311,7 @@ export default function PendenciasPage() {
       if (mentorado) {
         mentorado.dividas.push(divida)
         if (divida.status === 'pendente' || divida.status === 'atrasado') {
-          mentorado.totalPendente += (divida.valor_restante ?? divida.valor ?? 0)
+          mentorado.totalPendente += Number(divida.valor_restante ?? divida.valor ?? 0) || 0
         }
         mentorado.totalDividas++
       }

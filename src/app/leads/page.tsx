@@ -435,8 +435,8 @@ export default function LeadsPage() {
       ])
 
       if (leadsTotal && vendasData) {
-        const totalVendas = vendasData.reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
-        const totalArrecadado = vendasData.reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0)
+        const totalVendas = vendasData.reduce((sum, lead) => sum + (Number(lead.valor_vendido) || 0), 0)
+        const totalArrecadado = vendasData.reduce((sum, lead) => sum + (Number(lead.valor_arrecadado) || 0), 0)
 
         // Para performance (774K), usar o valor_arrecadado que é o que foi efetivamente pago
         const taxaConversao = leadsTotal.length > 0 ? (vendasData.length / leadsTotal.length) * 100 : 0
@@ -482,7 +482,7 @@ export default function LeadsPage() {
           acc[origem].total += 1
           if (lead.status === 'vendido') {
             acc[origem].convertidos += 1
-            acc[origem].valorPago += lead.valor_arrecadado || 0
+            acc[origem].valorPago += Number(lead.valor_arrecadado) || 0
           }
 
           return acc
@@ -574,15 +574,19 @@ export default function LeadsPage() {
   const availableStatuses = Array.from(new Set(leads.map(lead => lead.status).filter(Boolean)))
   const availableOrigens = Array.from(new Set(leads.map(lead => lead.origem).filter((origem): origem is string => Boolean(origem))))
 
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value: number | null | undefined) => {
+    const num = Number(value) || 0
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
-    }).format(value)
+    }).format(num)
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR')
+    if (!dateString) return '-'
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return '-'
+    return date.toLocaleDateString('pt-BR')
   }
 
   const handleNewLead = () => {
@@ -892,7 +896,7 @@ export default function LeadsPage() {
                   </div>
                 </div>
                 <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Taxa de Conversão</p>
-                <p className="text-3xl font-bold text-white mt-1 tabular-nums">{stats.taxa_conversao.toFixed(1)}%</p>
+                <p className="text-3xl font-bold text-white mt-1 tabular-nums">{(Number(stats.taxa_conversao) || 0).toFixed(1)}%</p>
                 <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
                   <ArrowUpRight className="w-3 h-3" />
                   {stats.leads_convertidos} convertidos
@@ -1099,7 +1103,7 @@ export default function LeadsPage() {
                             {formatCurrency(entry.valorPago)}
                           </div>
                           <div className="text-xs text-white/30">
-                            {entry.taxaConversao.toFixed(1)}% conv.
+                            {(Number(entry.taxaConversao) || 0).toFixed(1)}% conv.
                           </div>
                         </div>
                       </div>
@@ -1493,7 +1497,7 @@ export default function LeadsPage() {
 DADOS DOS LEADS:
 - Total de leads: ${stats.total_leads}
 - Leads convertidos: ${stats.leads_convertidos}
-- Taxa de conversão: ${stats.taxa_conversao.toFixed(1)}%
+- Taxa de conversão: ${(Number(stats.taxa_conversao) || 0).toFixed(1)}%
 - Valor total vendas: ${formatCurrency(stats.valor_total_vendas)}
 - Valor arrecadado: ${formatCurrency(stats.valor_total_arrecadado)}
 - Ticket médio: ${formatCurrency(stats.ticket_medio)}
@@ -1503,7 +1507,7 @@ STATUS DOS LEADS:
 ${statusList}
 
 ORIGENS:
-${origemData.map(o => `${o.name}: ${o.value} leads, ${formatCurrency(o.valorPago)} faturado, ${o.taxaConversao.toFixed(1)}% conversão`).join('\n')}
+${origemData.map(o => `${o.name}: ${o.value} leads, ${formatCurrency(o.valorPago)} faturado, ${(Number(o.taxaConversao) || 0).toFixed(1)}% conversão`).join('\n')}
 
 CONVERSÃO MENSAL (últimos 6 meses):
 ${conversionData.map(c => `${c.month}: ${c.leads} leads, ${c.vendas} vendas, ${c.taxa}% taxa`).join('\n')}
@@ -1551,16 +1555,13 @@ ${conversionData.map(c => `${c.month}: ${c.leads} leads, ${c.vendas} vendas, ${c
 
                   <div className="bg-white/[0.04] rounded-2xl p-5 border border-white/[0.06]">
                     <h3 className="font-semibold text-white/60 text-sm mb-2">Taxa de Conversão</h3>
-                    <p className="text-3xl font-bold text-emerald-400">{selectedOrigem.taxaConversao.toFixed(1)}%</p>
+                    <p className="text-3xl font-bold text-emerald-400">{(Number(selectedOrigem.taxaConversao) || 0).toFixed(1)}%</p>
                   </div>
 
                   <div className="bg-white/[0.04] rounded-2xl p-5 border border-white/[0.06]">
                     <h3 className="font-semibold text-white/60 text-sm mb-2">Valor Arrecadado</h3>
                     <p className="text-2xl font-bold text-amber-400">
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL'
-                      }).format(selectedOrigem.valorPago)}
+                      {formatCurrency(Number(selectedOrigem.valorPago) || 0)}
                     </p>
                   </div>
                 </div>
@@ -1571,13 +1572,12 @@ ${conversionData.map(c => `${c.month}: ${c.leads} leads, ${c.vendas} vendas, ${c
                     <div className="flex justify-between">
                       <span className="text-white/40 text-sm">Ticket Médio</span>
                       <span className="font-semibold text-white">
-                        {selectedOrigem.value > 0
-                          ? new Intl.NumberFormat('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL'
-                            }).format(selectedOrigem.valorPago / (selectedOrigem.value * selectedOrigem.taxaConversao / 100))
-                          : 'R$ 0,00'
-                        }
+                        {(() => {
+                          const convertidos = Math.round(selectedOrigem.value * (Number(selectedOrigem.taxaConversao) || 0) / 100)
+                          return convertidos > 0
+                            ? formatCurrency(selectedOrigem.valorPago / convertidos)
+                            : 'R$ 0,00'
+                        })()}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -1589,8 +1589,8 @@ ${conversionData.map(c => `${c.month}: ${c.leads} leads, ${c.vendas} vendas, ${c
                     <div className="flex justify-between">
                       <span className="text-white/40 text-sm">ROI Estimado</span>
                       <span className="font-semibold text-emerald-400">
-                        {selectedOrigem.valorPago > 0 ? '+' : ''}
-                        {((selectedOrigem.valorPago / Math.max(selectedOrigem.value * 50, 1) - 1) * 100).toFixed(1)}%
+                        {(Number(selectedOrigem.valorPago) || 0) > 0 ? '+' : ''}
+                        {(((Number(selectedOrigem.valorPago) || 0) / Math.max(selectedOrigem.value * 50, 1) - 1) * 100).toFixed(1)}%
                       </span>
                     </div>
                   </div>
