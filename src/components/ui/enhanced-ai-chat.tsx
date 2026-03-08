@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useMentoradoAuth } from "@/contexts/mentorado-auth";
 import PostEditor from "@/components/posts/PostEditor";
-import type { PostSlide } from "@/types";
+import PostCreationModal from "@/components/posts/PostCreationModal";
+import type { PostSlide, PostCreationMode } from "@/types";
 import {
   Send,
   User,
@@ -128,6 +129,7 @@ const CONTENT_MODES = [
   { id: "carrossel", label: "Carrossel", icon: FileText, description: "Post em carrossel" },
   { id: "secretaria", label: "Secretaria", icon: Phone, description: "Atendimento de pacientes" },
   { id: "imagem", label: "Gerar Imagem", icon: ImageIcon, description: "Crie imagens com IA" },
+  { id: "auto-post", label: "Post Visual (IA)", icon: Palette, description: "IA cria o post visual completo" },
 ] as const;
 
 const IMAGE_TEMPLATES = [
@@ -199,6 +201,8 @@ export default function EnhancedAIChat() {
   // Post editor state
   const [postEditorOpen, setPostEditorOpen] = useState(false);
   const [postEditorSlides, setPostEditorSlides] = useState<PostSlide[] | undefined>(undefined);
+  const [postCreationModalOpen, setPostCreationModalOpen] = useState(false);
+  const [postCreationMode, setPostCreationMode] = useState<PostCreationMode>('template-gallery');
 
   // Chat image attachment
   const [chatImage, setChatImage] = useState<string | null>(null);
@@ -884,7 +888,7 @@ export default function EnhancedAIChat() {
             </div>
             <span className="font-semibold text-sm tracking-tight truncate">Medicos de Resultado</span>
           </div>
-          <button onClick={openPostEditorManual}
+          <button onClick={() => { setPostCreationMode('template-gallery'); setPostCreationModalOpen(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium transition-all ring-1 ring-emerald-500/20 flex-shrink-0">
             <Palette className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Criar Post</span>
@@ -1207,10 +1211,16 @@ export default function EnhancedAIChat() {
                           {copied === msg.id ? <><Check className="w-3 h-3 text-emerald-400" /><span className="text-emerald-400">Copiado</span></> : <><Copy className="w-3 h-3" />Copiar</>}
                         </button>
                         {msg.contentType && msg.contentType !== "chat" && (
-                          <button onClick={() => openPostEditor(msg.text)} className="flex items-center gap-1.5 text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors ml-2">
-                            <Eye className="w-3 h-3" />
-                            Gerar Post Visual
-                          </button>
+                          <>
+                            <button onClick={() => openPostEditor(msg.text)} className="flex items-center gap-1.5 text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors ml-2">
+                              <Eye className="w-3 h-3" />
+                              Post Classico
+                            </button>
+                            <button onClick={() => { setPostCreationMode('template-gallery'); setPostCreationModalOpen(true); }} className="flex items-center gap-1.5 text-[11px] text-purple-400 hover:text-purple-300 transition-colors ml-2">
+                              <Palette className="w-3 h-3" />
+                              Templates
+                            </button>
+                          </>
                         )}
                       </div>
                     )}
@@ -1319,7 +1329,7 @@ export default function EnhancedAIChat() {
         </div>
       </main>
 
-      {/* ======================== POST EDITOR ======================== */}
+      {/* ======================== POST EDITOR (legacy) ======================== */}
       <PostEditor
         open={postEditorOpen}
         onClose={() => setPostEditorOpen(false)}
@@ -1327,6 +1337,16 @@ export default function EnhancedAIChat() {
         profileName={editableName || mentorado.nome_completo}
         profileHandle={profile.instagram || `@${(editableName || mentorado.nome_completo).toLowerCase().replace(/\s+/g, ".")}`}
         avatarUrl={profile.avatar_url || undefined}
+      />
+
+      {/* ======================== POST CREATION MODAL (new) ======================== */}
+      <PostCreationModal
+        open={postCreationModalOpen}
+        onClose={() => setPostCreationModalOpen(false)}
+        profileName={editableName || mentorado.nome_completo}
+        profileHandle={profile.instagram || `@${(editableName || mentorado.nome_completo).toLowerCase().replace(/\s+/g, ".")}`}
+        avatarUrl={profile.avatar_url || undefined}
+        initialMode={postCreationMode}
       />
     </div>
   );

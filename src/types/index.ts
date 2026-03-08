@@ -147,3 +147,110 @@ export interface PostConfig {
   profilePosition: 'top' | 'bottom';
   accentColor: string;
 }
+
+// ============================================================
+// POST CREATION SYSTEM V2 - 3-Mode Architecture
+// ============================================================
+
+export type PostCreationMode = 'template-gallery' | 'visual-editor' | 'ai-auto';
+export type TemplateCategory = 'testimonial' | 'comparison' | 'motivational' | 'quote' | 'cta';
+
+export interface TemplateField {
+  key: string;
+  label: string;
+  type: 'text' | 'textarea' | 'color' | 'image' | 'select' | 'highlights' | 'chat-messages';
+  required?: boolean;
+  placeholder?: string;
+  options?: { value: string; label: string }[];
+}
+
+export interface TemplateDefinition {
+  id: string;
+  name: string;
+  description: string;
+  category: TemplateCategory;
+  component: React.FC<TemplateRenderProps>;
+  fields: TemplateField[];
+  defaultValues: Record<string, any>;
+}
+
+export interface TemplateRenderProps {
+  data: Record<string, any>;
+  profileName: string;
+  profileHandle: string;
+  avatarUrl?: string;
+  accentColor: string;
+  backgroundColor: string;
+}
+
+// Visual Editor types
+export type EditorBlockType = 'text' | 'image' | 'chat' | 'shape' | 'highlighted-text';
+
+export interface EditorBlock {
+  id: string;
+  type: EditorBlockType;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  zIndex: number;
+  locked: boolean;
+  data: TextBlockData | ImageBlockData | ChatBlockData | ShapeBlockData | HighlightedTextData;
+}
+
+export interface TextBlockData {
+  text: string;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+  color: string;
+  textAlign: 'left' | 'center' | 'right';
+  lineHeight: number;
+}
+
+export interface ImageBlockData {
+  src: string;
+  objectFit: 'cover' | 'contain' | 'fill';
+  borderRadius: number;
+  opacity: number;
+}
+
+export interface ChatBlockData {
+  messages: Array<{ text: string; isUser: boolean; timestamp?: string }>;
+  style: 'whatsapp' | 'imessage';
+  bubbleColor: string;
+}
+
+export interface ShapeBlockData {
+  shape: 'rectangle' | 'circle' | 'line' | 'divider';
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  borderRadius: number;
+}
+
+export interface HighlightedTextData {
+  segments: Array<{ text: string; color?: string; bold?: boolean }>;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+  baseColor: string;
+  textAlign: 'left' | 'center' | 'right';
+  lineHeight: number;
+}
+
+export interface EditorBackground {
+  type: 'solid' | 'gradient' | 'image';
+  color?: string;
+  gradient?: { from: string; to: string; angle: number };
+  imageUrl?: string;
+  imageOpacity?: number;
+}
+
+export interface AIAutoPostResponse {
+  template: TemplateCategory;
+  templateData: Record<string, any>;
+  suggestedBackground: string;
+  suggestedAccentColor: string;
+}

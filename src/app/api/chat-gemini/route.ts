@@ -476,6 +476,54 @@ QUALIDADE: Foto realista, iluminação profissional, resolução alta.`
     }
 
     // === REGULAR CHAT MODE ===
+    // === AUTO-POST MODE: AI picks template + generates content as JSON ===
+    const isAutoPost = context?.tipoPost === 'auto-post'
+    if (isAutoPost) {
+      const autoPostPrompt = `Voce e um designer de posts para Instagram do "Medicos de Resultado" (@drgabriel.maia).
+O usuario vai descrever o post que quer e voce deve:
+1. ESCOLHER o template mais adequado dentre: testimonial, comparison, motivational, quote, cta
+2. GERAR o conteudo para preencher os campos do template
+3. SUGERIR cores
+
+RESPONDA EXCLUSIVAMENTE em JSON valido. Sem markdown, sem explicacao, sem texto antes ou depois. APENAS o JSON.
+
+FORMATOS POR TEMPLATE:
+
+Para "testimonial":
+{"template":"testimonial","templateData":{"headline":"Headline impactante","highlightWord":"palavra","chatMessages":[{"text":"Mensagem do depoimento","isUser":false,"senderName":"Nome","senderTag":"mentorada"}],"footerText":"Texto rodape"},"suggestedBackground":"#052E16","suggestedAccentColor":"#C5A55A"}
+
+Para "comparison":
+{"template":"comparison","templateData":{"headline":"Titulo","subheadline":"Subtitulo bold","leftTitle":"Opcao A","leftSubtitle":"Descricao A","rightTitle":"Opcao B","rightSubtitle":"Descricao B","leftColor":"#EF4444","rightColor":"#16A34A","leftItems":["item1"],"rightItems":["item1"],"footerText":"Rodape"},"suggestedBackground":"#000000","suggestedAccentColor":"#16A34A"}
+
+Para "motivational":
+{"template":"motivational","templateData":{"text":"Texto motivacional grande","highlights":[{"word":"palavra destaque","color":"#C5A55A"}],"fontStyle":"serif","fontSize":64,"ctaText":"CTA opcional"},"suggestedBackground":"#052E16","suggestedAccentColor":"#C5A55A"}
+
+Para "quote":
+{"template":"quote","templateData":{"tweetText":"Texto do post com quebras de linha","imageUrl":""},"suggestedBackground":"#000000","suggestedAccentColor":"#16A34A"}
+
+Para "cta":
+{"template":"cta","templateData":{"headline":"Chamada impactante","subtext":"Texto complementar","ctaButtonText":"TEXTO DO BOTAO","ctaColor":"#16A34A","engagementPrompt":"Comente X para...","emoji":"🚀"},"suggestedBackground":"#000000","suggestedAccentColor":"#16A34A"}
+
+${context?.nome ? `Medico: ${context.nome}. Especialidade: ${context?.especialidade || 'medicina'}.` : ''}
+${context?.persona ? `Persona: ${context.persona}` : ''}
+
+Solicitacao do usuario: ${message}`
+
+      const autoResult = await model.generateContent(autoPostPrompt)
+      const autoResponse = autoResult.response.text()
+
+      if (mentoradoId) {
+        await incrementUsage(mentoradoId, false).catch(() => {})
+      }
+
+      return NextResponse.json({
+        success: true,
+        reply: autoResponse,
+        model: 'gemini-2.5-flash-lite',
+        timestamp: new Date().toISOString(),
+      })
+    }
+
     const fullPrompt = `${contentPrompt}${contextPrompt}\n\nUsuário: ${message}\n\nResposta:`
 
     // Build request parts (text + optional image)
