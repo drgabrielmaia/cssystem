@@ -6,7 +6,8 @@ import { supabase } from "@/lib/supabase";
 import { useMentoradoAuth } from "@/contexts/mentorado-auth";
 import PostEditor from "@/components/posts/PostEditor";
 import PostCreationModal from "@/components/posts/PostCreationModal";
-import type { PostSlide, PostCreationMode } from "@/types";
+import ContentCalendar from "@/components/posts/ContentCalendar";
+import type { PostSlide } from "@/types";
 import {
   Send,
   User,
@@ -122,14 +123,9 @@ interface ProfileData {
 
 const CONTENT_MODES = [
   { id: "chat", label: "Chat Livre", icon: MessageSquare, description: "Conversa livre com a IA" },
-  { id: "motivacional", label: "Post Motivacional", icon: Heart, description: "Inspire sua audiencia" },
-  { id: "educativo", label: "Post Educativo", icon: BookOpen, description: "Ensine algo valioso" },
-  { id: "pessoal", label: "Post Pessoal", icon: User, description: "Mostre seu lado humano" },
-  { id: "stories", label: "Stories", icon: Instagram, description: "Conteudo para stories" },
-  { id: "carrossel", label: "Carrossel", icon: FileText, description: "Post em carrossel" },
+  { id: "conteudo", label: "Criar Conteudo", icon: FileText, description: "IA gera texto para post" },
   { id: "secretaria", label: "Secretaria", icon: Phone, description: "Atendimento de pacientes" },
   { id: "imagem", label: "Gerar Imagem", icon: ImageIcon, description: "Crie imagens com IA" },
-  { id: "auto-post", label: "Post Visual (IA)", icon: Palette, description: "IA cria o post visual completo" },
 ] as const;
 
 const IMAGE_TEMPLATES = [
@@ -202,7 +198,7 @@ export default function EnhancedAIChat() {
   const [postEditorOpen, setPostEditorOpen] = useState(false);
   const [postEditorSlides, setPostEditorSlides] = useState<PostSlide[] | undefined>(undefined);
   const [postCreationModalOpen, setPostCreationModalOpen] = useState(false);
-  const [postCreationMode, setPostCreationMode] = useState<PostCreationMode>('template-gallery');
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Chat image attachment
   const [chatImage, setChatImage] = useState<string | null>(null);
@@ -506,7 +502,7 @@ export default function EnhancedAIChat() {
   }, []);
 
   const sendMessage = useCallback(async () => {
-    const isContent = contentMode !== "chat" && contentMode !== "secretaria" && contentMode !== "imagem";
+    const isContent = contentMode === "conteudo";
     const isSecretaria = contentMode === "secretaria";
     const isImageGen = contentMode === "imagem";
 
@@ -540,7 +536,7 @@ export default function EnhancedAIChat() {
         : isSecretaria
         ? (effectiveMsg.trim() || "Analise a imagem da conversa e sugira a melhor resposta.")
         : isContent
-          ? `Crie um post VIRAL para Instagram do tipo "${contentMode}". Use um hook poderoso que pare o scroll, aplique storytelling e termine com CTA emocional. Contexto/tema do post: ${effectiveMsg}`
+          ? `Crie um post VIRAL para Instagram. Use um hook poderoso que pare o scroll, aplique storytelling e termine com CTA emocional. Contexto/tema do post: ${effectiveMsg}`
           : effectiveMsg;
       const filledDores = dores.filter(Boolean);
       const filledDesejos = desejos.filter(Boolean);
@@ -888,8 +884,13 @@ export default function EnhancedAIChat() {
             </div>
             <span className="font-semibold text-sm tracking-tight truncate">Medicos de Resultado</span>
           </div>
-          <button onClick={() => { setPostCreationMode('template-gallery'); setPostCreationModalOpen(true); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium transition-all ring-1 ring-emerald-500/20 flex-shrink-0">
+          <button onClick={() => setCalendarOpen(true)}
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 text-xs font-medium transition-all ring-1 ring-purple-500/20 flex-shrink-0">
+            <BookOpen className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Calendario</span>
+          </button>
+          <button onClick={() => setPostCreationModalOpen(true)}
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium transition-all ring-1 ring-emerald-500/20 flex-shrink-0">
             <Palette className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Criar Post</span>
           </button>
@@ -1153,12 +1154,15 @@ export default function EnhancedAIChat() {
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
                 {[
-                  { icon: Heart, text: "Gerar post motivacional", mode: "motivacional" },
-                  { icon: BookOpen, text: "Criar conteudo educativo", mode: "educativo" },
+                  { icon: Palette, text: "Criar post visual", mode: "post" },
+                  { icon: FileText, text: "Criar conteudo com IA", mode: "conteudo" },
                   { icon: Phone, text: "Secretaria de pacientes", mode: "secretaria" },
                   { icon: ImageIcon, text: "Gerar imagem com IA", mode: "imagem" },
                 ].map((action, i) => (
-                  <button key={i} onClick={() => { setContentMode(action.mode); textareaRef.current?.focus(); }}
+                  <button key={i} onClick={() => {
+                    if (action.mode === 'post') { setPostCreationModalOpen(true); return; }
+                    setContentMode(action.mode); textareaRef.current?.focus();
+                  }}
                     className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-white/[0.06] bg-[#111114]/80 hover:bg-[#18181c] text-[#7a7a7f] hover:text-white transition-all text-sm text-left group">
                     <action.icon className="w-4 h-4 group-hover:text-blue-400 transition-colors flex-shrink-0" />
                     <span>{action.text}</span>
@@ -1216,9 +1220,9 @@ export default function EnhancedAIChat() {
                               <Eye className="w-3 h-3" />
                               Post Classico
                             </button>
-                            <button onClick={() => { setPostCreationMode('template-gallery'); setPostCreationModalOpen(true); }} className="flex items-center gap-1.5 text-[11px] text-purple-400 hover:text-purple-300 transition-colors ml-2">
+                            <button onClick={() => setPostCreationModalOpen(true)} className="flex items-center gap-1.5 text-[11px] text-purple-400 hover:text-purple-300 transition-colors ml-2">
                               <Palette className="w-3 h-3" />
-                              Templates
+                              Criar Post Visual
                             </button>
                           </>
                         )}
@@ -1346,7 +1350,15 @@ export default function EnhancedAIChat() {
         profileName={editableName || mentorado.nome_completo}
         profileHandle={profile.instagram || `@${(editableName || mentorado.nome_completo).toLowerCase().replace(/\s+/g, ".")}`}
         avatarUrl={profile.avatar_url || undefined}
-        initialMode={postCreationMode}
+        userEmail={mentorado.email}
+      />
+
+      {/* ======================== CONTENT CALENDAR ======================== */}
+      <ContentCalendar
+        open={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        userEmail={mentorado.email}
+        onCreatePost={() => { setCalendarOpen(false); setPostCreationModalOpen(true); }}
       />
     </div>
   );

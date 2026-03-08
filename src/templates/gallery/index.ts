@@ -1,9 +1,12 @@
-import type { TemplateDefinition, TemplateField } from '../../types';
+import type { TemplateDefinition } from '../../types';
 import { TestimonialTemplate } from './TestimonialTemplate';
 import { ComparisonTemplate } from './ComparisonTemplate';
 import { MotivationalTemplate } from './MotivationalTemplate';
 import { QuoteTweetTemplate } from './QuoteTweetTemplate';
 import { CTATemplate } from './CTATemplate';
+import { StorytellingTemplate } from './StorytellingTemplate';
+import { DataStoryTemplate } from './DataStoryTemplate';
+import { DarkNarrativeTemplate } from './DarkNarrativeTemplate';
 
 export const TEMPLATE_GALLERY: TemplateDefinition[] = [
   {
@@ -119,7 +122,7 @@ export const TEMPLATE_GALLERY: TemplateDefinition[] = [
       { key: 'ctaButtonText', label: 'Texto do botao', type: 'text', placeholder: 'QUERO SABER MAIS' },
       { key: 'ctaColor', label: 'Cor do botao', type: 'color' },
       { key: 'engagementPrompt', label: 'Prompt de engajamento', type: 'text', placeholder: 'Comente EU QUERO para receber o link' },
-      { key: 'emoji', label: 'Emoji central', type: 'text', placeholder: '🚀' },
+      { key: 'emoji', label: 'Emoji central', type: 'text', placeholder: '' },
     ],
     defaultValues: {
       headline: 'Quer transformar sua carreira?',
@@ -127,7 +130,81 @@ export const TEMPLATE_GALLERY: TemplateDefinition[] = [
       ctaButtonText: 'QUERO SABER MAIS',
       ctaColor: '#16A34A',
       engagementPrompt: 'Comente EU QUERO para receber o link',
-      emoji: '🚀',
+      emoji: '',
+    },
+  },
+  {
+    id: 'storytelling',
+    name: 'Storytelling',
+    description: 'Texto narrativo com imagem lateral',
+    category: 'storytelling',
+    component: StorytellingTemplate,
+    fields: [
+      { key: 'headline', label: 'Headline', type: 'text', required: true, placeholder: 'E nao sao so as pequenas.' },
+      { key: 'bodyText', label: 'Texto narrativo', type: 'textarea', placeholder: 'Varig, a maior companhia aerea da America Latina, morreu...' },
+      { key: 'highlightText', label: 'Texto em destaque (barra lateral)', type: 'textarea', placeholder: 'So no primeiro quadrimestre de 2023, 737 mil empresas fecharam...' },
+      { key: 'highlightStyle', label: 'Estilo do destaque', type: 'select', options: [
+        { value: 'bold', label: 'Negrito' },
+        { value: 'italic', label: 'Italico' },
+      ]},
+      { key: 'statNumber', label: 'Numero/Estatistica', type: 'text', placeholder: '737 mil' },
+      { key: 'statLabel', label: 'Legenda do numero', type: 'text', placeholder: 'empresas fecharam as portas' },
+      { key: 'imageUrl', label: 'Imagem lateral', type: 'image' },
+      { key: 'footerText', label: 'Texto de impacto (rodape)', type: 'text', placeholder: 'E a explicacao vai muito alem do que parece.' },
+      { key: 'sourceText', label: 'Fonte (opcional)', type: 'text', placeholder: 'Mapa de Empresas' },
+    ],
+    defaultValues: {
+      headline: 'E nao sao so as pequenas.',
+      bodyText: 'Varig, a maior companhia aerea da America Latina, morreu. Mappin, icone de geracoes em Sao Paulo, morreu. Mesbla, com 180 lojas no pais inteiro, morreu. Bamerindus, Arapua, Lobras... todas desapareceram.',
+      highlightText: 'So no primeiro quadrimestre de 2023, 737 mil empresas fecharam as portas no Brasil, aumento de 34% em relacao ao ano anterior.',
+      highlightStyle: 'italic',
+      statNumber: '',
+      statLabel: '',
+      imageUrl: '',
+      footerText: 'E a explicacao vai muito alem do que parece.',
+      sourceText: 'Mapa de Empresas',
+    },
+  },
+  {
+    id: 'data-story',
+    name: 'Dados / Estatistica',
+    description: 'Headline + imagem + dados impactantes',
+    category: 'data-story',
+    component: DataStoryTemplate,
+    fields: [
+      { key: 'headline', label: 'Headline com dados', type: 'text', required: true, placeholder: 'A vida media de uma empresa no Brasil e de apenas 4 a 5 anos, segundo o IBGE.' },
+      { key: 'imageUrl', label: 'Imagem central', type: 'image' },
+      { key: 'bodyText', label: 'Texto com estatisticas', type: 'textarea', placeholder: '6 em cada 10 negocios brasileiros fecham antes de completar 5 anos de vida...' },
+      { key: 'highlightText', label: 'Texto em destaque (italico)', type: 'text', placeholder: 'e apenas 22,9% das empresas nascidas em 2009 ainda existiam uma decada depois.' },
+      { key: 'sourceText', label: 'Fonte (opcional)', type: 'text', placeholder: 'IBGE' },
+    ],
+    defaultValues: {
+      headline: 'A vida media de uma empresa no Brasil e de apenas 4 a 5 anos, segundo o IBGE.',
+      imageUrl: '',
+      bodyText: '6 em cada 10 negocios brasileiros fecham antes de completar 5 anos de vida,',
+      highlightText: 'e apenas 22,9% das empresas nascidas em 2009 ainda existiam uma decada depois.',
+      sourceText: 'IBGE',
+    },
+  },
+  {
+    id: 'dark-narrative',
+    name: 'Narrativa Escura',
+    description: 'Imagem de fundo com texto sobreposto',
+    category: 'dark-narrative',
+    component: DarkNarrativeTemplate,
+    fields: [
+      { key: 'headline', label: 'Headline principal', type: 'text', required: true, placeholder: 'Ao longo da sua historia, o Japao construiu mais de 33 mil empresas centenarias' },
+      { key: 'midText', label: 'Texto central (destaque)', type: 'text', placeholder: 'Esses negocios eram chamados de "shinise".' },
+      { key: 'midSubtext', label: 'Subtexto central', type: 'textarea', placeholder: 'Porque sobreviveram a guerras, pandemias e ate a quedas de imperios inteiros...' },
+      { key: 'footerText', label: 'Texto de impacto (rodape)', type: 'text', placeholder: 'Mas, no Brasil, a historia e brutalmente diferente...' },
+      { key: 'imageUrl', label: 'Imagem de fundo', type: 'image' },
+    ],
+    defaultValues: {
+      headline: 'Ao longo da sua historia, o Japao construiu mais de 33 mil empresas centenarias',
+      midText: 'Esses negocios eram chamados de "shinise".',
+      midSubtext: 'Porque sobreviveram a guerras, pandemias e ate a quedas de imperios inteiros, passando de geracao em geracao.',
+      footerText: 'Mas, no Brasil, a historia e brutalmente diferente...',
+      imageUrl: '',
     },
   },
 ];
@@ -137,3 +214,6 @@ export { ComparisonTemplate } from './ComparisonTemplate';
 export { MotivationalTemplate } from './MotivationalTemplate';
 export { QuoteTweetTemplate } from './QuoteTweetTemplate';
 export { CTATemplate } from './CTATemplate';
+export { StorytellingTemplate } from './StorytellingTemplate';
+export { DataStoryTemplate } from './DataStoryTemplate';
+export { DarkNarrativeTemplate } from './DarkNarrativeTemplate';

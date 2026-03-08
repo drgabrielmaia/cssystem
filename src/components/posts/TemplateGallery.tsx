@@ -3,7 +3,8 @@
 import React, { useState, useCallback } from 'react';
 import { TEMPLATE_GALLERY } from '@/templates/gallery';
 import type { TemplateDefinition, TemplateRenderProps } from '@/types';
-import { MessageSquare, GitCompare, Heart, Quote, Megaphone, X, Plus, Trash2 } from 'lucide-react';
+import { MessageSquare, GitCompare, Heart, Quote, Megaphone, BookOpen, BarChart3, Moon, X, Plus, Trash2 } from 'lucide-react';
+import type { TemplateCategory } from '@/types';
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   testimonial: <MessageSquare className="w-4 h-4" />,
@@ -11,6 +12,9 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   motivational: <Heart className="w-4 h-4" />,
   quote: <Quote className="w-4 h-4" />,
   cta: <Megaphone className="w-4 h-4" />,
+  storytelling: <BookOpen className="w-4 h-4" />,
+  'data-story': <BarChart3 className="w-4 h-4" />,
+  'dark-narrative': <Moon className="w-4 h-4" />,
 };
 
 interface TemplateGalleryProps {
@@ -20,16 +24,29 @@ interface TemplateGalleryProps {
   onRender: (element: React.ReactNode) => void;
   initialTemplate?: string;
   initialData?: Record<string, any>;
+  filterCategory?: TemplateCategory;
 }
 
 export default function TemplateGallery({
   profileName, profileHandle, avatarUrl, onRender,
   initialTemplate, initialData,
+  filterCategory,
 }: TemplateGalleryProps) {
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateDefinition | null>(
-    initialTemplate ? TEMPLATE_GALLERY.find(t => t.id === initialTemplate) || null : null
+  const filteredTemplates = filterCategory
+    ? TEMPLATE_GALLERY.filter(t => t.category === filterCategory)
+    : TEMPLATE_GALLERY;
+
+  // Auto-select: if initialTemplate is set OR only one template in filtered list
+  const autoSelect = (() => {
+    if (initialTemplate) return TEMPLATE_GALLERY.find(t => t.id === initialTemplate) || null;
+    if (filteredTemplates.length === 1) return filteredTemplates[0];
+    return null;
+  })();
+
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateDefinition | null>(autoSelect);
+  const [formData, setFormData] = useState<Record<string, any>>(
+    initialData || (autoSelect ? { ...autoSelect.defaultValues } : {})
   );
-  const [formData, setFormData] = useState<Record<string, any>>(initialData || {});
   const [bgColor, setBgColor] = useState('#052E16');
   const [accentColor, setAccentColor] = useState('#C5A55A');
 
@@ -285,7 +302,7 @@ export default function TemplateGallery({
         <div className="p-4 space-y-3 overflow-y-auto">
           <p className="text-xs text-[#5a5a5f] font-medium">Escolha um template:</p>
           <div className="grid grid-cols-1 gap-3">
-            {TEMPLATE_GALLERY.map(tmpl => (
+            {filteredTemplates.map(tmpl => (
               <button
                 key={tmpl.id}
                 onClick={() => handleSelectTemplate(tmpl)}
