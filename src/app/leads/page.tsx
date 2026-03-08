@@ -660,6 +660,7 @@ export default function LeadsPage() {
       }
 
       // 1. Criar mentorado com dados do lead
+      const defaultPwd = process.env.NEXT_PUBLIC_DEFAULT_MENTORADO_PWD || ''
       const mentoradoData = {
         nome_completo: lead.nome_completo,
         email: lead.email, // Já validado acima
@@ -668,7 +669,9 @@ export default function LeadsPage() {
         estado_atual: 'ativo',
         lead_id: lead.id,
         turma: 'Turma 1', // Valor padrão para turma
-        organization_id: organizationId // Necessário para RLS
+        organization_id: organizationId, // Necessário para RLS
+        password_hash: defaultPwd,
+        status_login: 'ativo',
       }
 
       console.log('Dados do mentorado a ser criado:', mentoradoData) // Debug
@@ -1663,6 +1666,35 @@ ${conversionData.map(c => `${c.month}: ${c.leads} leads, ${c.vendas} vendas, ${c
 
                       // Verificar se lead foi marcado como vendido e tem indicador
                       await checkAndCreateCommission(editingLead.id, processedData, editingLead)
+
+                      // Automação: se status mudou para "vendido", disparar boas-vindas + contrato
+                      if (processedData.status === 'vendido' && editingLead.status !== 'vendido') {
+                        try {
+                          console.log('🚀 Lead convertido para vendido - disparando automação...')
+                          const automationRes = await fetch('/api/lead-automation/on-converted', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              leadId: editingLead.id,
+                              leadName: processedData.nome_completo || editingLead.nome_completo,
+                              leadEmail: processedData.email || editingLead.email,
+                              leadPhone: processedData.telefone || editingLead.telefone,
+                              organizationId: activeOrganizationId
+                            })
+                          })
+                          const automationData = await automationRes.json()
+                          if (automationData.allStepsSucceeded) {
+                            alert(`✅ Automação executada com sucesso!\n\n• Mensagem de boas-vindas enviada via WhatsApp\n• Contrato criado e enviado`)
+                          } else {
+                            const details = (automationData.results || [])
+                              .map((r: any) => `${r.success ? '✅' : '❌'} ${r.step}${r.error ? ': ' + r.error : ''}`)
+                              .join('\n')
+                            alert(`⚠️ Automação parcial:\n\n${details}`)
+                          }
+                        } catch (autoErr) {
+                          console.error('Erro na automação:', autoErr)
+                        }
+                      }
                     } else {
                       // Criar novo lead
                       await createLead.mutate(processedData)

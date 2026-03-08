@@ -315,8 +315,9 @@ Assinatura do Contratante`
             .eq('id', contract.lead_id)
             .single()
 
-          // Generate a random password for the new mentorado
-          const randomPwd = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4)
+          // Senha padrão para mentorados (via env var)
+          const defaultPassword = process.env.NEXT_PUBLIC_DEFAULT_MENTORADO_PWD || ''
+          const mentoradoPhone = leadData?.telefone || contract.recipient_phone || null
 
           // Create mentorado from lead + contract data
           const { data: newMentorado, error: mentoradoError } = await supabase
@@ -324,12 +325,12 @@ Assinatura do Contratante`
             .insert({
               nome_completo: contract.recipient_name,
               email: contract.recipient_email,
-              telefone: leadData?.telefone || contract.recipient_phone || null,
+              telefone: mentoradoPhone,
               cpf: formData.cpf,
               endereco: enderecoStr,
               lead_id: contract.lead_id,
               organization_id: contract.organization_id,
-              password_hash: randomPwd,
+              password_hash: defaultPassword,
               status_login: 'ativo',
               data_entrada: new Date().toISOString().split('T')[0],
               data_inicio_mentoria: new Date().toISOString().split('T')[0],
@@ -365,27 +366,42 @@ Assinatura do Contratante`
               await supabase.from('video_access_control').insert(accessRows)
               console.log(`Acesso liberado a ${modules.length} modulos`)
             }
+
+            // Enviar instruções de acesso via WhatsApp
+            if (mentoradoPhone) {
+              try {
+                const BAILEYS_API = 'http://api.medicosderesultado.com.br'
+                const loginMessage = `✅ *Contrato assinado com sucesso!*
+
+Olá *${contract.recipient_name}*! Seu contrato foi assinado e seu acesso foi liberado! 🎉
+
+🔑 *Suas credenciais de acesso:*
+🌐 Link: cs.medicosderesultado.com.br/mentorado
+📧 Email: ${contract.recipient_email}
+🔒 Senha: ${defaultPassword}
+
+Acesse a plataforma e comece sua jornada conosco!
+
+Qualquer dúvida, estamos aqui para ajudar! 💪`
+
+                const phone = mentoradoPhone.replace(/\D/g, '')
+                await fetch(`${BAILEYS_API}/users/${contract.organization_id}/send`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ to: phone, message: loginMessage })
+                })
+                console.log('📱 Instruções de acesso enviadas via WhatsApp')
+              } catch (whatsappErr) {
+                console.error('Erro ao enviar instruções via WhatsApp:', whatsappErr)
+              }
+            }
           }
         } catch (convError) {
           console.error('Erro na conversao lead->mentorado:', convError)
         }
       }
 
-      // Try to send WhatsApp confirmation
-      try {
-        console.log('📱 Enviando confirmação via WhatsApp...')
-        const confirmationSent = await sendContractSignedConfirmation(contractId)
-        
-        if (confirmationSent) {
-          alert('🎉 Contrato assinado com sucesso! Uma confirmação foi enviada via WhatsApp.')
-        } else {
-          alert('🎉 Contrato assinado com sucesso!')
-          console.log('⚠️ Não foi possível enviar confirmação via WhatsApp')
-        }
-      } catch (whatsappError) {
-        console.error('Erro ao enviar confirmação WhatsApp:', whatsappError)
-        alert('🎉 Contrato assinado com sucesso!')
-      }
+      alert('🎉 Contrato assinado com sucesso! Suas credenciais de acesso foram enviadas via WhatsApp.')
       
     } catch (error) {
       console.error('Erro ao assinar contrato:', error)

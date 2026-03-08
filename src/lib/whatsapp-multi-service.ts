@@ -295,6 +295,17 @@ class WhatsAppMultiService {
   }
 
   /**
+   * Verificar se número existe no WhatsApp
+   */
+  async checkNumber(phone: string): Promise<ApiResponse<{ exists: boolean; jid: string | null; number: string }>> {
+    const userId = await this.getUserId();
+    return this.request(`/users/${userId}/check-number`, {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    }, true);
+  }
+
+  /**
    * Enviar vídeo
    */
   async sendVideo(phoneNumber: string, videoBase64: string, caption?: string): Promise<ApiResponse<{ messageId: string }>> {
