@@ -508,8 +508,8 @@ TEMPLATES DISPONIVEIS E SEUS CAMPOS:
 4. "quote" - Post estilo rede social
 {"template":"quote","templateData":{"tweetText":"Texto do post com quebras de linha","imageUrl":""}}
 
-5. "cta" - Chamada para acao
-{"template":"cta","templateData":{"headline":"Chamada impactante","subtext":"Texto complementar","ctaButtonText":"TEXTO DO BOTAO","ctaColor":"#16A34A","engagementPrompt":"Comente X para...","emoji":"🚀"}}
+5. "cta" - Chamada editorial impactante (use {texto} para palavra colorida, *texto* para italico, **texto** para negrito no ctaText)
+{"template":"cta","templateData":{"headline":"Alguem com 27 anos de carreira nao desistiu. {E voce?}","bodyText":"","ctaText":"Comente **LIBERDADE** ou me chama no Direct.","highlightColor":"#EF4444","textAlign":"left"}}
 
 6. "storytelling" - Texto narrativo com imagem lateral
 {"template":"storytelling","templateData":{"headline":"Headline","bodyText":"Texto narrativo longo","highlightText":"Texto em destaque com barra lateral","highlightStyle":"italic","statNumber":"737 mil","statLabel":"empresas fecharam","footerText":"Frase de impacto","sourceText":"Fonte"}}
