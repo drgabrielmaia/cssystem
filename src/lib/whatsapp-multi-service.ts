@@ -295,6 +295,17 @@ class WhatsAppMultiService {
   }
 
   /**
+   * Enviar vídeo
+   */
+  async sendVideo(phoneNumber: string, videoBase64: string, caption?: string): Promise<ApiResponse<{ messageId: string }>> {
+    const userId = await this.getUserId();
+    return this.request(`/users/${userId}/send-video`, {
+      method: 'POST',
+      body: JSON.stringify({ to: phoneNumber, videoBase64, caption }),
+    }, true);
+  }
+
+  /**
    * Sincronizar chat específico
    */
   async syncChat(chatId: string): Promise<ApiResponse<{ chatId: string; messageCount: number; messages: Message[] }>> {

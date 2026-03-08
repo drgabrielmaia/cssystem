@@ -7,7 +7,7 @@ import {
   Trash2, Paperclip, Image as ImageIcon, Mic, ChevronLeft,
   Star, StickyNote, History, User, Building2, Mail, Tag,
   AlertCircle, Check, CheckCheck, Pin, Filter, MoreVertical,
-  FileText, ArrowLeft, Loader2
+  FileText, ArrowLeft, Loader2, Video
 } from 'lucide-react';
 import { whatsappMultiService, type WhatsAppStatus, type Contact, type Chat, type Message } from '@/lib/whatsapp-multi-service';
 import { useAuth } from '@/contexts/auth';
@@ -75,11 +75,16 @@ export default function WhatsAppPage() {
   const [newNote, setNewNote] = useState('');
   const [isLoadingLead, setIsLoadingLead] = useState(false);
 
-  // Image state
+  // Image/Video state
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
   const [imageCaption, setImageCaption] = useState('');
   const [isSendingImage, setIsSendingImage] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState('');
+  const [videoBase64, setVideoBase64] = useState('');
+  const [videoCaption, setVideoCaption] = useState('');
+  const [isSendingVideo, setIsSendingVideo] = useState(false);
 
   // Auto messages
   const [autoMessages, setAutoMessages] = useState([{
@@ -242,31 +247,50 @@ export default function WhatsAppPage() {
     }
   };
 
-  // ─── Send image (with compression to avoid 413) ───────────
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ─── Send image/video ──────────────────────────────────────
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setSelectedImage(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const img = new window.Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let w = img.width, h = img.height;
-        const maxSize = 800;
-        if (w > maxSize || h > maxSize) {
-          if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
-          else { w = Math.round(w * maxSize / h); h = maxSize; }
-        }
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, w, h);
-        setImagePreview(canvas.toDataURL('image/jpeg', 0.7));
+
+    if (file.type.startsWith('video/')) {
+      // Video: max 16MB for WhatsApp
+      if (file.size > 16 * 1024 * 1024) {
+        alert('Vídeo muito grande. Máximo 16MB.');
+        return;
+      }
+      setSelectedVideo(file);
+      setVideoPreview(URL.createObjectURL(file));
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setVideoBase64(ev.target?.result as string);
       };
-      img.src = ev.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+      reader.readAsDataURL(file);
+    } else {
+      // Image: compress
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let w = img.width, h = img.height;
+          const maxSize = 800;
+          if (w > maxSize || h > maxSize) {
+            if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+            else { w = Math.round(w * maxSize / h); h = maxSize; }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, w, h);
+          setImagePreview(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = ev.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset input value so same file can be re-selected
+    e.target.value = '';
   };
 
   const sendImage = async () => {
@@ -291,10 +315,38 @@ export default function WhatsAppPage() {
     }
   };
 
+  const sendVideo = async () => {
+    if (!selectedChat || !videoBase64 || isSendingVideo) return;
+    setIsSendingVideo(true);
+    try {
+      const response = await whatsappMultiService.sendVideo(
+        selectedChat.id, videoBase64, videoCaption
+      );
+      if (response.success) {
+        cancelVideo();
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      } else {
+        alert('Erro ao enviar vídeo: ' + response.error);
+      }
+    } catch {
+      alert('Erro ao enviar vídeo');
+    } finally {
+      setIsSendingVideo(false);
+    }
+  };
+
   const cancelImage = () => {
     setSelectedImage(null);
     setImagePreview('');
     setImageCaption('');
+  };
+
+  const cancelVideo = () => {
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setSelectedVideo(null);
+    setVideoPreview('');
+    setVideoBase64('');
+    setVideoCaption('');
   };
 
   // ─── Sync chat ─────────────────────────────────────────────
@@ -934,6 +986,43 @@ export default function WhatsAppPage() {
                   </div>
                 )}
 
+                {/* Video preview */}
+                {videoPreview && (
+                  <div className="px-5 py-3 bg-white/90 backdrop-blur-xl border-t border-[#E9ECEF]/60">
+                    <div className="flex items-start gap-3">
+                      <div className="relative">
+                        <video src={videoPreview} className="w-24 h-20 object-cover rounded-xl border border-[#E9ECEF]" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Video className="w-6 h-6 text-white drop-shadow-lg" />
+                        </div>
+                        <button
+                          onClick={cancelVideo}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#16A34A] text-white rounded-full flex items-center justify-center shadow-sm"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-[#6C757D] mb-1">{selectedVideo?.name} ({((selectedVideo?.size || 0) / 1024 / 1024).toFixed(1)}MB)</p>
+                        <input
+                          type="text"
+                          value={videoCaption}
+                          onChange={(e) => setVideoCaption(e.target.value)}
+                          placeholder="Legenda (opcional)..."
+                          className="w-full px-3 py-2 bg-[#F1F3F5] rounded-lg text-sm text-[#1A1A2E] placeholder-[#ADB5BD] focus:outline-none focus:ring-1 focus:ring-[#16A34A]/30"
+                        />
+                        <button
+                          onClick={sendVideo}
+                          disabled={isSendingVideo || !videoBase64}
+                          className="mt-2 px-4 py-1.5 bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-medium rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {isSendingVideo ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Video className="w-3 h-3" /> Enviar vídeo</>}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Input area */}
                 <div className="px-4 py-3 bg-white/80 backdrop-blur-xl border-t border-[#E9ECEF]/40">
                   <div className="flex items-end gap-2">
@@ -941,15 +1030,15 @@ export default function WhatsAppPage() {
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       className="p-2.5 rounded-xl hover:bg-[#F1F3F5] text-[#6C757D] hover:text-[#16A34A] transition-all flex-shrink-0"
-                      title="Enviar imagem"
+                      title="Enviar imagem ou vídeo"
                     >
                       <Paperclip className="w-5 h-5" />
                     </button>
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
-                      onChange={handleImageSelect}
+                      accept="image/*,video/*"
+                      onChange={handleFileSelect}
                       className="hidden"
                     />
 
