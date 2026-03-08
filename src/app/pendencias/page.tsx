@@ -50,13 +50,27 @@ interface Divida {
 }
 
 // Normaliza data para YYYY-MM-DD (remove timezone/time se vier ISO completo)
-function normalizeDate(d: string | null): string {
+function normalizeDate(d: string | null | undefined): string {
   if (!d) return ''
+  const s = String(d).trim()
+  if (!s) return ''
   // Se já é YYYY-MM-DD, retorna direto
-  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
   // Se é ISO com T, pega só a parte da data
-  if (d.includes('T')) return d.split('T')[0]
-  return d
+  if (s.includes('T')) return s.split('T')[0]
+  // Tenta extrair YYYY-MM-DD de qualquer formato
+  const match = s.match(/(\d{4}-\d{2}-\d{2})/)
+  if (match) return match[1]
+  return s
+}
+
+// Formata data segura para exibição (nunca retorna "Invalid Date")
+function safeFormatDate(d: string | null | undefined, opts?: Intl.DateTimeFormatOptions): string {
+  const normalized = normalizeDate(d)
+  if (!normalized) return '-'
+  const date = new Date(normalized + 'T12:00:00')
+  if (isNaN(date.getTime())) return '-'
+  return date.toLocaleDateString('pt-BR', opts || { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 interface MentoradoComDividas {
@@ -382,10 +396,14 @@ export default function PendenciasPage() {
   }
 
   const calcularDiasRestantes = (dataVencimento: string) => {
+    const normalized = normalizeDate(dataVencimento)
+    if (!normalized) return 0
+
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
 
-    const vencimento = new Date(dataVencimento + 'T12:00:00')
+    const vencimento = new Date(normalized + 'T12:00:00')
+    if (isNaN(vencimento.getTime())) return 0
     vencimento.setHours(0, 0, 0, 0)
 
     const diffTime = vencimento.getTime() - hoje.getTime()
@@ -425,7 +443,9 @@ export default function PendenciasPage() {
       const temAtraso = mentorado.dividas.some((divida: any) => {
         if (divida.status === 'pendente' || divida.status === 'atrasado') {
           const dvStr = normalizeDate(divida.data_vencimento)
+          if (!dvStr) return false
           const dataVencimento = new Date(dvStr + 'T12:00:00')
+          if (isNaN(dataVencimento.getTime())) return false
           dataVencimento.setHours(0, 0, 0, 0)
           return dataVencimento < hoje
         }
@@ -442,7 +462,9 @@ export default function PendenciasPage() {
       const temVencimentoHoje = mentorado.dividas.some((divida: any) => {
         if (divida.status === 'pendente') {
           const dvStr = normalizeDate(divida.data_vencimento)
+          if (!dvStr) return false
           const dataVencimento = new Date(dvStr + 'T12:00:00')
+          if (isNaN(dataVencimento.getTime())) return false
           dataVencimento.setHours(0, 0, 0, 0)
           return dataVencimento.toDateString() === hoje.toDateString()
         }
@@ -506,9 +528,11 @@ export default function PendenciasPage() {
       mentorado.dividas.forEach((divida: any) => {
         if (divida.status === 'pendente' || divida.status === 'atrasado') {
           const dvStr = normalizeDate(divida.data_vencimento)
+          if (!dvStr) return
           const dataVencimento = new Date(dvStr + 'T12:00:00')
+          if (isNaN(dataVencimento.getTime())) return
           dataVencimento.setHours(0, 0, 0, 0)
-          const val = divida.valor_restante ?? divida.valor ?? 0
+          const val = Number(divida.valor_restante ?? divida.valor ?? 0) || 0
 
           if (dataVencimento < hoje) {
             valorAtrasado += val
@@ -981,7 +1005,10 @@ export default function PendenciasPage() {
               const gruposPorMes = MESES.reduce((grupos, mes) => {
                 grupos[mes.numero] = dividasPendentes.filter((d: any) => {
                   const dvStr = normalizeDate(d.data_vencimento)
-                  return new Date(dvStr + 'T12:00:00').getMonth() + 1 === mes.numero
+                  if (!dvStr) return false
+                  const dt = new Date(dvStr + 'T12:00:00')
+                  if (isNaN(dt.getTime())) return false
+                  return dt.getMonth() + 1 === mes.numero
                 })
                 return grupos
               }, {} as { [key: number]: Divida[] })
@@ -1104,7 +1131,7 @@ export default function PendenciasPage() {
                               </p>
 
                               <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
-                                {new Date(primeiraData + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                {safeFormatDate(primeiraData, { day: '2-digit', month: '2-digit' })}
                               </p>
 
                               <Badge variant="outline" className={`text-[9px] md:text-[10px] mt-1.5 ${status.color} border-current px-1.5 py-0`}>
@@ -1175,7 +1202,7 @@ export default function PendenciasPage() {
                     </div>
                     <div>
                       <span className="text-muted-foreground text-xs">Vencimento</span>
-                      <p className="font-medium">{new Date(dividaSelecionada.data_vencimento).toLocaleDateString('pt-BR')}</p>
+                      <p className="font-medium">{safeFormatDate(dividaSelecionada.data_vencimento)}</p>
                     </div>
                   </div>
                 </div>

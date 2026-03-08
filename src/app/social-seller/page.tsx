@@ -173,8 +173,8 @@ export default function SocialSellerPage() {
       // Armazenar todos os dados para uso nos modais
       setAllLeadsData(leadsParaContar)
 
-      const valorVendido = leadsParaContar.filter(l => l.status === 'vendido').reduce((sum, lead) => sum + (lead.valor_vendido || 0), 0)
-      const valorArrecadado = leadsParaContar.filter(l => l.status === 'vendido').reduce((sum, lead) => sum + (lead.valor_arrecadado || 0), 0)
+      const valorVendido = leadsParaContar.filter(l => l.status === 'vendido').reduce((sum, lead) => sum + (Number(lead.valor_vendido) || 0), 0)
+      const valorArrecadado = leadsParaContar.filter(l => l.status === 'vendido').reduce((sum, lead) => sum + (Number(lead.valor_arrecadado) || 0), 0)
 
       const taxaConversao = (leadsVendidos + leadsNaoVendidos) > 0
         ? Math.round((leadsVendidos / (leadsVendidos + leadsNaoVendidos)) * 100 * 100) / 100
@@ -316,12 +316,18 @@ export default function SocialSellerPage() {
   }
 
 
-  const formatCurrency = (value: number | null) => {
-    if (!value) return 'R$ 0,00'
+  const formatCurrency = (value: number | null | undefined) => {
+    const num = Number(value) || 0
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
-    }).format(value)
+    }).format(num)
+  }
+
+  // Safe division helper to avoid NaN/Infinity
+  const safeDivide = (a: number, b: number, fallback = 0): number => {
+    if (!b || isNaN(b) || isNaN(a)) return fallback
+    return a / b
   }
 
   const pieData = getPieChartData()
@@ -436,7 +442,7 @@ export default function SocialSellerPage() {
                     {metrics?.leads_qualificados || 0}
                   </p>
                   <p className="text-xs text-blue-500 font-medium">
-                    {metrics?.total_leads ? ((metrics.leads_qualificados / metrics.total_leads) * 100).toFixed(1) : 0}% do total
+                    {(safeDivide(metrics?.leads_qualificados || 0, metrics?.total_leads || 0) * 100).toFixed(1)}% do total
                   </p>
                 </div>
                 <Users className="h-8 w-8 text-blue-500" />
@@ -457,7 +463,7 @@ export default function SocialSellerPage() {
                     {metrics?.leads_agendados || 0}
                   </p>
                   <p className="text-xs text-purple-500 font-medium">
-                    {metrics?.total_leads ? ((metrics.leads_agendados / metrics.total_leads) * 100).toFixed(1) : 0}% do total
+                    {(safeDivide(metrics?.leads_agendados || 0, metrics?.total_leads || 0) * 100).toFixed(1)}% do total
                   </p>
                 </div>
                 <Calendar className="h-8 w-8 text-purple-500" />
@@ -478,7 +484,7 @@ export default function SocialSellerPage() {
                     {metrics?.leads_no_show || 0}
                   </p>
                   <p className="text-xs text-orange-500 font-medium">
-                    {metrics?.total_leads ? ((metrics.leads_no_show / metrics.total_leads) * 100).toFixed(1) : 0}% do total
+                    {(safeDivide(metrics?.leads_no_show || 0, metrics?.total_leads || 0) * 100).toFixed(1)}% do total
                   </p>
                 </div>
                 <PhoneOff className="h-8 w-8 text-orange-500" />
@@ -520,7 +526,7 @@ export default function SocialSellerPage() {
                     {metrics?.leads_quentes || 0}
                   </p>
                   <p className="text-xs text-yellow-500 font-medium">
-                    {metrics?.total_leads ? ((metrics.leads_quentes / metrics.total_leads) * 100).toFixed(1) : 0}% do total
+                    {(safeDivide(metrics?.leads_quentes || 0, metrics?.total_leads || 0) * 100).toFixed(1)}% do total
                   </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-yellow-500" />
@@ -540,7 +546,7 @@ export default function SocialSellerPage() {
                     {metrics?.leads_nao_vendidos || 0}
                   </p>
                   <p className="text-xs text-red-500 font-medium">
-                    {metrics?.total_leads ? ((metrics.leads_nao_vendidos / metrics.total_leads) * 100).toFixed(1) : 0}% do total
+                    {(safeDivide(metrics?.leads_nao_vendidos || 0, metrics?.total_leads || 0) * 100).toFixed(1)}% do total
                   </p>
                 </div>
                 <XCircle className="h-8 w-8 text-red-500" />
@@ -557,7 +563,7 @@ export default function SocialSellerPage() {
                     {metrics?.leads_vazados || 0}
                   </p>
                   <p className="text-xs text-indigo-500 font-medium">
-                    {metrics?.total_leads ? ((metrics.leads_vazados / metrics.total_leads) * 100).toFixed(1) : 0}% do total
+                    {(safeDivide(metrics?.leads_vazados || 0, metrics?.total_leads || 0) * 100).toFixed(1)}% do total
                   </p>
                 </div>
                 <TrendingDown className="h-8 w-8 text-indigo-500" />
@@ -580,7 +586,7 @@ export default function SocialSellerPage() {
                     <div
                       className="progress-bar h-3 rounded-full bg-gradient-to-r from-green-500 to-emerald-400"
                       style={{
-                        width: `${Math.min((metrics?.valor_vendido || 0) / settings.meta_faturamento_mes * 100, 100)}%`
+                        width: `${Math.min(safeDivide(metrics?.valor_vendido || 0, settings.meta_faturamento_mes || 1) * 100, 100)}%`
                       }}
                     ></div>
                   </div>
@@ -603,17 +609,14 @@ export default function SocialSellerPage() {
                   {formatCurrency(metrics?.valor_arrecadado || 0)}
                 </p>
                 <p className="text-xs font-medium bg-gradient-to-r from-blue-500 to-cyan-400 bg-clip-text text-transparent mt-1">
-                  {metrics?.valor_vendido && metrics.valor_vendido > 0
-                    ? `${((metrics.valor_arrecadado / metrics.valor_vendido) * 100).toFixed(1)}% recebido`
-                    : '0% recebido'
-                  }
+                  {(safeDivide(metrics?.valor_arrecadado || 0, metrics?.valor_vendido || 0) * 100).toFixed(1)}% recebido
                 </p>
                 <div className="mt-4 flex items-center">
                   <div className="flex-1 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full h-3 overflow-hidden">
                     <div
                       className="progress-bar h-3 rounded-full bg-gradient-to-r from-blue-500 to-cyan-400"
                       style={{
-                        width: `${Math.min((metrics?.valor_arrecadado || 0) / settings.meta_arrecadacao_mes * 100, 100)}%`
+                        width: `${Math.min(safeDivide(metrics?.valor_arrecadado || 0, settings.meta_arrecadacao_mes || 1) * 100, 100)}%`
                       }}
                     ></div>
                   </div>
@@ -639,19 +642,19 @@ export default function SocialSellerPage() {
                   <div className="flex-1 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full h-3 overflow-hidden">
                     <div
                       className={`progress-bar h-3 rounded-full ${
-                        (metrics?.taxa_conversao || 0) >= settings.taxa_conversao_ideal
+                        (metrics?.taxa_conversao || 0) >= (settings.taxa_conversao_ideal || 10)
                           ? 'bg-gradient-to-r from-green-500 to-emerald-400'
-                          : (metrics?.taxa_conversao || 0) >= (settings.taxa_conversao_ideal * 0.7)
+                          : (metrics?.taxa_conversao || 0) >= ((settings.taxa_conversao_ideal || 10) * 0.7)
                             ? 'bg-gradient-to-r from-yellow-500 to-orange-400'
                             : 'bg-gradient-to-r from-red-500 to-pink-400'
                       }`}
                       style={{
-                        width: `${Math.min((metrics?.taxa_conversao || 0) / settings.taxa_conversao_ideal * 100, 100)}%`
+                        width: `${Math.min(safeDivide(metrics?.taxa_conversao || 0, settings.taxa_conversao_ideal || 1) * 100, 100)}%`
                       }}
                     ></div>
                   </div>
                   <span className="ml-3 text-xs font-medium text-gray-500 bg-white/50 px-2 py-1 rounded-full">
-                    Meta: {settings.taxa_conversao_ideal}%
+                    Meta: {settings.taxa_conversao_ideal || 0}%
                   </span>
                 </div>
               </div>
@@ -822,11 +825,11 @@ export default function SocialSellerPage() {
                             }`}>
                               {lead.status}
                             </span>
-                            {lead.valor_vendido && (
+                            {lead.valor_vendido ? (
                               <p className="text-sm text-green-600 font-medium mt-2">
-                                R$ {lead.valor_vendido.toLocaleString('pt-BR')}
+                                {formatCurrency(Number(lead.valor_vendido) || 0)}
                               </p>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       </div>
