@@ -370,7 +370,7 @@ Assinatura do Contratante`
             // Enviar instruções de acesso via WhatsApp
             if (mentoradoPhone) {
               try {
-                const BAILEYS_API = 'http://api.medicosderesultado.com.br'
+                const BAILEYS_API = 'https://api.medicosderesultado.com.br'
                 const loginMessage = `✅ *Contrato assinado com sucesso!*
 
 Olá *${contract.recipient_name}*! Seu contrato foi assinado e seu acesso foi liberado! 🎉

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
-const BAILEYS_API = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'http://api.medicosderesultado.com.br'
+const BAILEYS_API = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://cs.medicosderesultado.com.br'
 
 export async function POST(request: Request) {

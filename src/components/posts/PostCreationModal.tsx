@@ -147,7 +147,7 @@ export default function PostCreationModal({
         {/* Body */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* Left panel - Controls */}
-          <div className="md:w-[360px] flex-shrink-0 md:border-r border-b md:border-b-0 border-white/[0.06] overflow-hidden max-h-[40vh] md:max-h-none">
+          <div className="md:w-[400px] flex-shrink-0 md:border-r border-b md:border-b-0 border-white/[0.06] overflow-y-auto max-h-[45vh] md:max-h-none">
             {mode === 'template-gallery' && (
               <TemplateGallery
                 profileName={profileName}

@@ -245,6 +245,36 @@ export default function TemplateGallery({
       );
     }
 
+    if (field.type === 'list') {
+      const items: string[] = value || [];
+      return (
+        <div className="space-y-2">
+          {items.map((item: string, i: number) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={item}
+                onChange={e => {
+                  const next = [...items];
+                  next[i] = e.target.value;
+                  updateField(field.key, next);
+                }}
+                placeholder={field.placeholder || 'Item'}
+                className="flex-1 px-2 py-1.5 bg-[#1a1a1e] border border-white/[0.06] rounded-lg text-[11px] text-white placeholder-[#3a3a3f] focus:outline-none"
+              />
+              <button onClick={() => updateField(field.key, items.filter((_: string, j: number) => j !== i))}
+                className="p-1 text-red-400 hover:text-red-300">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+          <button onClick={() => updateField(field.key, [...items, ''])}
+            className="flex items-center gap-1.5 text-[11px] text-emerald-400 hover:text-emerald-300">
+            <Plus className="w-3.5 h-3.5" /> Adicionar item
+          </button>
+        </div>
+      );
+    }
+
     return null;
   };
 

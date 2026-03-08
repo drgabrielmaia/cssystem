@@ -53,7 +53,7 @@ export class WhatsAppNotificationService {
       console.log('📝 Mensagem:', message.substring(0, 100) + '...')
 
       // Usar WhatsApp Core API diretamente com organizationId correto
-      const response = await fetch(`http://api.medicosderesultado.com.br/users/${organizationId}/send`, {
+      const response = await fetch(`https://api.medicosderesultado.com.br/users/${organizationId}/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -88,7 +88,7 @@ export class WhatsAppNotificationService {
     try {
       console.log('📱 Enviando mensagem para grupo:', groupId)
 
-      const response = await fetch(`http://api.medicosderesultado.com.br/users/${organizationId}/send`, {
+      const response = await fetch(`https://api.medicosderesultado.com.br/users/${organizationId}/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

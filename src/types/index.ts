@@ -158,7 +158,7 @@ export type TemplateCategory = 'testimonial' | 'comparison' | 'motivational' | '
 export interface TemplateField {
   key: string;
   label: string;
-  type: 'text' | 'textarea' | 'color' | 'image' | 'select' | 'highlights' | 'chat-messages';
+  type: 'text' | 'textarea' | 'color' | 'image' | 'select' | 'highlights' | 'chat-messages' | 'list';
   required?: boolean;
   placeholder?: string;
   options?: { value: string; label: string }[];

@@ -81,7 +81,7 @@ class WhatsAppMultiService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = 'http://api.medicosderesultado.com.br';
+    this.baseUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br';
     console.log('🚀 WhatsApp Multi-Service inicializado com:', this.baseUrl);
   }
 
