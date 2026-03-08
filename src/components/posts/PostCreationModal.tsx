@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import CanvasPreview, { type CanvasPreviewHandle } from './CanvasPreview';
 import TemplateGallery from './TemplateGallery';
 import { TEMPLATE_GALLERY } from '@/templates/gallery';
@@ -52,6 +52,17 @@ export default function PostCreationModal({
   const [aiData, setAiData] = useState<Record<string, any> | null>(initialTemplateData || null);
   const [aiError, setAiError] = useState<string | null>(null);
   const canvasRef = useRef<CanvasPreviewHandle>(null);
+
+  // Auto-open template editor when initialTemplate/initialTemplateData change from parent
+  useEffect(() => {
+    if (open && initialTemplate && initialTemplateData) {
+      setAiTemplate(initialTemplate);
+      setAiData(initialTemplateData);
+      const tmpl = TEMPLATE_GALLERY.find(t => t.id === initialTemplate);
+      if (tmpl) setSelectedType(tmpl.category);
+      setView('template-editor');
+    }
+  }, [open, initialTemplate, initialTemplateData]);
 
   const handleExport = useCallback(async () => {
     if (!canvasRef.current) return;

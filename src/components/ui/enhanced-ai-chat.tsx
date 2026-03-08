@@ -123,7 +123,7 @@ interface ProfileData {
 
 const CONTENT_MODES = [
   { id: "chat", label: "Chat Livre", icon: MessageSquare, description: "Conversa livre com a IA" },
-  { id: "conteudo", label: "Criar Conteudo", icon: FileText, description: "IA gera texto para post" },
+  { id: "conteudo", label: "Criar Post", icon: FileText, description: "IA escolhe template e cria o post" },
   { id: "secretaria", label: "Secretaria", icon: Phone, description: "Atendimento de pacientes" },
   { id: "imagem", label: "Gerar Imagem", icon: ImageIcon, description: "Crie imagens com IA" },
 ] as const;
@@ -198,6 +198,8 @@ export default function EnhancedAIChat() {
   const [postEditorOpen, setPostEditorOpen] = useState(false);
   const [postEditorSlides, setPostEditorSlides] = useState<PostSlide[] | undefined>(undefined);
   const [postCreationModalOpen, setPostCreationModalOpen] = useState(false);
+  const [postInitialTemplate, setPostInitialTemplate] = useState<string | undefined>(undefined);
+  const [postInitialData, setPostInitialData] = useState<Record<string, any> | undefined>(undefined);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Chat image attachment
@@ -535,9 +537,7 @@ export default function EnhancedAIChat() {
         ? (effectiveMsg.trim() || "Gere uma foto profissional de estúdio para marketing médico.")
         : isSecretaria
         ? (effectiveMsg.trim() || "Analise a imagem da conversa e sugira a melhor resposta.")
-        : isContent
-          ? `Crie um post VIRAL para Instagram. Use um hook poderoso que pare o scroll, aplique storytelling e termine com CTA emocional. Contexto/tema do post: ${effectiveMsg}`
-          : effectiveMsg;
+        : effectiveMsg;
       const filledDores = dores.filter(Boolean);
       const filledDesejos = desejos.filter(Boolean);
 
@@ -557,7 +557,7 @@ export default function EnhancedAIChat() {
             persona: persona.resumo_persona,
             publicoAlvo: persona.profissao ? `${persona.nome_ficticio}, ${persona.idade} anos, ${persona.profissao}` : undefined,
             doresDesejos: [...filledDores, ...filledDesejos],
-            tipoPost: isSecretaria ? "secretaria" : isContent ? contentMode : undefined,
+            tipoPost: isSecretaria ? "secretaria" : isContent ? "auto-post" : undefined,
             tomComunicacao: persona.tom_voz_preferido?.join(", "),
             problemasAudiencia: persona.principais_problemas,
             desejoAudiencia: persona.desejo_6_meses,
@@ -576,8 +576,37 @@ export default function EnhancedAIChat() {
       // Update usage from API response
       if (data.usage) setAiUsage(data.usage);
 
+      // API returns 'message' for regular chat, 'reply' for auto-post
+      const aiReply = data.message || data.reply || '';
+
+      // Try to auto-open PostCreationModal if AI returned a template JSON
+      let autoOpened = false;
+      if (isContent && aiReply) {
+        try {
+          const cleaned = aiReply.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          const parsed = JSON.parse(cleaned);
+          if (parsed.carousel && Array.isArray(parsed.slides) && parsed.slides.length > 0) {
+            // Carousel: open first slide in the modal
+            const firstSlide = parsed.slides[0];
+            setPostInitialTemplate(firstSlide.template);
+            setPostInitialData(firstSlide.templateData);
+            setPostCreationModalOpen(true);
+            autoOpened = true;
+          } else if (parsed.template && parsed.templateData) {
+            setPostInitialTemplate(parsed.template);
+            setPostInitialData(parsed.templateData);
+            setPostCreationModalOpen(true);
+            autoOpened = true;
+          }
+        } catch {
+          // Not JSON — show as regular message
+        }
+      }
+
       setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(), text: data.message, isUser: false,
+        id: (Date.now() + 1).toString(),
+        text: autoOpened ? "Post criado! Abrindo editor para voce personalizar..." : aiReply,
+        isUser: false,
         timestamp: new Date(), contentType: contentMode !== "chat" ? contentMode : undefined,
         imageUrl: data.generatedImage || undefined,
       }]);
@@ -587,7 +616,7 @@ export default function EnhancedAIChat() {
         const userText = isImageGen ? (message.trim() ? message : `Gerar: ${templateLabel}`) : effectiveMsg;
         supabase.from("ai_chat_history").insert([
           { mentorado_id: mentorado.id, role: "user", content: (userText || "").substring(0, 2000), content_mode: contentMode, has_image: !!attachedImage },
-          { mentorado_id: mentorado.id, role: "assistant", content: (data.message || "").substring(0, 2000), content_mode: contentMode, has_image: !!data.generatedImage },
+          { mentorado_id: mentorado.id, role: "assistant", content: (aiReply || "").substring(0, 2000), content_mode: contentMode, has_image: !!data.generatedImage },
         ]).then(() => {});
       }
     } catch {
@@ -1346,11 +1375,13 @@ export default function EnhancedAIChat() {
       {/* ======================== POST CREATION MODAL (new) ======================== */}
       <PostCreationModal
         open={postCreationModalOpen}
-        onClose={() => setPostCreationModalOpen(false)}
+        onClose={() => { setPostCreationModalOpen(false); setPostInitialTemplate(undefined); setPostInitialData(undefined); }}
         profileName={editableName || mentorado.nome_completo}
         profileHandle={profile.instagram || `@${(editableName || mentorado.nome_completo).toLowerCase().replace(/\s+/g, ".")}`}
         avatarUrl={profile.avatar_url || undefined}
         userEmail={mentorado.email}
+        initialTemplate={postInitialTemplate}
+        initialTemplateData={postInitialData}
       />
 
       {/* ======================== CONTENT CALENDAR ======================== */}

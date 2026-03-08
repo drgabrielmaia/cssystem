@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TemplateRenderProps } from '../../types';
+import { applyFontOverride } from './fontUtils';
 
 const FONT_IMPORT = "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,700&family=Inter:wght@400;500;600;700&display=swap');";
 
@@ -67,7 +68,7 @@ export const DataStoryTemplate: React.FC<TemplateRenderProps> = ({
         flexShrink: 0,
         textAlign: 'center',
       }}>
-        <h1 style={{
+        <h1 style={applyFontOverride({
           fontFamily: "'Playfair Display', serif",
           fontSize: `${headlineSize}px`,
           fontWeight: 800,
@@ -76,7 +77,7 @@ export const DataStoryTemplate: React.FC<TemplateRenderProps> = ({
           letterSpacing: '-0.02em',
           margin: 0,
           textTransform: 'uppercase',
-        }}>{headline}</h1>
+        }, data, 'headline')}>{headline}</h1>
       </div>
 
       {/* Middle: Image */}
@@ -112,7 +113,7 @@ export const DataStoryTemplate: React.FC<TemplateRenderProps> = ({
         alignItems: 'center',
       }}>
         {bodyText && (
-          <p style={{
+          <p style={applyFontOverride({
             fontFamily: "'Playfair Display', serif",
             fontSize: '22px',
             fontWeight: 400,
@@ -120,7 +121,7 @@ export const DataStoryTemplate: React.FC<TemplateRenderProps> = ({
             lineHeight: 1.5,
             margin: 0,
             maxWidth: '850px',
-          }}>{renderBodyText(bodyText)}</p>
+          }, data, 'bodyText')}>{renderBodyText(bodyText)}</p>
         )}
 
         {highlightText && (

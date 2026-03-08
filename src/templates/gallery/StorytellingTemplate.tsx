@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TemplateRenderProps } from '../../types';
+import { applyFontOverride } from './fontUtils';
 
 const FONT_IMPORT = "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,700&family=Inter:wght@400;500;600&display=swap');";
 
@@ -57,7 +58,7 @@ export const StorytellingTemplate: React.FC<TemplateRenderProps> = ({
       }}>
         {/* Top: Headline */}
         <div>
-          <h1 style={{
+          <h1 style={applyFontOverride({
             fontFamily: "'Playfair Display', serif",
             fontSize: `${headlineSize}px`,
             fontWeight: 800,
@@ -66,20 +67,20 @@ export const StorytellingTemplate: React.FC<TemplateRenderProps> = ({
             letterSpacing: '-0.02em',
             margin: 0,
             whiteSpace: 'pre-wrap',
-          }}>{headline}</h1>
+          }, data, 'headline')}>{headline}</h1>
         </div>
 
         {/* Middle: Body text */}
         <div style={{ margin: '32px 0' }}>
           {bodyText && (
-            <p style={{
+            <p style={applyFontOverride({
               fontFamily: "'Inter', sans-serif",
               fontSize: '18px',
               fontWeight: 400,
               color: subtextColor,
               lineHeight: 1.7,
               margin: '0 0 24px 0',
-            }}>{bodyText}</p>
+            }, data, 'bodyText')}>{bodyText}</p>
           )}
 
           {/* Highlight stat/text */}
@@ -138,7 +139,7 @@ export const StorytellingTemplate: React.FC<TemplateRenderProps> = ({
         {/* Bottom: Footer + Profile */}
         <div>
           {footerText && (
-            <p style={{
+            <p style={applyFontOverride({
               fontFamily: "'Playfair Display', serif",
               fontSize: '28px',
               fontWeight: 800,
@@ -147,7 +148,7 @@ export const StorytellingTemplate: React.FC<TemplateRenderProps> = ({
               margin: '0 0 24px 0',
               textTransform: 'uppercase',
               letterSpacing: '-0.01em',
-            }}>{footerText}</p>
+            }, data, 'footerText')}>{footerText}</p>
           )}
           <div style={{
             display: 'flex', alignItems: 'center', gap: '12px',

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TemplateRenderProps } from '../../types';
+import { applyFontOverride } from './fontUtils';
 
 const FONT_IMPORT = "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&display=swap');";
 
@@ -100,7 +101,7 @@ export const MotivationalTemplate: React.FC<TemplateRenderProps> = ({
         justifyContent: 'center', alignItems: 'center',
         textAlign: 'center',
       }}>
-        <p style={{
+        <p style={applyFontOverride({
           fontFamily,
           fontSize: `${autoSize}px`,
           fontWeight: fontStyle === 'serif' ? 400 : 700,
@@ -110,7 +111,7 @@ export const MotivationalTemplate: React.FC<TemplateRenderProps> = ({
           margin: 0,
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
-        }}>
+        }, data, 'text')}>
           {renderHighlightedText()}
         </p>
 
@@ -136,14 +137,14 @@ export const MotivationalTemplate: React.FC<TemplateRenderProps> = ({
             borderRadius: '16px',
             padding: '20px 32px',
           }}>
-            <p style={{
+            <p style={applyFontOverride({
               fontFamily: "'Montserrat', sans-serif",
               fontSize: '18px',
               fontWeight: 500,
               color: subtextColor,
               margin: 0,
               lineHeight: 1.5,
-            }}>{ctaText}</p>
+            }, data, 'ctaText')}>{ctaText}</p>
           </div>
         </div>
       )}

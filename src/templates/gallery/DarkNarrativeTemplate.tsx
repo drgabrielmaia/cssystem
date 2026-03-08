@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TemplateRenderProps } from '../../types';
+import { applyFontOverride } from './fontUtils';
 
 const FONT_IMPORT = "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,700&family=Inter:wght@400;500;600;700&display=swap');";
 
@@ -73,7 +74,7 @@ export const DarkNarrativeTemplate: React.FC<TemplateRenderProps> = ({
       }}>
         {/* Top: Headline */}
         <div style={{ textAlign: 'center' }}>
-          <h1 style={{
+          <h1 style={applyFontOverride({
             fontFamily: "'Playfair Display', serif",
             fontSize: `${headlineSize}px`,
             fontWeight: 800,
@@ -83,14 +84,14 @@ export const DarkNarrativeTemplate: React.FC<TemplateRenderProps> = ({
             margin: 0,
             textTransform: 'uppercase',
             textShadow: '0 2px 20px rgba(0,0,0,0.5)',
-          }}>{headline}</h1>
+          }, data, 'headline')}>{headline}</h1>
         </div>
 
         {/* Middle: Accent text */}
         {(midText || midSubtext) && (
           <div style={{ textAlign: 'center' }}>
             {midText && (
-              <p style={{
+              <p style={applyFontOverride({
                 fontFamily: "'Playfair Display', serif",
                 fontSize: '32px',
                 fontWeight: 400,
@@ -99,7 +100,7 @@ export const DarkNarrativeTemplate: React.FC<TemplateRenderProps> = ({
                 lineHeight: 1.3,
                 margin: 0,
                 textShadow: '0 2px 15px rgba(0,0,0,0.4)',
-              }}>{midText}</p>
+              }, data, 'midText')}>{midText}</p>
             )}
             {midSubtext && (
               <p style={{
@@ -119,7 +120,7 @@ export const DarkNarrativeTemplate: React.FC<TemplateRenderProps> = ({
         {/* Bottom: Footer + Profile */}
         <div style={{ textAlign: 'center' }}>
           {footerText && (
-            <p style={{
+            <p style={applyFontOverride({
               fontFamily: "'Playfair Display', serif",
               fontSize: `${footerSize}px`,
               fontWeight: 800,
@@ -130,7 +131,7 @@ export const DarkNarrativeTemplate: React.FC<TemplateRenderProps> = ({
               textTransform: 'uppercase',
               letterSpacing: '-0.01em',
               textShadow: '0 2px 20px rgba(0,0,0,0.5)',
-            }}>{footerText}</p>
+            }, data, 'footerText')}>{footerText}</p>
           )}
 
           {/* Profile */}

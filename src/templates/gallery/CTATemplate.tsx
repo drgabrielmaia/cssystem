@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TemplateRenderProps } from '../../types';
+import { applyFontOverride } from './fontUtils';
 
 const FONT_IMPORT = "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700;800&display=swap');";
 
@@ -60,7 +61,7 @@ export const CTATemplate: React.FC<TemplateRenderProps> = ({
         )}
 
         {/* Headline */}
-        <h1 style={{
+        <h1 style={applyFontOverride({
           fontFamily: "'Montserrat', sans-serif",
           fontSize: `${headlineSize}px`,
           fontWeight: 800,
@@ -69,7 +70,7 @@ export const CTATemplate: React.FC<TemplateRenderProps> = ({
           letterSpacing: '-0.02em',
           margin: 0,
           whiteSpace: 'pre-wrap',
-        }}>{headline}</h1>
+        }, data, 'headline')}>{headline}</h1>
 
         {/* Accent line */}
         <div style={{
@@ -80,7 +81,7 @@ export const CTATemplate: React.FC<TemplateRenderProps> = ({
 
         {/* Subtext */}
         {subtext && (
-          <p style={{
+          <p style={applyFontOverride({
             fontFamily: "'Montserrat', sans-serif",
             fontSize: '22px',
             fontWeight: 500,
@@ -88,7 +89,7 @@ export const CTATemplate: React.FC<TemplateRenderProps> = ({
             lineHeight: 1.5,
             margin: 0,
             maxWidth: '800px',
-          }}>{subtext}</p>
+          }, data, 'subtext')}>{subtext}</p>
         )}
 
         {/* CTA Button */}

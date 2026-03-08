@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TemplateRenderProps } from '../../types';
+import { applyFontOverride } from './fontUtils';
 
 const FONT_IMPORT = "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');";
 
@@ -165,19 +166,19 @@ export const ComparisonTemplate: React.FC<TemplateRenderProps> = ({
 
       {/* Headline */}
       <div style={{ textAlign: 'center', marginBottom: '40px', flexShrink: 0 }}>
-        <h1 style={{
+        <h1 style={applyFontOverride({
           fontFamily: "'Montserrat', sans-serif",
           fontSize: '46px', fontWeight: 400,
           color: textColor, lineHeight: 1.2, margin: 0,
-        }}>
+        }, data, 'headline')}>
           {headline}
         </h1>
         {subheadline && (
-          <h2 style={{
+          <h2 style={applyFontOverride({
             fontFamily: "'Montserrat', sans-serif",
             fontSize: '46px', fontWeight: 800,
             color: textColor, lineHeight: 1.2, margin: 0,
-          }}>
+          }, data, 'subheadline')}>
             {subheadline}
           </h2>
         )}
@@ -199,12 +200,12 @@ export const ComparisonTemplate: React.FC<TemplateRenderProps> = ({
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         {footerText && (
-          <p style={{
+          <p style={applyFontOverride({
             fontFamily: "'Montserrat', sans-serif",
             fontSize: '18px', fontWeight: 500,
             color: subtextColor, margin: 0,
             flex: 1,
-          }}>{footerText}</p>
+          }, data, 'footerText')}>{footerText}</p>
         )}
         <div style={{
           display: 'flex', alignItems: 'center', gap: '12px',

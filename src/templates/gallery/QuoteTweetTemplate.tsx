@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TemplateRenderProps } from '../../types';
+import { applyFontOverride } from './fontUtils';
 
 const FONT_IMPORT = "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');";
 
@@ -88,7 +89,7 @@ export const QuoteTweetTemplate: React.FC<TemplateRenderProps> = ({
         </div>
 
         {/* Tweet text */}
-        <p style={{
+        <p style={applyFontOverride({
           fontFamily: "'Inter', sans-serif",
           fontSize: `${fontSize}px`,
           fontWeight: 400,
@@ -97,7 +98,7 @@ export const QuoteTweetTemplate: React.FC<TemplateRenderProps> = ({
           margin: 0,
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
-        }}>{tweetText}</p>
+        }, data, 'tweetText')}>{tweetText}</p>
 
         {/* Optional image */}
         {imageUrl && (

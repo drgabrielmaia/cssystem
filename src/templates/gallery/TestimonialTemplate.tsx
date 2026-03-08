@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TemplateRenderProps } from '../../types';
+import { applyFontOverride } from './fontUtils';
 
 const FONT_IMPORT = "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&display=swap');";
 
@@ -52,7 +53,7 @@ export const TestimonialTemplate: React.FC<TemplateRenderProps> = ({
 
       {/* Headline */}
       <div style={{ flexShrink: 0 }}>
-        <h1 style={{
+        <h1 style={applyFontOverride({
           fontFamily: "'Playfair Display', serif",
           fontSize: headline.length > 40 ? '52px' : '64px',
           fontWeight: 700,
@@ -60,7 +61,7 @@ export const TestimonialTemplate: React.FC<TemplateRenderProps> = ({
           lineHeight: 1.1,
           letterSpacing: '-0.02em',
           margin: 0,
-        }}>
+        }, data, 'headline')}>
           {renderHeadline()}
         </h1>
         <div style={{
@@ -131,11 +132,11 @@ export const TestimonialTemplate: React.FC<TemplateRenderProps> = ({
         display: 'flex', flexDirection: 'column', gap: '16px',
       }}>
         {footerText && (
-          <p style={{
+          <p style={applyFontOverride({
             fontFamily: "'Montserrat', sans-serif",
             fontSize: '20px', fontWeight: 500,
             color: subtextColor, lineHeight: 1.4, margin: 0,
-          }}>{footerText}</p>
+          }, data, 'footerText')}>{footerText}</p>
         )}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',

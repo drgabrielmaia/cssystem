@@ -6,7 +6,7 @@ import type { TemplateDefinition, TemplateRenderProps, TemplateCategory } from '
 import {
   MessageSquare, GitCompare, Heart, Quote, Megaphone, BookOpen, BarChart3, Moon,
   X, Plus, Trash2, Upload, ImageIcon, Type, AlignLeft, Palette as PaletteIcon,
-  List, MessageCircle, Highlighter, ChevronDown,
+  List, MessageCircle, Highlighter, ChevronDown, Bold, Minus,
 } from 'lucide-react';
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -115,6 +115,19 @@ export default function TemplateGallery({
 
   const updateField = useCallback((key: string, value: any) => {
     setFormData(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  // Font overrides per field
+  const getFontSettings = (fieldKey: string) => {
+    const fonts = formData._fonts || {};
+    return fonts[fieldKey] || {};
+  };
+  const updateFontSetting = useCallback((fieldKey: string, prop: string, value: any) => {
+    setFormData(prev => {
+      const fonts = { ...(prev._fonts || {}) };
+      fonts[fieldKey] = { ...(fonts[fieldKey] || {}), [prop]: value };
+      return { ...prev, _fonts: fonts };
+    });
   }, []);
 
   const handleImageUpload = useCallback(async (fieldKey: string, file: File) => {
@@ -423,6 +436,108 @@ export default function TemplateGallery({
     return null;
   };
 
+  // Mini font toolbar for text/textarea fields
+  const renderFontControls = (fieldKey: string) => {
+    const fs = getFontSettings(fieldKey);
+    const WEIGHTS = [
+      { value: 400, label: 'Regular' },
+      { value: 700, label: 'Bold' },
+      { value: 900, label: 'Extra Bold' },
+    ];
+    return (
+      <div className="flex items-center gap-1 mt-1 flex-wrap">
+        {/* Weight */}
+        <div className="flex items-center bg-[#151518] rounded-lg overflow-hidden border border-white/[0.04]">
+          {WEIGHTS.map(w => (
+            <button
+              key={w.value}
+              onClick={() => updateFontSetting(fieldKey, 'weight', w.value)}
+              className={`px-2 py-1 text-[9px] transition-all ${
+                (fs.weight || 400) === w.value
+                  ? 'bg-emerald-500/20 text-emerald-300 font-semibold'
+                  : 'text-[#5a5a5f] hover:text-white hover:bg-white/5'
+              }`}
+              title={w.label}
+            >
+              {w.label === 'Regular' ? 'Aa' : w.label === 'Bold' ? <span className="font-bold">Aa</span> : <span className="font-black">Aa</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Size */}
+        <div className="flex items-center gap-0.5 bg-[#151518] rounded-lg border border-white/[0.04]">
+          <button
+            onClick={() => updateFontSetting(fieldKey, 'size', Math.max(12, (fs.size || 0) - 4))}
+            className="p-1 text-[#5a5a5f] hover:text-white transition-all"
+            title="Diminuir"
+          >
+            <Minus className="w-3 h-3" />
+          </button>
+          <span className="text-[9px] text-[#7a7a7f] min-w-[24px] text-center font-mono">
+            {fs.size || 'Auto'}
+          </span>
+          <button
+            onClick={() => updateFontSetting(fieldKey, 'size', (fs.size || 32) + 4)}
+            className="p-1 text-[#5a5a5f] hover:text-white transition-all"
+            title="Aumentar"
+          >
+            <Plus className="w-3 h-3" />
+          </button>
+        </div>
+
+        {/* Text color */}
+        <div className="flex items-center bg-[#151518] rounded-lg border border-white/[0.04] px-1">
+          <span className="text-[9px] text-[#5a5a5f] mr-1">A</span>
+          <input
+            type="color"
+            value={fs.color || '#FFFFFF'}
+            onChange={e => updateFontSetting(fieldKey, 'color', e.target.value)}
+            className="w-5 h-5 rounded cursor-pointer bg-transparent border-0"
+            title="Cor do texto"
+          />
+        </div>
+
+        {/* Highlight / marker */}
+        <div className="flex items-center bg-[#151518] rounded-lg border border-white/[0.04] px-1">
+          <Highlighter className="w-3 h-3 text-[#5a5a5f] mr-1" />
+          <input
+            type="color"
+            value={fs.highlight || '#00000000'}
+            onChange={e => updateFontSetting(fieldKey, 'highlight', e.target.value)}
+            className="w-5 h-5 rounded cursor-pointer bg-transparent border-0"
+            title="Marca-texto"
+          />
+          {fs.highlight && (
+            <button
+              onClick={() => updateFontSetting(fieldKey, 'highlight', '')}
+              className="ml-0.5 text-[#5a5a5f] hover:text-red-400"
+              title="Remover marca-texto"
+            >
+              <X className="w-2.5 h-2.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Reset */}
+        {(fs.weight || fs.size || fs.color || fs.highlight) && (
+          <button
+            onClick={() => {
+              setFormData(prev => {
+                const fonts = { ...(prev._fonts || {}) };
+                delete fonts[fieldKey];
+                return { ...prev, _fonts: fonts };
+              });
+            }}
+            className="px-1.5 py-1 text-[9px] text-[#5a5a5f] hover:text-red-300 transition-all"
+            title="Resetar fonte"
+          >
+            Reset
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {!selectedTemplate ? (
@@ -492,6 +607,7 @@ export default function TemplateGallery({
                     <p className="text-[10px] text-[#3a3a3f] -mt-0.5 ml-5">{FIELD_HINTS[field.key]}</p>
                   )}
                   {renderFieldInput(field)}
+                  {(field.type === 'text' || field.type === 'textarea') && renderFontControls(field.key)}
                 </div>
               ))}
             </div>
