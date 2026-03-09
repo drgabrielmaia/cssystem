@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   Building2, DollarSign, TrendingUp, Users, Calendar,
   Check, X, Eye, Loader2, Settings, BarChart3,
-  MapPin, Star, Clock, Percent, Award, CheckCircle2, ImageIcon
+  MapPin, Star, Clock, Percent, Award, CheckCircle, Image
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth'
@@ -221,7 +221,7 @@ export default function AdminAirbnbPage() {
   if (loading) {
     return (
       <>
-        <Header />
+        <Header title="Airbnb Médico" />
         <div className="flex items-center justify-center min-h-[60vh]">
           <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
         </div>
@@ -231,7 +231,7 @@ export default function AdminAirbnbPage() {
 
   return (
     <>
-      <Header />
+      <Header title="Airbnb Médico" />
       <div className="p-6 md:p-8 max-w-7xl mx-auto">
         {/* Title */}
         <div className="flex items-center gap-4 mb-8">
@@ -457,7 +457,7 @@ export default function AdminAirbnbPage() {
                         )}
                         {c.fotos_verificadas && (
                           <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px]">
-                            <CheckCircle2 className="w-3 h-3 mr-1" />Verificado
+                            <CheckCircle className="w-3 h-3 mr-1" />Verificado
                           </Badge>
                         )}
                       </div>
@@ -500,7 +500,7 @@ export default function AdminAirbnbPage() {
                           : 'bg-white/[0.03] border border-white/[0.06] text-gray-500 hover:text-blue-400'
                       }`}
                     >
-                      <ImageIcon className="w-3.5 h-3.5" />
+                      <Image className="w-3.5 h-3.5" />
                       {c.fotos_verificadas ? 'Fotos Verificadas' : 'Verificar Fotos'}
                     </button>
                     <button

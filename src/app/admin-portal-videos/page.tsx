@@ -83,28 +83,28 @@ export default function AdminPortalVideosPage() {
       const dadosAdmin = await dashboardService.buscarDadosAdmin()
 
       // Calcular estatísticas
-      const totalMentorados = new Set(dadosAdmin.map(d => d.mentorado_id)).size
-      const totalFormularios = dadosAdmin.filter(d => d.formulario === 'pos_aula' || d.formulario === 'nps').length
-      const totalMetas = dadosAdmin.filter(d => d.formulario === 'meta').length
-      const totalConquistas = dadosAdmin.filter(d => d.formulario === 'conquista').length
-      const totalAnotacoes = dadosAdmin.filter(d => d.formulario === 'anotacao').length
+      const totalMentorados = new Set(dadosAdmin.map((d: any) => d.mentorado_id)).size
+      const totalFormularios = dadosAdmin.filter((d: any) => d.formulario === 'pos_aula' || d.formulario === 'nps').length
+      const totalMetas = dadosAdmin.filter((d: any) => d.formulario === 'meta').length
+      const totalConquistas = dadosAdmin.filter((d: any) => d.formulario === 'conquista').length
+      const totalAnotacoes = dadosAdmin.filter((d: any) => d.formulario === 'anotacao').length
 
-      const metasConcluidas = dadosAdmin.filter(d =>
+      const metasConcluidas = dadosAdmin.filter((d: any) =>
         d.formulario === 'meta' && d.resposta_json?.status === 'concluido'
       ).length
 
       const umaSemanaaAtras = new Date()
       umaSemanaaAtras.setDate(umaSemanaaAtras.getDate() - 7)
-      const formulariosEstaSemanaa = dadosAdmin.filter(d =>
+      const formulariosEstaSemanaa = dadosAdmin.filter((d: any) =>
         new Date(d.data_envio) >= umaSemanaaAtras
       ).length
 
       // Calcular NPS médio
-      const npsResponses = dadosAdmin.filter(d =>
+      const npsResponses = dadosAdmin.filter((d: any) =>
         d.resposta_json?.nps_score !== undefined
       )
       const npsMedio = npsResponses.length > 0
-        ? npsResponses.reduce((acc, d) => acc + d.resposta_json.nps_score, 0) / npsResponses.length
+        ? npsResponses.reduce((acc: number, d: any) => acc + d.resposta_json.nps_score, 0) / npsResponses.length
         : 0
 
       setStats({

@@ -633,8 +633,8 @@ export default function PendenciasPage() {
         .single()
 
       // Atualizar status da dívida
-      const novoValorPago = (divida.valor_pago || 0) + valorPagoNum
-      const novoValorRestante = Math.max(0, (divida.valor_total || divida.valor || 0) - novoValorPago)
+      const novoValorPago = Number(divida.valor_pago || 0) + valorPagoNum
+      const novoValorRestante = Math.max(0, Number(divida.valor_total || divida.valor || 0) - novoValorPago)
       const novoStatus = novoValorRestante <= 0 ? 'pago' : 'pendente'
 
       const { error: updateDividaError } = await supabase
