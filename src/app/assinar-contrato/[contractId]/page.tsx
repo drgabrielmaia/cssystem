@@ -367,10 +367,10 @@ Assinatura do Contratante`
               console.log(`Acesso liberado a ${modules.length} modulos`)
             }
 
-            // Enviar instruções de acesso via WhatsApp
+            // Enviar instruções de acesso via WhatsApp (boas-vindas)
+            const BAILEYS_API = 'https://api.medicosderesultado.com.br'
             if (mentoradoPhone) {
               try {
-                const BAILEYS_API = 'https://api.medicosderesultado.com.br'
                 const loginMessage = `✅ *Contrato assinado com sucesso!*
 
 Olá *${contract.recipient_name}*! Seu contrato foi assinado e seu acesso foi liberado! 🎉
@@ -394,6 +394,57 @@ Qualquer dúvida, estamos aqui para ajudar! 💪`
               } catch (whatsappErr) {
                 console.error('Erro ao enviar instruções via WhatsApp:', whatsappErr)
               }
+            }
+
+            // Enviar mensagem para o financeiro com detalhes do contrato
+            try {
+              const { data: orgData } = await supabase
+                .from('organizations')
+                .select('financeiro_phone, name')
+                .eq('id', contract.organization_id)
+                .single()
+
+              // Buscar dados financeiros do contrato
+              const { data: contractDetails } = await supabase
+                .from('contracts')
+                .select('valor, valor_pago, valor_restante, forma_negociacao, data_contrato')
+                .eq('id', contractId)
+                .single()
+
+              if (orgData?.financeiro_phone) {
+                const finPhone = orgData.financeiro_phone.replace(/\D/g, '')
+                const valor = contractDetails?.valor ? `R$ ${Number(contractDetails.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não informado'
+                const valorPago = contractDetails?.valor_pago ? `R$ ${Number(contractDetails.valor_pago).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'R$ 0,00'
+                const valorRestante = contractDetails?.valor_restante ? `R$ ${Number(contractDetails.valor_restante).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : valor
+                const formaNeg = contractDetails?.forma_negociacao || 'Não definida'
+
+                const financeiroMsg = `📋 *NOVO CONTRATO ASSINADO*
+
+👤 *Contratante:* ${contract.recipient_name}
+📧 Email: ${contract.recipient_email}
+📱 Telefone: ${mentoradoPhone || 'Não informado'}
+
+💰 *Detalhes Financeiros:*
+📌 Valor Total: ${valor}
+✅ Valor Pago (entrada): ${valorPago}
+⏳ Valor Restante: ${valorRestante}
+💳 Forma de Negociação: ${formaNeg}
+
+📅 Data do Contrato: ${contractDetails?.data_contrato ? new Date(contractDetails.data_contrato + 'T00:00:00').toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}
+
+⚠️ *Ação necessária:* Verificar forma de pagamento e acompanhar parcelas.`
+
+                await fetch(`${BAILEYS_API}/users/${contract.organization_id}/send`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ to: finPhone, message: financeiroMsg })
+                })
+                console.log('💰 Mensagem enviada para o financeiro:', finPhone)
+              } else {
+                console.warn('⚠️ Telefone do financeiro não configurado para esta organização')
+              }
+            } catch (finErr) {
+              console.error('Erro ao enviar msg para financeiro:', finErr)
             }
           }
         } catch (convError) {

@@ -34,7 +34,8 @@ import {
   Trash2,
   Download,
   AlertTriangle,
-  DollarSign
+  DollarSign,
+  Phone
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { sendContractAfterCreation } from '@/lib/contract-whatsapp'
@@ -144,6 +145,10 @@ export default function ContractsPage() {
     signature_document: '',
     signature_image: '' // base64 drawn signature
   })
+
+  // Financeiro phone
+  const [financeiroPhone, setFinanceiroPhone] = useState('')
+  const [savingFinanceiro, setSavingFinanceiro] = useState(false)
 
   // Org signature canvas
   const orgSigCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -264,6 +269,17 @@ export default function ContractsPage() {
           signature_document: signatureData.signature_document || '',
           signature_image: signatureData.signature_image_url || ''
         })
+      }
+
+      // Load financeiro phone
+      const { data: orgData } = await supabase
+        .from('organizations')
+        .select('financeiro_phone')
+        .eq('id', organizationId)
+        .single()
+
+      if (orgData?.financeiro_phone) {
+        setFinanceiroPhone(orgData.financeiro_phone)
       }
 
     } catch (error) {
@@ -657,6 +673,25 @@ Assinatura do Contratante`
     } catch (error) {
       console.error('Erro ao salvar configuracoes:', error)
       alert('Erro ao salvar configuracoes')
+    }
+  }
+
+  const handleSaveFinanceiroPhone = async () => {
+    if (!organizationId) return
+    setSavingFinanceiro(true)
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .update({ financeiro_phone: financeiroPhone.trim() || null })
+        .eq('id', organizationId)
+
+      if (error) throw error
+      alert('Telefone do financeiro salvo com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar telefone do financeiro:', error)
+      alert('Erro ao salvar telefone do financeiro')
+    } finally {
+      setSavingFinanceiro(false)
     }
   }
 
@@ -1337,6 +1372,34 @@ Assinatura do Contratante`
                   <p className="text-gray-700 text-sm">INSTITUTO DE MENTORIA MEDICA GABRIEL MAIA LTDA</p>
                   <p className="text-gray-700 text-xs">CNPJ: 56.267.958/0001-60</p>
                 </div>
+              </div>
+            </div>
+
+            {/* Financeiro Phone */}
+            <div className="bg-[#141418] border border-white/[0.06] rounded-2xl p-6">
+              <div className="mb-6">
+                <h3 className="text-white font-semibold text-base">Telefone do Financeiro</h3>
+                <p className="text-white/40 text-sm mt-1">Numero que recebera os detalhes de pagamento quando um contrato for assinado</p>
+              </div>
+              <div className="flex gap-3 items-end">
+                <div className="flex-1 space-y-2">
+                  <Label className="text-white/60 text-sm">WhatsApp do Financeiro</Label>
+                  <Input
+                    value={financeiroPhone}
+                    onChange={(e) => setFinanceiroPhone(e.target.value)}
+                    className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10 placeholder:text-white/20"
+                    placeholder="Ex: 5511999999999"
+                  />
+                  <p className="text-white/30 text-xs">Formato: codigo do pais + DDD + numero (ex: 5511999999999)</p>
+                </div>
+                <Button
+                  onClick={handleSaveFinanceiroPhone}
+                  disabled={savingFinanceiro}
+                  className="bg-white text-black hover:bg-white/90 rounded-xl font-medium h-10 px-5"
+                >
+                  <Phone className="h-4 w-4 mr-2" />
+                  {savingFinanceiro ? 'Salvando...' : 'Salvar'}
+                </Button>
               </div>
             </div>
           </TabsContent>
