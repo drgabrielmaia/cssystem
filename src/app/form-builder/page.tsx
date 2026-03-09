@@ -395,11 +395,19 @@ export default function FormBuilderPage() {
   const fetchClosers = async () => {
     if (!organization?.id) return
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('closers').select('id, nome_completo, status_contrato')
-        .eq('ativo', true).eq('organization_id', organization.id)
-      setClosers(data || [])
-    } catch {}
+        .eq('ativo', true)
+        .eq('organization_id', organization.id)
+      if (error) {
+        console.error('Erro ao buscar closers:', error)
+      }
+      // Filter to only show active closers (status_contrato = ativo)
+      const activeClosers = (data || []).filter((c: any) => c.status_contrato === 'ativo')
+      setClosers(activeClosers)
+    } catch (err) {
+      console.error('Erro ao buscar closers:', err)
+    }
   }
 
   // ─── Template operations ───────────────────────────────────────────

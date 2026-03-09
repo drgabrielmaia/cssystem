@@ -6,14 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { supabase } from '@/lib/supabase'
 import {
   Calendar,
   Clock,
   User,
   Phone,
-  MessageCircle,
   ArrowLeft,
   ArrowRight,
   CheckCircle,
@@ -66,7 +64,6 @@ interface FormData {
   email: string
   telefone: string
   whatsapp: string
-  objetivo_call: string
 }
 
 const diasSemana = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado']
@@ -97,8 +94,7 @@ export default function AgendarPage() {
     nome_completo: '',
     email: '',
     telefone: '',
-    whatsapp: '',
-    objetivo_call: ''
+    whatsapp: ''
   })
 
   // Estados para resultado
@@ -390,7 +386,7 @@ export default function AgendarPage() {
       // 1. Criar evento no calendar_events
       const eventData: any = {
         title: `${titleText} - ${formData.nome_completo}`,
-        description: `Agendamento via formulário.\n\nObjetivo: ${formData.objetivo_call}\n\nContato: ${formData.email} | ${formData.telefone}`,
+        description: `Agendamento via formulário.\n\nContato: ${formData.email} | ${formData.telefone}`,
         start_datetime: startDateTime.toISOString(),
         end_datetime: endDateTime.toISOString(),
         lead_id: agendaLink.lead_id || null,
@@ -401,7 +397,6 @@ export default function AgendarPage() {
         email_contato: formData.email,
         telefone_contato: formData.telefone,
         whatsapp_contato: formData.whatsapp,
-        objetivo_call: formData.objetivo_call,
         origem_agendamento: 'formulario_publico',
         status_confirmacao: 'agendado',
         all_day: false
@@ -430,7 +425,7 @@ export default function AgendarPage() {
               status: 'agendado',
               appointment_type: 'qualificacao',
               title: `${titleText} - ${formData.nome_completo}`,
-              description: formData.objetivo_call || 'Agendado via formulário público',
+              description: 'Agendado via formulário público',
               lead_name: formData.nome_completo,
               lead_email: formData.email,
               lead_phone: formData.telefone,
@@ -728,17 +723,6 @@ export default function AgendarPage() {
                         />
                       </div>
 
-                      <div>
-                        <Label htmlFor="objetivo">Objetivo da call</Label>
-                        <Textarea
-                          id="objetivo"
-                          value={formData.objetivo_call}
-                          onChange={(e) => setFormData(prev => ({ ...prev, objetivo_call: e.target.value }))}
-                          placeholder="Descreva brevemente o que gostaria de discutir na reunião..."
-                          rows={3}
-                          className="mt-1"
-                        />
-                      </div>
                     </div>
 
                     <Button
@@ -817,15 +801,6 @@ export default function AgendarPage() {
                       </div>
                     </div>
 
-                    {formData.objetivo_call && (
-                      <div className="flex items-start gap-3">
-                        <MessageCircle className="h-5 w-5 text-gray-400 mt-0.5" />
-                        <div>
-                          <p className="font-medium">Objetivo</p>
-                          <p className="text-sm text-gray-500">{formData.objetivo_call}</p>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="text-center text-gray-500 py-8">

@@ -1,9 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PageLayout } from '@/components/ui/page-layout'
-import { MetricCard } from '@/components/ui/metric-card'
-import { ChartCard } from '@/components/ui/chart-card'
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -17,8 +14,9 @@ import {
   Users,
   CheckCircle,
   AlertCircle,
-  Phone,
-  MessageCircle
+  MessageCircle,
+  Send,
+  Loader2
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -29,6 +27,8 @@ import { supabase } from '@/lib/supabase'
 import { EditEventModal } from '@/components/edit-event-modal'
 import { useAuth } from '@/contexts/auth'
 import { whatsappNotifications } from '@/services/whatsapp-notifications'
+import { whatsappMultiService } from '@/lib/whatsapp-multi-service'
+import { generateWeeklyAgenda, generateDailyAgenda } from '@/services/agenda-generator'
 
 interface CalendarEvent {
   id: string
@@ -136,6 +136,18 @@ export default function CalendarioPage() {
   const [showEditEventModal, setShowEditEventModal] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
 
+  // Estados para envio de agenda WhatsApp
+  const [showAgendaModal, setShowAgendaModal] = useState(false)
+  const [whatsappGroups, setWhatsappGroups] = useState<Array<{id: string, name: string}>>([])
+  const [selectedGroup, setSelectedGroup] = useState('')
+  const [agendaType, setAgendaType] = useState<'semana' | 'dia'>('semana')
+  const [agendaPreview, setAgendaPreview] = useState('')
+  const [isSendingAgenda, setIsSendingAgenda] = useState(false)
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false)
+
+  // Closers
+  const [closers, setClosers] = useState<Array<{id: string, nome_completo: string}>>([])
+
   // Estados para o formulário de novo evento
   const [newEventForm, setNewEventForm] = useState({
     title: '',
@@ -146,7 +158,8 @@ export default function CalendarioPage() {
     end_time: '',
     all_day: false,
     lead_id: '',
-    mentorado_id: ''
+    mentorado_id: '',
+    closer_id: ''
   })
 
   const today = new Date()
@@ -165,6 +178,7 @@ export default function CalendarioPage() {
       fetchEvents()
       loadLeads()
       loadMentorados()
+      loadClosers()
     }
   }, [organizationId])
 
@@ -209,6 +223,27 @@ export default function CalendarioPage() {
       setMentorados(data || [])
     } catch (error) {
       console.error('Erro ao carregar mentorados:', error)
+    }
+  }
+
+  const loadClosers = async () => {
+    try {
+      let query = supabase
+        .from('closers')
+        .select('id, nome_completo')
+        .eq('ativo', true)
+        .order('nome_completo')
+
+      if (organizationId) {
+        query = query.eq('organization_id', organizationId)
+      }
+
+      const { data, error } = await query
+      if (!error && data) {
+        setClosers(data)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar closers:', error)
     }
   }
 
@@ -315,7 +350,8 @@ export default function CalendarioPage() {
       end_time: '',
       all_day: false,
       lead_id: 'none',
-      mentorado_id: 'none'
+      mentorado_id: 'none',
+      closer_id: 'none'
     })
     setFormErrors({})
     setShowNewEventModal(true)
@@ -375,7 +411,8 @@ export default function CalendarioPage() {
         all_day: newEventForm.all_day,
         lead_id: newEventForm.lead_id === 'none' ? null : newEventForm.lead_id || null,
         mentorado_id: newEventForm.mentorado_id === 'none' ? null : newEventForm.mentorado_id || null,
-        organization_id: organizationId, // ✅ INCLUINDO ORGANIZATION_ID
+        closer_id: newEventForm.closer_id === 'none' ? null : newEventForm.closer_id || null,
+        organization_id: organizationId,
         created_at: new Date().toISOString()
       }
 
@@ -440,150 +477,266 @@ export default function CalendarioPage() {
     }
   }
 
+  // ─── Agenda WhatsApp ────────────────────────────────────────
+  const loadWhatsappGroups = async () => {
+    try {
+      const result = await whatsappMultiService.getChats()
+      if (result.success && result.data) {
+        setWhatsappGroups(
+          (result.data as any[])
+            .filter((c: any) => c.isGroup)
+            .map((c: any) => ({ id: c.id, name: c.name || c.id }))
+        )
+      }
+    } catch (err) {
+      console.error('Erro ao carregar grupos WhatsApp:', err)
+    }
+  }
+
+  const handleOpenAgendaModal = async () => {
+    setShowAgendaModal(true)
+    setAgendaType('semana')
+    setSelectedGroup('')
+    setAgendaPreview('')
+    loadWhatsappGroups()
+  }
+
+  const handleGeneratePreview = async () => {
+    if (!organizationId) return
+    setIsLoadingPreview(true)
+    try {
+      const msg = agendaType === 'semana'
+        ? await generateWeeklyAgenda(organizationId)
+        : await generateDailyAgenda(organizationId)
+      setAgendaPreview(msg)
+    } catch (err) {
+      console.error('Erro ao gerar agenda:', err)
+      setAgendaPreview('Erro ao gerar agenda.')
+    } finally {
+      setIsLoadingPreview(false)
+    }
+  }
+
+  const handleSendAgenda = async () => {
+    if (!selectedGroup || !agendaPreview) return
+    setIsSendingAgenda(true)
+    try {
+      const result = await whatsappMultiService.sendMessage(selectedGroup, agendaPreview)
+      if (result.success) {
+        alert('Agenda enviada com sucesso!')
+        setShowAgendaModal(false)
+      } else {
+        alert('Erro ao enviar: ' + result.error)
+      }
+    } catch {
+      alert('Erro ao enviar agenda')
+    } finally {
+      setIsSendingAgenda(false)
+    }
+  }
+
   if (loading) {
     return (
-      <PageLayout title="Calendário" subtitle="Carregando...">
-        <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#059669]"></div>
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-emerald-500/30 border-t-emerald-500 mx-auto mb-3"></div>
+          <p className="text-sm text-white/40">Carregando calendario...</p>
         </div>
-      </PageLayout>
+      </div>
     )
   }
 
   const days = getDaysInMonth(currentDate)
   const selectedDateEvents = getEventsForDate(selectedDate)
+  const completedEvents = Array.isArray(events) ? events.filter(e => e.call_status === 'completed').length : 0
 
   return (
-    <PageLayout title="Calendário" subtitle="Agenda e eventos">
-      {/* Métricas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <MetricCard
-          title="Eventos Hoje"
-          value={todayEvents.length.toString()}
-          change={2}
-          changeType="increase"
-          icon={CalendarIcon}
-          iconColor="blue"
-        />
-        <MetricCard
-          title="Total de Eventos"
-          value={Array.isArray(events) ? events.length.toString() : '0'}
-          change={8}
-          changeType="increase"
-          icon={Users}
-          iconColor="green"
-        />
-        <MetricCard
-          title="Próximos Eventos"
-          value={upcomingEvents.length.toString()}
-          change={1}
-          changeType="increase"
-          icon={Clock}
-          iconColor="orange"
-        />
-        <MetricCard
-          title="Eventos Concluídos"
-          value={Array.isArray(events) ? events.filter(e => e.call_status === 'completed').length.toString() : '0'}
-          change={5}
-          changeType="increase"
-          icon={CheckCircle}
-          iconColor="purple"
-        />
-      </div>
-
-      {/* Alerta para eventos de hoje */}
-      {todayEvents.length > 0 && (
-        <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-xl sm:rounded-2xl p-3 sm:p-4 mb-4 sm:mb-6">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />
+    <div className="min-h-screen bg-[#0a0a0f]">
+      {/* Header */}
+      <div className="border-b border-white/[0.06] bg-[#0a0a0f]/80 backdrop-blur-xl sticky top-0 z-30">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between">
             <div>
-              <p className="font-semibold text-blue-800 text-sm sm:text-base">Agenda de Hoje</p>
-              <p className="text-xs sm:text-sm text-blue-700">
-                Você tem {todayEvents.length} evento{todayEvents.length > 1 ? 's' : ''} agendado{todayEvents.length > 1 ? 's' : ''} para hoje
-              </p>
+              <h1 className="text-xl sm:text-2xl font-bold text-white">Calendario</h1>
+              <p className="text-sm text-white/40 mt-0.5">{MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleOpenAgendaModal}
+                className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-sm font-medium transition-colors border border-emerald-500/20"
+              >
+                <Send className="w-4 h-4" />
+                <span className="hidden sm:inline">Enviar Agenda</span>
+              </button>
+              <button
+                onClick={handleNewEvent}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Novo Evento</span>
+              </button>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-        {/* Calendário Principal */}
-        <div className="lg:col-span-2">
-          <ChartCard
-            title="Calendário"
-            subtitle={`${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`}
-            actions={
-              <div className="flex items-center gap-1 sm:gap-2">
-                <button
-                  onClick={goToToday}
-                  className="px-2 sm:px-3 py-1 text-xs bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-lg transition-colors"
-                >
-                  <span className="hidden sm:inline">Hoje</span>
-                  <span className="sm:hidden">•</span>
-                </button>
-                <button
-                  onClick={goToPreviousMonth}
-                  className="p-1.5 sm:p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors"
-                >
-                  <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
-                </button>
-                <button
-                  onClick={goToNextMonth}
-                  className="p-1.5 sm:p-2 hover:bg-[#F1F5F9] rounded-lg transition-colors"
-                >
-                  <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
-                </button>
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <div className="bg-[#12121a] border border-white/[0.06] rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-500/10 rounded-lg">
+                <CalendarIcon className="w-4 h-4 text-blue-400" />
               </div>
-            }
-          >
-            <div className="p-2 sm:p-4">
-              {/* Dias da semana */}
-              <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
+              <div>
+                <p className="text-2xl font-bold text-white">{todayEvents.length}</p>
+                <p className="text-xs text-white/40">Hoje</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-[#12121a] border border-white/[0.06] rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-500/10 rounded-lg">
+                <Users className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-white">{Array.isArray(events) ? events.length : 0}</p>
+                <p className="text-xs text-white/40">Total</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-[#12121a] border border-white/[0.06] rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-500/10 rounded-lg">
+                <Clock className="w-4 h-4 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-white">{upcomingEvents.length}</p>
+                <p className="text-xs text-white/40">Proximos</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-[#12121a] border border-white/[0.06] rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-500/10 rounded-lg">
+                <CheckCircle className="w-4 h-4 text-purple-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-white">{completedEvents}</p>
+                <p className="text-xs text-white/40">Concluidos</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Alert banner for today's events */}
+        {todayEvents.length > 0 && (
+          <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl px-4 py-3 mb-6 flex items-center gap-3">
+            <div className="p-1.5 bg-emerald-500/20 rounded-lg">
+              <CalendarIcon className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-emerald-300">Agenda de Hoje</p>
+              <p className="text-xs text-emerald-400/60">{todayEvents.length} evento{todayEvents.length > 1 ? 's' : ''} agendado{todayEvents.length > 1 ? 's' : ''}</p>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Calendar Grid */}
+          <div className="lg:col-span-2">
+            <div className="bg-[#12121a] border border-white/[0.06] rounded-xl overflow-hidden">
+              {/* Calendar Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+                <h2 className="text-lg font-semibold text-white">
+                  {MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}
+                </h2>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={goToToday}
+                    className="px-3 py-1.5 text-xs font-medium text-white/60 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+                  >
+                    Hoje
+                  </button>
+                  <button
+                    onClick={goToPreviousMonth}
+                    className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4 text-white/40" />
+                  </button>
+                  <button
+                    onClick={goToNextMonth}
+                    className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4 text-white/40" />
+                  </button>
+                  <button
+                    onClick={fetchEvents}
+                    className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors ml-1"
+                    title="Atualizar"
+                  >
+                    <RefreshCw className="w-4 h-4 text-white/40" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Days of week header */}
+              <div className="grid grid-cols-7 border-b border-white/[0.04]">
                 {DAYS.map(day => (
-                  <div key={day} className="h-6 sm:h-8 flex items-center justify-center text-xs font-medium text-[#94A3B8]">
-                    <span className="hidden sm:inline">{day}</span>
-                    <span className="sm:hidden">{day.charAt(0)}</span>
+                  <div key={day} className="py-2.5 text-center text-xs font-medium text-white/30 uppercase tracking-wider">
+                    {day}
                   </div>
                 ))}
               </div>
 
-              {/* Dias do mês */}
-              <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
+              {/* Calendar days */}
+              <div className="grid grid-cols-7">
                 {days.map((day, index) => {
                   const isToday = day && day.toDateString() === today.toDateString()
                   const isSelected = day && selectedDate && day.toDateString() === selectedDate.toDateString()
                   const dayEvents = day ? getEventsForDate(day) : []
+                  const isWeekend = day && (day.getDay() === 0 || day.getDay() === 6)
 
                   return (
                     <div
                       key={index}
                       className={`
-                        h-12 sm:h-16 p-1 border border-[#E2E8F0] cursor-pointer transition-colors relative text-center
-                        ${day ? 'hover:bg-[#F8FAFC]' : 'bg-[#F8FAFC]'}
-                        ${isToday ? 'bg-[#059669] text-white' : ''}
-                        ${isSelected ? 'ring-1 sm:ring-2 ring-[#059669] ring-offset-1' : ''}
+                        min-h-[72px] sm:min-h-[88px] p-1.5 sm:p-2 border-b border-r border-white/[0.04] cursor-pointer transition-all relative
+                        ${day ? 'hover:bg-white/[0.03]' : ''}
+                        ${isSelected ? 'bg-emerald-500/5 ring-1 ring-inset ring-emerald-500/30' : ''}
+                        ${isWeekend && !isSelected ? 'bg-white/[0.01]' : ''}
                       `}
                       onClick={() => day && setSelectedDate(day)}
                     >
                       {day && (
                         <>
-                          <div className={`text-xs font-medium ${isToday ? 'text-white' : 'text-[#0F172A]'}`}>
+                          <div className={`
+                            w-7 h-7 flex items-center justify-center rounded-full text-xs font-medium mb-1
+                            ${isToday ? 'bg-emerald-500 text-white' : 'text-white/60'}
+                            ${isSelected && !isToday ? 'text-emerald-400' : ''}
+                          `}>
                             {day.getDate()}
                           </div>
                           {dayEvents.length > 0 && (
-                            <div className="absolute bottom-0.5 sm:bottom-1 left-0.5 sm:left-1 right-0.5 sm:right-1">
-                              <div className="flex gap-0.5 sm:gap-1">
-                                {dayEvents.slice(0, 2).map((event, i) => (
-                                  <div
-                                    key={i}
-                                    className="h-0.5 sm:h-1 flex-1 bg-[#059669] rounded-full"
-                                  />
+                            <div className="space-y-0.5">
+                              {dayEvents.slice(0, 2).map((event, i) => (
+                                <div
+                                  key={i}
+                                  className="text-[10px] leading-tight px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 truncate hidden sm:block"
+                                >
+                                  {event.title}
+                                </div>
+                              ))}
+                              {dayEvents.length > 2 && (
+                                <div className="text-[10px] text-white/30 pl-1.5 hidden sm:block">
+                                  +{dayEvents.length - 2} mais
+                                </div>
+                              )}
+                              {/* Mobile dots */}
+                              <div className="flex gap-0.5 sm:hidden mt-0.5">
+                                {dayEvents.slice(0, 3).map((_, i) => (
+                                  <div key={i} className="w-1 h-1 rounded-full bg-emerald-400" />
                                 ))}
-                                {dayEvents.length > 2 && (
-                                  <div className="text-[10px] sm:text-xs text-[#059669] font-medium">
-                                    +{dayEvents.length - 2}
-                                  </div>
-                                )}
                               </div>
                             </div>
                           )}
@@ -594,173 +747,132 @@ export default function CalendarioPage() {
                 })}
               </div>
             </div>
-          </ChartCard>
-        </div>
-
-        {/* Sidebar - Eventos */}
-        <div className="space-y-4 lg:space-y-6">
-          {/* Ações */}
-          <div className="flex gap-2">
-            <button
-              onClick={handleNewEvent}
-              className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl font-medium transition-colors text-sm"
-            >
-              <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Novo Evento</span>
-              <span className="sm:hidden">Novo</span>
-            </button>
-            <button
-              onClick={fetchEvents}
-              className="p-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors"
-            >
-              <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
-            </button>
           </div>
 
-          {/* Eventos do dia selecionado */}
-          {selectedDate && (
-            <ChartCard
-              title="Eventos do Dia"
-              subtitle={formatDate(selectedDate)}
-            >
-              <div className="p-4">
-                {selectedDateEvents.length === 0 ? (
-                  <p className="text-[#94A3B8] text-center py-8">
-                    Nenhum evento agendado para este dia
+          {/* Sidebar */}
+          <div className="space-y-4">
+            {/* Selected Day Events */}
+            {selectedDate ? (
+              <div className="bg-[#12121a] border border-white/[0.06] rounded-xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-white/[0.06]">
+                  <h3 className="text-sm font-semibold text-white">Eventos do Dia</h3>
+                  <p className="text-xs text-white/40 mt-0.5">
+                    {selectedDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo' })}
                   </p>
-                ) : (
-                  <div className="space-y-3">
-                    {selectedDateEvents.map((event) => (
-                      <div key={event.id} className="border border-[#E2E8F0] rounded-xl p-3 hover:bg-[#F8FAFC] transition-colors">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-[#0F172A] text-sm">
-                              {event.title}
-                            </h4>
-                            {!event.all_day && (
-                              <p className="text-xs text-[#94A3B8] mt-1 flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {formatTime(event.start_datetime)} - {formatTime(event.end_datetime)}
-                              </p>
-                            )}
-                            {event.description && (
-                              <p className="text-xs text-[#475569] mt-1 line-clamp-2">
-                                {event.description}
-                              </p>
-                            )}
+                </div>
+                <div className="p-4">
+                  {selectedDateEvents.length === 0 ? (
+                    <div className="text-center py-8">
+                      <CalendarIcon className="w-8 h-8 text-white/10 mx-auto mb-2" />
+                      <p className="text-sm text-white/30">Nenhum evento neste dia</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedDateEvents.map((event) => (
+                        <div key={event.id} className="group bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] rounded-lg p-3 transition-colors">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-medium text-white truncate">{event.title}</h4>
+                              {!event.all_day && (
+                                <p className="text-xs text-white/40 mt-1 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {formatTime(event.start_datetime)} - {formatTime(event.end_datetime)}
+                                </p>
+                              )}
+                              {event.description && (
+                                <p className="text-xs text-white/30 mt-1 line-clamp-2">{event.description}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => handleEditEvent(event)}
+                                className="p-1.5 hover:bg-white/[0.08] rounded-md transition-colors"
+                                title="Editar"
+                              >
+                                <Edit className="w-3.5 h-3.5 text-white/40 hover:text-emerald-400" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteEvent(event)}
+                                className="p-1.5 hover:bg-red-500/10 rounded-md transition-colors"
+                                title="Excluir"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-white/40 hover:text-red-400" />
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1 ml-2">
-                            <button
-                              onClick={() => alert(`Evento: ${event.title}\n\nDescrição: ${event.description || 'Sem descrição'}\n\nInício: ${new Date(event.start_datetime).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n\nFim: ${new Date(event.end_datetime).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`)}
-                              className="p-1 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
-                              title="Ver detalhes"
-                            >
-                              <Eye className="w-3 h-3 text-[#94A3B8] group-hover:text-[#475569]" />
-                            </button>
-                            <button
-                              onClick={() => handleEditEvent(event)}
-                              className="p-1 hover:bg-[#F1F5F9] rounded-lg transition-colors group"
-                              title="Editar evento"
-                            >
-                              <Edit className="w-3 h-3 text-[#94A3B8] group-hover:text-[#059669]" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteEvent(event)}
-                              className="p-1 hover:bg-red-50 rounded-lg transition-colors group"
-                              title="Excluir evento"
-                            >
-                              <Trash2 className="w-3 h-3 text-red-500 group-hover:text-red-700" />
-                            </button>
-                          </div>
+                          {(event.call_status === 'completed' || event.sale_value) && (
+                            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/[0.04]">
+                              {event.call_status === 'completed' && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  <CheckCircle className="w-2.5 h-2.5" />
+                                  Concluido
+                                </span>
+                              )}
+                              {event.sale_value && (
+                                <span className="text-[10px] font-medium text-emerald-400">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.sale_value)}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        {(event.call_status || event.sale_value || event.mensagem_enviada !== undefined) && (
-                          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[#F1F5F9]">
-                            {event.call_status === 'completed' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-green-50 text-green-700">
-                                <CheckCircle className="w-3 h-3" />
-                                Concluído
-                              </span>
-                            )}
-                            {event.mensagem_enviada && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
-                                <MessageCircle className="w-3 h-3" />
-                                Msg Enviada
-                              </span>
-                            )}
-                            {event.mensagem_enviada === false && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-orange-50 text-orange-700">
-                                <AlertCircle className="w-3 h-3" />
-                                Pendente
-                              </span>
-                            )}
-                            {event.sale_value && (
-                              <span className="text-xs font-medium text-[#059669]">
-                                {new Intl.NumberFormat('pt-BR', {
-                                  style: 'currency',
-                                  currency: 'BRL'
-                                }).format(event.sale_value)}
-                              </span>
-                            )}
-                          </div>
-                        )}
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[#12121a] border border-white/[0.06] rounded-xl p-8 text-center">
+                <CalendarIcon className="w-10 h-10 text-white/10 mx-auto mb-3" />
+                <p className="text-sm text-white/30">Selecione um dia no calendario</p>
+                <p className="text-xs text-white/20 mt-1">para ver os eventos</p>
+              </div>
+            )}
+
+            {/* Upcoming events */}
+            <div className="bg-[#12121a] border border-white/[0.06] rounded-xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-white/[0.06]">
+                <h3 className="text-sm font-semibold text-white">Proximos Eventos</h3>
+              </div>
+              <div className="p-4">
+                {upcomingEvents.length === 0 ? (
+                  <div className="text-center py-6">
+                    <Clock className="w-6 h-6 text-white/10 mx-auto mb-2" />
+                    <p className="text-xs text-white/30">Nenhum evento proximo</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {upcomingEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-white/[0.03] transition-colors cursor-pointer"
+                        onClick={() => {
+                          const evDate = new Date(event.start_datetime)
+                          setCurrentDate(new Date(evDate.getFullYear(), evDate.getMonth()))
+                          setSelectedDate(evDate)
+                        }}
+                      >
+                        <div className="flex-shrink-0 w-10 h-10 bg-emerald-500/10 rounded-lg flex flex-col items-center justify-center">
+                          <span className="text-[10px] text-emerald-400/60 uppercase leading-none">
+                            {new Date(event.start_datetime).toLocaleDateString('pt-BR', { month: 'short', timeZone: 'America/Sao_Paulo' }).replace('.', '')}
+                          </span>
+                          <span className="text-sm font-bold text-emerald-400 leading-none mt-0.5">
+                            {new Date(event.start_datetime).getDate()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-white truncate">{event.title}</h4>
+                          <p className="text-xs text-white/30 mt-0.5">
+                            {!event.all_day && formatTime(event.start_datetime)}
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
-            </ChartCard>
-          )}
-
-          {/* Próximos eventos */}
-          <ChartCard title="Próximos Eventos" subtitle="Agenda da semana">
-            <div className="p-4">
-              {upcomingEvents.length === 0 ? (
-                <p className="text-[#94A3B8] text-center py-8">
-                  Nenhum evento próximo
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {upcomingEvents.map((event) => (
-                    <div key={event.id} className="border border-[#E2E8F0] rounded-xl p-3 hover:bg-[#F8FAFC] transition-colors">
-                      <h4 className="font-semibold text-[#0F172A] text-sm">
-                        {event.title}
-                      </h4>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-[#94A3B8]">
-                        <CalendarIcon className="w-3 h-3" />
-                        {new Date(event.start_datetime).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
-                        {!event.all_day && (
-                          <>
-                            <Clock className="w-3 h-3 ml-1" />
-                            {formatTime(event.start_datetime)}
-                          </>
-                        )}
-                      </div>
-                      {event.description && (
-                        <p className="text-xs text-[#475569] mt-1 line-clamp-1">
-                          {event.description}
-                        </p>
-                      )}
-                      {event.mensagem_enviada !== undefined && (
-                        <div className="flex items-center gap-1 mt-2">
-                          {event.mensagem_enviada ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700">
-                              <MessageCircle className="w-2 h-2" />
-                              Msg Enviada
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-orange-50 text-orange-700">
-                              <AlertCircle className="w-2 h-2" />
-                              Pendente
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
-          </ChartCard>
+          </div>
         </div>
       </div>
 
@@ -830,6 +942,23 @@ export default function CalendarioPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Closer Responsável</Label>
+              <Select value={newEventForm.closer_id} onValueChange={(value) => setNewEventForm({ ...newEventForm, closer_id: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar closer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum closer</SelectItem>
+                  {closers.map((closer) => (
+                    <SelectItem key={closer.id} value={closer.id}>
+                      {closer.nome_completo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -946,6 +1075,117 @@ export default function CalendarioPage() {
         onSuccess={handleEditSuccess}
         event={selectedEvent}
       />
-    </PageLayout>
+
+      {/* Modal Enviar Agenda WhatsApp */}
+      <Dialog open={showAgendaModal} onOpenChange={setShowAgendaModal}>
+        <DialogContent className="max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-lg">
+              <div className="p-2 bg-[#16A34A] rounded-lg">
+                <Send className="w-5 h-5 text-white" />
+              </div>
+              Enviar Agenda para WhatsApp
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Tipo de Agenda */}
+            <div className="space-y-2">
+              <Label>Tipo de Agenda</Label>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setAgendaType('semana'); setAgendaPreview('') }}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    agendaType === 'semana'
+                      ? 'bg-[#059669] text-white'
+                      : 'bg-[#F1F5F9] text-[#475569] hover:bg-[#E2E8F0]'
+                  }`}
+                >
+                  Agenda da Semana
+                </button>
+                <button
+                  onClick={() => { setAgendaType('dia'); setAgendaPreview('') }}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    agendaType === 'dia'
+                      ? 'bg-[#059669] text-white'
+                      : 'bg-[#F1F5F9] text-[#475569] hover:bg-[#E2E8F0]'
+                  }`}
+                >
+                  Agenda do Dia
+                </button>
+              </div>
+            </div>
+
+            {/* Grupo WhatsApp */}
+            <div className="space-y-2">
+              <Label>Grupo do WhatsApp</Label>
+              {whatsappGroups.length === 0 ? (
+                <p className="text-sm text-[#94A3B8] py-2">Carregando grupos... Certifique-se de que o WhatsApp está conectado.</p>
+              ) : (
+                <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um grupo..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {whatsappGroups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            {/* Gerar Preview */}
+            <button
+              onClick={handleGeneratePreview}
+              disabled={isLoadingPreview}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#475569] rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {isLoadingPreview ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</>
+              ) : (
+                <><Eye className="w-4 h-4" /> Gerar Preview da Mensagem</>
+              )}
+            </button>
+
+            {/* Preview */}
+            {agendaPreview && (
+              <div className="space-y-2">
+                <Label>Preview da Mensagem</Label>
+                <textarea
+                  value={agendaPreview}
+                  onChange={(e) => setAgendaPreview(e.target.value)}
+                  className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4 text-sm whitespace-pre-wrap font-mono max-h-60 min-h-[120px] resize-y focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                />
+                <p className="text-xs text-[#94A3B8]">Você pode editar a mensagem antes de enviar.</p>
+              </div>
+            )}
+
+            {/* Botões */}
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button
+                onClick={() => setShowAgendaModal(false)}
+                className="px-4 py-2 text-[#475569] hover:bg-[#F1F5F9] rounded-xl transition-colors text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSendAgenda}
+                disabled={!selectedGroup || !agendaPreview || isSendingAgenda}
+                className="flex items-center gap-2 px-6 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl font-medium transition-colors disabled:opacity-50 text-sm"
+              >
+                {isSendingAgenda ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
+                ) : (
+                  <><Send className="w-4 h-4" /> Enviar para Grupo</>
+                )}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }

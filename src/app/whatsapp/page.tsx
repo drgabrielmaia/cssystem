@@ -13,6 +13,7 @@ import { whatsappMultiService, type WhatsAppStatus, type Contact, type Chat, typ
 import { useAuth } from '@/contexts/auth';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import { generateWeeklyAgenda, generateDailyAgenda } from '@/services/agenda-generator';
 
 // ─── Types ──────────────────────────────────────────────────────
 interface LeadInfo {
@@ -47,7 +48,7 @@ type ContactTab = 'conversa' | 'detalhes' | 'anotacoes' | 'historico';
 
 // ─── Component ──────────────────────────────────────────────────
 export default function WhatsAppPage() {
-  const { user } = useAuth();
+  const { user, organizationId } = useAuth();
 
   // Core state
   const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(false);
@@ -231,6 +232,31 @@ export default function WhatsAppPage() {
   // ─── Send message ──────────────────────────────────────────
   const sendMessage = async () => {
     if (!selectedChat || !newMessage.trim() || isLoading) return;
+
+    const cmd = newMessage.trim().toLowerCase();
+
+    // Atalhos de agenda: "agenda do dia" ou "agenda da semana"
+    if ((cmd === 'agenda do dia' || cmd === 'agenda da semana') && organizationId) {
+      setIsLoading(true);
+      try {
+        const agendaMsg = cmd === 'agenda da semana'
+          ? await generateWeeklyAgenda(organizationId)
+          : await generateDailyAgenda(organizationId);
+        const response = await whatsappMultiService.sendMessage(selectedChat.id, agendaMsg);
+        if (response.success) {
+          setNewMessage('');
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        } else {
+          alert('Erro ao enviar agenda: ' + response.error);
+        }
+      } catch {
+        alert('Erro ao gerar/enviar agenda');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     setIsLoading(true);
     try {
       const response = await whatsappMultiService.sendMessage(selectedChat.id, newMessage);
@@ -1045,7 +1071,7 @@ export default function WhatsAppPage() {
                     {/* Input */}
                     <div className="flex-1 bg-[#F1F3F5]/80 rounded-2xl px-4 py-2.5 border border-transparent focus-within:border-[#16A34A]/20 focus-within:bg-white transition-all">
                       <textarea
-                        placeholder="Escreva sua mensagem aqui"
+                        placeholder="Mensagem... (💡 'agenda do dia' ou 'agenda da semana')"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         className="w-full bg-transparent text-sm text-[#1A1A2E] placeholder-[#ADB5BD] resize-none focus:outline-none min-h-[24px] max-h-32"

@@ -52,8 +52,6 @@ interface FormData {
   email: string
   telefone: string
   whatsapp: string
-  cpf: string
-  objetivo_call: string
 }
 
 const tiposCall = {
@@ -109,9 +107,7 @@ export default function AgendarPublicoPage() {
     nome_completo: '',
     email: '',
     telefone: '',
-    whatsapp: '',
-    cpf: '',
-    objetivo_call: ''
+    whatsapp: ''
   })
 
   // Estados do calendário
@@ -153,7 +149,8 @@ export default function AgendarPublicoPage() {
         .select(`
           *,
           leads(nome_completo, email, telefone),
-          mentorados(nome_completo, email, telefone)
+          mentorados(nome_completo, email, telefone),
+          closers(nome_completo)
         `)
         .eq('token_link', token)
         .eq('ativo', true)
@@ -230,7 +227,7 @@ export default function AgendarPublicoPage() {
           name: formData.nome_completo,
           email: formData.email,
           cellphone: formData.telefone,
-          taxId: formData.cpf
+          taxId: ''
         },
         metadata: {
           externalId: `agenda_${token}_${Date.now()}`,
@@ -303,18 +300,18 @@ export default function AgendarPublicoPage() {
 
       const eventData = {
         title: `${tiposCall[tipoCallSelecionado].nome} - ${formData.nome_completo}`,
-        description: `${tiposCall[tipoCallSelecionado].nome} agendada via link público.\n\nObjetivo: ${formData.objetivo_call}\n\nPagamento ID: ${pagamentoId}`,
+        description: `${tiposCall[tipoCallSelecionado].nome} agendada via link público.\n\nPagamento ID: ${pagamentoId}`,
         start_datetime: startDateTime.toISOString(),
         end_datetime: endDateTime.toISOString(),
         lead_id: agendaLink?.lead_id || null,
         mentorado_id: agendaLink?.mentorado_id || null,
+        closer_id: (agendaLink as any)?.closer_id || null,
         tipo_call: tipoCallSelecionado,
         origem_agendamento: agendaLink?.lead_id ? 'link_lead' : agendaLink?.mentorado_id ? 'link_mentorado' : 'link_publico',
         nome_contato: formData.nome_completo,
         email_contato: formData.email,
         telefone_contato: formData.telefone,
         whatsapp_contato: formData.whatsapp,
-        objetivo_call: formData.objetivo_call,
         status_confirmacao: 'agendado',
         valor_produto: tiposCall[tipoCallSelecionado].preco,
         all_day: false
@@ -371,9 +368,6 @@ export default function AgendarPublicoPage() {
 ${formData.nome_completo}
 📧 ${formData.email}
 📱 ${formData.telefone || formData.whatsapp || 'Não informado'}
-
-🎯 OBJETIVO:
-${formData.objetivo_call || 'Não especificado'}
 
 💰 VALOR: R$ ${tiposCall[tipoCallSelecionado]?.preco?.toLocaleString('pt-BR') || '0,00'}
 
@@ -463,7 +457,7 @@ ${formData.objetivo_call || 'Não especificado'}
               </div>
               <div>
                 <h1 className="text-xl font-bold" style={{ color: 'var(--text-main)' }}>Agendamento Online</h1>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Com Paulo Guimarães - Consultor Sênior</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Com {(agendaLink as any)?.closers?.nome_completo || 'Consultor'}</p>
               </div>
             </div>
             {step < 6 && (
@@ -884,34 +878,9 @@ ${formData.objetivo_call || 'Não especificado'}
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    CPF *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.cpf}
-                    onChange={(e) => setFormData(prev => ({ ...prev, cpf: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                    placeholder="000.000.000-00"
-                  />
-                </div>
               </div>
 
-              <div className="mt-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Qual o objetivo desta reunião? *
-                </label>
-                <textarea
-                  required
-                  value={formData.objetivo_call}
-                  onChange={(e) => setFormData(prev => ({ ...prev, objetivo_call: e.target.value }))}
-                  rows={4}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors resize-none"
-                  placeholder="Conte um pouco sobre o que você gostaria de conversar, seus desafios ou objetivos..."
-                />
-              </div>
+              {/* Objetivo removido - desnecessário para o lead */}
             </div>
 
             {/* Botões de navegação */}
@@ -925,7 +894,7 @@ ${formData.objetivo_call || 'Não especificado'}
               </button>
               <button
                 onClick={criarCheckout}
-                disabled={!formData.nome_completo || !formData.email || !formData.telefone || !formData.objetivo_call || loadingCheckout}
+                disabled={!formData.nome_completo || !formData.email || !formData.telefone || loadingCheckout}
                 className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-8 py-3 rounded-xl font-medium transition-colors inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loadingCheckout ? (
@@ -1137,8 +1106,8 @@ ${formData.objetivo_call || 'Não especificado'}
                       <User className="w-5 h-5 text-emerald-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">Com Paulo Guimarães</p>
-                      <p className="text-sm text-gray-600">Consultor Sênior</p>
+                      <p className="font-medium text-gray-900">Com {(agendaLink as any)?.closers?.nome_completo || 'Consultor'}</p>
+                      <p className="text-sm text-gray-600">Consultor</p>
                     </div>
                   </div>
                 </div>

@@ -12,7 +12,7 @@ import {
   Plus,
   RefreshCw,
   Download,
-  Eye,
+  Eye, EyeOff,
   Calendar,
   PieChart,
   BarChart3,
@@ -85,6 +85,7 @@ export default function FinanceiroDashboard() {
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [showValues, setShowValues] = useState(true)
   const [chartPeriod, setChartPeriod] = useState('7d')
   const [chartType, setChartType] = useState('entradas')
   const [chartData, setChartData] = useState<number[]>([])
@@ -670,10 +671,12 @@ export default function FinanceiroDashboard() {
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-[#1A1A1A]/80 text-sm font-medium">Caixa Atual</h3>
-                <Eye className="w-5 h-5 text-[#1A1A1A]/60" />
+                <button onClick={() => setShowValues(!showValues)} className="hover:opacity-70 transition-opacity">
+                  {showValues ? <Eye className="w-5 h-5 text-[#1A1A1A]/60" /> : <EyeOff className="w-5 h-5 text-[#1A1A1A]/60" />}
+                </button>
               </div>
               <div className="text-4xl font-bold mb-2 text-[#1A1A1A]">
-                {formatCurrency(metrics.caixa_atual)}
+                {showValues ? formatCurrency(metrics.caixa_atual) : '•••••'}
               </div>
               <div className="flex items-center text-[#1A1A1A]/80">
                 <ArrowUpRight className="w-4 h-4 mr-1" />
@@ -694,7 +697,7 @@ export default function FinanceiroDashboard() {
               </span>
             </div>
             <h3 className="text-slate-600 text-sm mb-1">Entradas</h3>
-            <p className="text-2xl font-bold text-slate-800">{formatCurrency(metrics.entradas_mes)}</p>
+            <p className="text-2xl font-bold text-slate-800">{showValues ? formatCurrency(metrics.entradas_mes) : '•••••'}</p>
           </div>
 
           {/* Saídas */}
@@ -708,7 +711,7 @@ export default function FinanceiroDashboard() {
               </span>
             </div>
             <h3 className="text-slate-600 text-sm mb-1">Saídas</h3>
-            <p className="text-2xl font-bold text-slate-800">{formatCurrency(metrics.saidas_mes)}</p>
+            <p className="text-2xl font-bold text-slate-800">{showValues ? formatCurrency(metrics.saidas_mes) : '•••••'}</p>
           </div>
 
           {/* Resultado Líquido */}
@@ -719,7 +722,7 @@ export default function FinanceiroDashboard() {
               </div>
             </div>
             <h3 className="text-slate-600 text-sm mb-1">Líquido</h3>
-            <p className="text-2xl font-bold text-slate-800">{formatCurrency(metrics.resultado_liquido)}</p>
+            <p className="text-2xl font-bold text-slate-800">{showValues ? formatCurrency(metrics.resultado_liquido) : '•••••'}</p>
           </div>
 
           {/* Contas a Pagar */}
@@ -730,7 +733,7 @@ export default function FinanceiroDashboard() {
               </div>
             </div>
             <h3 className="text-slate-600 text-sm mb-1">A Pagar</h3>
-            <p className="text-2xl font-bold text-slate-800">{formatCurrency(metrics.contas_pagar)}</p>
+            <p className="text-2xl font-bold text-slate-800">{showValues ? formatCurrency(metrics.contas_pagar) : '•••••'}</p>
           </div>
         </div>
 

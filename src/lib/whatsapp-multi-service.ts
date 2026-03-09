@@ -256,7 +256,7 @@ class WhatsAppMultiService {
   async getChats(): Promise<ApiResponse<Chat[]>> {
     const userId = await this.getUserId();
     console.log('💬 Obtendo chats para userId:', userId);
-    return this.request<Chat[]>(`/users/${userId}/chats`);
+    return this.request<Chat[]>(`/users/${userId}/chats`, undefined, true);
   }
 
   /**
