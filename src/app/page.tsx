@@ -63,6 +63,18 @@ export default function DashboardPage() {
     }))
   }
 
+  const toggleAllVisibility = () => {
+    const newValue = !showValues
+    setShowValues(newValue)
+    setVisibilityControls({
+      valorVendido: newValue,
+      valorArrecadado: newValue,
+      meta: newValue,
+      percentualMeta: newValue,
+      percentualArrecadacao: newValue
+    })
+  }
+
   const handleDateRangeChange = (startDate: string, endDate: string) => {
     setCustomDateRange({ start: startDate, end: endDate })
   }
@@ -781,9 +793,9 @@ export default function DashboardPage() {
               <h3 className="text-lg font-semibold text-orange-700">Faturamento</h3>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setShowValues(!showValues)}
+                  onClick={toggleAllVisibility}
                   className="p-1 hover:bg-orange-100 rounded-full transition-colors"
-                  title={showValues ? "Ocultar valores" : "Mostrar valores"}
+                  title={showValues ? "Ocultar todos os valores" : "Mostrar todos os valores"}
                 >
                   {showValues ? (
                     <EyeOff className="w-4 h-4 text-orange-600" />
