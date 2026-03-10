@@ -106,51 +106,49 @@ Fique de olho aqui no WhatsApp!`
       results.push({ step: 'create-contract', success: false, error: err.message })
     }
 
-    // 4. Enviar link do contrato via WhatsApp
-    if (contractId && validJid) {
+    // 4. Enviar link de CUSTOMIZAÇÃO para o FINANCEIRO (não o link de assinatura pro lead)
+    // O financeiro vai personalizar forma de pagamento, valor etc. e depois o sistema envia pro lead
+    if (contractId) {
       try {
-        const signingUrl = `${APP_URL}/assinar-contrato/${contractId}`
-        const contractMessage = `📋 *Contrato Digital - Médicos de Resultado*
+        // Buscar telefone do financeiro da organização
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('financeiro_phone')
+          .eq('id', organizationId)
+          .single()
 
-Olá *${leadName}*!
+        const financeiroPhone = orgData?.financeiro_phone?.replace(/\D/g, '')
 
-Seu contrato está pronto para assinatura digital:
+        if (!financeiroPhone) {
+          results.push({ step: 'send-customization-to-financial', success: false, error: 'Telefone do financeiro não configurado na organização' })
+        } else {
+          const customizationUrl = `${APP_URL}/personalizar-contrato/${contractId}`
+          const financialMessage = `📋 *Novo contrato para personalizar*
 
-✅ *Para assinar:*
-1️⃣ Clique no link abaixo
-2️⃣ Leia o contrato completo
-3️⃣ Preencha seus dados
-4️⃣ Faça sua assinatura digital
+Olá! Um novo lead foi convertido e precisa de contrato:
 
-🔗 *Link para assinatura:*
-${signingUrl}
+👤 *Nome:* ${leadName}
+📧 *Email:* ${leadEmail || 'Não informado'}
+📱 *Telefone:* ${leadPhone || 'Não informado'}
 
-⏰ *Importante:* Assine o quanto antes para liberar seu acesso!
+🔗 *Personalize o contrato aqui:*
+${customizationUrl}
 
-🔒 Sua assinatura é protegida e tem validade legal.`
+Defina o valor, forma de pagamento e envie o link de assinatura para o cliente.`
 
-        // Small delay to avoid message ordering issues
-        await new Promise(r => setTimeout(r, 2000))
+          // Small delay to avoid message ordering issues
+          await new Promise(r => setTimeout(r, 2000))
 
-        const sendRes = await fetch(`${BAILEYS_API}/users/${organizationId}/send`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: validJid, message: contractMessage })
-        })
-        const sendData = await sendRes.json()
-        results.push({ step: 'send-contract-link', success: !!sendData.success, error: sendData.error })
-
-        // Update contract with WhatsApp sent timestamp
-        if (sendData.success) {
-          await supabase
-            .from('contracts')
-            .update({
-              whatsapp_sent_at: new Date().toISOString()
-            })
-            .eq('id', contractId)
+          const sendRes = await fetch(`${BAILEYS_API}/users/${organizationId}/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: financeiroPhone, message: financialMessage })
+          })
+          const sendData = await sendRes.json()
+          results.push({ step: 'send-customization-to-financial', success: !!sendData.success, error: sendData.error })
         }
       } catch (err: any) {
-        results.push({ step: 'send-contract-link', success: false, error: err.message })
+        results.push({ step: 'send-customization-to-financial', success: false, error: err.message })
       }
     }
 
