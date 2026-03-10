@@ -318,7 +318,7 @@ export default function OrganizationManagementPage() {
                 <div>
                   <p className="text-xs font-medium text-white/40">Comissão Fixa de Indicação</p>
                   <p className="text-base font-semibold text-emerald-400 mt-0.5">
-                    R$ {organization.comissao_fixa_indicacao?.toFixed(2) || '0.00'}
+                    R$ {Number(organization.comissao_fixa_indicacao || 0).toFixed(2)}
                   </p>
                 </div>
                 {canManageOrganization && (

@@ -36,7 +36,6 @@ interface MentoradoComMapa {
   mindMap?: {
     id: string
     title: string
-    nodes: any[]
     updated_at: string
   }
 }
@@ -59,30 +58,31 @@ export default function MapasMentaisPage() {
     try {
       setLoading(true)
 
-      // Buscar mentorados da organização
-      const { data: mentoradosData, error: mentoradosError } = await supabase
-        .from('mentorados')
-        .select('*')
-        .eq('organization_id', activeOrganizationId)
-        .order('nome_completo')
-
-      if (mentoradosError) throw mentoradosError
-
-      // Buscar mapas mentais para cada mentorado
-      const mentoradosComMapas: MentoradoComMapa[] = []
-
-      for (const mentorado of mentoradosData || []) {
-        const { data: mindMapData, error: mindMapError } = await supabase
+      // Buscar mentorados e mapas em paralelo (evita N+1)
+      const [mentoradosRes, mindMapsRes] = await Promise.all([
+        supabase
+          .from('mentorados')
+          .select('id, nome_completo, email, estado_atual, created_at, organization_id')
+          .eq('organization_id', activeOrganizationId)
+          .order('nome_completo'),
+        supabase
           .from('mind_maps')
-          .select('*')
-          .eq('mentorado_id', mentorado.id)
-          .single()
+          .select('id, mentorado_id, title, updated_at')
+          .eq('organization_id', activeOrganizationId)
+      ])
 
-        mentoradosComMapas.push({
-          ...mentorado,
-          mindMap: mindMapError ? undefined : mindMapData
-        })
+      if (mentoradosRes.error) throw mentoradosRes.error
+
+      // Indexar mapas por mentorado_id para lookup O(1)
+      const mindMapsByMentorado = new Map<string, any>()
+      for (const mm of mindMapsRes.data || []) {
+        mindMapsByMentorado.set(mm.mentorado_id, mm)
       }
+
+      const mentoradosComMapas: MentoradoComMapa[] = (mentoradosRes.data || []).map(m => ({
+        ...m,
+        mindMap: mindMapsByMentorado.get(m.id)
+      }))
 
       setMentorados(mentoradosComMapas)
     } catch (error) {
@@ -284,13 +284,6 @@ export default function MapasMentaisPage() {
                     </div>
 
                     <div className="space-y-2 mb-4">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">Nós no mapa</span>
-                        <span className="text-white font-medium">
-                          {mentorado.mindMap?.nodes?.length || 0}
-                        </span>
-                      </div>
-
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-500">Última atualização</span>
                         <span className="text-white">

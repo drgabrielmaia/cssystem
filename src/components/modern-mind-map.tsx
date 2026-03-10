@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
   Plus, Minus, Save, X, ArrowLeft, Share2, Play, Search, Video, Loader2,
-  Undo2, Redo2, StickyNote, Download, Palette, Maximize, ChevronRight
+  Undo2, Redo2, StickyNote, Download, Palette, Maximize, ChevronRight, Target
 } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth'
@@ -56,27 +56,19 @@ interface HistoryState {
   edges: MindMapEdge[]
 }
 
-// Paleta de cores rica estilo MindMeister
+// Paleta de cores Rolex
 const BRANCH_COLORS = [
-  '#4F46E5', // Indigo
-  '#7C3AED', // Violet
-  '#DB2777', // Pink
-  '#059669', // Emerald
-  '#D97706', // Amber
-  '#2563EB', // Blue
-  '#DC2626', // Red
-  '#0891B2', // Cyan
+  '#006039', // Verde Rolex
+  '#D4AF37', // Dourado Rolex
+  '#000000', // Preto
+  '#FFFFFF', // Branco
 ]
 
 const BRANCH_BG_COLORS: Record<string, string> = {
-  '#4F46E5': '#EEF2FF',
-  '#7C3AED': '#F5F3FF',
-  '#DB2777': '#FDF2F8',
-  '#059669': '#ECFDF5',
-  '#D97706': '#FFFBEB',
-  '#2563EB': '#EFF6FF',
-  '#DC2626': '#FEF2F2',
-  '#0891B2': '#ECFEFF',
+  '#006039': '#ECFDF5',
+  '#D4AF37': '#FFFBEB',
+  '#000000': '#F3F4F6',
+  '#FFFFFF': '#F9FAFB',
 }
 
 // ==========================================
@@ -439,8 +431,17 @@ const ModernMindMap = ({
 
       if (data) {
         setMindMapId(data.id)
-        setNodes(data.nodes || [])
-        setEdges(data.connections || [])
+        // Support both formats: data JSONB column and legacy separate columns
+        const mapData = typeof data.data === 'string' ? JSON.parse(data.data) : (data.data || {})
+        const loadedNodes = mapData.nodes || data.nodes || []
+        const loadedEdges = mapData.connections || data.connections || []
+        if (mapData.settings) {
+          setScale(mapData.settings.scale || 1)
+          setTranslateX(mapData.settings.translateX || 0)
+          setTranslateY(mapData.settings.translateY || 0)
+        }
+        setNodes(loadedNodes)
+        setEdges(loadedEdges)
       } else {
         const centerX = 400
         const centerY = 300
@@ -473,16 +474,15 @@ const ModernMindMap = ({
       const mindMapData = {
         mentorado_id: mentorado.id,
         title: `Mapa Mental - ${mentorado.nome_completo}`,
-        nodes, connections: edges,
-        settings: { scale, translateX, translateY },
+        data: JSON.stringify({ nodes, connections: edges, settings: { scale, translateX, translateY } }),
         updated_at: new Date().toISOString()
       }
       if (mindMapId) {
         const { error } = await supabase.from('mind_maps').update(mindMapData).eq('id', mindMapId).select().single()
         if (error) throw error
       } else {
-        const { data } = await supabase.from('mind_maps').insert([mindMapData]).select().single()
-        if (data) setMindMapId(data.id)
+        const { data: inserted } = await supabase.from('mind_maps').insert([mindMapData]).select().single()
+        if (inserted) setMindMapId(inserted.id)
       }
       setHasChanges(false)
     } catch (err) {
@@ -724,6 +724,50 @@ const ModernMindMap = ({
     setHasChanges(true)
   }, [nodes, pushUndo])
 
+  // Create a goal from a mind map node
+  const createGoalFromNode = useCallback(async (nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId)
+    if (!node) return
+
+    // If already a meta, just toggle it off
+    if (node.nodeType === 'meta') {
+      pushUndo()
+      setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, nodeType: 'default' } : n))
+      setHasChanges(true)
+      return
+    }
+
+    try {
+      // Create goal in video_learning_goals table
+      const { data: goalData, error } = await supabase
+        .from('video_learning_goals')
+        .insert([{
+          mentorado_id: mentorado.id,
+          title: node.text,
+          description: node.notes || `Meta criada a partir do mapa mental`,
+          status: 'active',
+          target_value: 100,
+          current_value: 0,
+        }])
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Erro ao criar meta:', error)
+        alert('Erro ao criar meta. Verifique se a tabela video_learning_goals está disponível.')
+        return
+      }
+
+      // Mark the node as a meta
+      pushUndo()
+      setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, nodeType: 'meta' } : n))
+      setHasChanges(true)
+      alert(`Meta "${node.text}" criada com sucesso! Visível na tela de metas do mentorado.`)
+    } catch (err) {
+      console.error('Erro ao criar meta:', err)
+    }
+  }, [nodes, mentorado, pushUndo])
+
   const changeNodeColor = useCallback((nodeId: string, color: string) => {
     pushUndo()
     // Get all descendants
@@ -887,8 +931,14 @@ const ModernMindMap = ({
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
-    const delta = e.deltaY > 0 ? 0.9 : 1.1
-    setScale(prev => Math.max(0.3, Math.min(3, prev * delta)))
+    // Ctrl+scroll or pinch = zoom, normal scroll = pan
+    if (e.ctrlKey || e.metaKey) {
+      const delta = e.deltaY > 0 ? 0.9 : 1.1
+      setScale(prev => Math.max(0.3, Math.min(3, prev * delta)))
+    } else {
+      setTranslateX(prev => prev - e.deltaX)
+      setTranslateY(prev => prev - e.deltaY)
+    }
   }, [])
 
   const zoomToFit = useCallback(() => {
@@ -1053,6 +1103,7 @@ const ModernMindMap = ({
     const hasLesson = !!node.linkedLesson?.id
     const hasNotes = !!node.notes
     const nodeColor = node.color || BRANCH_COLORS[0]
+    const isLightColor = nodeColor === '#FFFFFF' || nodeColor === '#D4AF37'
     const isDragging = dragRef.current.active && dragRef.current.nodeId === node.id
     const isHighlighted = highlightedNodeIds.has(node.id)
     const childCount = nodes.filter(n => n.parentId === node.id).length
@@ -1109,6 +1160,12 @@ const ModernMindMap = ({
           <button className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-110 transition-transform" style={{ backgroundColor: '#7C3AED' }}
             onMouseDown={e => e.stopPropagation()} onClick={e => linkLesson(node.id, e)} title="Linkar aula">
             <Video className="w-3 h-3" />
+          </button>
+        )}
+        {!isRoot && (
+          <button className={`w-6 h-6 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-110 transition-transform ${node.nodeType === 'meta' ? 'bg-yellow-500' : 'bg-cyan-600'}`}
+            onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); createGoalFromNode(node.id) }} title="Criar Meta">
+            <Target className="w-3 h-3" />
           </button>
         )}
         <button className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-110 transition-transform"
@@ -1186,24 +1243,24 @@ const ModernMindMap = ({
               ${isSelected && canEdit ? 'ring-4 ring-white/50 shadow-2xl scale-105' : ''}
               ${isHighlighted ? 'ring-4 ring-yellow-400' : ''}
             `}
-            style={{ backgroundColor: nodeColor }}
+            style={{ backgroundColor: nodeColor, ...(nodeColor === '#FFFFFF' ? { border: '2px solid #E5E7EB' } : {}) }}
           >
             {hasLesson && (
-              <div className="w-7 h-7 rounded-full bg-white/25 flex items-center justify-center flex-shrink-0">
-                <Play className="h-3.5 w-3.5 text-white/90 ml-0.5" />
+              <div className={`w-7 h-7 rounded-full ${isLightColor ? 'bg-black/10' : 'bg-white/25'} flex items-center justify-center flex-shrink-0`}>
+                <Play className={`h-3.5 w-3.5 ${isLightColor ? 'text-gray-700' : 'text-white/90'} ml-0.5`} />
               </div>
             )}
             {hasNotes && (
-              <button className="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center flex-shrink-0 hover:bg-white/40 transition-colors"
+              <button className={`w-5 h-5 rounded-full ${isLightColor ? 'bg-black/10 hover:bg-black/20' : 'bg-white/25 hover:bg-white/40'} flex items-center justify-center flex-shrink-0 transition-colors`}
                 onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); openNotes(node.id) }}>
-                <StickyNote className="h-3 w-3 text-white/80" />
+                <StickyNote className={`h-3 w-3 ${isLightColor ? 'text-gray-700' : 'text-white/80'}`} />
               </button>
             )}
-            <span className="text-[15px] font-bold text-white font-sans" style={{ maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span className={`text-[15px] font-bold font-sans ${isLightColor ? 'text-gray-900' : 'text-white'}`} style={{ maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {node.text}
             </span>
             {hasLesson && canEdit && (
-              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20 text-white/80 flex-shrink-0">
+              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${isLightColor ? 'bg-black/10 text-gray-700' : 'bg-white/20 text-white/80'} flex-shrink-0`}>
                 {node.linkedLesson!.title.length > 12 ? node.linkedLesson!.title.slice(0, 12) + '...' : node.linkedLesson!.title}
               </span>
             )}
@@ -1224,8 +1281,14 @@ const ModernMindMap = ({
               ${isHighlighted ? 'bg-yellow-50/80 ring-2 ring-yellow-400' : ''}
             `}
           >
-            {/* Colored connector dot */}
-            <div className="w-3.5 h-3.5 rounded-full flex-shrink-0 shadow-sm border-2 border-white" style={{ backgroundColor: nodeColor }} />
+            {/* Colored connector dot or meta icon */}
+            {node.nodeType === 'meta' ? (
+              <div className="w-4 h-4 rounded-full bg-cyan-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <Target className="h-2.5 w-2.5 text-white" />
+              </div>
+            ) : (
+              <div className="w-3.5 h-3.5 rounded-full flex-shrink-0 shadow-sm border-2 border-white" style={{ backgroundColor: nodeColor }} />
+            )}
             {hasLesson && (
               <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: nodeColor }}>
                 <Play className="h-3 w-3 text-white ml-0.5" />
@@ -1257,7 +1320,7 @@ const ModernMindMap = ({
             {BRANCH_COLORS.map(c => (
               <button
                 key={c}
-                className={`w-7 h-7 rounded-full border-2 shadow-sm hover:scale-125 transition-transform ${c === nodeColor ? 'border-gray-800 scale-110' : 'border-white'}`}
+                className={`w-7 h-7 rounded-full border-2 shadow-sm hover:scale-125 transition-transform ${c === nodeColor ? 'border-gray-800 scale-110' : c === '#FFFFFF' ? 'border-gray-300' : 'border-white'}`}
                 style={{ backgroundColor: c }}
                 onMouseDown={e => e.stopPropagation()}
                 onClick={e => { e.stopPropagation(); changeNodeColor(node.id, c) }}
@@ -1408,7 +1471,7 @@ const ModernMindMap = ({
           }}
         >
           {/* Edges */}
-          <svg className="absolute pointer-events-none" style={{ width: '5000px', height: '5000px', left: '-2500px', top: '-2500px' }}>
+          <svg className="absolute pointer-events-none" style={{ width: '5000px', height: '5000px', left: '-2500px', top: '-2500px', overflow: 'visible' }} viewBox="-2500 -2500 5000 5000">
             {visibleEdges.map(edge => {
               const from = visibleNodes.find(n => n.id === edge.fromNodeId)
               const to = visibleNodes.find(n => n.id === edge.toNodeId)
@@ -1437,7 +1500,8 @@ const ModernMindMap = ({
             <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Setas</kbd> Navegar</li>
             <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Ctrl+Z/Y</kbd> Desfazer/Refazer</li>
             <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Ctrl+F</kbd> Buscar</li>
-            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Scroll</kbd> Zoom</li>
+            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Scroll</kbd> Mover mapa</li>
+            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Ctrl+Scroll</kbd> Zoom</li>
           </ul>
         </div>
       )}
@@ -1484,7 +1548,7 @@ const ModernMindMap = ({
                 onChange={e => setNotesText(e.target.value)}
                 readOnly={isReadOnly}
                 placeholder="Adicionar notas..."
-                className="w-full h-40 p-3 border rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                className="w-full h-40 p-3 border rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-900 bg-white"
                 autoFocus
               />
             </div>

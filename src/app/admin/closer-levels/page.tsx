@@ -180,6 +180,8 @@ export default function CloserLevelsPage() {
     try {
       const levelsToInsert = DEFAULT_LEVELS.map(level => ({
         ...level,
+        name: level.nome_nivel,
+        color: level.cor,
         organization_id: organizationId,
         ativo: true
       }))
