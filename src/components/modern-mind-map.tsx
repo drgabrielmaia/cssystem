@@ -194,6 +194,14 @@ const LessonPickerModal = ({
 // ==========================================
 // VIDEO PLAYER MODAL
 // ==========================================
+const buildPandaUrl = (embedUrl: string): string => {
+  if (!embedUrl) return ''
+  // If already a full URL, use as-is
+  if (embedUrl.startsWith('http')) return embedUrl
+  // UUID → build PandaVideo embed URL
+  return `https://player-vz-00efd930-2fc.tv.pandavideo.com.br/embed/?v=${embedUrl}`
+}
+
 const VideoPlayerModal = ({ lesson, onClose }: { lesson: LinkedLesson; onClose: () => void }) => (
   <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4" onClick={onClose}>
     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col" onClick={e => e.stopPropagation()}>
@@ -206,7 +214,7 @@ const VideoPlayerModal = ({ lesson, onClose }: { lesson: LinkedLesson; onClose: 
       </div>
       <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
         {lesson.embedUrl ? (
-          <iframe src={lesson.embedUrl} className="absolute inset-0 w-full h-full rounded-b-2xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+          <iframe src={buildPandaUrl(lesson.embedUrl)} className="absolute inset-0 w-full h-full rounded-b-2xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-b-2xl">
             <div className="text-center text-gray-500"><Video className="h-16 w-16 mx-auto mb-3 text-gray-300" /><p>Video nao disponivel</p></div>
