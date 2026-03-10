@@ -507,6 +507,21 @@ Apos personalizar, o sistema enviara automaticamente o link de assinatura para o
     })
   }
 
+  const toggleTemplateActive = async (template: ContractTemplate) => {
+    try {
+      const { error } = await supabase
+        .from('contract_templates')
+        .update({ is_active: !template.is_active })
+        .eq('id', template.id)
+
+      if (error) throw error
+      loadData()
+    } catch (error) {
+      console.error('Erro ao alterar status do template:', error)
+      alert('Erro ao alterar status do template')
+    }
+  }
+
   const startEditTemplate = (template: ContractTemplate) => {
     setEditingTemplate(template)
     setTemplateForm({
@@ -1289,13 +1304,17 @@ Assinatura do Contratante`
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border ${
-                        template.is_active
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                          : 'bg-white/[0.04] text-white/30 border-white/[0.06]'
-                      }`}>
+                      <button
+                        onClick={() => toggleTemplateActive(template)}
+                        className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+                          template.is_active
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                            : 'bg-white/[0.04] text-white/30 border-white/[0.06] hover:bg-white/[0.08] hover:text-white/50'
+                        }`}
+                        title={template.is_active ? 'Clique para desativar' : 'Clique para ativar'}
+                      >
                         {template.is_active ? 'Ativo' : 'Inativo'}
-                      </span>
+                      </button>
                       <button
                         onClick={() => startEditTemplate(template)}
                         className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white/50 hover:bg-white/[0.08] hover:text-white/80 transition-colors"
