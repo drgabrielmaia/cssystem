@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { ChevronUp, ChevronDown, Check, AlertCircle, Loader2, ArrowLeft, ArrowRight } from 'lucide-react'
@@ -81,6 +81,12 @@ export default function FormPageSafe() {
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set())
   const [bookingToken, setBookingToken] = useState<string | null>(null)
   const [direction, setDirection] = useState<'next' | 'prev'>('next')
+  const draftIdRef = useRef<string | null>(null)
+  const sessionIdRef = useRef<string>(
+    typeof window !== 'undefined'
+      ? sessionStorage.getItem(`form_session_${slug}`) || `fs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      : `fs_${Date.now()}`
+  )
 
   // ─── Step creation ─────────────────────────────────────────────────
   const createSteps = useCallback((fields: FormField[]) => {
@@ -91,6 +97,84 @@ export default function FormPageSafe() {
       fields: [field],
     }))
     setSteps(stepsFromFields)
+  }, [])
+
+  // ─── Autosave draft ────────────────────────────────────────────────
+  const saveDraft = useCallback(async (data: Record<string, any>, step: number) => {
+    if (!template) return
+    try {
+      const sessionId = sessionIdRef.current
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(`form_session_${slug}`, sessionId)
+      }
+      const draftPayload = {
+        form_id: template.id,
+        organization_id: template.organization_id || null,
+        session_id: sessionId,
+        is_completed: false,
+        data: { ...data, _current_step: step, template_slug: slug },
+        metadata: { autosave: true, step },
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        updated_at: new Date().toISOString(),
+      }
+
+      if (draftIdRef.current) {
+        await supabase.from('form_submissions').update(draftPayload).eq('id', draftIdRef.current)
+      } else {
+        const { data: existing } = await supabase
+          .from('form_submissions')
+          .select('id, data')
+          .eq('session_id', sessionId)
+          .eq('is_completed', false)
+          .single()
+
+        if (existing) {
+          draftIdRef.current = existing.id
+          await supabase.from('form_submissions').update(draftPayload).eq('id', existing.id)
+        } else {
+          const { data: created } = await supabase
+            .from('form_submissions')
+            .insert([draftPayload])
+            .select('id')
+            .single()
+          if (created) draftIdRef.current = created.id
+        }
+      }
+    } catch (err) {
+      console.error('Autosave error:', err)
+    }
+  }, [template, slug])
+
+  // Restore draft on load
+  const restoreDraft = useCallback(async (formTemplate: FormTemplate) => {
+    try {
+      const sessionId = sessionIdRef.current
+      const { data: draft } = await supabase
+        .from('form_submissions')
+        .select('id, data')
+        .eq('session_id', sessionId)
+        .eq('is_completed', false)
+        .single()
+
+      if (draft?.data) {
+        draftIdRef.current = draft.id
+        const saved = draft.data as Record<string, any>
+        const step = saved._current_step || 0
+        const restored: Record<string, any> = {}
+        formTemplate.fields.forEach(f => {
+          if (saved[f.name] !== undefined) restored[f.name] = saved[f.name]
+        })
+        if (Object.keys(restored).length > 0) {
+          setFormData(restored)
+          setCurrentStep(step)
+          const completed = new Set<number>()
+          for (let i = 0; i < step; i++) completed.add(i)
+          setCompletedSteps(completed)
+        }
+      }
+    } catch {
+      // No draft found, start fresh
+    }
   }, [])
 
   // ─── Effects ───────────────────────────────────────────────────────
@@ -112,6 +196,7 @@ export default function FormPageSafe() {
           const mapped = { ...data, leadQualification: data.lead_qualification || undefined }
           setTemplate(mapped)
           createSteps(data.fields)
+          await restoreDraft(mapped)
         }
       } catch {
         setTemplate(null)
@@ -123,8 +208,18 @@ export default function FormPageSafe() {
   }, [slug, mounted, createSteps])
 
   // ─── Form logic ────────────────────────────────────────────────────
+  const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   const handleInputChange = (name: string, value: any) => {
-    setFormData(prev => ({ ...prev, [name]: value }))
+    setFormData(prev => {
+      const updated = { ...prev, [name]: value }
+      // Debounced autosave on every field change
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
+      autosaveTimerRef.current = setTimeout(() => {
+        saveDraft(updated, currentStep)
+      }, 1500)
+      return updated
+    })
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }))
   }
 
@@ -165,8 +260,11 @@ export default function FormPageSafe() {
     if (validateStep(currentStep)) {
       setCompletedSteps(prev => new Set(Array.from(prev).concat(currentStep)))
       if (currentStep < steps.length - 1) {
+        const nextStepIdx = currentStep + 1
         setDirection('next')
-        setCurrentStep(prev => prev + 1)
+        setCurrentStep(nextStepIdx)
+        // Immediate save on step advance
+        saveDraft(formData, nextStepIdx)
       }
     }
   }
@@ -241,6 +339,20 @@ export default function FormPageSafe() {
     }
   }
 
+  // Helper to save final submission (update draft or create new)
+  const saveSubmission = async (payload: Record<string, any>) => {
+    const finalPayload = { ...payload, is_completed: true, session_id: sessionIdRef.current, updated_at: new Date().toISOString() }
+    if (draftIdRef.current) {
+      await supabase.from('form_submissions').update(finalPayload).eq('id', draftIdRef.current)
+    } else {
+      await supabase.from('form_submissions').insert([finalPayload])
+    }
+    // Clear session storage
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(`form_session_${slug}`)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validateForm()) return
@@ -270,13 +382,13 @@ export default function FormPageSafe() {
         })
         const { data: lead } = await supabase.from('leads').insert([leadData]).select('id').single()
         const leadId = lead?.id
-        await supabase.from('form_submissions').insert([{
+        await saveSubmission({
           form_id: template.id,
           organization_id: template.organization_id || null, lead_id: leadId,
           data: { ...formData, score, temperatura, closer_id: closerId, template_slug: slug },
           metadata: { score, temperatura, closer_id: closerId },
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-        }])
+        })
         if (template.leadQualification.enableCalendar && leadId) {
           // Use closer from score or fallback to any configured closer
           const finalCloserId = closerId
@@ -343,14 +455,14 @@ export default function FormPageSafe() {
         const { data: lead } = await supabase.from('leads').insert([leadData]).select().single()
         if (lead) leadId = lead.id
       }
-      await supabase.from('form_submissions').insert([{
+      await saveSubmission({
         form_id: template?.id,
         organization_id: template?.organization_id || null,
         lead_id: leadId,
         data: { ...formData, template_slug: slug, source_url: 'form_safe' },
         metadata: { source_url: 'form_safe' },
         user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-      }])
+      })
       if (template?.form_type === 'lead' && leadId) {
         await createBookingLink(leadId, null)
       } else {
