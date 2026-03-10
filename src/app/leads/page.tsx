@@ -746,13 +746,10 @@ export default function LeadsPage() {
           // Criar contrato automaticamente
           const { data: contractId, error: contractError } = await supabase.rpc('create_contract_from_template', {
             p_template_id: defaultTemplate.id,
-            p_recipient_name: mentorado.nome_completo,
-            p_recipient_email: mentorado.email,
-            p_recipient_phone: mentorado.telefone,
             p_organization_id: organizationId,
-            p_created_by_email: 'auto_lead_conversion',
             p_mentorado_id: mentorado.id,
-            p_placeholders: {}
+            p_recipient_name: mentorado.nome_completo,
+            p_recipient_email: mentorado.email
           })
 
           if (!contractError && contractId) {
