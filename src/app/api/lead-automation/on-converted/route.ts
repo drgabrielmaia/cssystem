@@ -85,13 +85,10 @@ Fique de olho aqui no WhatsApp!`
       } else {
         const { data: newContractId, error: contractError } = await supabase.rpc('create_contract_from_template', {
           p_template_id: defaultTemplate.id,
-          p_recipient_name: leadName,
-          p_recipient_email: leadEmail,
-          p_recipient_phone: leadPhone || null,
           p_organization_id: organizationId,
-          p_created_by_email: 'auto_lead_conversion',
           p_lead_id: leadId,
-          p_placeholders: {}
+          p_recipient_name: leadName,
+          p_recipient_email: leadEmail
         })
 
         if (contractError) {
