@@ -27,7 +27,6 @@ import { supabase } from '@/lib/supabase'
 import { EditEventModal } from '@/components/edit-event-modal'
 import { useAuth } from '@/contexts/auth'
 import { whatsappNotifications } from '@/services/whatsapp-notifications'
-import { whatsappMultiService } from '@/lib/whatsapp-multi-service'
 import { generateWeeklyAgenda, generateDailyAgenda } from '@/services/agenda-generator'
 
 interface CalendarEvent {
@@ -144,6 +143,8 @@ export default function CalendarioPage() {
   const [agendaPreview, setAgendaPreview] = useState('')
   const [isSendingAgenda, setIsSendingAgenda] = useState(false)
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
+  const [linkedGroupId, setLinkedGroupId] = useState('')
+  const [linkedGroupName, setLinkedGroupName] = useState('')
 
   // Closers
   const [closers, setClosers] = useState<Array<{id: string, nome_completo: string}>>([])
@@ -179,8 +180,25 @@ export default function CalendarioPage() {
       loadLeads()
       loadMentorados()
       loadClosers()
+      loadLinkedGroup()
     }
   }, [organizationId])
+
+  const loadLinkedGroup = async () => {
+    if (!organizationId) return
+    try {
+      const { data } = await supabase
+        .from('organizations')
+        .select('whatsapp_group_agenda')
+        .eq('id', organizationId)
+        .single()
+      if (data?.whatsapp_group_agenda) {
+        setLinkedGroupId(data.whatsapp_group_agenda)
+      }
+    } catch (err) {
+      console.error('Erro ao carregar grupo vinculado:', err)
+    }
+  }
 
   const loadLeads = async () => {
     try {
@@ -436,6 +454,23 @@ export default function CalendarioPage() {
 
       setShowNewEventModal(false)
       await fetchEvents()
+
+      // Enviar agenda atualizada do dia ao grupo vinculado
+      if (linkedGroupId && organizationId) {
+        try {
+          const agendaMsg = await generateDailyAgenda(organizationId)
+          const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
+          await fetch(`${apiUrl}/api/whatsapp/send-group`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ groupId: linkedGroupId, message: agendaMsg })
+          })
+          console.log('✅ Agenda do dia enviada ao grupo vinculado')
+        } catch (agendaErr) {
+          console.warn('Erro ao enviar agenda ao grupo:', agendaErr)
+        }
+      }
+
       alert('Evento criado com sucesso!')
     } catch (error) {
       console.error('Erro ao criar evento:', error)
@@ -480,13 +515,11 @@ export default function CalendarioPage() {
   // ─── Agenda WhatsApp ────────────────────────────────────────
   const loadWhatsappGroups = async () => {
     try {
-      const result = await whatsappMultiService.getChats()
-      if (result.success && result.data) {
-        setWhatsappGroups(
-          (result.data as any[])
-            .filter((c: any) => c.isGroup)
-            .map((c: any) => ({ id: c.id, name: c.name || c.id }))
-        )
+      const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
+      const res = await fetch(`${apiUrl}/api/whatsapp/groups`)
+      const json = await res.json()
+      if (json.success && json.groups) {
+        setWhatsappGroups(json.groups.map((g: any) => ({ id: g.id, name: g.name || g.subject || g.id })))
       }
     } catch (err) {
       console.error('Erro ao carregar grupos WhatsApp:', err)
@@ -521,12 +554,18 @@ export default function CalendarioPage() {
     if (!selectedGroup || !agendaPreview) return
     setIsSendingAgenda(true)
     try {
-      const result = await whatsappMultiService.sendMessage(selectedGroup, agendaPreview)
+      const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
+      const res = await fetch(`${apiUrl}/api/whatsapp/send-group`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId: selectedGroup, message: agendaPreview })
+      })
+      const result = await res.json()
       if (result.success) {
         alert('Agenda enviada com sucesso!')
         setShowAgendaModal(false)
       } else {
-        alert('Erro ao enviar: ' + result.error)
+        alert('Erro ao enviar: ' + (result.error || 'Erro desconhecido'))
       }
     } catch {
       alert('Erro ao enviar agenda')
@@ -1136,6 +1175,55 @@ export default function CalendarioPage() {
                 </Select>
               )}
             </div>
+
+            {/* Vincular Grupo */}
+            {whatsappGroups.length > 0 && (
+              <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-[#166534]">Grupo vinculado (envio automático)</p>
+                    <p className="text-xs text-[#15803D]">
+                      {linkedGroupId
+                        ? `Vinculado: ${whatsappGroups.find(g => g.id === linkedGroupId)?.name || linkedGroupId}`
+                        : 'Nenhum grupo vinculado. A agenda será enviada automaticamente ao criar eventos.'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!organizationId || !selectedGroup) return
+                      await supabase
+                        .from('organizations')
+                        .update({ whatsapp_group_agenda: selectedGroup })
+                        .eq('id', organizationId)
+                      setLinkedGroupId(selectedGroup)
+                      setLinkedGroupName(whatsappGroups.find(g => g.id === selectedGroup)?.name || '')
+                      alert('Grupo vinculado com sucesso! A agenda será enviada automaticamente ao criar eventos.')
+                    }}
+                    disabled={!selectedGroup}
+                    className="px-3 py-1.5 bg-[#16A34A] text-white rounded-lg text-xs font-medium hover:bg-[#15803D] transition-colors disabled:opacity-50"
+                  >
+                    Vincular
+                  </button>
+                </div>
+                {linkedGroupId && (
+                  <button
+                    onClick={async () => {
+                      if (!organizationId) return
+                      await supabase
+                        .from('organizations')
+                        .update({ whatsapp_group_agenda: null })
+                        .eq('id', organizationId)
+                      setLinkedGroupId('')
+                      setLinkedGroupName('')
+                      alert('Grupo desvinculado.')
+                    }}
+                    className="text-xs text-red-600 hover:underline"
+                  >
+                    Desvincular grupo
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Gerar Preview */}
             <button
