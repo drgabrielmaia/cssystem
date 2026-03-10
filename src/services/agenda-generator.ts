@@ -24,18 +24,18 @@ interface AgendaEvent {
 
 // ─── Constants ─────────────────────────────────────────────────
 const WEEKDAY_NAMES: Record<number, string> = {
-  0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
-  4: 'Quinta', 5: 'Sexta', 6: 'Sábado'
+  0: 'DOMINGO', 1: 'SEGUNDA-FEIRA', 2: 'TERÇA-FEIRA', 3: 'QUARTA-FEIRA',
+  4: 'QUINTA-FEIRA', 5: 'SEXTA-FEIRA', 6: 'SÁBADO'
 }
 
 // ─── Helpers ───────────────────────────────────────────────────
 function getTemperaturaTag(temp?: string): string {
   if (!temp) return ''
   const t = temp.toLowerCase()
-  if (t === 'quente') return '🔥quente'
-  if (t === 'morno') return '🟡morno'
-  if (t === 'frio') return '❄️frio'
-  if (t === 'elite') return '⭐elite'
+  if (t === 'quente') return '🔥 Quente'
+  if (t === 'morno') return '🟡 Morno'
+  if (t === 'frio') return '❄️ Frio'
+  if (t === 'elite') return '⭐ Elite'
   return temp
 }
 
@@ -43,13 +43,13 @@ function formatOrigem(origem?: string, fonteDetalhada?: string): string {
   const src = fonteDetalhada || origem
   if (!src) return ''
   const s = src.toLowerCase()
-  if (s.includes('instagram') || s.includes('insta')) return 'insta'
-  if (s.includes('indica')) return 'ind'
-  if (s.includes('google')) return 'google'
-  if (s.includes('facebook') || s.includes('fb')) return 'facebook'
-  if (s.includes('tiktok')) return 'tiktok'
-  if (s.includes('youtube')) return 'youtube'
-  if (s.includes('site')) return 'site'
+  if (s.includes('instagram') || s.includes('insta')) return 'Insta'
+  if (s.includes('indica')) return 'Indicação'
+  if (s.includes('google')) return 'Google'
+  if (s.includes('facebook') || s.includes('fb')) return 'Facebook'
+  if (s.includes('tiktok')) return 'TikTok'
+  if (s.includes('youtube')) return 'YouTube'
+  if (s.includes('site')) return 'Site'
   return src.length > 15 ? src.slice(0, 12) + '...' : src
 }
 
@@ -104,30 +104,30 @@ function formatEventLine(event: AgendaEvent): string {
     const origem = formatOrigem(event.leads.origem, event.leads.fonte_detalhada)
     const temp = getTemperaturaTag(event.leads.temperatura)
 
-    const parts: string[] = []
-    if (origem) parts.push(origem)
-    else parts.push('sem info de fonte')
-    if (temp) parts.push(temp)
+    const tags: string[] = []
+    if (origem) tags.push(origem)
+    if (temp) tags.push(temp)
+    const info = tags.length > 0 ? ` _(${tags.join(' · ')})_` : ''
 
-    return `💰 ${nome} (${parts.join(', ')}) call às ${time}`
+    return `   💰 *${time}* — ${nome}${info}`
   }
 
   // Lead without join data
   if (event.lead_id && !event.leads) {
-    return `💰 ${event.title} (sem info) call às ${time}`
+    return `   💰 *${time}* — ${event.title}`
   }
 
   // Mentorado onboarding → 🎯
   if (event.mentorado_id && event.mentorados) {
-    return `🎯 ${event.mentorados.nome_completo} onboarding às ${time}`
+    return `   🎯 *${time}* — ${event.mentorados.nome_completo} _(Onboarding)_`
   }
 
   if (event.mentorado_id && !event.mentorados) {
-    return `🎯 ${event.title} onboarding às ${time}`
+    return `   🎯 *${time}* — ${event.title} _(Onboarding)_`
   }
 
   // Generic event
-  return `📋 ${event.title} às ${time}`
+  return `   📋 *${time}* — ${event.title}`
 }
 
 // ─── Generate day block ────────────────────────────────────────
@@ -143,8 +143,9 @@ function generateDayBlock(events: AgendaEvent[], date: Date): string {
 
   const dayName = WEEKDAY_NAMES[date.getDay()]
   const dayNum = date.getDate().toString().padStart(2, '0')
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
 
-  let block = `📌 ${dayName} dia ${dayNum}\n`
+  let block = `*📌 ${dayName} — ${dayNum}/${month}*\n`
   dayEvents.forEach(ev => {
     block += `${formatEventLine(ev)}\n`
   })
@@ -169,16 +170,18 @@ export async function generateWeeklyAgenda(organizationId: string): Promise<stri
   const events = await fetchAgendaEvents(organizationId, monday, sunday)
 
   if (events.length === 0) {
-    return '📅 *Agenda da Semana*\n\nSem eventos agendados para esta semana.'
+    return '📅 *AGENDA DA SEMANA*\n\nSem eventos agendados para esta semana.'
   }
 
-  let msg = '📅 *Agenda da Semana*\n\n'
+  const totalEvents = events.length
+  let msg = `📅 *AGENDA DA SEMANA*\n_${totalEvents} evento${totalEvents > 1 ? 's' : ''} agendado${totalEvents > 1 ? 's' : ''}_\n`
+
   for (let i = 0; i < 7; i++) {
     const day = new Date(monday)
     day.setDate(monday.getDate() + i)
     const block = generateDayBlock(events, day)
     if (block) {
-      msg += block + '\n'
+      msg += `\n${block}`
     }
   }
   return msg.trim()
@@ -191,12 +194,14 @@ export async function generateDailyAgenda(organizationId: string): Promise<strin
 
   const dayName = WEEKDAY_NAMES[today.getDay()]
   const dayNum = today.getDate().toString().padStart(2, '0')
+  const month = (today.getMonth() + 1).toString().padStart(2, '0')
 
   if (events.length === 0) {
-    return `📅 *Agenda do Dia*\n\n📌 ${dayName} dia ${dayNum}\nSem eventos agendados para hoje.`
+    return `📅 *AGENDA DO DIA*\n\n*📌 ${dayName} — ${dayNum}/${month}*\n   Sem eventos agendados para hoje.`
   }
 
-  let msg = '📅 *Agenda do Dia*\n\n'
+  const totalEvents = events.length
+  let msg = `📅 *AGENDA DO DIA*\n_${totalEvents} evento${totalEvents > 1 ? 's' : ''} agendado${totalEvents > 1 ? 's' : ''}_\n\n`
   msg += generateDayBlock(events, today)
   return msg.trim()
 }
