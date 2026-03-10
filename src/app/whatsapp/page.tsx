@@ -7,15 +7,20 @@ import {
   Trash2, Paperclip, Image as ImageIcon, Mic, ChevronLeft,
   Star, StickyNote, History, User, Building2, Mail, Tag,
   AlertCircle, Check, CheckCheck, Pin, Filter, MoreVertical,
-  FileText, ArrowLeft, Loader2, Video
+  FileText, ArrowLeft, Loader2, Video, DollarSign, CreditCard,
+  TrendingUp, Activity, Zap, Bot, Link2, ChevronRight,
+  CircleDot, Layers, Globe, Shield, Eye, BarChart3,
+  BookOpen, UserCheck, AlertTriangle, PlusCircle, Copy,
+  Power, PowerOff, Smartphone, Hash, ArrowUpDown
 } from 'lucide-react';
 import { whatsappMultiService, type WhatsAppStatus, type Contact, type Chat, type Message } from '@/lib/whatsapp-multi-service';
+import { waV2, type WAChat, type WAContact, type WAContactEnriched, type WAInstance, type WANote, type WAHistory, type WADivida, type WAAutomation, type WAPipelineStage, type WAStats } from '@/lib/whatsapp-v2-service';
 import { useAuth } from '@/contexts/auth';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { generateWeeklyAgenda, generateDailyAgenda } from '@/services/agenda-generator';
 
-// ─── Types ──────────────────────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────────
 interface LeadInfo {
   id: string;
   nome_completo: string;
@@ -30,7 +35,10 @@ interface LeadInfo {
   tags: string[];
   observacoes: string;
   valor_potencial: number;
+  valor_vendido: number;
+  valor_arrecadado: number;
   created_at: string;
+  data_venda: string;
 }
 
 interface LeadNote {
@@ -44,9 +52,10 @@ interface LeadNote {
   created_at: string;
 }
 
-type ContactTab = 'conversa' | 'detalhes' | 'anotacoes' | 'historico';
+type MainTab = 'chats' | 'instances' | 'automations' | 'stats';
+type ContactTab = 'conversa' | 'detalhes' | 'financeiro' | 'anotacoes' | 'historico';
 
-// ─── Component ──────────────────────────────────────────────────
+// ─── Component ──────────────────────────────────────────────
 export default function WhatsAppPage() {
   const { user, organizationId } = useAuth();
 
@@ -63,18 +72,27 @@ export default function WhatsAppPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   // UI state
+  const [mainTab, setMainTab] = useState<MainTab>('chats');
   const [activeTab, setActiveTab] = useState<ContactTab>('conversa');
   const [showDetailsPanel, setShowDetailsPanel] = useState(false);
-  const [showAutoMessageModal, setShowAutoMessageModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [adminPhone, setAdminPhone] = useState('+5583996910414');
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
 
-  // Lead/notes state
+  // V2 state
+  const [instances, setInstances] = useState<WAInstance[]>([]);
+  const [selectedInstance, setSelectedInstance] = useState<string>('all');
+  const [automations, setAutomations] = useState<WAAutomation[]>([]);
+  const [stats, setStats] = useState<WAStats | null>(null);
+  const [pipelineStages, setPipelineStages] = useState<WAPipelineStage[]>([]);
+
+  // Lead/mentorado/financial state
   const [leadInfo, setLeadInfo] = useState<LeadInfo | null>(null);
   const [leadNotes, setLeadNotes] = useState<LeadNote[]>([]);
   const [newNote, setNewNote] = useState('');
   const [isLoadingLead, setIsLoadingLead] = useState(false);
+  const [enrichedContact, setEnrichedContact] = useState<WAContactEnriched | null>(null);
+  const [contactDividas, setContactDividas] = useState<WADivida[]>([]);
+  const [contactHistory, setContactHistory] = useState<WAHistory[]>([]);
+  const [contactNotes, setContactNotes] = useState<WANote[]>([]);
 
   // Image/Video state
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -87,24 +105,23 @@ export default function WhatsAppPage() {
   const [videoCaption, setVideoCaption] = useState('');
   const [isSendingVideo, setIsSendingVideo] = useState(false);
 
-  // Auto messages
-  const [autoMessages, setAutoMessages] = useState([{
-    id: '1', message: '', scheduledDate: '', scheduledTime: '',
-    targetGroup: '', photoUrl: '', photoCaption: '', isActive: true
-  }]);
+  // New instance form
+  const [showNewInstance, setShowNewInstance] = useState(false);
+  const [newInstanceName, setNewInstanceName] = useState('');
+  const [newInstanceDept, setNewInstanceDept] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ─── Filtered chats ─────────────────────────────────────────
+  // ─── Filtered chats ─────────────────────────────────────
   const filteredChats = chats.filter(chat =>
     chat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     chat.id.includes(searchTerm) ||
-    chat.lastMessage?.body.toLowerCase().includes(searchTerm.toLowerCase())
+    chat.lastMessage?.body?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // ─── Connection check ──────────────────────────────────────
+  // ─── Connection check ──────────────────────────────────
   const checkWhatsAppConnection = useCallback(async () => {
     try {
       const timeoutPromise = new Promise((_, reject) =>
@@ -129,7 +146,6 @@ export default function WhatsAppPage() {
           await Promise.all([
             loadChats().catch(() => {}),
             loadContacts().catch(() => {}),
-            loadAutoMessages().catch(() => {})
           ]);
         } catch {}
       } else {
@@ -142,7 +158,21 @@ export default function WhatsAppPage() {
     }
   }, []);
 
-  // ─── Load chats ────────────────────────────────────────────
+  // ─── Load V2 data ───────────────────────────────────────
+  const loadV2Data = useCallback(async () => {
+    try {
+      const [instRes, statsRes, stagesRes] = await Promise.all([
+        waV2.getInstances().catch(() => ({ success: false, data: [] })),
+        waV2.getStats().catch(() => ({ success: false, data: null })),
+        waV2.getPipelineStages().catch(() => ({ success: false, data: [] })),
+      ]);
+      if (instRes.success && instRes.data) setInstances(instRes.data as WAInstance[]);
+      if (statsRes.success && statsRes.data) setStats(statsRes.data as WAStats);
+      if (stagesRes.success && stagesRes.data) setPipelineStages(stagesRes.data as WAPipelineStage[]);
+    } catch {}
+  }, []);
+
+  // ─── Load chats ─────────────────────────────────────────
   const loadChats = useCallback(async () => {
     try {
       const chatTimeout = new Promise((_, reject) =>
@@ -158,7 +188,6 @@ export default function WhatsAppPage() {
       ]) as any;
 
       let allChats: Chat[] = [];
-
       if (chatsResponse.success && chatsResponse.data) {
         const chatMap = new Map<string, Chat>();
         chatsResponse.data.forEach((chat: any) => {
@@ -169,7 +198,6 @@ export default function WhatsAppPage() {
         });
         allChats = Array.from(chatMap.values());
       }
-
       if (contactsResponse.success && contactsResponse.data) {
         contactsResponse.data
           .filter((c: any) => c.isMyContact)
@@ -186,7 +214,6 @@ export default function WhatsAppPage() {
             }
           });
       }
-
       allChats.sort((a, b) => {
         const aHas = a.lastMessage?.body && a.lastMessage.body !== '';
         const bHas = b.lastMessage?.body && b.lastMessage.body !== '';
@@ -195,7 +222,6 @@ export default function WhatsAppPage() {
         if (aHas && bHas) return (b.lastMessage?.timestamp || 0) - (a.lastMessage?.timestamp || 0);
         return a.name.localeCompare(b.name);
       });
-
       setChats(allChats);
     } catch {}
   }, []);
@@ -204,20 +230,19 @@ export default function WhatsAppPage() {
     try {
       const response = await whatsappMultiService.getContacts();
       if (response.success && response.data) {
-        setContacts(response.data.filter(c => c.isMyContact));
+        setContacts(response.data.filter((c: Contact) => c.isMyContact));
       }
     } catch {}
   }, []);
 
-  // ─── Load messages ─────────────────────────────────────────
+  // ─── Load messages ──────────────────────────────────────
   const loadChatMessages = useCallback(async (chatId: string) => {
     if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
-
     loadingTimeoutRef.current = setTimeout(async () => {
       try {
         const response = await whatsappMultiService.getChatMessages(chatId, 50);
         if (response.success && response.data) {
-          const sorted = response.data.sort((a, b) => a.timestamp - b.timestamp);
+          const sorted = response.data.sort((a: Message, b: Message) => a.timestamp - b.timestamp);
           setChatMessages(sorted);
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         } else {
@@ -229,13 +254,11 @@ export default function WhatsAppPage() {
     }, 300);
   }, []);
 
-  // ─── Send message ──────────────────────────────────────────
+  // ─── Send message ───────────────────────────────────────
   const sendMessage = async () => {
     if (!selectedChat || !newMessage.trim() || isLoading) return;
-
     const cmd = newMessage.trim().toLowerCase();
 
-    // Atalhos de agenda: "agenda do dia" ou "agenda da semana"
     if ((cmd === 'agenda do dia' || cmd === 'agenda da semana') && organizationId) {
       setIsLoading(true);
       try {
@@ -246,14 +269,8 @@ export default function WhatsAppPage() {
         if (response.success) {
           setNewMessage('');
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-        } else {
-          alert('Erro ao enviar agenda: ' + response.error);
         }
-      } catch {
-        alert('Erro ao gerar/enviar agenda');
-      } finally {
-        setIsLoading(false);
-      }
+      } catch {} finally { setIsLoading(false); }
       return;
     }
 
@@ -263,36 +280,22 @@ export default function WhatsAppPage() {
       if (response.success) {
         setNewMessage('');
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-      } else {
-        alert('Erro ao enviar: ' + response.error);
       }
-    } catch {
-      alert('Erro ao enviar mensagem');
-    } finally {
-      setIsLoading(false);
-    }
+    } catch {} finally { setIsLoading(false); }
   };
 
-  // ─── Send image/video ──────────────────────────────────────
+  // ─── Send image/video ──────────────────────────────────
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (file.type.startsWith('video/')) {
-      // Video: max 16MB for WhatsApp
-      if (file.size > 16 * 1024 * 1024) {
-        alert('Vídeo muito grande. Máximo 16MB.');
-        return;
-      }
+      if (file.size > 16 * 1024 * 1024) { alert('Video muito grande. Maximo 16MB.'); return; }
       setSelectedVideo(file);
       setVideoPreview(URL.createObjectURL(file));
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        setVideoBase64(ev.target?.result as string);
-      };
+      reader.onload = (ev) => setVideoBase64(ev.target?.result as string);
       reader.readAsDataURL(file);
     } else {
-      // Image: compress
       setSelectedImage(file);
       const reader = new FileReader();
       reader.onload = (ev) => {
@@ -305,17 +308,14 @@ export default function WhatsAppPage() {
             if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
             else { w = Math.round(w * maxSize / h); h = maxSize; }
           }
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, w, h);
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
           setImagePreview(canvas.toDataURL('image/jpeg', 0.7));
         };
         img.src = ev.target?.result as string;
       };
       reader.readAsDataURL(file);
     }
-    // Reset input value so same file can be re-selected
     e.target.value = '';
   };
 
@@ -323,59 +323,27 @@ export default function WhatsAppPage() {
     if (!selectedChat || !imagePreview || isSendingImage) return;
     setIsSendingImage(true);
     try {
-      const response = await whatsappMultiService.sendImage(
-        selectedChat.id, imagePreview, imageCaption
-      );
-      if (response.success) {
-        setSelectedImage(null);
-        setImagePreview('');
-        setImageCaption('');
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-      } else {
-        alert('Erro ao enviar imagem: ' + response.error);
-      }
-    } catch {
-      alert('Erro ao enviar imagem');
-    } finally {
-      setIsSendingImage(false);
-    }
+      const response = await whatsappMultiService.sendImage(selectedChat.id, imagePreview, imageCaption);
+      if (response.success) { setSelectedImage(null); setImagePreview(''); setImageCaption(''); }
+    } catch {} finally { setIsSendingImage(false); }
   };
 
   const sendVideo = async () => {
     if (!selectedChat || !videoBase64 || isSendingVideo) return;
     setIsSendingVideo(true);
     try {
-      const response = await whatsappMultiService.sendVideo(
-        selectedChat.id, videoBase64, videoCaption
-      );
-      if (response.success) {
-        cancelVideo();
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-      } else {
-        alert('Erro ao enviar vídeo: ' + response.error);
-      }
-    } catch {
-      alert('Erro ao enviar vídeo');
-    } finally {
-      setIsSendingVideo(false);
-    }
+      const response = await whatsappMultiService.sendVideo(selectedChat.id, videoBase64, videoCaption);
+      if (response.success) { cancelVideo(); }
+    } catch {} finally { setIsSendingVideo(false); }
   };
 
-  const cancelImage = () => {
-    setSelectedImage(null);
-    setImagePreview('');
-    setImageCaption('');
-  };
-
+  const cancelImage = () => { setSelectedImage(null); setImagePreview(''); setImageCaption(''); };
   const cancelVideo = () => {
     if (videoPreview) URL.revokeObjectURL(videoPreview);
-    setSelectedVideo(null);
-    setVideoPreview('');
-    setVideoBase64('');
-    setVideoCaption('');
+    setSelectedVideo(null); setVideoPreview(''); setVideoBase64(''); setVideoCaption('');
   };
 
-  // ─── Sync chat ─────────────────────────────────────────────
+  // ─── Sync chat ──────────────────────────────────────────
   const syncCurrentChat = async () => {
     if (!selectedChat || isSyncingChat) return;
     setIsSyncingChat(true);
@@ -385,16 +353,18 @@ export default function WhatsAppPage() {
         setChatMessages(response.data.messages || []);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
       }
-    } catch {} finally {
-      setIsSyncingChat(false);
-    }
+    } catch {} finally { setIsSyncingChat(false); }
   };
 
-  // ─── Lead lookup ───────────────────────────────────────────
+  // ─── Lead lookup ────────────────────────────────────────
   const lookupLead = useCallback(async (chatId: string) => {
     setIsLoadingLead(true);
     setLeadInfo(null);
     setLeadNotes([]);
+    setEnrichedContact(null);
+    setContactDividas([]);
+    setContactHistory([]);
+    setContactNotes([]);
     try {
       const phoneClean = chatId.replace(/@.*$/, '');
       const last9 = phoneClean.slice(-9);
@@ -407,21 +377,74 @@ export default function WhatsAppPage() {
 
       if (leads && leads.length > 0) {
         setLeadInfo(leads[0] as LeadInfo);
-        // Load notes
         const { data: notes } = await supabase
           .from('lead_notes')
           .select('*')
           .eq('lead_id', leads[0].id)
           .order('created_at', { ascending: false });
-
         if (notes) setLeadNotes(notes as LeadNote[]);
+
+        // Also lookup mentorado via lead
+        if (leads[0].convertido_em) {
+          const { data: mentorados } = await supabase
+            .from('mentorados')
+            .select('id, nome_completo, email, telefone, status, turma')
+            .ilike('telefone', `%${last9}`)
+            .limit(1);
+
+          if (mentorados && mentorados.length > 0) {
+            // Lookup dividas
+            const { data: dividas } = await supabase
+              .from('dividas')
+              .select('*')
+              .eq('mentorado_id', mentorados[0].id)
+              .order('data_vencimento', { ascending: false });
+            if (dividas) setContactDividas(dividas as any);
+          }
+        }
+      }
+
+      // Also try the phone match for mentorado directly
+      const { data: mentoradosDirect } = await supabase
+        .from('mentorados')
+        .select('id')
+        .ilike('telefone', `%${last9}`)
+        .limit(1);
+
+      if (mentoradosDirect && mentoradosDirect.length > 0 && contactDividas.length === 0) {
+        const { data: dividas } = await supabase
+          .from('dividas')
+          .select('*')
+          .eq('mentorado_id', mentoradosDirect[0].id)
+          .order('data_vencimento', { ascending: false });
+        if (dividas) setContactDividas(dividas as any);
+      }
+
+      // Load lead history
+      const { data: leadHistory } = await supabase
+        .from('lead_historico')
+        .select('*')
+        .ilike('lead_telefone', `%${last9}`)
+        .order('created_at', { ascending: false })
+        .limit(30);
+      // Fallback: lead_history table
+      if (!leadHistory || leadHistory.length === 0) {
+        const { data: lh2 } = await supabase
+          .from('lead_history')
+          .select('*')
+          .eq('lead_id', leads?.[0]?.id)
+          .order('created_at', { ascending: false })
+          .limit(30);
+        if (lh2) setContactHistory(lh2 as any);
+      } else {
+        setContactHistory(leadHistory as any);
       }
     } catch {} finally {
       setIsLoadingLead(false);
     }
   }, []);
 
-  // ─── Add note ──────────────────────────────────────────────
+  // ─── Add note ───────────────────────────────────────────
   const addNote = async () => {
     if (!leadInfo || !newNote.trim()) return;
     try {
@@ -436,7 +459,6 @@ export default function WhatsAppPage() {
         })
         .select()
         .single();
-
       if (!error && data) {
         setLeadNotes(prev => [data as LeadNote, ...prev]);
         setNewNote('');
@@ -444,7 +466,25 @@ export default function WhatsAppPage() {
     } catch {}
   };
 
-  // ─── Helpers ───────────────────────────────────────────────
+  // ─── Load automations ──────────────────────────────────
+  const loadAutomations = useCallback(async () => {
+    const res = await waV2.getAutomations();
+    if (res.success && res.data) setAutomations(res.data as WAAutomation[]);
+  }, []);
+
+  // ─── Create instance ───────────────────────────────────
+  const createInstance = async () => {
+    if (!newInstanceName.trim()) return;
+    const res = await waV2.createInstance({ name: newInstanceName, department: newInstanceDept || undefined });
+    if (res.success) {
+      setNewInstanceName('');
+      setNewInstanceDept('');
+      setShowNewInstance(false);
+      loadV2Data();
+    }
+  };
+
+  // ─── Helpers ────────────────────────────────────────────
   const formatTime = (timestamp: number) => {
     if (!timestamp || timestamp <= 0) return '';
     return new Date(timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -461,179 +501,76 @@ export default function WhatsAppPage() {
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
+  const formatDateStr = (dateStr: string) => {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('pt-BR');
+  };
+
+  const formatCurrency = (val: number) => {
+    return (val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
   const getInitials = (name: string) => {
     if (!name) return '?';
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
 
   const getDisplayName = (chat: Chat) => {
-    if (!chat.name || chat.name === chat.id) {
-      return chat.id.replace(/@.*$/, '');
-    }
+    if (!chat.name || chat.name === chat.id) return chat.id.replace(/@.*$/, '');
     return chat.name;
   };
 
   const getPhoneDisplay = (chatId: string) => {
     const num = chatId.replace(/@.*$/, '');
-    if (num.length >= 12) {
-      return `+${num.slice(0, 2)} (${num.slice(2, 4)}) ${num.slice(4, 9)}-${num.slice(9)}`;
-    }
+    if (num.length >= 12) return `+${num.slice(0, 2)} (${num.slice(2, 4)}) ${num.slice(4, 9)}-${num.slice(9)}`;
     return num;
-  };
-
-  const getContactBadge = (chat: Chat) => {
-    if (chat.isGroup) return null;
-    const phoneClean = chat.id.replace(/@.*$/, '');
-    const contact = contacts.find(c => c.id === chat.id);
-    if (!contact) return { label: 'Novo', color: 'bg-amber-100 text-amber-700' };
-    return { label: 'Contato', color: 'bg-emerald-100 text-emerald-700' };
   };
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       'novo': 'bg-blue-100 text-blue-700',
+      'contactado': 'bg-indigo-100 text-indigo-700',
       'qualificado': 'bg-emerald-100 text-emerald-700',
+      'agendado': 'bg-purple-100 text-purple-700',
       'em_negociacao': 'bg-amber-100 text-amber-700',
-      'fechado': 'bg-green-100 text-green-700',
+      'vendido': 'bg-green-100 text-green-700',
       'perdido': 'bg-red-100 text-red-700',
+      'quente': 'bg-orange-100 text-orange-700',
+      'vazado': 'bg-gray-100 text-gray-600',
+      'churn': 'bg-rose-100 text-rose-700',
+      'ativo': 'bg-green-100 text-green-700',
+      'inativo': 'bg-gray-100 text-gray-600',
     };
     return colors[status] || 'bg-gray-100 text-gray-600';
   };
 
-  const getTemperaturaIcon = (temp: string) => {
-    if (temp === 'quente') return '🔥';
-    if (temp === 'morno') return '🌡️';
-    return '❄️';
+  const getFinancialBadge = (dividas: WADivida[] | any[]) => {
+    if (!dividas || dividas.length === 0) return null;
+    const atrasadas = dividas.filter(d => d.status === 'atrasado');
+    const pendentes = dividas.filter(d => d.status === 'pendente');
+    if (atrasadas.length > 0) return { label: `${atrasadas.length} atrasada(s)`, color: 'bg-red-100 text-red-700', icon: AlertTriangle };
+    if (pendentes.length > 0) return { label: `${pendentes.length} pendente(s)`, color: 'bg-amber-100 text-amber-700', icon: Clock };
+    return { label: 'Em dia', color: 'bg-green-100 text-green-700', icon: Check };
   };
 
-  // ─── Auto messages ────────────────────────────────────────
-  const addAutoMessage = () => {
-    setAutoMessages([...autoMessages, {
-      id: Date.now().toString(), message: '', scheduledDate: '',
-      scheduledTime: '', targetGroup: '', photoUrl: '', photoCaption: '', isActive: true
-    }]);
-  };
-
-  const removeAutoMessage = (id: string) => setAutoMessages(autoMessages.filter(m => m.id !== id));
-  const updateAutoMessage = (id: string, field: string, value: string) => {
-    setAutoMessages(autoMessages.map(m => m.id === id ? { ...m, [field]: value } : m));
-  };
-
-  const loadAutoMessages = useCallback(async () => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/auto-messages?userId=default`);
-      const data = await response.json();
-      if (data.success && data.data?.length > 0) {
-        setAutoMessages(data.data.map((msg: any) => ({
-          id: msg.id || Date.now().toString(),
-          message: msg.message || '', scheduledDate: msg.scheduled_date || '',
-          scheduledTime: msg.scheduled_time || '', targetGroup: msg.target_group || '',
-          photoUrl: msg.photo_url || '', photoCaption: msg.photo_caption || '',
-          isActive: msg.is_active !== false
-        })));
-      }
-    } catch {}
-  }, []);
-
-  const loadSettings = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: orgData } = await supabase
-        .from('organization_users')
-        .select('organization_id')
-        .eq('email', user.email)
-        .single();
-
-      let orgId = orgData?.organization_id;
-      if (!orgId) {
-        const { data: orgDirect } = await supabase
-          .from('organizations').select('id, admin_phone')
-          .eq('owner_email', user.email).single();
-        if (orgDirect) {
-          orgId = orgDirect.id;
-          if (orgDirect.admin_phone) { setAdminPhone(orgDirect.admin_phone); return; }
-        }
-      }
-
-      if (orgId) {
-        const { data: settings } = await supabase
-          .from('organizations').select('admin_phone').eq('id', orgId).single();
-        if (settings?.admin_phone) setAdminPhone(settings.admin_phone);
-      }
-    } catch {}
-  }, []);
-
-  const saveSettings = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: orgData } = await supabase
-        .from('organization_users').select('organization_id')
-        .eq('email', user.email).single();
-
-      let orgId = orgData?.organization_id;
-      if (!orgId) {
-        const { data: orgDirect } = await supabase
-          .from('organizations').select('id').eq('owner_email', user.email).single();
-        orgId = orgDirect?.id;
-      }
-
-      if (orgId) {
-        await supabase.from('organizations')
-          .update({ admin_phone: adminPhone, updated_at: new Date().toISOString() })
-          .eq('id', orgId);
-      }
-      setShowSettingsModal(false);
-    } catch {
-      localStorage.setItem('whatsapp_settings', JSON.stringify({ adminPhone }));
-      setShowSettingsModal(false);
-    }
-  };
-
-  const saveAutoMessages = async () => {
-    try {
-      const messagesToSave = autoMessages
-        .filter(msg => msg.message && msg.scheduledTime && msg.targetGroup)
-        .map(msg => ({
-          ...msg, scheduled_date: msg.scheduledDate || null,
-          scheduled_time: msg.scheduledTime, target_group: msg.targetGroup,
-          photo_url: msg.photoUrl || null, photo_caption: msg.photoCaption || null,
-          is_active: msg.isActive
-        }));
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'}/auto-messages/bulk`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'default', autoMessages: messagesToSave }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        setShowAutoMessageModal(false);
-        loadAutoMessages();
-      }
-    } catch {}
-  };
-
-  // ─── Effects ───────────────────────────────────────────────
+  // ─── Effects ────────────────────────────────────────────
   useEffect(() => {
     checkWhatsAppConnection();
+    loadV2Data();
     const interval = setInterval(checkWhatsAppConnection, 30000);
-    loadSettings();
+    const v2Interval = setInterval(loadV2Data, 60000);
 
     const forceTimeout = setTimeout(() => {
       if (isLoadingStatus) {
-        setIsLoadingStatus(false);
         setIsWhatsAppConnected(true);
+        setIsLoadingStatus(false);
         loadChats();
         loadContacts();
       }
     }, 20000);
 
-    return () => { clearInterval(interval); clearTimeout(forceTimeout); };
-  }, [checkWhatsAppConnection, loadSettings, isLoadingStatus]);
+    return () => { clearInterval(interval); clearInterval(v2Interval); clearTimeout(forceTimeout); };
+  }, [checkWhatsAppConnection, loadV2Data, isLoadingStatus]);
 
   useEffect(() => {
     if (selectedChat) {
@@ -643,7 +580,6 @@ export default function WhatsAppPage() {
     }
   }, [selectedChat, loadChatMessages, lookupLead]);
 
-  // ─── Select chat handler ──────────────────────────────────
   const handleSelectChat = (chat: Chat) => {
     setSelectedChat(chat);
     setMobileView('chat');
@@ -654,7 +590,7 @@ export default function WhatsAppPage() {
   // RENDER
   // ═══════════════════════════════════════════════════════════
 
-  // ─── Loading state ─────────────────────────────────────────
+  // ─── Loading state ──────────────────────────────────────
   if (isLoadingStatus) {
     return (
       <div className="h-screen flex items-center justify-center bg-gradient-to-br from-[#f8f9fb] via-white to-[#f0f2f8]">
@@ -664,10 +600,8 @@ export default function WhatsAppPage() {
             <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[#16A34A] animate-spin" />
           </div>
           <p className="text-[#6C757D] font-medium">Conectando ao WhatsApp...</p>
-          <button
-            onClick={() => { setIsWhatsAppConnected(true); setIsLoadingStatus(false); loadChats(); loadContacts(); }}
-            className="mt-4 text-xs text-[#ADB5BD] hover:text-[#16A34A] transition-colors"
-          >
+          <button onClick={() => { setIsWhatsAppConnected(true); setIsLoadingStatus(false); loadChats(); loadContacts(); }}
+            className="mt-4 text-xs text-[#ADB5BD] hover:text-[#16A34A] transition-colors">
             Forcar carregamento
           </button>
         </div>
@@ -675,7 +609,7 @@ export default function WhatsAppPage() {
     );
   }
 
-  // ─── Not connected ─────────────────────────────────────────
+  // ─── Not connected ──────────────────────────────────────
   if (!isWhatsAppConnected) {
     return (
       <div className="h-screen flex items-center justify-center bg-gradient-to-br from-[#f8f9fb] via-white to-[#f0f2f8]">
@@ -696,881 +630,741 @@ export default function WhatsAppPage() {
     );
   }
 
-  // ─── Main interface ────────────────────────────────────────
+  // ─── Main interface ─────────────────────────────────────
   return (
     <div className="h-screen flex bg-gradient-to-br from-[#f0f2f8] via-[#f8f9fb] to-[#eef1f8] overflow-hidden">
 
-      {/* ══════ COLUMN 1: Chat List ══════ */}
-      <div className={`w-full md:w-[380px] md:min-w-[380px] flex flex-col border-r border-[#E9ECEF]/60
-        ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}
-        bg-white/70 backdrop-blur-xl`}
-      >
-        {/* Header */}
-        <div className="px-5 pt-5 pb-3">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-lg font-semibold text-[#1A1A2E]">Chats</h1>
-            <div className="flex items-center gap-1">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-100">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                <span className="text-[10px] font-medium text-emerald-600">Online</span>
-              </div>
-              <button
-                onClick={() => setShowAutoMessageModal(true)}
-                className="p-2 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D] hover:text-[#16A34A] transition-all"
-                title="Mensagens Automaticas"
-              >
-                <Clock className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setShowSettingsModal(true)}
-                className="p-2 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D] hover:text-[#16A34A] transition-all"
-                title="Configuracoes"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+      {/* ══════ COLUMN 1: Sidebar + Chat List ══════ */}
+      <div className={`w-full md:w-[400px] md:min-w-[400px] flex flex-col border-r border-[#E9ECEF]/60
+        ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'} bg-white/70 backdrop-blur-xl`}>
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#ADB5BD]" />
-            <input
-              type="text"
-              placeholder="Pesquisar contato..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-[#F1F3F5]/80 border border-transparent rounded-xl text-sm text-[#1A1A2E] placeholder-[#ADB5BD] focus:outline-none focus:border-[#16A34A]/30 focus:bg-white transition-all"
-            />
+        {/* Top Navigation Tabs */}
+        <div className="px-3 pt-3 pb-1 border-b border-[#E9ECEF]/40">
+          <div className="flex gap-1 bg-[#F1F3F5]/80 p-1 rounded-xl">
+            {([
+              { key: 'chats', icon: MessageCircle, label: 'Chats' },
+              { key: 'instances', icon: Smartphone, label: 'Instancias' },
+              { key: 'automations', icon: Bot, label: 'Automacoes' },
+              { key: 'stats', icon: BarChart3, label: 'Stats' },
+            ] as { key: MainTab; icon: any; label: string }[]).map(tab => (
+              <button key={tab.key} onClick={() => setMainTab(tab.key)}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-all
+                  ${mainTab === tab.key ? 'bg-white text-[#16A34A] shadow-sm' : 'text-[#6C757D] hover:text-[#1A1A2E]'}`}>
+                <tab.icon className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">{tab.label}</span>
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Chat list */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin">
-          {filteredChats.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-              <MessageCircle className="w-10 h-10 text-[#E9ECEF] mb-3" />
-              <p className="text-sm font-medium text-[#6C757D]">Nenhuma conversa</p>
-              <p className="text-xs text-[#ADB5BD] mt-1">Aguardando sincronizacao...</p>
-            </div>
-          ) : (
-            filteredChats.map(chat => {
-              const badge = getContactBadge(chat);
-              const isSelected = selectedChat?.id === chat.id;
-              const displayName = getDisplayName(chat);
-              const preview = chat.lastMessage?.body && chat.lastMessage.body !== ''
-                ? chat.lastMessage.body
-                : 'Iniciar conversa';
-              const hasUnread = (chat.unreadCount || 0) > 0;
-
-              return (
-                <div
-                  key={chat.id}
-                  onClick={() => handleSelectChat(chat)}
-                  className={`flex items-center gap-3 px-5 py-3.5 cursor-pointer transition-all duration-200 border-b border-[#F1F3F5]/60
-                    ${isSelected
-                      ? 'bg-gradient-to-r from-[#16A34A]/[0.08] to-transparent border-l-[3px] border-l-[#16A34A]'
-                      : 'hover:bg-[#F8F9FA] border-l-[3px] border-l-transparent'
-                    }`}
-                >
-                  {/* Avatar */}
-                  <div className="relative flex-shrink-0">
-                    <div className={`w-11 h-11 rounded-full flex items-center justify-center text-sm font-semibold
-                      ${isSelected ? 'bg-[#16A34A]/10 text-[#16A34A]' : 'bg-[#F1F3F5] text-[#6C757D]'}`}
-                    >
-                      {getInitials(displayName)}
-                    </div>
-                    {hasUnread && (
-                      <div className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-[#16A34A] text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
-                        {chat.unreadCount! > 9 ? '9+' : chat.unreadCount}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className={`text-sm truncate ${hasUnread ? 'font-semibold text-[#1A1A2E]' : 'font-medium text-[#1A1A2E]'}`}>
-                          {displayName}
-                        </span>
-                        {badge && (
-                          <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider ${badge.color}`}>
-                            {badge.label}
-                          </span>
-                        )}
-                      </div>
-                      {chat.lastMessage?.timestamp && chat.lastMessage.timestamp > 0 && (
-                        <span className={`text-[11px] flex-shrink-0 ml-2 ${hasUnread ? 'text-[#16A34A] font-medium' : 'text-[#ADB5BD]'}`}>
-                          {formatTime(chat.lastMessage.timestamp)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {chat.lastMessage?.isFromMe && (
-                        <CheckCheck className="w-3.5 h-3.5 flex-shrink-0 text-[#ADB5BD]" />
-                      )}
-                      <p className={`text-xs truncate ${hasUnread ? 'text-[#1A1A2E] font-medium' : 'text-[#6C757D]'}`}>
-                        {preview.length > 50 ? preview.substring(0, 50) + '...' : preview}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* ══════ COLUMN 2: Conversation ══════ */}
-      <div className={`flex-1 flex flex-col min-w-0
-        ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}`}
-      >
-        {selectedChat ? (
+        {/* ─── Chats Tab ─── */}
+        {mainTab === 'chats' && (
           <>
-            {/* Conversation Header */}
-            <div className="bg-white/80 backdrop-blur-xl border-b border-[#E9ECEF]/60 px-5 py-3">
-              <div className="flex items-center gap-3">
-                {/* Mobile back */}
-                <button
-                  onClick={() => setMobileView('list')}
-                  className="md:hidden p-1.5 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D]"
-                >
-                  <ArrowLeft className="w-5 h-5" />
+            <div className="px-4 pt-3 pb-2">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-semibold text-[#1A1A2E]">Chats</h1>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                    <span className="text-[10px] font-medium text-emerald-600">Online</span>
+                  </div>
+                </div>
+                <button onClick={() => { loadChats(); loadContacts(); }}
+                  className="p-2 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D] hover:text-[#16A34A] transition-all">
+                  <RefreshCw className="w-4 h-4" />
                 </button>
-
-                {/* Avatar */}
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#16A34A]/10 to-[#16A34A]/5 flex items-center justify-center">
-                  <span className="text-sm font-semibold text-[#16A34A]">
-                    {getInitials(getDisplayName(selectedChat))}
-                  </span>
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-[15px] font-semibold text-[#1A1A2E] truncate">
-                      {getDisplayName(selectedChat)}
-                    </h2>
-                    {leadInfo && (
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-700`}>
-                        Lead
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-[#ADB5BD]">
-                    {getPhoneDisplay(selectedChat.id)}
-                  </p>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={syncCurrentChat}
-                    disabled={isSyncingChat}
-                    className="p-2 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D] hover:text-[#16A34A] transition-all disabled:opacity-40"
-                    title="Sincronizar conversa"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isSyncingChat ? 'animate-spin' : ''}`} />
-                  </button>
-                  <button
-                    onClick={() => setShowDetailsPanel(!showDetailsPanel)}
-                    className={`p-2 rounded-lg transition-all
-                      ${showDetailsPanel ? 'bg-[#16A34A]/10 text-[#16A34A]' : 'hover:bg-[#F1F3F5] text-[#6C757D] hover:text-[#16A34A]'}`}
-                    title="Detalhes do contato"
-                  >
-                    <User className="w-4 h-4" />
-                  </button>
-                </div>
               </div>
 
-              {/* Tabs */}
-              <div className="flex gap-0 mt-3 -mb-3 border-b border-transparent">
-                {[
-                  { key: 'conversa' as ContactTab, label: 'Conversa', icon: MessageCircle },
-                  { key: 'detalhes' as ContactTab, label: 'Detalhes', icon: User },
-                  { key: 'anotacoes' as ContactTab, label: 'Anotacoes', icon: StickyNote },
-                  { key: 'historico' as ContactTab, label: 'Historico', icon: History },
-                ].map(tab => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-all
-                      ${activeTab === tab.key
-                        ? 'border-[#16A34A] text-[#16A34A]'
-                        : 'border-transparent text-[#6C757D] hover:text-[#1A1A2E]'
-                      }`}
-                  >
-                    <tab.icon className="w-3.5 h-3.5" />
-                    {tab.label}
+              {/* Instance filter */}
+              {instances.length > 1 && (
+                <div className="flex gap-1 mb-2 overflow-x-auto scrollbar-none">
+                  <button onClick={() => setSelectedInstance('all')}
+                    className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all
+                      ${selectedInstance === 'all' ? 'bg-[#16A34A] text-white' : 'bg-[#F1F3F5] text-[#6C757D] hover:bg-[#E9ECEF]'}`}>
+                    Todos
                   </button>
-                ))}
+                  {instances.map(inst => (
+                    <button key={inst.id} onClick={() => setSelectedInstance(inst.id)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all
+                        ${selectedInstance === inst.id ? 'bg-[#16A34A] text-white' : 'bg-[#F1F3F5] text-[#6C757D] hover:bg-[#E9ECEF]'}`}>
+                      {inst.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#ADB5BD]" />
+                <input type="text" placeholder="Pesquisar contato..."
+                  value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-[#F1F3F5]/80 border border-transparent rounded-xl text-sm text-[#1A1A2E] placeholder-[#ADB5BD] focus:outline-none focus:border-[#16A34A]/30 focus:bg-white transition-all" />
               </div>
             </div>
 
-            {/* ── Tab: Conversa ── */}
-            {activeTab === 'conversa' && (
-              <div className="flex-1 flex flex-col min-h-0">
-                {/* Messages area */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 bg-gradient-to-b from-[#f8f9fb] to-[#f0f2f5] scrollbar-thin">
-                  {chatMessages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center">
-                      <div className="w-16 h-16 rounded-2xl bg-[#F1F3F5] flex items-center justify-center mb-3">
-                        <MessageCircle className="w-8 h-8 text-[#ADB5BD]" />
-                      </div>
-                      <p className="text-sm text-[#6C757D]">Nenhuma mensagem ainda</p>
-                      <p className="text-xs text-[#ADB5BD] mt-1">Envie a primeira mensagem!</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {chatMessages.map((message, index) => {
-                        const showDate = index === 0 ||
-                          formatDate(message.timestamp) !== formatDate(chatMessages[index - 1]?.timestamp);
-                        const isMe = message.isFromMe;
-                        const prevSameAuthor = index > 0 && chatMessages[index - 1]?.isFromMe === isMe;
-
-                        return (
-                          <div key={message.id || index}>
-                            {showDate && (
-                              <div className="flex justify-center my-4">
-                                <span className="px-3 py-1 bg-white/80 backdrop-blur-sm rounded-full text-[11px] text-[#6C757D] shadow-sm border border-[#E9ECEF]/40">
-                                  {formatDate(message.timestamp)}
-                                </span>
-                              </div>
-                            )}
-
-                            <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${prevSameAuthor ? 'mt-0.5' : 'mt-3'}`}>
-                              {/* Avatar for received (only if different author) */}
-                              {!isMe && !prevSameAuthor && (
-                                <div className="w-7 h-7 rounded-full bg-[#F1F3F5] flex items-center justify-center mr-2 mt-auto mb-1 flex-shrink-0">
-                                  <span className="text-[10px] font-semibold text-[#6C757D]">
-                                    {getInitials(message.contact?.name || getDisplayName(selectedChat))}
-                                  </span>
-                                </div>
-                              )}
-                              {!isMe && prevSameAuthor && <div className="w-7 mr-2 flex-shrink-0" />}
-
-                              <div className={`max-w-[65%] px-3.5 py-2 shadow-sm
-                                ${isMe
-                                  ? `bg-white border border-[#E9ECEF]/60 ${!prevSameAuthor ? 'rounded-2xl rounded-br-md' : 'rounded-2xl rounded-br-md'}`
-                                  : `bg-[#F1F3F5] ${!prevSameAuthor ? 'rounded-2xl rounded-bl-md' : 'rounded-2xl rounded-bl-md'}`
-                                }`}
-                              >
-                                {!isMe && !prevSameAuthor && message.contact?.name && (
-                                  <p className="text-[11px] font-semibold text-[#16A34A] mb-0.5">
-                                    {message.contact.name}
-                                  </p>
-                                )}
-                                <p className="text-[13px] leading-relaxed text-[#1A1A2E] whitespace-pre-wrap break-words">
-                                  {message.body}
-                                </p>
-                                <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                  <span className="text-[10px] text-[#ADB5BD]">
-                                    {formatTime(message.timestamp)}
-                                  </span>
-                                  {isMe && <CheckCheck className="w-3 h-3 text-[#ADB5BD]" />}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div ref={messagesEndRef} />
-                    </div>
-                  )}
+            <div className="flex-1 overflow-y-auto scrollbar-thin">
+              {filteredChats.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 text-[#ADB5BD]">
+                  <MessageCircle className="w-10 h-10 mb-3 opacity-30" />
+                  <p className="text-sm">Nenhum chat encontrado</p>
                 </div>
-
-                {/* Image preview */}
-                {imagePreview && (
-                  <div className="px-5 py-3 bg-white/90 backdrop-blur-xl border-t border-[#E9ECEF]/60">
-                    <div className="flex items-start gap-3">
-                      <div className="relative">
-                        <img src={imagePreview} alt="" className="w-20 h-20 object-cover rounded-xl border border-[#E9ECEF]" />
-                        <button
-                          onClick={cancelImage}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#16A34A] text-white rounded-full flex items-center justify-center shadow-sm"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <div className="flex-1">
-                        <input
-                          type="text"
-                          value={imageCaption}
-                          onChange={(e) => setImageCaption(e.target.value)}
-                          placeholder="Legenda (opcional)..."
-                          className="w-full px-3 py-2 bg-[#F1F3F5] rounded-lg text-sm text-[#1A1A2E] placeholder-[#ADB5BD] focus:outline-none focus:ring-1 focus:ring-[#16A34A]/30"
-                        />
-                        <button
-                          onClick={sendImage}
-                          disabled={isSendingImage}
-                          className="mt-2 px-4 py-1.5 bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-medium rounded-lg transition-all disabled:opacity-50"
-                        >
-                          {isSendingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Enviar imagem'}
-                        </button>
-                      </div>
+              ) : (
+                filteredChats.map(chat => (
+                  <div key={chat.id} onClick={() => handleSelectChat(chat)}
+                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all border-b border-[#F1F3F5]/60
+                      ${selectedChat?.id === chat.id ? 'bg-[#16A34A]/5 border-l-2 border-l-[#16A34A]' : 'hover:bg-[#F8F9FB]'}`}>
+                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#16A34A]/10 to-[#16A34A]/5 flex items-center justify-center flex-shrink-0">
+                      {chat.isGroup ? <Users className="w-5 h-5 text-[#16A34A]" /> :
+                        <span className="text-sm font-semibold text-[#16A34A]">{getInitials(chat.name)}</span>}
                     </div>
-                  </div>
-                )}
-
-                {/* Video preview */}
-                {videoPreview && (
-                  <div className="px-5 py-3 bg-white/90 backdrop-blur-xl border-t border-[#E9ECEF]/60">
-                    <div className="flex items-start gap-3">
-                      <div className="relative">
-                        <video src={videoPreview} className="w-24 h-20 object-cover rounded-xl border border-[#E9ECEF]" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Video className="w-6 h-6 text-white drop-shadow-lg" />
-                        </div>
-                        <button
-                          onClick={cancelVideo}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#16A34A] text-white rounded-full flex items-center justify-center shadow-sm"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs text-[#6C757D] mb-1">{selectedVideo?.name} ({((selectedVideo?.size || 0) / 1024 / 1024).toFixed(1)}MB)</p>
-                        <input
-                          type="text"
-                          value={videoCaption}
-                          onChange={(e) => setVideoCaption(e.target.value)}
-                          placeholder="Legenda (opcional)..."
-                          className="w-full px-3 py-2 bg-[#F1F3F5] rounded-lg text-sm text-[#1A1A2E] placeholder-[#ADB5BD] focus:outline-none focus:ring-1 focus:ring-[#16A34A]/30"
-                        />
-                        <button
-                          onClick={sendVideo}
-                          disabled={isSendingVideo || !videoBase64}
-                          className="mt-2 px-4 py-1.5 bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-medium rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
-                        >
-                          {isSendingVideo ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Video className="w-3 h-3" /> Enviar vídeo</>}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Input area */}
-                <div className="px-4 py-3 bg-white/80 backdrop-blur-xl border-t border-[#E9ECEF]/40">
-                  <div className="flex items-end gap-2">
-                    {/* Attach */}
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="p-2.5 rounded-xl hover:bg-[#F1F3F5] text-[#6C757D] hover:text-[#16A34A] transition-all flex-shrink-0"
-                      title="Enviar imagem ou vídeo"
-                    >
-                      <Paperclip className="w-5 h-5" />
-                    </button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*,video/*"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
-
-                    {/* Input */}
-                    <div className="flex-1 bg-[#F1F3F5]/80 rounded-2xl px-4 py-2.5 border border-transparent focus-within:border-[#16A34A]/20 focus-within:bg-white transition-all">
-                      <textarea
-                        placeholder="Mensagem... (💡 'agenda do dia' ou 'agenda da semana')"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        className="w-full bg-transparent text-sm text-[#1A1A2E] placeholder-[#ADB5BD] resize-none focus:outline-none min-h-[24px] max-h-32"
-                        rows={1}
-                        style={{ height: 'auto' }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-                        }}
-                        onInput={(e) => {
-                          const t = e.target as HTMLTextAreaElement;
-                          t.style.height = '24px';
-                          t.style.height = Math.min(t.scrollHeight, 128) + 'px';
-                        }}
-                      />
-                    </div>
-
-                    {/* Send */}
-                    <button
-                      onClick={sendMessage}
-                      disabled={!newMessage.trim() || isLoading}
-                      className={`p-2.5 rounded-xl flex-shrink-0 transition-all
-                        ${newMessage.trim()
-                          ? 'bg-[#16A34A] hover:bg-[#15803D] text-white shadow-lg shadow-[#16A34A]/25'
-                          : 'bg-[#F1F3F5] text-[#ADB5BD]'
-                        }`}
-                    >
-                      {isLoading
-                        ? <Loader2 className="w-5 h-5 animate-spin" />
-                        : <Send className="w-5 h-5" />
-                      }
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── Tab: Detalhes ── */}
-            {activeTab === 'detalhes' && (
-              <div className="flex-1 overflow-y-auto bg-[#f8f9fb] p-5 scrollbar-thin">
-                {isLoadingLead ? (
-                  <div className="flex items-center justify-center py-16">
-                    <Loader2 className="w-6 h-6 animate-spin text-[#16A34A]" />
-                  </div>
-                ) : leadInfo ? (
-                  <div className="space-y-4">
-                    {/* Lead card */}
-                    <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-5 border border-[#E9ECEF]/40 shadow-sm">
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#16A34A]/10 to-[#16A34A]/5 flex items-center justify-center">
-                          <span className="text-lg font-bold text-[#16A34A]">
-                            {getInitials(leadInfo.nome_completo)}
-                          </span>
-                        </div>
-                        <div>
-                          <h3 className="text-base font-semibold text-[#1A1A2E]">{leadInfo.nome_completo}</h3>
-                          <p className="text-xs text-[#6C757D]">{leadInfo.cargo || 'Sem cargo'} {leadInfo.empresa ? `em ${leadInfo.empresa}` : ''}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold ${getStatusColor(leadInfo.status)}`}>
-                          {leadInfo.status?.replace('_', ' ') || 'Novo'}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm text-[#1A1A2E] truncate">{getDisplayName(chat)}</span>
+                        <span className="text-[10px] text-[#ADB5BD] flex-shrink-0 ml-2">
+                          {formatTime(chat.lastMessage?.timestamp || chat.timestamp)}
                         </span>
-                        {leadInfo.temperatura && (
-                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-orange-50 text-orange-700">
-                            {getTemperaturaIcon(leadInfo.temperatura)} {leadInfo.temperatura}
-                          </span>
-                        )}
-                        {leadInfo.lead_score > 0 && (
-                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 text-purple-700">
-                            Score: {leadInfo.lead_score}
-                          </span>
-                        )}
                       </div>
-
-                      <div className="space-y-2.5 text-sm">
-                        {leadInfo.telefone && (
-                          <div className="flex items-center gap-2.5 text-[#6C757D]">
-                            <Phone className="w-4 h-4 text-[#ADB5BD]" />
-                            <span>{leadInfo.telefone}</span>
-                          </div>
-                        )}
-                        {leadInfo.email && (
-                          <div className="flex items-center gap-2.5 text-[#6C757D]">
-                            <Mail className="w-4 h-4 text-[#ADB5BD]" />
-                            <span>{leadInfo.email}</span>
-                          </div>
-                        )}
-                        {leadInfo.empresa && (
-                          <div className="flex items-center gap-2.5 text-[#6C757D]">
-                            <Building2 className="w-4 h-4 text-[#ADB5BD]" />
-                            <span>{leadInfo.empresa}</span>
-                          </div>
-                        )}
-                        {leadInfo.origem && (
-                          <div className="flex items-center gap-2.5 text-[#6C757D]">
-                            <Tag className="w-4 h-4 text-[#ADB5BD]" />
-                            <span>Origem: {leadInfo.origem}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Extra info */}
-                    {leadInfo.valor_potencial > 0 && (
-                      <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 border border-[#E9ECEF]/40 shadow-sm">
-                        <h4 className="text-xs font-semibold text-[#ADB5BD] uppercase tracking-wider mb-3">Valor Potencial</h4>
-                        <p className="text-2xl font-bold text-[#1A1A2E]">
-                          R$ {leadInfo.valor_potencial.toLocaleString('pt-BR')}
+                      <div className="flex items-center justify-between mt-0.5">
+                        <p className="text-xs text-[#6C757D] truncate max-w-[200px]">
+                          {chat.lastMessage?.isFromMe && <span className="text-[#16A34A]">Voce: </span>}
+                          {chat.lastMessage?.body || 'Sem mensagens'}
                         </p>
-                      </div>
-                    )}
-
-                    {leadInfo.observacoes && (
-                      <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 border border-[#E9ECEF]/40 shadow-sm">
-                        <h4 className="text-xs font-semibold text-[#ADB5BD] uppercase tracking-wider mb-2">Observacoes</h4>
-                        <p className="text-sm text-[#6C757D] whitespace-pre-wrap">{leadInfo.observacoes}</p>
-                      </div>
-                    )}
-
-                    {leadInfo.tags && leadInfo.tags.length > 0 && (
-                      <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 border border-[#E9ECEF]/40 shadow-sm">
-                        <h4 className="text-xs font-semibold text-[#ADB5BD] uppercase tracking-wider mb-2">Tags</h4>
-                        <div className="flex flex-wrap gap-1.5">
-                          {leadInfo.tags.map((tag, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-[#F1F3F5] rounded-md text-xs text-[#6C757D]">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="w-14 h-14 rounded-2xl bg-[#F1F3F5] flex items-center justify-center mb-3">
-                      <User className="w-7 h-7 text-[#ADB5BD]" />
-                    </div>
-                    <p className="text-sm font-medium text-[#6C757D]">Lead nao encontrado</p>
-                    <p className="text-xs text-[#ADB5BD] mt-1">Este contato nao esta cadastrado como lead</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── Tab: Anotacoes ── */}
-            {activeTab === 'anotacoes' && (
-              <div className="flex-1 overflow-y-auto bg-[#f8f9fb] p-5 scrollbar-thin">
-                {leadInfo ? (
-                  <div className="space-y-4">
-                    {/* Add note */}
-                    <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 border border-[#E9ECEF]/40 shadow-sm">
-                      <textarea
-                        value={newNote}
-                        onChange={(e) => setNewNote(e.target.value)}
-                        placeholder="Adicionar anotacao..."
-                        className="w-full bg-[#F1F3F5]/80 rounded-xl px-4 py-3 text-sm text-[#1A1A2E] placeholder-[#ADB5BD] focus:outline-none focus:ring-1 focus:ring-[#16A34A]/30 resize-none min-h-[80px]"
-                      />
-                      <div className="flex justify-end mt-2">
-                        <button
-                          onClick={addNote}
-                          disabled={!newNote.trim()}
-                          className="px-4 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-medium rounded-lg transition-all disabled:opacity-40 shadow-sm shadow-[#16A34A]/20"
-                        >
-                          Salvar
-                        </button>
+                        {chat.unreadCount > 0 && (
+                          <span className="ml-2 px-1.5 py-0.5 bg-[#16A34A] text-white text-[10px] font-bold rounded-full min-w-[18px] text-center">
+                            {chat.unreadCount}
+                          </span>
+                        )}
                       </div>
                     </div>
-
-                    {/* Notes list */}
-                    {leadNotes.length === 0 ? (
-                      <div className="text-center py-8">
-                        <StickyNote className="w-8 h-8 text-[#E9ECEF] mx-auto mb-2" />
-                        <p className="text-sm text-[#ADB5BD]">Nenhuma anotacao ainda</p>
-                      </div>
-                    ) : (
-                      leadNotes.map(note => (
-                        <div key={note.id} className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 border border-[#E9ECEF]/40 shadow-sm">
-                          {(note.prioridade === 'alta' || note.prioridade === 'urgente') && (
-                            <div className="flex items-center gap-1 mb-2">
-                              <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                              <span className="text-[10px] font-semibold text-amber-600 uppercase">{note.prioridade === 'urgente' ? 'Urgente' : 'Importante'}</span>
-                            </div>
-                          )}
-                          <p className="text-sm text-[#1A1A2E] whitespace-pre-wrap">{note.conteudo}</p>
-                          <div className="flex items-center gap-2 mt-2 text-[10px] text-[#ADB5BD]">
-                            <span>{note.tipo_nota}</span>
-                            <span>•</span>
-                            <span>{new Date(note.created_at).toLocaleDateString('pt-BR')} {new Date(note.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-                          </div>
-                        </div>
-                      ))
-                    )}
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <StickyNote className="w-10 h-10 text-[#E9ECEF] mb-3" />
-                    <p className="text-sm text-[#6C757D]">Cadastre este contato como lead para adicionar anotacoes</p>
-                  </div>
-                )}
-              </div>
-            )}
+                ))
+              )}
+            </div>
+          </>
+        )}
 
-            {/* ── Tab: Historico ── */}
-            {activeTab === 'historico' && (
-              <div className="flex-1 overflow-y-auto bg-[#f8f9fb] p-5 scrollbar-thin">
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <History className="w-10 h-10 text-[#E9ECEF] mb-3" />
-                  <p className="text-sm text-[#6C757D]">Historico de interacoes</p>
-                  <p className="text-xs text-[#ADB5BD] mt-1">Em breve - acompanhe todas as interacoes com este contato</p>
+        {/* ─── Instances Tab ─── */}
+        {mainTab === 'instances' && (
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold text-[#1A1A2E]">Instancias WhatsApp</h2>
+              <button onClick={() => setShowNewInstance(!showNewInstance)}
+                className="p-2 rounded-lg bg-[#16A34A] text-white hover:bg-[#15803D] transition-all">
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+
+            {showNewInstance && (
+              <div className="bg-white rounded-xl p-4 border border-[#E9ECEF] space-y-3">
+                <input type="text" placeholder="Nome da instancia (ex: CS, Financeiro)"
+                  value={newInstanceName} onChange={e => setNewInstanceName(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#F1F3F5] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#16A34A]/30" />
+                <input type="text" placeholder="Departamento (opcional)"
+                  value={newInstanceDept} onChange={e => setNewInstanceDept(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#F1F3F5] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#16A34A]/30" />
+                <div className="flex gap-2">
+                  <button onClick={createInstance}
+                    className="flex-1 px-3 py-2 bg-[#16A34A] text-white rounded-lg text-sm font-medium hover:bg-[#15803D]">
+                    Criar
+                  </button>
+                  <button onClick={() => setShowNewInstance(false)}
+                    className="px-3 py-2 bg-[#F1F3F5] text-[#6C757D] rounded-lg text-sm hover:bg-[#E9ECEF]">
+                    Cancelar
+                  </button>
                 </div>
               </div>
             )}
-          </>
-        ) : (
-          /* No chat selected */
-          <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-[#f8f9fb] to-[#f0f2f8]">
-            <div className="text-center max-w-sm">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-[#16A34A]/10 to-[#16A34A]/5 flex items-center justify-center">
-                <MessageCircle className="w-12 h-12 text-[#16A34A]/60" />
+
+            {instances.map(inst => (
+              <div key={inst.id} className="bg-white rounded-xl p-4 border border-[#E9ECEF] hover:shadow-sm transition-all">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-[#16A34A]" />
+                    <span className="font-semibold text-sm text-[#1A1A2E]">{inst.name}</span>
+                    {inst.department && (
+                      <span className="px-2 py-0.5 bg-[#F1F3F5] text-[#6C757D] text-[10px] rounded-full">{inst.department}</span>
+                    )}
+                  </div>
+                  <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium
+                    ${inst.live_status === 'connected' ? 'bg-emerald-50 text-emerald-600' :
+                      inst.live_status === 'connecting' ? 'bg-amber-50 text-amber-600' : 'bg-gray-100 text-gray-500'}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${
+                      inst.live_status === 'connected' ? 'bg-emerald-500 animate-pulse' :
+                      inst.live_status === 'connecting' ? 'bg-amber-500 animate-pulse' : 'bg-gray-400'}`} />
+                    {inst.live_status === 'connected' ? 'Conectado' : inst.live_status === 'connecting' ? 'Conectando...' : 'Desconectado'}
+                  </div>
+                </div>
+                {inst.phone_number && (
+                  <p className="text-xs text-[#6C757D] mb-2">{inst.phone_number}</p>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[#ADB5BD]">{inst.open_chats || 0} chats abertos</span>
+                  <div className="flex gap-1">
+                    {inst.live_status !== 'connected' ? (
+                      <button onClick={() => waV2.connectInstance(inst.id).then(loadV2Data)}
+                        className="px-3 py-1 bg-[#16A34A] text-white text-xs rounded-lg hover:bg-[#15803D]">
+                        <Power className="w-3 h-3 inline mr-1" />Conectar
+                      </button>
+                    ) : (
+                      <button onClick={() => waV2.disconnectInstance(inst.id).then(loadV2Data)}
+                        className="px-3 py-1 bg-red-50 text-red-600 text-xs rounded-lg hover:bg-red-100">
+                        <PowerOff className="w-3 h-3 inline mr-1" />Desconectar
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-              <h3 className="text-xl font-light text-[#1A1A2E] mb-2">Selecione uma conversa</h3>
-              <p className="text-sm text-[#6C757D]">
-                {filteredChats.length > 0
-                  ? 'Escolha um contato para comecar a conversar'
-                  : 'Carregando suas conversas...'
-                }
-              </p>
+            ))}
+
+            {instances.length === 0 && (
+              <div className="text-center py-12 text-[#ADB5BD]">
+                <Smartphone className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Nenhuma instancia configurada</p>
+                <p className="text-xs mt-1">Clique em + para adicionar</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── Automations Tab ─── */}
+        {mainTab === 'automations' && (
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold text-[#1A1A2E]">Automacoes</h2>
+              <button onClick={loadAutomations}
+                className="p-2 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D]">
+                <RefreshCw className="w-4 h-4" />
+              </button>
             </div>
+
+            {automations.map(auto => (
+              <div key={auto.id} className="bg-white rounded-xl p-4 border border-[#E9ECEF] hover:shadow-sm transition-all">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Zap className={`w-4 h-4 ${auto.is_active ? 'text-[#16A34A]' : 'text-gray-400'}`} />
+                    <span className="font-semibold text-sm text-[#1A1A2E]">{auto.name}</span>
+                  </div>
+                  <button onClick={() => waV2.toggleAutomation(auto.id).then(loadAutomations)}
+                    className={`relative w-10 h-5 rounded-full transition-all ${auto.is_active ? 'bg-[#16A34A]' : 'bg-gray-300'}`}>
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all ${auto.is_active ? 'left-5.5' : 'left-0.5'}`}
+                      style={{ left: auto.is_active ? '22px' : '2px' }} />
+                  </button>
+                </div>
+                {auto.description && <p className="text-xs text-[#6C757D] mb-2">{auto.description}</p>}
+                <div className="flex items-center gap-3 text-[10px] text-[#ADB5BD]">
+                  <span className="flex items-center gap-1">
+                    <Activity className="w-3 h-3" />{auto.executions_24h || 0} exec/24h
+                  </span>
+                  {(auto.failures_24h || 0) > 0 && (
+                    <span className="flex items-center gap-1 text-red-400">
+                      <AlertCircle className="w-3 h-3" />{auto.failures_24h} falhas
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <Globe className="w-3 h-3" />{auto.scope === 'global' ? 'Global' : 'Especifica'}
+                  </span>
+                  <span>v{auto.version}</span>
+                </div>
+                <div className="flex gap-1 mt-2">
+                  <button onClick={() => waV2.duplicateAutomation(auto.id).then(loadAutomations)}
+                    className="px-2 py-1 text-[10px] bg-[#F1F3F5] text-[#6C757D] rounded-md hover:bg-[#E9ECEF]">
+                    <Copy className="w-3 h-3 inline mr-0.5" />Duplicar
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {automations.length === 0 && (
+              <div className="text-center py-12 text-[#ADB5BD]">
+                <Bot className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Nenhuma automacao configurada</p>
+                <button onClick={loadAutomations}
+                  className="mt-2 text-xs text-[#16A34A] hover:underline">Carregar automacoes</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── Stats Tab ─── */}
+        {mainTab === 'stats' && (
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <h2 className="text-lg font-semibold text-[#1A1A2E] mb-2">Dashboard WhatsApp</h2>
+
+            {stats ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-xl p-3 border border-[#E9ECEF]">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Smartphone className="w-4 h-4 text-[#16A34A]" />
+                      <span className="text-xs text-[#6C757D]">Instancias</span>
+                    </div>
+                    <span className="text-2xl font-bold text-[#1A1A2E]">{stats.instances}</span>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 border border-[#E9ECEF]">
+                    <div className="flex items-center gap-2 mb-1">
+                      <MessageCircle className="w-4 h-4 text-blue-500" />
+                      <span className="text-xs text-[#6C757D]">Chats Abertos</span>
+                    </div>
+                    <span className="text-2xl font-bold text-[#1A1A2E]">{stats.chats.open}</span>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 border border-[#E9ECEF]">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Users className="w-4 h-4 text-purple-500" />
+                      <span className="text-xs text-[#6C757D]">Contatos</span>
+                    </div>
+                    <span className="text-2xl font-bold text-[#1A1A2E]">{stats.contacts.total}</span>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 border border-[#E9ECEF]">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Bot className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs text-[#6C757D]">Automacoes</span>
+                    </div>
+                    <span className="text-2xl font-bold text-[#1A1A2E]">{stats.automations.active}/{stats.automations.total}</span>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-[#E9ECEF]">
+                  <h3 className="text-sm font-semibold text-[#1A1A2E] mb-3">Contatos Vinculados</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#6C757D]">Com Lead</span>
+                      <span className="text-xs font-medium text-[#1A1A2E]">{stats.contacts.with_lead}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#6C757D]">Com Mentorado</span>
+                      <span className="text-xs font-medium text-[#1A1A2E]">{stats.contacts.with_mentorado}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#6C757D]">Identidade Pendente</span>
+                      <span className={`text-xs font-medium ${stats.pending_identity > 0 ? 'text-amber-600' : 'text-[#1A1A2E]'}`}>
+                        {stats.pending_identity}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12 text-[#ADB5BD]">
+                <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin" />
+                <p className="text-sm">Carregando estatisticas...</p>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* ══════ COLUMN 3: Details Panel (desktop only) ══════ */}
-      {showDetailsPanel && selectedChat && !selectedChat.isGroup && (
-        <div className="hidden lg:flex w-[320px] min-w-[320px] flex-col border-l border-[#E9ECEF]/60 bg-white/70 backdrop-blur-xl overflow-y-auto scrollbar-thin">
-          <div className="p-5 border-b border-[#E9ECEF]/40">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-[#1A1A2E]">Informacoes do Contato</h3>
-              <button onClick={() => setShowDetailsPanel(false)} className="p-1 rounded hover:bg-[#F1F3F5] text-[#ADB5BD]">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Contact avatar */}
-            <div className="flex flex-col items-center text-center">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#16A34A]/10 to-[#16A34A]/5 flex items-center justify-center mb-3">
-                <span className="text-2xl font-bold text-[#16A34A]">
-                  {getInitials(getDisplayName(selectedChat))}
-                </span>
-              </div>
-              <h3 className="text-base font-semibold text-[#1A1A2E]">{getDisplayName(selectedChat)}</h3>
-              <p className="text-xs text-[#ADB5BD] mt-0.5">{getPhoneDisplay(selectedChat.id)}</p>
+      {/* ══════ COLUMN 2: Chat Messages ══════ */}
+      <div className={`flex-1 flex flex-col ${mobileView === 'list' ? 'hidden md:flex' : 'flex'} bg-white/50`}>
+        {!selectedChat ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <MessageCircle className="w-16 h-16 text-[#16A34A]/20 mx-auto mb-4" />
+              <p className="text-[#6C757D] font-medium">Selecione um chat para comecar</p>
+              <p className="text-xs text-[#ADB5BD] mt-1">Escolha uma conversa na lista ao lado</p>
             </div>
           </div>
-
-          {isLoadingLead ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-5 h-5 animate-spin text-[#16A34A]" />
-            </div>
-          ) : leadInfo ? (
-            <div className="p-5 space-y-4">
-              <div className="flex flex-wrap gap-1.5">
-                <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${getStatusColor(leadInfo.status)}`}>
-                  {leadInfo.status?.replace('_', ' ') || 'Novo'}
-                </span>
-                {leadInfo.temperatura && (
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-orange-50 text-orange-700">
-                    {getTemperaturaIcon(leadInfo.temperatura)} {leadInfo.temperatura}
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-2 text-xs">
-                {leadInfo.email && (
-                  <div className="flex items-center gap-2 text-[#6C757D]">
-                    <Mail className="w-3.5 h-3.5 text-[#ADB5BD]" />
-                    <span className="truncate">{leadInfo.email}</span>
-                  </div>
-                )}
-                {leadInfo.empresa && (
-                  <div className="flex items-center gap-2 text-[#6C757D]">
-                    <Building2 className="w-3.5 h-3.5 text-[#ADB5BD]" />
-                    <span>{leadInfo.empresa}</span>
-                  </div>
-                )}
-                {leadInfo.cargo && (
-                  <div className="flex items-center gap-2 text-[#6C757D]">
-                    <User className="w-3.5 h-3.5 text-[#ADB5BD]" />
-                    <span>{leadInfo.cargo}</span>
-                  </div>
-                )}
-                {leadInfo.origem && (
-                  <div className="flex items-center gap-2 text-[#6C757D]">
-                    <Tag className="w-3.5 h-3.5 text-[#ADB5BD]" />
-                    <span>{leadInfo.origem}</span>
-                  </div>
-                )}
-              </div>
-
-              {leadInfo.valor_potencial > 0 && (
-                <div className="bg-[#F8F9FA] rounded-xl p-3">
-                  <p className="text-[10px] text-[#ADB5BD] uppercase tracking-wider mb-1">Valor Potencial</p>
-                  <p className="text-lg font-bold text-[#1A1A2E]">
-                    R$ {leadInfo.valor_potencial.toLocaleString('pt-BR')}
-                  </p>
-                </div>
-              )}
-
-              {/* Quick notes */}
-              <div>
-                <h4 className="text-[10px] text-[#ADB5BD] uppercase tracking-wider mb-2">Ultimas Anotacoes</h4>
-                {leadNotes.length === 0 ? (
-                  <p className="text-xs text-[#ADB5BD]">Sem anotacoes</p>
-                ) : (
-                  leadNotes.slice(0, 3).map(note => (
-                    <div key={note.id} className="py-2 border-b border-[#F1F3F5] last:border-0">
-                      <p className="text-xs text-[#6C757D] line-clamp-2">{note.conteudo}</p>
-                      <p className="text-[10px] text-[#ADB5BD] mt-0.5">
-                        {new Date(note.created_at).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 px-5 text-center">
-              <User className="w-8 h-8 text-[#E9ECEF] mb-2" />
-              <p className="text-xs text-[#ADB5BD]">Lead nao cadastrado</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ══════ MODALS ══════ */}
-
-      {/* Auto Messages Modal */}
-      {showAutoMessageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl mx-4">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E9ECEF]">
+        ) : (
+          <>
+            {/* Chat header */}
+            <div className="px-4 py-3 border-b border-[#E9ECEF]/60 bg-white/80 backdrop-blur-sm flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[#16A34A]/10 flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-[#16A34A]" />
+                <button onClick={() => { setSelectedChat(null); setMobileView('list'); }}
+                  className="md:hidden p-1.5 rounded-lg hover:bg-[#F1F3F5]">
+                  <ArrowLeft className="w-5 h-5 text-[#6C757D]" />
+                </button>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#16A34A]/10 to-[#16A34A]/5 flex items-center justify-center">
+                  {selectedChat.isGroup ? <Users className="w-5 h-5 text-[#16A34A]" /> :
+                    <span className="text-sm font-semibold text-[#16A34A]">{getInitials(selectedChat.name)}</span>}
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-[#1A1A2E]">Mensagens Automaticas</h2>
-                  <p className="text-xs text-[#ADB5BD]">Configure envios automatizados</p>
-                </div>
-              </div>
-              <button onClick={() => setShowAutoMessageModal(false)} className="p-2 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D]">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto max-h-[calc(85vh-140px)] p-6 space-y-4">
-              <div className="flex justify-end">
-                <button onClick={addAutoMessage} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-medium rounded-lg transition-all">
-                  <Plus className="w-3.5 h-3.5" /> Adicionar
-                </button>
-              </div>
-
-              {autoMessages.map((autoMsg, index) => (
-                <div key={autoMsg.id} className="bg-[#F8F9FA] rounded-xl p-4 border border-[#E9ECEF]/40">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-medium text-[#1A1A2E]">Mensagem {index + 1}</h4>
-                    {autoMessages.length > 1 && (
-                      <button onClick={() => removeAutoMessage(autoMsg.id)} className="p-1 text-red-400 hover:text-red-600">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                  <h3 className="font-semibold text-sm text-[#1A1A2E]">{getDisplayName(selectedChat)}</h3>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-[#6C757D]">{getPhoneDisplay(selectedChat.id)}</p>
+                    {leadInfo && (
+                      <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded-full ${getStatusColor(leadInfo.status)}`}>
+                        {leadInfo.status}
+                      </span>
+                    )}
+                    {contactDividas.some(d => d.status === 'atrasado') && (
+                      <span className="px-1.5 py-0.5 text-[9px] font-medium rounded-full bg-red-100 text-red-700">
+                        Inadimplente
+                      </span>
                     )}
                   </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={syncCurrentChat}
+                  className={`p-2 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D] transition-all ${isSyncingChat ? 'animate-spin' : ''}`}>
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+                <button onClick={() => setShowDetailsPanel(!showDetailsPanel)}
+                  className={`p-2 rounded-lg transition-all ${showDetailsPanel ? 'bg-[#16A34A]/10 text-[#16A34A]' : 'hover:bg-[#F1F3F5] text-[#6C757D]'}`}>
+                  <User className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
 
-                  <div className="grid grid-cols-3 gap-3 mb-3">
-                    <div>
-                      <label className="text-[10px] text-[#ADB5BD] uppercase tracking-wider">Data</label>
-                      <input type="date" value={autoMsg.scheduledDate}
-                        onChange={(e) => updateAutoMessage(autoMsg.id, 'scheduledDate', e.target.value)}
-                        className="w-full mt-1 px-3 py-2 bg-white border border-[#E9ECEF] rounded-lg text-xs focus:outline-none focus:border-[#16A34A]/40"
-                        min={new Date().toISOString().split('T')[0]}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-[#ADB5BD] uppercase tracking-wider">Horario</label>
-                      <input type="time" value={autoMsg.scheduledTime}
-                        onChange={(e) => updateAutoMessage(autoMsg.id, 'scheduledTime', e.target.value)}
-                        className="w-full mt-1 px-3 py-2 bg-white border border-[#E9ECEF] rounded-lg text-xs focus:outline-none focus:border-[#16A34A]/40"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-[#ADB5BD] uppercase tracking-wider">Destino</label>
-                      <select
-                        value={autoMsg.targetGroup}
-                        onChange={(e) => updateAutoMessage(autoMsg.id, 'targetGroup', e.target.value)}
-                        className="w-full mt-1 px-3 py-2 bg-white border border-[#E9ECEF] rounded-lg text-xs focus:outline-none focus:border-[#16A34A]/40"
-                      >
-                        <option value="">Selecione...</option>
-                        {filteredChats.map(chat => (
-                          <option key={chat.id} value={chat.id}>
-                            {getDisplayName(chat)} {chat.isGroup ? '(Grupo)' : ''}
-                          </option>
-                        ))}
-                      </select>
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2 scrollbar-thin bg-[#F8F9FB]/50">
+              {chatMessages.map((msg, idx) => {
+                const prevMsg = idx > 0 ? chatMessages[idx - 1] : null;
+                const showDate = !prevMsg || formatDate(msg.timestamp) !== formatDate(prevMsg.timestamp);
+
+                return (
+                  <div key={msg.id || idx}>
+                    {showDate && (
+                      <div className="flex justify-center my-3">
+                        <span className="px-3 py-1 bg-white/80 rounded-full text-[10px] text-[#ADB5BD] shadow-sm">
+                          {formatDate(msg.timestamp)}
+                        </span>
+                      </div>
+                    )}
+                    <div className={`flex ${msg.isFromMe ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[70%] px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words
+                        ${msg.isFromMe
+                          ? 'bg-[#16A34A] text-white rounded-br-md'
+                          : 'bg-white text-[#1A1A2E] rounded-bl-md shadow-sm border border-[#E9ECEF]/40'}`}>
+                        {msg.body}
+                        <div className={`flex items-center justify-end gap-1 mt-1 ${msg.isFromMe ? 'text-white/70' : 'text-[#ADB5BD]'}`}>
+                          <span className="text-[10px]">{formatTime(msg.timestamp)}</span>
+                          {msg.isFromMe && <CheckCheck className="w-3 h-3" />}
+                        </div>
+                      </div>
                     </div>
                   </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
 
-                  <div className="mb-3">
-                    <label className="text-[10px] text-[#ADB5BD] uppercase tracking-wider">Mensagem</label>
-                    <textarea value={autoMsg.message}
-                      onChange={(e) => updateAutoMessage(autoMsg.id, 'message', e.target.value)}
-                      placeholder="Digite a mensagem..."
-                      className="w-full mt-1 px-3 py-2 bg-white border border-[#E9ECEF] rounded-lg text-xs focus:outline-none focus:border-[#16A34A]/40 resize-none min-h-[80px]"
-                    />
+            {/* Image/Video preview */}
+            {(imagePreview || videoPreview) && (
+              <div className="px-4 py-3 bg-white border-t border-[#E9ECEF]/60">
+                <div className="flex items-center gap-3">
+                  {imagePreview && (
+                    <img src={imagePreview} alt="Preview" className="w-20 h-20 object-cover rounded-lg" />
+                  )}
+                  {videoPreview && (
+                    <video src={videoPreview} className="w-20 h-20 object-cover rounded-lg" />
+                  )}
+                  <div className="flex-1">
+                    <input type="text"
+                      placeholder="Legenda (opcional)"
+                      value={imagePreview ? imageCaption : videoCaption}
+                      onChange={(e) => imagePreview ? setImageCaption(e.target.value) : setVideoCaption(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#F1F3F5] rounded-lg text-sm focus:outline-none" />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] text-[#ADB5BD] uppercase tracking-wider">URL da Foto (opcional)</label>
-                      <input type="url" value={autoMsg.photoUrl}
-                        onChange={(e) => updateAutoMessage(autoMsg.id, 'photoUrl', e.target.value)}
-                        placeholder="https://..."
-                        className="w-full mt-1 px-3 py-2 bg-white border border-[#E9ECEF] rounded-lg text-xs focus:outline-none focus:border-[#16A34A]/40"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-[#ADB5BD] uppercase tracking-wider">Legenda (opcional)</label>
-                      <input type="text" value={autoMsg.photoCaption}
-                        onChange={(e) => updateAutoMessage(autoMsg.id, 'photoCaption', e.target.value)}
-                        placeholder="Legenda..."
-                        className="w-full mt-1 px-3 py-2 bg-white border border-[#E9ECEF] rounded-lg text-xs focus:outline-none focus:border-[#16A34A]/40"
-                      />
-                    </div>
+                  <div className="flex gap-1">
+                    <button onClick={imagePreview ? sendImage : sendVideo}
+                      disabled={isSendingImage || isSendingVideo}
+                      className="p-2 bg-[#16A34A] text-white rounded-lg hover:bg-[#15803D] disabled:opacity-50">
+                      {(isSendingImage || isSendingVideo) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </button>
+                    <button onClick={imagePreview ? cancelImage : cancelVideo}
+                      className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100">
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Message input */}
+            {!imagePreview && !videoPreview && (
+              <div className="px-4 py-3 bg-white border-t border-[#E9ECEF]/60">
+                <div className="flex items-center gap-2">
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleFileSelect} />
+                  <button onClick={() => fileInputRef.current?.click()}
+                    className="p-2.5 rounded-xl hover:bg-[#F1F3F5] text-[#6C757D] transition-all">
+                    <Paperclip className="w-5 h-5" />
+                  </button>
+                  <input type="text" placeholder="Digite uma mensagem..."
+                    value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                    className="flex-1 px-4 py-2.5 bg-[#F1F3F5]/80 rounded-xl text-sm text-[#1A1A2E] placeholder-[#ADB5BD] focus:outline-none focus:ring-1 focus:ring-[#16A34A]/30 transition-all" />
+                  <button onClick={sendMessage} disabled={isLoading || !newMessage.trim()}
+                    className="p-2.5 rounded-xl bg-[#16A34A] text-white hover:bg-[#15803D] disabled:opacity-50 transition-all shadow-sm">
+                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ══════ COLUMN 3: Details Panel ══════ */}
+      {showDetailsPanel && selectedChat && !selectedChat.isGroup && (
+        <div className="w-[380px] min-w-[380px] hidden lg:flex flex-col border-l border-[#E9ECEF]/60 bg-white/80 backdrop-blur-xl overflow-hidden">
+          {/* Detail tabs */}
+          <div className="px-3 pt-3 pb-1 border-b border-[#E9ECEF]/40">
+            <div className="flex gap-0.5 overflow-x-auto scrollbar-none">
+              {([
+                { key: 'detalhes', icon: User, label: 'Detalhes' },
+                { key: 'financeiro', icon: DollarSign, label: 'Financeiro' },
+                { key: 'anotacoes', icon: StickyNote, label: 'Notas' },
+                { key: 'historico', icon: History, label: 'Historico' },
+              ] as { key: ContactTab; icon: any; label: string }[]).map(tab => (
+                <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap
+                    ${activeTab === tab.key ? 'bg-[#16A34A]/10 text-[#16A34A]' : 'text-[#6C757D] hover:bg-[#F1F3F5]'}`}>
+                  <tab.icon className="w-3.5 h-3.5" />
+                  {tab.label}
+                </button>
               ))}
             </div>
+          </div>
 
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#E9ECEF]">
-              <button onClick={() => setShowAutoMessageModal(false)} className="px-4 py-2 text-sm text-[#6C757D] hover:bg-[#F1F3F5] rounded-lg transition-all">
-                Cancelar
-              </button>
-              <button onClick={saveAutoMessages}
-                disabled={!autoMessages.some(msg => msg.message && msg.scheduledTime && msg.targetGroup)}
-                className="px-4 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white text-sm font-medium rounded-lg transition-all disabled:opacity-40 shadow-sm shadow-[#16A34A]/20"
-              >
-                Salvar
-              </button>
-            </div>
+          <div className="flex-1 overflow-y-auto">
+            {/* ─── Details tab ─── */}
+            {activeTab === 'detalhes' && (
+              <div className="p-4 space-y-4">
+                {/* Contact info */}
+                <div className="text-center pb-4 border-b border-[#E9ECEF]/40">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-[#16A34A]/20 to-[#16A34A]/5 flex items-center justify-center mb-3">
+                    <span className="text-xl font-bold text-[#16A34A]">{getInitials(selectedChat.name)}</span>
+                  </div>
+                  <h3 className="font-semibold text-[#1A1A2E]">{getDisplayName(selectedChat)}</h3>
+                  <p className="text-sm text-[#6C757D]">{getPhoneDisplay(selectedChat.id)}</p>
+                </div>
+
+                {isLoadingLead ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#16A34A]" />
+                  </div>
+                ) : leadInfo ? (
+                  <>
+                    {/* Lead info */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-semibold text-[#ADB5BD] uppercase tracking-wider">Lead</h4>
+                      <div className="bg-[#F8F9FB] rounded-xl p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-[#6C757D]">Status</span>
+                          <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${getStatusColor(leadInfo.status)}`}>
+                            {leadInfo.status}
+                          </span>
+                        </div>
+                        {leadInfo.temperatura && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-[#6C757D]">Temperatura</span>
+                            <span className="text-xs font-medium">
+                              {leadInfo.temperatura === 'quente' ? '🔥' : leadInfo.temperatura === 'morno' ? '🌡️' : '❄️'} {leadInfo.temperatura}
+                            </span>
+                          </div>
+                        )}
+                        {leadInfo.origem && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-[#6C757D]">Origem</span>
+                            <span className="text-xs font-medium text-[#1A1A2E]">{leadInfo.origem}</span>
+                          </div>
+                        )}
+                        {leadInfo.email && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-[#6C757D]">Email</span>
+                            <span className="text-xs font-medium text-[#1A1A2E] truncate max-w-[150px]">{leadInfo.email}</span>
+                          </div>
+                        )}
+                        {leadInfo.empresa && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-[#6C757D]">Empresa</span>
+                            <span className="text-xs font-medium text-[#1A1A2E]">{leadInfo.empresa}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-[#6C757D]">Desde</span>
+                          <span className="text-xs font-medium text-[#1A1A2E]">{formatDateStr(leadInfo.created_at)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Financial summary */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-semibold text-[#ADB5BD] uppercase tracking-wider">Valores</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-green-50 rounded-lg p-3 text-center">
+                          <p className="text-[10px] text-green-600 mb-0.5">Vendido</p>
+                          <p className="text-sm font-bold text-green-700">{formatCurrency(leadInfo.valor_vendido)}</p>
+                        </div>
+                        <div className="bg-blue-50 rounded-lg p-3 text-center">
+                          <p className="text-[10px] text-blue-600 mb-0.5">Arrecadado</p>
+                          <p className="text-sm font-bold text-blue-700">{formatCurrency(leadInfo.valor_arrecadado)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {leadInfo.observacoes && (
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-semibold text-[#ADB5BD] uppercase tracking-wider">Observacoes</h4>
+                        <p className="text-xs text-[#6C757D] bg-[#F8F9FB] rounded-lg p-3">{leadInfo.observacoes}</p>
+                      </div>
+                    )}
+
+                    <Link href={`/leads?search=${encodeURIComponent(leadInfo.telefone || leadInfo.email || leadInfo.nome_completo)}`}>
+                      <button className="w-full mt-2 px-3 py-2 bg-[#16A34A]/10 text-[#16A34A] rounded-lg text-xs font-medium hover:bg-[#16A34A]/20 transition-all">
+                        <Eye className="w-3.5 h-3.5 inline mr-1.5" />
+                        Ver lead completo
+                      </button>
+                    </Link>
+                  </>
+                ) : (
+                  <div className="text-center py-6 text-[#ADB5BD]">
+                    <User className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-xs">Lead nao encontrado</p>
+                    <p className="text-[10px] mt-1">Este contato nao esta vinculado a nenhum lead</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ─── Financial tab ─── */}
+            {activeTab === 'financeiro' && (
+              <div className="p-4 space-y-4">
+                <h4 className="text-xs font-semibold text-[#ADB5BD] uppercase tracking-wider">Situacao Financeira</h4>
+
+                {contactDividas.length > 0 ? (
+                  <>
+                    {/* Summary cards */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-amber-50 rounded-lg p-3 text-center">
+                        <p className="text-[10px] text-amber-600 mb-0.5">Pendente</p>
+                        <p className="text-sm font-bold text-amber-700">
+                          {formatCurrency(contactDividas.filter(d => d.status === 'pendente').reduce((s, d) => s + (d.valor || 0), 0))}
+                        </p>
+                      </div>
+                      <div className="bg-red-50 rounded-lg p-3 text-center">
+                        <p className="text-[10px] text-red-600 mb-0.5">Atrasado</p>
+                        <p className="text-sm font-bold text-red-700">
+                          {formatCurrency(contactDividas.filter(d => d.status === 'atrasado').reduce((s, d) => s + (d.valor || 0), 0))}
+                        </p>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-3 text-center">
+                        <p className="text-[10px] text-green-600 mb-0.5">Pago</p>
+                        <p className="text-sm font-bold text-green-700">
+                          {formatCurrency(contactDividas.filter(d => d.status === 'pago').reduce((s, d) => s + (d.valor || 0), 0))}
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3 text-center">
+                        <p className="text-[10px] text-gray-600 mb-0.5">Total</p>
+                        <p className="text-sm font-bold text-gray-700">
+                          {formatCurrency(contactDividas.reduce((s, d) => s + (d.valor || 0), 0))}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Dividas list */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-semibold text-[#ADB5BD] uppercase tracking-wider">Parcelas / Dividas</h4>
+                      {contactDividas.map((d: any) => {
+                        const isOverdue = d.status === 'atrasado' || (d.status === 'pendente' && new Date(d.data_vencimento) < new Date());
+                        return (
+                          <div key={d.id} className={`rounded-lg p-3 border ${
+                            d.status === 'pago' ? 'bg-green-50/50 border-green-100' :
+                            isOverdue ? 'bg-red-50/50 border-red-100' : 'bg-amber-50/50 border-amber-100'
+                          }`}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-semibold text-[#1A1A2E]">{formatCurrency(d.valor)}</span>
+                              <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${
+                                d.status === 'pago' ? 'bg-green-100 text-green-700' :
+                                isOverdue ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {d.status === 'pago' ? 'Pago' : isOverdue ? 'Atrasado' : 'Pendente'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px] text-[#6C757D]">
+                              <span>Vencimento: {formatDateStr(d.data_vencimento)}</span>
+                              {d.data_pagamento && <span>Pago: {formatDateStr(d.data_pagamento)}</span>}
+                            </div>
+                            {d.observacoes && <p className="text-[10px] text-[#ADB5BD] mt-1">{d.observacoes}</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-[#ADB5BD]">
+                    <DollarSign className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-xs">Sem dados financeiros</p>
+                    <p className="text-[10px] mt-1">Nenhuma divida vinculada a este contato</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ─── Notes tab ─── */}
+            {activeTab === 'anotacoes' && (
+              <div className="p-4 space-y-3">
+                {/* Add note */}
+                <div className="flex gap-2">
+                  <input type="text" placeholder="Adicionar anotacao..."
+                    value={newNote} onChange={e => setNewNote(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') addNote(); }}
+                    className="flex-1 px-3 py-2 bg-[#F1F3F5] rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#16A34A]/30" />
+                  <button onClick={addNote} disabled={!newNote.trim()}
+                    className="px-3 py-2 bg-[#16A34A] text-white rounded-lg text-sm disabled:opacity-50 hover:bg-[#15803D]">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Notes list */}
+                {leadNotes.length > 0 ? (
+                  <div className="space-y-2">
+                    {leadNotes.map(note => (
+                      <div key={note.id} className="bg-[#F8F9FB] rounded-lg p-3 border border-[#E9ECEF]/40">
+                        <p className="text-xs text-[#1A1A2E]">{note.conteudo}</p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-[10px] text-[#ADB5BD]">{formatDateStr(note.created_at)}</span>
+                          <span className={`px-1.5 py-0.5 text-[9px] rounded-full ${
+                            note.prioridade === 'alta' || note.prioridade === 'high' ? 'bg-red-100 text-red-600' :
+                            note.prioridade === 'urgent' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {note.tipo_nota}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-[#ADB5BD]">
+                    <StickyNote className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-xs">Sem anotacoes</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ─── History tab ─── */}
+            {activeTab === 'historico' && (
+              <div className="p-4 space-y-3">
+                <h4 className="text-xs font-semibold text-[#ADB5BD] uppercase tracking-wider">Historico do Contato</h4>
+
+                {contactHistory.length > 0 ? (
+                  <div className="space-y-2">
+                    {contactHistory.map((h: any, idx: number) => (
+                      <div key={h.id || idx} className="flex gap-3 items-start">
+                        <div className="w-2 h-2 rounded-full bg-[#16A34A]/30 mt-1.5 flex-shrink-0" />
+                        <div className="flex-1 bg-[#F8F9FB] rounded-lg p-3 border border-[#E9ECEF]/40">
+                          <p className="text-xs text-[#1A1A2E]">
+                            {h.action || h.tipo || h.descricao || h.description || 'Acao registrada'}
+                          </p>
+                          {(h.description || h.detalhes) && (
+                            <p className="text-[10px] text-[#6C757D] mt-1">{h.description || h.detalhes}</p>
+                          )}
+                          <span className="text-[10px] text-[#ADB5BD]">{formatDateStr(h.created_at)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-[#ADB5BD]">
+                    <History className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-xs">Sem historico</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
-
-      {/* Settings Modal */}
-      {showSettingsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl mx-4">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E9ECEF]">
-              <div className="flex items-center gap-2">
-                <Settings className="w-5 h-5 text-[#16A34A]" />
-                <h2 className="text-base font-semibold text-[#1A1A2E]">Configuracoes</h2>
-              </div>
-              <button onClick={() => setShowSettingsModal(false)} className="p-2 rounded-lg hover:bg-[#F1F3F5] text-[#6C757D]">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="text-xs font-medium text-[#1A1A2E] block mb-1">Numero do Administrador</label>
-                <p className="text-[10px] text-[#ADB5BD] mb-2">Recebera notificacoes de agendamentos</p>
-                <input type="tel" value={adminPhone}
-                  onChange={(e) => setAdminPhone(e.target.value)}
-                  placeholder="+5583996910414"
-                  className="w-full px-4 py-2.5 bg-[#F1F3F5] border border-transparent rounded-xl text-sm text-[#1A1A2E] placeholder-[#ADB5BD] focus:outline-none focus:border-[#16A34A]/30 focus:bg-white"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#E9ECEF]">
-              <button onClick={() => setShowSettingsModal(false)} className="px-4 py-2 text-sm text-[#6C757D] hover:bg-[#F1F3F5] rounded-lg">
-                Cancelar
-              </button>
-              <button onClick={saveSettings} disabled={!adminPhone || adminPhone.length < 10}
-                className="px-4 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white text-sm font-medium rounded-lg transition-all disabled:opacity-40 shadow-sm shadow-[#16A34A]/20"
-              >
-                Salvar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Custom scrollbar styles */}
-      <style jsx global>{`
-        .scrollbar-thin::-webkit-scrollbar { width: 4px; }
-        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: #CED4DA; border-radius: 4px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #ADB5BD; }
-        .scrollbar-thin { scrollbar-width: thin; scrollbar-color: #CED4DA transparent; }
-      `}</style>
     </div>
   );
 }
