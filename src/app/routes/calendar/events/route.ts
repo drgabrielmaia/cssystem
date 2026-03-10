@@ -101,14 +101,13 @@ export async function POST(request: NextRequest) {
 
     const eventData = {
       title: title.trim(),
-      description: closer_id 
-        ? `${description?.trim() || ''} | CLOSER_ID: ${closer_id}`.trim()
-        : description?.trim() || null,
+      description: description?.trim() || null,
       start_datetime,
       end_datetime,
       all_day: Boolean(all_day),
       mentorado_id: mentorado_id || null,
-      lead_id: lead_id || null
+      lead_id: lead_id || null,
+      closer_id: closer_id || null
     }
 
     const { data, error } = await supabase
