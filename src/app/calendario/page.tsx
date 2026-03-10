@@ -462,7 +462,7 @@ export default function CalendarioPage() {
           const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
           await fetch(`${apiUrl}/users/${organizationId}/send`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true', 'X-API-Key': process.env.NEXT_PUBLIC_WA_API_KEY || 'o3qRvXd6JgJYuts_ihPMnJnKE6nzU66XO3QFLs6UK3Q' },
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
             body: JSON.stringify({ to: linkedGroupId, message: agendaMsg })
           })
           console.log('✅ Agenda do dia enviada ao grupo vinculado')
@@ -517,9 +517,8 @@ export default function CalendarioPage() {
     try {
       if (!organizationId) return
       const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
-      const waApiKey = process.env.NEXT_PUBLIC_WA_API_KEY || 'o3qRvXd6JgJYuts_ihPMnJnKE6nzU66XO3QFLs6UK3Q'
       const res = await fetch(`${apiUrl}/users/${organizationId}/chats`, {
-        headers: { 'ngrok-skip-browser-warning': 'true', 'X-API-Key': waApiKey }
+        headers: { 'ngrok-skip-browser-warning': 'true' }
       })
       const json = await res.json()
       const chats = json.data || json.chats || []
@@ -563,7 +562,7 @@ export default function CalendarioPage() {
       const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
       const res = await fetch(`${apiUrl}/users/${organizationId}/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true', 'X-API-Key': process.env.NEXT_PUBLIC_WA_API_KEY || 'o3qRvXd6JgJYuts_ihPMnJnKE6nzU66XO3QFLs6UK3Q' },
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({ to: selectedGroup, message: agendaPreview })
       })
       const result = await res.json()
