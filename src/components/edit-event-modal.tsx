@@ -41,6 +41,11 @@ interface Lead {
   status: string
 }
 
+interface Closer {
+  id: string
+  nome_completo: string
+}
+
 interface CalendarEvent {
   id: string
   title: string
@@ -50,6 +55,7 @@ interface CalendarEvent {
   all_day: boolean
   mentorado_id?: string
   lead_id?: string
+  closer_id?: string
 }
 
 interface EditEventModalProps {
@@ -63,6 +69,7 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
   const [loading, setLoading] = useState(false)
   const [mentorados, setMentorados] = useState<Mentorado[]>([])
   const [leads, setLeads] = useState<Lead[]>([])
+  const [closers, setClosers] = useState<Closer[]>([])
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -72,7 +79,8 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
     end_time: '',
     all_day: false,
     mentorado_id: 'none',
-    lead_id: 'none'
+    lead_id: 'none',
+    closer_id: 'none'
   })
 
   // Buscar mentorados e leads
@@ -103,10 +111,21 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
         if (!leadsError) {
           setLeads(leadsData || [])
         }
+
+        // Buscar closers
+        const { data: closersData, error: closersError } = await supabase
+          .from('closers')
+          .select('id, nome_completo')
+          .eq('ativo', true)
+          .order('nome_completo')
+        if (!closersError && closersData) {
+          setClosers(closersData)
+        }
       } catch (error) {
         console.error('Erro ao buscar dados:', error)
         setMentorados([])
         setLeads([])
+        setClosers([])
       }
     }
 
@@ -149,7 +168,8 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
         end_time: event.all_day ? '' : formatTimeString(endDate),
         all_day: event.all_day,
         mentorado_id: event.mentorado_id || 'none',
-        lead_id: event.lead_id || 'none'
+        lead_id: event.lead_id || 'none',
+        closer_id: event.closer_id || 'none'
       })
     }
   }, [event, isOpen])
@@ -206,7 +226,8 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
         end_datetime: endDateTime,
         all_day: formData.all_day,
         mentorado_id: formData.mentorado_id && formData.mentorado_id !== 'none' ? formData.mentorado_id : null,
-        lead_id: formData.lead_id && formData.lead_id !== 'none' ? formData.lead_id : null
+        lead_id: formData.lead_id && formData.lead_id !== 'none' ? formData.lead_id : null,
+        closer_id: formData.closer_id && formData.closer_id !== 'none' ? formData.closer_id : null
       }
 
       console.log('Atualizando evento:', eventData)
@@ -318,6 +339,26 @@ export function EditEventModal({ isOpen, onClose, onSuccess, event }: EditEventM
                   {leads.map((lead) => (
                     <SelectItem key={lead.id} value={lead.id}>
                       {lead.nome_completo} - {lead.status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Closer */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="closer" className="text-right">
+                Closer
+              </Label>
+              <Select value={formData.closer_id} onValueChange={(value) => handleChange('closer_id', value)}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Selecionar closer (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum closer</SelectItem>
+                  {closers.map((closer) => (
+                    <SelectItem key={closer.id} value={closer.id}>
+                      {closer.nome_completo}
                     </SelectItem>
                   ))}
                 </SelectContent>
