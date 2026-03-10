@@ -412,23 +412,49 @@ export default function ContractsPage() {
           .eq('id', contractId)
       }
 
-      // Try to send WhatsApp notification automatically
-      if (contractId && recipientPhone) {
+      // Send customization link to financial team via WhatsApp
+      const effectiveFinPhone = financeiroPhone?.replace(/\D/g, '')
+      if (contractId && effectiveFinPhone) {
         try {
-          console.log('Enviando contrato via WhatsApp automaticamente...')
-          const whatsappSent = await sendContractAfterCreation(contractId)
+          const BAILEYS_API = 'https://api.medicosderesultado.com.br'
+          const customizeUrl = `${window.location.origin}/personalizar-contrato/${contractId}`
 
+          const finMsg = `📋 *Novo Contrato Criado*
+
+👤 *Destinatario:* ${recipientName}
+📧 Email: ${recipientEmail || 'N/A'}
+📱 Telefone: ${recipientPhone || 'N/A'}
+
+🔗 *Personalize o contrato (forma de pagamento, valor, etc):*
+${customizeUrl}
+
+Apos personalizar, o sistema enviara automaticamente o link de assinatura para o destinatario.`
+
+          await fetch(`${BAILEYS_API}/users/${organizationId}/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: effectiveFinPhone, message: finMsg })
+          })
+          alert('Contrato criado! Link de personalizacao enviado para o financeiro via WhatsApp.')
+        } catch (whatsappError) {
+          console.error('Erro no WhatsApp:', whatsappError)
+          alert('Contrato criado com sucesso! Erro ao enviar para financeiro - copie o link manualmente.')
+        }
+      } else if (contractId && recipientPhone) {
+        // Fallback: no financial phone configured, send directly to recipient
+        try {
+          const whatsappSent = await sendContractAfterCreation(contractId)
           if (whatsappSent) {
-            alert('Contrato criado e enviado via WhatsApp com sucesso!')
+            alert('Contrato criado e enviado diretamente via WhatsApp (financeiro nao configurado).')
           } else {
-            alert('Contrato criado com sucesso! Nao foi possivel enviar via WhatsApp - voce pode copiar o link manualmente.')
+            alert('Contrato criado! Nao foi possivel enviar via WhatsApp.')
           }
         } catch (whatsappError) {
           console.error('Erro no WhatsApp:', whatsappError)
-          alert('Contrato criado com sucesso! Erro ao enviar via WhatsApp - voce pode copiar o link manualmente.')
+          alert('Contrato criado! Erro ao enviar via WhatsApp.')
         }
       } else {
-        alert('Contrato criado com sucesso! Sem telefone cadastrado - envie o link manualmente.')
+        alert('Contrato criado com sucesso! Envie o link manualmente.')
       }
 
       setShowContractModal(false)
@@ -621,6 +647,13 @@ Assinatura do Contratante`
         .update({ status: 'signed', signed_at: new Date().toISOString() })
         .eq('id', contractId)
       if (error) throw error
+
+      // Disparar evento de automacao: contrato assinado
+      try {
+        const { waV2 } = await import('@/lib/whatsapp-v2-service')
+        await waV2.triggerAutomationEvent('contract_signed', { contractId, recipientName: contractName })
+      } catch {}
+
       alert('Contrato ativado com sucesso!')
       loadData()
     } catch (error) {

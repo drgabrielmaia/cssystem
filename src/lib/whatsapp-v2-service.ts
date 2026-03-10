@@ -317,6 +317,12 @@ export const waV2 = {
   duplicateAutomation: (autoId: string) => apiPost('/api/wa/automations/' + autoId + '/duplicate'),
   getAutomationExecutions: (autoId: string) =>
     apiGet('/api/wa/automations/' + autoId + '/executions'),
+  triggerAutomationEvent: (eventType: string, eventData: any) =>
+    apiPost('/api/wa/automations/trigger', { event_type: eventType, event_data: eventData }),
+  resolveLid: (lidJid: string) =>
+    apiPost('/api/wa/resolve-lid', { lid_jid: lidJid }),
+  fetchContactPhoto: (contactId: string) =>
+    apiPost('/api/wa/contacts/' + contactId + '/fetch-photo'),
 
   // Pipeline
   getPipelineStages: () => apiGet<WAPipelineStage[]>('/api/wa/pipeline-stages'),

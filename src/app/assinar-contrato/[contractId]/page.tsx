@@ -371,18 +371,15 @@ Assinatura do Contratante`
             const BAILEYS_API = 'https://api.medicosderesultado.com.br'
             if (mentoradoPhone) {
               try {
-                const loginMessage = `✅ *Contrato assinado com sucesso!*
+                const loginMessage = `Que otimo, *${contract.recipient_name}*! Seu contrato foi assinado com sucesso! 🎉
 
-Olá *${contract.recipient_name}*! Seu contrato foi assinado e seu acesso foi liberado! 🎉
+Obrigado por assinar o contrato! Agora voce ja tem acesso completo a nossa plataforma. Seguem suas credenciais:
 
-🔑 *Suas credenciais de acesso:*
-🌐 Link: cs.medicosderesultado.com.br/mentorado
-📧 Email: ${contract.recipient_email}
-🔒 Senha: ${defaultPassword}
+🌐 *Acesse aqui:* cs.medicosderesultado.com.br/mentorado
+📧 *Email:* ${contract.recipient_email}
+🔒 *Senha:* ${defaultPassword}
 
-Acesse a plataforma e comece sua jornada conosco!
-
-Qualquer dúvida, estamos aqui para ajudar! 💪`
+Se tiver qualquer duvida sobre a plataforma, e so me chamar aqui! Estou a disposicao. 😊`
 
                 const phone = mentoradoPhone.replace(/\D/g, '')
                 await fetch(`${BAILEYS_API}/users/${contract.organization_id}/send`, {

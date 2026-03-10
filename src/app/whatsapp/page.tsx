@@ -114,6 +114,9 @@ export default function WhatsAppPage() {
   const [showAutoForm, setShowAutoForm] = useState(false);
   const [editingAuto, setEditingAuto] = useState<WAAutomation | null>(null);
   const [autoForm, setAutoForm] = useState({ name: '', description: '', scope: 'global', priority: 10 });
+  const [autoTrigger, setAutoTrigger] = useState<{ type: string; config: Record<string, any> }>({ type: 'message_received', config: {} });
+  const [autoConditions, setAutoConditions] = useState<{ type: string; operator: string; config: Record<string, any>; logic_gate: string }[]>([]);
+  const [autoActions, setAutoActions] = useState<{ type: string; config: Record<string, any> }[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -480,29 +483,125 @@ export default function WhatsAppPage() {
   // ─── Save automation (create or update) ───────────────
   const saveAutomation = async () => {
     if (!autoForm.name.trim()) return;
-    const payload = { name: autoForm.name, description: autoForm.description, scope: autoForm.scope, priority: autoForm.priority };
+    const payload = {
+      name: autoForm.name,
+      description: autoForm.description,
+      scope: autoForm.scope,
+      priority: autoForm.priority,
+      trigger: autoTrigger,
+      conditions: autoConditions,
+      actions: autoActions.map((a, i) => ({ ...a, order_index: i }))
+    };
     const res = editingAuto
       ? await waV2.updateAutomation(editingAuto.id, payload)
       : await waV2.createAutomation(payload);
     if (res.success) {
       setShowAutoForm(false);
       setEditingAuto(null);
-      setAutoForm({ name: '', description: '', scope: 'global', priority: 10 });
+      resetAutoForm();
       loadAutomations();
     }
+  };
+
+  const resetAutoForm = () => {
+    setAutoForm({ name: '', description: '', scope: 'global', priority: 10 });
+    setAutoTrigger({ type: 'message_received', config: {} });
+    setAutoConditions([]);
+    setAutoActions([]);
   };
 
   const openEditAuto = (auto: WAAutomation) => {
     setEditingAuto(auto);
     setAutoForm({ name: auto.name, description: auto.description || '', scope: auto.scope || 'global', priority: auto.priority || 10 });
+    if (auto.triggers?.[0]) {
+      setAutoTrigger({ type: auto.triggers[0].trigger_type, config: auto.triggers[0].config || {} });
+    } else {
+      setAutoTrigger({ type: 'message_received', config: {} });
+    }
+    setAutoConditions((auto.conditions || []).map((c: any) => ({
+      type: c.condition_type, operator: c.operator || 'eq', config: c.config || {}, logic_gate: c.logic_gate || 'AND'
+    })));
+    setAutoActions((auto.actions || []).map((a: any) => ({
+      type: a.action_type, config: a.config || {}
+    })));
     setShowAutoForm(true);
   };
 
   const openNewAuto = () => {
     setEditingAuto(null);
-    setAutoForm({ name: '', description: '', scope: 'global', priority: 10 });
+    resetAutoForm();
     setShowAutoForm(true);
   };
+
+  const addAutoCondition = () => {
+    setAutoConditions(prev => [...prev, { type: 'message_contains', operator: 'contains', config: { value: '' }, logic_gate: 'AND' }]);
+  };
+
+  const addAutoAction = () => {
+    setAutoActions(prev => [...prev, { type: 'send_message', config: { message: '' } }]);
+  };
+
+  const removeAutoCondition = (idx: number) => setAutoConditions(prev => prev.filter((_, i) => i !== idx));
+  const removeAutoAction = (idx: number) => setAutoActions(prev => prev.filter((_, i) => i !== idx));
+  const moveActionUp = (idx: number) => {
+    if (idx === 0) return;
+    setAutoActions(prev => {
+      const arr = [...prev];
+      [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+      return arr;
+    });
+  };
+
+  // Automation constants
+  const TRIGGER_TYPES = [
+    { value: 'message_received', label: 'Mensagem recebida' },
+    { value: 'keyword_detected', label: 'Palavra-chave detectada' },
+    { value: 'contact_created', label: 'Contato criado' },
+    { value: 'contact_tag_added', label: 'Tag adicionada' },
+    { value: 'contact_stage_changed', label: 'Estagio alterado' },
+    { value: 'lead_converted', label: 'Lead convertido' },
+    { value: 'mentorado_created', label: 'Mentorado criado' },
+    { value: 'payment_overdue', label: 'Pagamento atrasado' },
+    { value: 'no_response_timeout', label: 'Sem resposta (timeout)' },
+    { value: 'schedule_cron', label: 'Agendamento (cron)' },
+    { value: 'webhook_received', label: 'Webhook recebido' },
+  ];
+
+  const CONDITION_TYPES = [
+    { value: 'message_contains', label: 'Mensagem contem' },
+    { value: 'contact_has_tag', label: 'Contato tem tag' },
+    { value: 'contact_in_stage', label: 'Contato no estagio' },
+    { value: 'is_lead', label: 'E um lead' },
+    { value: 'is_mentorado', label: 'E um mentorado' },
+    { value: 'financial_status', label: 'Status financeiro' },
+    { value: 'has_pending_payment', label: 'Tem pagamento pendente' },
+    { value: 'time_window', label: 'Horario permitido' },
+    { value: 'lead_status', label: 'Status do lead' },
+    { value: 'contact_field_equals', label: 'Campo personalizado' },
+    { value: 'contact_replied_within', label: 'Respondeu dentro de' },
+  ];
+
+  const ACTION_TYPES = [
+    { value: 'send_message', label: 'Enviar mensagem', icon: '💬' },
+    { value: 'send_template', label: 'Enviar template', icon: '📋' },
+    { value: 'send_media', label: 'Enviar midia', icon: '📸' },
+    { value: 'wait_delay', label: 'Aguardar (delay)', icon: '⏱️' },
+    { value: 'wait_for_reply', label: 'Aguardar resposta', icon: '💬' },
+    { value: 'add_tag', label: 'Adicionar tag', icon: '🏷️' },
+    { value: 'remove_tag', label: 'Remover tag', icon: '🏷️' },
+    { value: 'change_stage', label: 'Mudar estagio', icon: '📊' },
+    { value: 'send_notification', label: 'Enviar notificacao', icon: '🔔' },
+    { value: 'create_lead', label: 'Criar lead', icon: '👤' },
+    { value: 'link_to_mentorado', label: 'Vincular mentorado', icon: '🔗' },
+    { value: 'update_lead_status', label: 'Atualizar status lead', icon: '📝' },
+    { value: 'call_webhook', label: 'Chamar webhook', icon: '🌐' },
+    { value: 'set_contact_field', label: 'Definir campo', icon: '✏️' },
+    { value: 'assign_to_user', label: 'Atribuir a usuario', icon: '👥' },
+    { value: 'transfer_to_human', label: 'Transferir para humano', icon: '🙋' },
+    { value: 'send_payment_reminder', label: 'Lembrete de pagamento', icon: '💰' },
+    { value: 'run_sub_automation', label: 'Executar sub-automacao', icon: '🔄' },
+    { value: 'pause_automation', label: 'Pausar automacao', icon: '⏸️' },
+  ];
 
   // ─── Create instance ───────────────────────────────────
   const createInstance = async () => {
@@ -874,10 +973,12 @@ export default function WhatsAppPage() {
               </div>
             </div>
 
-            {/* Automation Form (Create/Edit) */}
+            {/* Automation Form (Full Builder) */}
             {showAutoForm && (
-              <div className="bg-white rounded-xl p-4 border-2 border-[#16A34A] space-y-3">
+              <div className="bg-white rounded-xl p-4 border-2 border-[#16A34A] space-y-4 max-h-[80vh] overflow-y-auto">
                 <h3 className="text-sm font-semibold text-[#1A1A2E]">{editingAuto ? 'Editar Automacao' : 'Nova Automacao'}</h3>
+
+                {/* Basic Info */}
                 <input type="text" placeholder="Nome da automacao" value={autoForm.name}
                   onChange={e => setAutoForm(f => ({ ...f, name: e.target.value }))}
                   className="w-full px-3 py-2 text-sm border border-[#E9ECEF] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#16A34A]/30" />
@@ -900,6 +1001,248 @@ export default function WhatsAppPage() {
                       className="w-full px-3 py-1.5 text-sm border border-[#E9ECEF] rounded-lg" />
                   </div>
                 </div>
+
+                {/* TRIGGER */}
+                <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/50">
+                  <h4 className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1">
+                    <Zap className="w-3.5 h-3.5" /> GATILHO (Quando)
+                  </h4>
+                  <select value={autoTrigger.type}
+                    onChange={e => setAutoTrigger({ type: e.target.value, config: {} })}
+                    className="w-full px-3 py-1.5 text-sm border border-blue-200 rounded-lg bg-white mb-2">
+                    {TRIGGER_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                  {autoTrigger.type === 'keyword_detected' && (
+                    <input type="text" placeholder="Palavras-chave (separadas por virgula)"
+                      value={(autoTrigger.config.keywords || []).join(', ')}
+                      onChange={e => setAutoTrigger(t => ({ ...t, config: { ...t.config, keywords: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) } }))}
+                      className="w-full px-3 py-1.5 text-sm border border-blue-200 rounded-lg bg-white" />
+                  )}
+                  {autoTrigger.type === 'schedule_cron' && (
+                    <input type="text" placeholder="Expressao cron (ex: 0 9 * * *)"
+                      value={autoTrigger.config.cron || ''}
+                      onChange={e => setAutoTrigger(t => ({ ...t, config: { ...t.config, cron: e.target.value } }))}
+                      className="w-full px-3 py-1.5 text-sm border border-blue-200 rounded-lg bg-white" />
+                  )}
+                  {autoTrigger.type === 'no_response_timeout' && (
+                    <input type="number" placeholder="Timeout em segundos"
+                      value={autoTrigger.config.timeout_seconds || ''}
+                      onChange={e => setAutoTrigger(t => ({ ...t, config: { ...t.config, timeout_seconds: Number(e.target.value) } }))}
+                      className="w-full px-3 py-1.5 text-sm border border-blue-200 rounded-lg bg-white" />
+                  )}
+                </div>
+
+                {/* CONDITIONS */}
+                <div className="border border-amber-200 rounded-lg p-3 bg-amber-50/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-semibold text-amber-700 flex items-center gap-1">
+                      <Filter className="w-3.5 h-3.5" /> CONDICOES (Se)
+                    </h4>
+                    <button onClick={addAutoCondition}
+                      className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded hover:bg-amber-200">
+                      + Adicionar
+                    </button>
+                  </div>
+                  {autoConditions.length === 0 && (
+                    <p className="text-[10px] text-amber-500 italic">Nenhuma condicao (executa sempre)</p>
+                  )}
+                  {autoConditions.map((cond, idx) => (
+                    <div key={idx} className="flex gap-2 items-start mb-2">
+                      {idx > 0 && (
+                        <select value={cond.logic_gate}
+                          onChange={e => setAutoConditions(prev => prev.map((c, i) => i === idx ? { ...c, logic_gate: e.target.value } : c))}
+                          className="w-14 px-1 py-1 text-[10px] border border-amber-200 rounded bg-white">
+                          <option value="AND">E</option>
+                          <option value="OR">OU</option>
+                        </select>
+                      )}
+                      <select value={cond.type}
+                        onChange={e => setAutoConditions(prev => prev.map((c, i) => i === idx ? { ...c, type: e.target.value, config: {} } : c))}
+                        className="flex-1 px-2 py-1 text-xs border border-amber-200 rounded bg-white">
+                        {CONDITION_TYPES.map(ct => <option key={ct.value} value={ct.value}>{ct.label}</option>)}
+                      </select>
+                      {!['is_lead', 'is_mentorado', 'has_pending_payment'].includes(cond.type) && (
+                        <input type="text" placeholder="Valor"
+                          value={cond.config.value || ''}
+                          onChange={e => setAutoConditions(prev => prev.map((c, i) => i === idx ? { ...c, config: { ...c.config, value: e.target.value } } : c))}
+                          className="w-32 px-2 py-1 text-xs border border-amber-200 rounded bg-white" />
+                      )}
+                      <button onClick={() => removeAutoCondition(idx)}
+                        className="p-1 text-red-400 hover:text-red-600">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ACTIONS */}
+                <div className="border border-green-200 rounded-lg p-3 bg-green-50/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-semibold text-green-700 flex items-center gap-1">
+                      <Activity className="w-3.5 h-3.5" /> ACOES (Entao)
+                    </h4>
+                    <button onClick={addAutoAction}
+                      className="text-[10px] px-2 py-0.5 bg-green-100 text-green-700 rounded hover:bg-green-200">
+                      + Adicionar
+                    </button>
+                  </div>
+                  {autoActions.length === 0 && (
+                    <p className="text-[10px] text-green-500 italic">Adicione ao menos uma acao</p>
+                  )}
+                  {autoActions.map((action, idx) => (
+                    <div key={idx} className="border border-green-200 rounded-lg p-2 mb-2 bg-white">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs text-[#ADB5BD] font-mono w-5">{idx + 1}.</span>
+                        <select value={action.type}
+                          onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { type: e.target.value, config: e.target.value === action.type ? a.config : {} } : a))}
+                          className="flex-1 px-2 py-1 text-xs border border-green-200 rounded">
+                          {ACTION_TYPES.map(at => <option key={at.value} value={at.value}>{at.icon} {at.label}</option>)}
+                        </select>
+                        <button onClick={() => moveActionUp(idx)} className="p-1 text-[#ADB5BD] hover:text-[#6C757D]" title="Mover para cima">
+                          <ArrowUpDown className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => removeAutoAction(idx)} className="p-1 text-red-400 hover:text-red-600">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      {/* Action-specific config */}
+                      {action.type === 'send_message' && (
+                        <div className="space-y-1">
+                          <textarea placeholder="Mensagem (use {{contact.name}}, {{lead.nome}}, {{mentorado.email}}, etc)"
+                            value={action.config.message || ''}
+                            onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { ...a.config, message: e.target.value } } : a))}
+                            className="w-full px-2 py-1 text-xs border border-green-200 rounded resize-none" rows={3} />
+                          <input type="text" placeholder="Telefone destino (vazio = contato do gatilho)"
+                            value={action.config.target_phone || ''}
+                            onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { ...a.config, target_phone: e.target.value } } : a))}
+                            className="w-full px-2 py-1 text-xs border border-green-200 rounded" />
+                        </div>
+                      )}
+
+                      {action.type === 'wait_delay' && (
+                        <div className="flex gap-2 items-center">
+                          <input type="number" placeholder="Segundos"
+                            value={action.config.delay_seconds || action.config.seconds || ''}
+                            onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { delay_seconds: Number(e.target.value) } } : a))}
+                            className="w-24 px-2 py-1 text-xs border border-green-200 rounded" />
+                          <span className="text-[10px] text-[#ADB5BD]">segundos</span>
+                        </div>
+                      )}
+
+                      {action.type === 'wait_for_reply' && (
+                        <input type="number" placeholder="Timeout em segundos (0 = sem limite)"
+                          value={action.config.timeout_seconds || ''}
+                          onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { timeout_seconds: Number(e.target.value) } } : a))}
+                          className="w-full px-2 py-1 text-xs border border-green-200 rounded" />
+                      )}
+
+                      {(action.type === 'add_tag' || action.type === 'remove_tag') && (
+                        <input type="text" placeholder="Nome da tag"
+                          value={action.config.tag || ''}
+                          onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { tag: e.target.value } } : a))}
+                          className="w-full px-2 py-1 text-xs border border-green-200 rounded" />
+                      )}
+
+                      {action.type === 'change_stage' && (
+                        <input type="text" placeholder="Nome do estagio"
+                          value={action.config.stage || ''}
+                          onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { stage: e.target.value } } : a))}
+                          className="w-full px-2 py-1 text-xs border border-green-200 rounded" />
+                      )}
+
+                      {action.type === 'send_notification' && (
+                        <div className="space-y-1">
+                          <textarea placeholder="Mensagem da notificacao"
+                            value={action.config.message || ''}
+                            onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { ...a.config, message: e.target.value } } : a))}
+                            className="w-full px-2 py-1 text-xs border border-green-200 rounded resize-none" rows={2} />
+                          <input type="text" placeholder="Telefone (vazio = admin)"
+                            value={action.config.notify_phone || ''}
+                            onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { ...a.config, notify_phone: e.target.value } } : a))}
+                            className="w-full px-2 py-1 text-xs border border-green-200 rounded" />
+                        </div>
+                      )}
+
+                      {action.type === 'call_webhook' && (
+                        <div className="space-y-1">
+                          <input type="text" placeholder="URL do webhook"
+                            value={action.config.url || ''}
+                            onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { ...a.config, url: e.target.value } } : a))}
+                            className="w-full px-2 py-1 text-xs border border-green-200 rounded" />
+                          <select value={action.config.method || 'POST'}
+                            onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { ...a.config, method: e.target.value } } : a))}
+                            className="w-full px-2 py-1 text-xs border border-green-200 rounded">
+                            <option value="POST">POST</option>
+                            <option value="GET">GET</option>
+                            <option value="PUT">PUT</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {action.type === 'update_lead_status' && (
+                        <select value={action.config.status || ''}
+                          onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { status: e.target.value } } : a))}
+                          className="w-full px-2 py-1 text-xs border border-green-200 rounded">
+                          <option value="">Selecione</option>
+                          <option value="novo">Novo</option>
+                          <option value="contatado">Contatado</option>
+                          <option value="qualificado">Qualificado</option>
+                          <option value="negociando">Negociando</option>
+                          <option value="vendido">Vendido</option>
+                          <option value="perdido">Perdido</option>
+                        </select>
+                      )}
+
+                      {action.type === 'set_contact_field' && (
+                        <div className="flex gap-2">
+                          <input type="text" placeholder="Campo"
+                            value={action.config.field || ''}
+                            onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { ...a.config, field: e.target.value } } : a))}
+                            className="flex-1 px-2 py-1 text-xs border border-green-200 rounded" />
+                          <input type="text" placeholder="Valor"
+                            value={action.config.value || ''}
+                            onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { ...a.config, value: e.target.value } } : a))}
+                            className="flex-1 px-2 py-1 text-xs border border-green-200 rounded" />
+                        </div>
+                      )}
+
+                      {action.type === 'send_media' && (
+                        <div className="space-y-1">
+                          <input type="text" placeholder="URL da midia"
+                            value={action.config.media_url || ''}
+                            onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { ...a.config, media_url: e.target.value } } : a))}
+                            className="w-full px-2 py-1 text-xs border border-green-200 rounded" />
+                          <input type="text" placeholder="Legenda"
+                            value={action.config.caption || ''}
+                            onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { ...a.config, caption: e.target.value } } : a))}
+                            className="w-full px-2 py-1 text-xs border border-green-200 rounded" />
+                          <select value={action.config.media_type || 'image'}
+                            onChange={e => setAutoActions(prev => prev.map((a, i) => i === idx ? { ...a, config: { ...a.config, media_type: e.target.value } } : a))}
+                            className="w-full px-2 py-1 text-xs border border-green-200 rounded">
+                            <option value="image">Imagem</option>
+                            <option value="video">Video</option>
+                            <option value="document">Documento</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Variables Helper */}
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-[10px] font-medium text-[#6C757D] mb-1">Variaveis disponiveis:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {['{{contact.name}}', '{{contact.phone}}', '{{lead.nome}}', '{{lead.email}}', '{{mentorado.nome}}', '{{mentorado.email}}', '{{mentorado.turma}}', '{{financeiro.total_pendente}}', '{{event.message}}'].map(v => (
+                      <span key={v} className="px-1.5 py-0.5 bg-white border border-[#E9ECEF] rounded text-[9px] font-mono text-[#6C757D] cursor-pointer hover:bg-[#F1F3F5]"
+                        onClick={() => navigator.clipboard.writeText(v)}>
+                        {v}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex gap-2 justify-end">
                   <button onClick={() => { setShowAutoForm(false); setEditingAuto(null); }}
                     className="px-3 py-1.5 text-xs text-[#6C757D] hover:bg-[#F1F3F5] rounded-lg">Cancelar</button>
@@ -924,7 +1267,25 @@ export default function WhatsAppPage() {
                       style={{ left: auto.is_active ? '22px' : '2px' }} />
                   </button>
                 </div>
-                {auto.description && <p className="text-xs text-[#6C757D] mb-2">{auto.description}</p>}
+                {auto.description && <p className="text-xs text-[#6C757D] mb-1">{auto.description}</p>}
+                {/* Show trigger and actions summary */}
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {auto.triggers?.map((t: any, i: number) => (
+                    <span key={i} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-medium">
+                      {TRIGGER_TYPES.find(tt => tt.value === t.trigger_type)?.label || t.trigger_type}
+                    </span>
+                  ))}
+                  {auto.conditions?.length > 0 && (
+                    <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded text-[9px] font-medium">
+                      {auto.conditions.length} condicao(oes)
+                    </span>
+                  )}
+                  {auto.actions?.map((a: any, i: number) => (
+                    <span key={i} className="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-[9px] font-medium">
+                      {ACTION_TYPES.find(at => at.value === a.action_type)?.icon} {ACTION_TYPES.find(at => at.value === a.action_type)?.label || a.action_type}
+                    </span>
+                  ))}
+                </div>
                 <div className="flex items-center gap-3 text-[10px] text-[#ADB5BD]">
                   <span className="flex items-center gap-1">
                     <Activity className="w-3 h-3" />{auto.executions_24h || 0} exec/24h
