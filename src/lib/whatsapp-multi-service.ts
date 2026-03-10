@@ -106,12 +106,6 @@ class WhatsAppMultiService {
         return 'default';
       }
 
-      // Admin sempre usa 'default'
-      if (user.email === 'admin@admin.com') {
-        console.log('🔑 Admin detectado, usando userId: default');
-        return 'default';
-      }
-
       console.log('🔍 Buscando organização para usuário:', user.email);
 
       // 3. Buscar organização por email na tabela organization_users
@@ -166,6 +160,7 @@ class WhatsAppMultiService {
       let headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true',
+        'X-API-Key': process.env.NEXT_PUBLIC_WA_API_KEY || 'o3qRvXd6JgJYuts_ihPMnJnKE6nzU66XO3QFLs6UK3Q',
       };
 
       // Adicionar token de autenticação se necessário

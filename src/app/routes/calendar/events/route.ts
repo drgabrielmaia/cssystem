@@ -144,7 +144,8 @@ ${createdEvent.description ? `📋 Descrição: ${createdEvent.description}\n` :
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'ngrok-skip-browser-warning': 'true'
+              'ngrok-skip-browser-warning': 'true',
+              'X-API-Key': process.env.NEXT_PUBLIC_WA_API_KEY || 'o3qRvXd6JgJYuts_ihPMnJnKE6nzU66XO3QFLs6UK3Q'
             },
             body: JSON.stringify({
               message: message.trim(),
@@ -217,7 +218,8 @@ Aguardo você! 🙌`
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  'ngrok-skip-browser-warning': 'true'
+                  'ngrok-skip-browser-warning': 'true',
+              'X-API-Key': process.env.NEXT_PUBLIC_WA_API_KEY || 'o3qRvXd6JgJYuts_ihPMnJnKE6nzU66XO3QFLs6UK3Q'
                 },
                 body: JSON.stringify({
                   to: recipientPhone,

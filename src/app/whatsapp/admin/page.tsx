@@ -26,7 +26,6 @@ export default function WhatsAppAdminPage() {
 
   const predefinedUsers = [
     'default',
-    'admin@admin.com',
     'kellybsantoss@icloud.com'
   ];
 
