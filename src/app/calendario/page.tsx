@@ -460,10 +460,10 @@ export default function CalendarioPage() {
         try {
           const agendaMsg = await generateDailyAgenda(organizationId)
           const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
-          await fetch(`${apiUrl}/api/whatsapp/send-group`, {
+          await fetch(`${apiUrl}/users/${organizationId}/send`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ groupId: linkedGroupId, message: agendaMsg })
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+            body: JSON.stringify({ to: linkedGroupId, message: agendaMsg })
           })
           console.log('✅ Agenda do dia enviada ao grupo vinculado')
         } catch (agendaErr) {
@@ -515,11 +515,16 @@ export default function CalendarioPage() {
   // ─── Agenda WhatsApp ────────────────────────────────────────
   const loadWhatsappGroups = async () => {
     try {
+      if (!organizationId) return
       const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
-      const res = await fetch(`${apiUrl}/api/whatsapp/groups`)
+      const res = await fetch(`${apiUrl}/users/${organizationId}/chats`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      })
       const json = await res.json()
-      if (json.success && json.groups) {
-        setWhatsappGroups(json.groups.map((g: any) => ({ id: g.id, name: g.name || g.subject || g.id })))
+      const chats = json.data || json.chats || []
+      const groups = chats.filter((c: any) => c.isGroup)
+      if (groups.length > 0) {
+        setWhatsappGroups(groups.map((g: any) => ({ id: g.id, name: g.name || g.subject || g.id })))
       }
     } catch (err) {
       console.error('Erro ao carregar grupos WhatsApp:', err)
@@ -551,14 +556,14 @@ export default function CalendarioPage() {
   }
 
   const handleSendAgenda = async () => {
-    if (!selectedGroup || !agendaPreview) return
+    if (!selectedGroup || !agendaPreview || !organizationId) return
     setIsSendingAgenda(true)
     try {
       const apiUrl = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
-      const res = await fetch(`${apiUrl}/api/whatsapp/send-group`, {
+      const res = await fetch(`${apiUrl}/users/${organizationId}/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId: selectedGroup, message: agendaPreview })
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+        body: JSON.stringify({ to: selectedGroup, message: agendaPreview })
       })
       const result = await res.json()
       if (result.success) {
