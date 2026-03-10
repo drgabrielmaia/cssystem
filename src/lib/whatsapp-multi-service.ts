@@ -160,26 +160,21 @@ class WhatsAppMultiService {
       let headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true',
-        'X-API-Key': process.env.NEXT_PUBLIC_WA_API_KEY || 'o3qRvXd6JgJYuts_ihPMnJnKE6nzU66XO3QFLs6UK3Q',
       };
 
-      // Adicionar token de autenticação se necessário
-      if (requireAuth) {
-        // 1. Check custom JWT token first (Docker PostgreSQL backend)
-        const customToken = getToken();
-        if (customToken) {
-          headers['Authorization'] = `Bearer ${customToken}`;
-        } else {
-          // 2. Fallback: Supabase session token
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.access_token) {
-            headers['Authorization'] = `Bearer ${session.access_token}`;
-          } else {
-            return {
-              success: false,
-              error: 'Usuário não autenticado. Faça login para enviar mensagens.',
-            } as ApiResponse<T>;
-          }
+      // Always send auth token when available
+      const customToken = getToken();
+      if (customToken) {
+        headers['Authorization'] = `Bearer ${customToken}`;
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        } else if (requireAuth) {
+          return {
+            success: false,
+            error: 'Usuário não autenticado. Faça login para enviar mensagens.',
+          } as ApiResponse<T>;
         }
       }
 

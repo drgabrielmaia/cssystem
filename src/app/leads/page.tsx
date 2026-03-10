@@ -1765,9 +1765,12 @@ async function checkAndCreateCommission(leadId: string, leadData: any, originalL
       const comissaoData = {
         mentorado_id: leadData.mentorado_indicador_id,
         lead_id: leadId,
+        valor: valorComissao,
         valor_comissao: valorComissao,
-        valor_venda: leadData.valor_vendido,
-        data_venda: leadData.data_venda || new Date().toISOString(),
+        valor_venda: leadData.valor_vendido || 0,
+        percentual_comissao: 0,
+        data_venda: leadData.data_venda || new Date().toISOString().split('T')[0],
+        status_pagamento: 'pendente',
         observacoes: `Comissão fixa gerada automaticamente para indicação de ${mentorado.nome_completo} (R$ ${comissaoFixa.toFixed(2)})`
       }
 
