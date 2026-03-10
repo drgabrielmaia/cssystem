@@ -25,6 +25,7 @@ import {
   Eye,
   Edit,
   Copy,
+  Check,
   CheckCircle,
   Clock,
   XCircle,
@@ -444,8 +445,7 @@ export default function ContractsPage() {
 
     try {
       const { data, error } = await supabase.rpc('create_default_contract_template', {
-        p_organization_id: organizationId,
-        p_created_by_email: user.email
+        p_organization_id: organizationId
       })
 
       if (error) throw error
@@ -610,6 +610,22 @@ Assinatura do Contratante`
     } catch (error) {
       console.error('Erro ao carregar contrato:', error)
       alert('Erro ao visualizar contrato')
+    }
+  }
+
+  const handleActivateContract = async (contractId: string, contractName: string) => {
+    if (!confirm(`Marcar contrato de "${contractName}" como ATIVO/ASSINADO?`)) return
+    try {
+      const { error } = await supabase
+        .from('contracts')
+        .update({ status: 'signed', signed_at: new Date().toISOString() })
+        .eq('id', contractId)
+      if (error) throw error
+      alert('Contrato ativado com sucesso!')
+      loadData()
+    } catch (error) {
+      console.error('Erro ao ativar contrato:', error)
+      alert('Erro ao ativar contrato')
     }
   }
 
@@ -1105,6 +1121,13 @@ Assinatura do Contratante`
                         <div className="flex gap-1.5">
                           {contract.status === 'pending' && (
                             <>
+                              <button
+                                onClick={() => handleActivateContract(contract.id, contract.recipient_name)}
+                                className="w-8 h-8 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center text-green-400 hover:bg-green-500/20 transition-colors"
+                                title="Ativar contrato"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </button>
                               <button
                                 onClick={() => copySigningUrl(contract.id)}
                                 className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 hover:bg-blue-500/20 transition-colors"
