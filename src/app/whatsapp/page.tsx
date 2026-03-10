@@ -708,8 +708,8 @@ export default function WhatsAppPage() {
                   <p className="text-sm">Nenhum chat encontrado</p>
                 </div>
               ) : (
-                filteredChats.map(chat => (
-                  <div key={chat.id} onClick={() => handleSelectChat(chat)}
+                filteredChats.map((chat, idx) => (
+                  <div key={`${chat.id}-${idx}`} onClick={() => handleSelectChat(chat)}
                     className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all border-b border-[#F1F3F5]/60
                       ${selectedChat?.id === chat.id ? 'bg-[#16A34A]/5 border-l-2 border-l-[#16A34A]' : 'hover:bg-[#F8F9FB]'}`}>
                     <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#16A34A]/10 to-[#16A34A]/5 flex items-center justify-center flex-shrink-0">
@@ -1011,7 +1011,7 @@ export default function WhatsAppPage() {
                 const showDate = !prevMsg || formatDate(msg.timestamp) !== formatDate(prevMsg.timestamp);
 
                 return (
-                  <div key={msg.id || idx}>
+                  <div key={`${msg.id}-${idx}`}>
                     {showDate && (
                       <div className="flex justify-center my-3">
                         <span className="px-3 py-1 bg-white/80 rounded-full text-[10px] text-[#ADB5BD] shadow-sm">

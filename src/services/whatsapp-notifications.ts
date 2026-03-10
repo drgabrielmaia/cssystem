@@ -57,8 +57,7 @@ export class WhatsAppNotificationService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-          'X-API-Key': process.env.NEXT_PUBLIC_WA_API_KEY || 'o3qRvXd6JgJYuts_ihPMnJnKE6nzU66XO3QFLs6UK3Q'
+          'ngrok-skip-browser-warning': 'true'
         },
         body: JSON.stringify({
           to: org.admin_phone.replace(/\D/g, ''),
@@ -93,8 +92,7 @@ export class WhatsAppNotificationService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-          'X-API-Key': process.env.NEXT_PUBLIC_WA_API_KEY || 'o3qRvXd6JgJYuts_ihPMnJnKE6nzU66XO3QFLs6UK3Q'
+          'ngrok-skip-browser-warning': 'true'
         },
         body: JSON.stringify({
           to: groupId, // Group IDs already include @g.us
