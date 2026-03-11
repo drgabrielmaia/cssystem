@@ -128,6 +128,8 @@ export default function ContractsPage() {
     valor_pago: '',
     valor_restante: '',
     forma_negociacao: '',
+    negociacao_detalhe: '',
+    n_parcelas: '',
     data_contrato: new Date().toISOString().split('T')[0]
   })
 
@@ -387,7 +389,8 @@ export default function ContractsPage() {
         p_recipient_email: recipientEmail,
         p_organization_id: organizationId,
         p_lead_id: leadId,
-        p_mentorado_id: mentoradoId
+        p_mentorado_id: mentoradoId,
+        p_custom_content: null
       })
 
       if (error) throw error
@@ -400,13 +403,28 @@ export default function ContractsPage() {
         const valorPagoNum = contractForm.valor_pago ? parseFloat(contractForm.valor_pago) : 0
         const valorRestanteNum = contractForm.valor_restante ? parseFloat(contractForm.valor_restante) : (valorNum ? valorNum - valorPagoNum : 0)
 
+        let formaFinal = contractForm.forma_negociacao || null
+        if (contractForm.forma_negociacao === 'negociacao_especial') {
+          const nParcelas = parseInt(contractForm.n_parcelas || '0')
+          if (nParcelas > 0 && valorRestanteNum > 0) {
+            const valorParcela = valorRestanteNum / nParcelas
+            const valorParcelaFmt = valorParcela.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+            const detalhe = contractForm.negociacao_detalhe
+              ? `${contractForm.negociacao_detalhe} + ${nParcelas}x ${valorParcelaFmt}`
+              : `${nParcelas}x ${valorParcelaFmt}`
+            formaFinal = `negociacao_especial: ${detalhe}`
+          } else if (contractForm.negociacao_detalhe) {
+            formaFinal = `negociacao_especial: ${contractForm.negociacao_detalhe}`
+          }
+        }
+
         await supabase
           .from('contracts')
           .update({
             valor: valorNum,
             valor_pago: valorPagoNum,
             valor_restante: valorRestanteNum,
-            forma_negociacao: contractForm.forma_negociacao || null,
+            forma_negociacao: formaFinal,
             data_contrato: contractForm.data_contrato || null
           })
           .eq('id', contractId)
@@ -503,6 +521,8 @@ Apos personalizar, o sistema enviara automaticamente o link de assinatura para o
       valor_pago: '',
       valor_restante: '',
       forma_negociacao: '',
+      negociacao_detalhe: '',
+    n_parcelas: '',
       data_contrato: new Date().toISOString().split('T')[0]
     })
   }
@@ -1088,6 +1108,36 @@ Assinatura do Contratante`
                           </SelectContent>
                         </Select>
                       </div>
+                      {contractForm.forma_negociacao === 'negociacao_especial' && (
+                        <div className="mt-3 space-y-3">
+                          <div className="space-y-2">
+                            <Label className="text-white/60 text-sm">Entrada / Observacao (opcional)</Label>
+                            <Input
+                              value={contractForm.negociacao_detalhe}
+                              onChange={(e) => setContractForm(prev => ({ ...prev, negociacao_detalhe: e.target.value }))}
+                              className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10 placeholder:text-white/20"
+                              placeholder="Ex: 1 entrada de R$500"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-white/60 text-sm">Quantidade de Parcelas *</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={contractForm.n_parcelas}
+                              onChange={(e) => setContractForm(prev => ({ ...prev, n_parcelas: e.target.value }))}
+                              className="bg-[#111113] border-white/[0.08] text-white rounded-xl h-10 placeholder:text-white/20"
+                              placeholder="Ex: 12"
+                              required
+                            />
+                          </div>
+                          {contractForm.n_parcelas && contractForm.valor_restante && parseFloat(contractForm.n_parcelas) > 0 && parseFloat(contractForm.valor_restante) > 0 && (
+                            <p className="text-sm text-emerald-400">
+                              Valor de cada parcela: {(parseFloat(contractForm.valor_restante) / parseFloat(contractForm.n_parcelas)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex gap-3 pt-2">
