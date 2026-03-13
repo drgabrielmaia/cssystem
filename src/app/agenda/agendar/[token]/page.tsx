@@ -225,12 +225,12 @@ export default function AgendarPage() {
 
       const dateStr = date // YYYY-MM-DD format
 
-      // Check calendar_events (filter by closer_id if available)
+      // Check calendar_events that overlap this day (including multi-day events)
       let calendarQuery = supabase
         .from('calendar_events')
         .select('start_datetime, end_datetime')
-        .gte('start_datetime', startOfDay.toISOString())
         .lte('start_datetime', endOfDay.toISOString())
+        .gte('end_datetime', startOfDay.toISOString())
         .not('status_confirmacao', 'eq', 'cancelado')
 
       if (agendaLink?.closer_id) {
