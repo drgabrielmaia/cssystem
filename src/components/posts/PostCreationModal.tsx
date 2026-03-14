@@ -40,6 +40,9 @@ const TEMPLATE_TYPES: { id: TemplateCategory; label: string; icon: React.ReactNo
   { id: 'storytelling', label: 'Story', icon: <BookOpen className="w-4 h-4" />, desc: 'Narrativa' },
   { id: 'data-story', label: 'Dados', icon: <BarChart3 className="w-4 h-4" />, desc: 'Estatistica' },
   { id: 'dark-narrative', label: 'Dark', icon: <Moon className="w-4 h-4" />, desc: 'Imagem + texto' },
+  { id: 'editorial-slide', label: 'Slide', icon: <ChevronRight className="w-4 h-4" />, desc: 'Foto + contador' },
+  { id: 'cover-overlay', label: 'Cover', icon: <Sparkles className="w-4 h-4" />, desc: 'Capa impactante' },
+  { id: 'pure-editorial', label: 'Editorial', icon: <Copy className="w-4 h-4" />, desc: 'Estilo jornal' },
 ];
 
 type ModalView = 'type-picker' | 'template-editor' | 'ai-generating';

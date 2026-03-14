@@ -7,6 +7,9 @@ import { CTATemplate } from './CTATemplate';
 import { StorytellingTemplate } from './StorytellingTemplate';
 import { DataStoryTemplate } from './DataStoryTemplate';
 import { DarkNarrativeTemplate } from './DarkNarrativeTemplate';
+import { EditorialSlideTemplate } from './EditorialSlideTemplate';
+import { CoverOverlayTemplate } from './CoverOverlayTemplate';
+import { PureEditorialTemplate } from './PureEditorialTemplate';
 
 export const TEMPLATE_GALLERY: TemplateDefinition[] = [
   {
@@ -210,6 +213,83 @@ export const TEMPLATE_GALLERY: TemplateDefinition[] = [
       imageUrl: '',
     },
   },
+  {
+    id: 'editorial-slide',
+    name: 'Editorial Slide',
+    description: 'Imagem + texto com contador de pagina',
+    category: 'editorial-slide',
+    component: EditorialSlideTemplate,
+    fields: [
+      { key: 'headline', label: 'Headline', type: 'text', required: true, placeholder: 'Por que a faculdade perdeu o prestígio?' },
+      { key: 'bodyText', label: 'Subtexto', type: 'text', placeholder: 'A nova geracao nao quer estabilidade.' },
+      { key: 'imageUrl', label: 'Imagem', type: 'image' },
+      { key: 'pageNum', label: 'Numero da pagina', type: 'text', placeholder: '01' },
+      { key: 'totalPages', label: 'Total de paginas', type: 'text', placeholder: '10' },
+      { key: 'ctaText', label: 'Texto do botao', type: 'text', placeholder: 'Deslize' },
+    ],
+    defaultValues: {
+      headline: 'Por que a faculdade perdeu o prestígio, e a CLT, o respeito?',
+      bodyText: 'A nova geracao nao quer estabilidade.',
+      imageUrl: '',
+      pageNum: '01',
+      totalPages: '10',
+      ctaText: 'Deslize',
+    },
+  },
+  {
+    id: 'cover-overlay',
+    name: 'Cover / Capa',
+    description: 'Imagem de fundo com texto imenso sobreposto',
+    category: 'cover-overlay',
+    component: CoverOverlayTemplate,
+    fields: [
+      { key: 'headline', label: 'Headline (MAIUSCULO)', type: 'textarea', required: true, placeholder: 'Por que a corrida virou o novo cigarro dos ansiosos?' },
+      { key: 'imageUrl', label: 'Imagem de fundo', type: 'image' },
+      { key: 'bodyText', label: 'Texto complementar', type: 'textarea', placeholder: 'A corrida virou o ritual de quem escolheu transformar...' },
+      { key: 'footerText', label: 'Rodape branded', type: 'text', placeholder: 'Powered by @perfil' },
+      { key: 'textAlign', label: 'Alinhamento', type: 'select', options: [
+        { value: 'left', label: 'Esquerda' },
+        { value: 'center', label: 'Centro' },
+      ]},
+      { key: 'textPosition', label: 'Posicao do texto', type: 'select', options: [
+        { value: 'bottom', label: 'Baixo' },
+        { value: 'center', label: 'Centro' },
+      ]},
+      { key: 'imageOpacity', label: 'Opacidade imagem (0-1)', type: 'text', placeholder: '0.75' },
+    ],
+    defaultValues: {
+      headline: 'Por que a corrida virou o novo cigarro dos ansiosos?',
+      imageUrl: '',
+      bodyText: '',
+      footerText: '',
+      textAlign: 'left',
+      textPosition: 'bottom',
+      imageOpacity: 0.75,
+    },
+  },
+  {
+    id: 'pure-editorial',
+    name: 'Editorial Puro',
+    description: 'Estilo jornalistico com header e rodape',
+    category: 'pure-editorial',
+    component: PureEditorialTemplate,
+    fields: [
+      { key: 'headline', label: 'Headline', type: 'textarea', required: true, placeholder: 'Sua mae foi sua primeira mentora. Sua primeira investidora.' },
+      { key: 'bodyText', label: 'Texto complementar', type: 'textarea', placeholder: 'O unico sistema capaz de detectar genialidade onde o mundo so via falha.' },
+      { key: 'imageUrl', label: 'Imagem (opcional)', type: 'image' },
+      { key: 'headerLabel', label: 'Label central do header', type: 'text', placeholder: 'IA para conteudo' },
+      { key: 'headerRight', label: 'Texto direito do header', type: 'text', placeholder: 'Copyright 2025' },
+      { key: 'ctaText', label: 'Texto CTA (rodape direita)', type: 'text', placeholder: 'Arrasta para o lado >' },
+    ],
+    defaultValues: {
+      headline: 'Sua mae foi sua primeira mentora. Sua primeira investidora.',
+      bodyText: 'O unico sistema capaz de detectar genialidade onde o mundo so via falha. Ela foi o algoritmo que o mundo nao tinha.',
+      imageUrl: '',
+      headerLabel: 'IA para conteudo',
+      headerRight: 'Copyright © 2025',
+      ctaText: 'Arrasta para o lado >',
+    },
+  },
 ];
 
 export { TestimonialTemplate } from './TestimonialTemplate';
@@ -220,3 +300,6 @@ export { CTATemplate } from './CTATemplate';
 export { StorytellingTemplate } from './StorytellingTemplate';
 export { DataStoryTemplate } from './DataStoryTemplate';
 export { DarkNarrativeTemplate } from './DarkNarrativeTemplate';
+export { EditorialSlideTemplate } from './EditorialSlideTemplate';
+export { CoverOverlayTemplate } from './CoverOverlayTemplate';
+export { PureEditorialTemplate } from './PureEditorialTemplate';

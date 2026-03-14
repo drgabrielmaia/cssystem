@@ -532,11 +532,21 @@ TEMPLATES DISPONIVEIS E SEUS CAMPOS:
 8. "dark-narrative" - Imagem de fundo escura com texto
 {"template":"dark-narrative","templateData":{"headline":"Headline principal grande","midText":"Texto em destaque italico","midSubtext":"Subtexto explicativo","footerText":"Frase de impacto final"}}
 
+9. "editorial-slide" - Foto na metade superior + texto na metade inferior + contador de slide (ideal para carrossel!)
+{"template":"editorial-slide","templateData":{"headline":"Por que a faculdade perdeu o prestigio?","bodyText":"A nova geracao nao quer estabilidade.","pageNum":"01","totalPages":"10","ctaText":"Deslize"}}
+
+10. "cover-overlay" - Capa impactante com imagem de fundo e texto IMENSO sobreposto (ideal para 1o slide de carrossel!)
+{"template":"cover-overlay","templateData":{"headline":"Por que a corrida virou o novo cigarro dos ansiosos?","bodyText":"","footerText":"Powered by @perfil","textAlign":"left","textPosition":"bottom"}}
+
+11. "pure-editorial" - Estilo editorial jornalistico: header fino + headline grande + rodape com CTA
+{"template":"pure-editorial","templateData":{"headline":"Sua mae foi sua primeira mentora. Sua primeira investidora.","bodyText":"O unico sistema capaz de detectar genialidade onde o mundo so via falha.","headerLabel":"IA para conteudo","headerRight":"Copyright 2025","ctaText":"Arrasta para o lado >"}}
+
 REGRAS:
-- Para carrossel, use 3-10 slides misturando templates diferentes
+- Para carrossel, use 4-10 slides misturando templates — comece com "cover-overlay" ou "editorial-slide" como capa!
 - Crie conteudo VIRAL: hooks que param o scroll, storytelling, dados impactantes, CTAs emocionais
 - Use frases curtas e impactantes, nunca genericas
 - O conteudo deve ser especifico para medicos empreendedores
+- "editorial-slide" e "cover-overlay" sao os templates mais virais — priorize-os em carrosseis
 
 ${context?.nome ? `Medico: ${context.nome}. Especialidade: ${context?.especialidade || 'medicina'}.` : ''}
 ${context?.persona ? `Persona: ${context.persona}` : ''}

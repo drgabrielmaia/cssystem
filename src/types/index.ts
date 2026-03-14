@@ -153,7 +153,7 @@ export interface PostConfig {
 // ============================================================
 
 export type PostCreationMode = 'template-gallery' | 'visual-editor' | 'ai-auto';
-export type TemplateCategory = 'testimonial' | 'comparison' | 'motivational' | 'quote' | 'cta' | 'storytelling' | 'data-story' | 'dark-narrative';
+export type TemplateCategory = 'testimonial' | 'comparison' | 'motivational' | 'quote' | 'cta' | 'storytelling' | 'data-story' | 'dark-narrative' | 'editorial-slide' | 'cover-overlay' | 'pure-editorial';
 
 export interface TemplateField {
   key: string;
