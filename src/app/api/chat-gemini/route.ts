@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { GoogleGenAI } from '@google/genai'
 import { createClient } from '@supabase/supabase-js'
-import { buildAulasPrompt } from '@/data/aulas-resumos'
+import { buildFilteredAulasPrompt } from '@/data/aulas-resumos'
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'SUA_NOVA_API_KEY_AQUI'
 const supabaseAdmin = createClient(
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { message, userEmail, mentoradoId, context, imageBase64, generateImage, referenceImages } = await request.json()
+    const { message, userEmail, mentoradoId, context, imageBase64, generateImage, referenceImages, history } = await request.json()
 
     console.log('[chat-gemini] userEmail:', userEmail, '| message:', message?.substring(0, 50), '| generateImage:', !!generateImage)
 
@@ -200,8 +200,19 @@ REGRAS:
 
     const isChatMode = !context?.tipoPost || context.tipoPost === 'chat'
 
-    // Inject lesson knowledge base for mentorado (student area) requests
-    const aulasKnowledge = mentoradoId ? buildAulasPrompt() : ''
+    // Inject only lessons relevant to the current message
+    const aulasKnowledge = mentoradoId ? buildFilteredAulasPrompt(message || '') : ''
+
+    // Build rich mentorado context string
+    const mentoradoContext = context?.nome ? [
+      `Médico: ${context.nome}`,
+      context.especialidade ? `Especialidade: ${context.especialidade}` : null,
+      context.areaAtuacao ? `Área de atuação: ${context.areaAtuacao}` : null,
+      context.faturamentoInicial ? `Faturamento ao entrar na mentoria: R$${context.faturamentoInicial}` : null,
+      context.faturamentoMeta ? `Meta de faturamento: R$${context.faturamentoMeta}` : null,
+      context.objetivoPrincipal ? `Objetivo principal: ${context.objetivoPrincipal}` : null,
+      context.turma ? `Turma: ${context.turma}` : null,
+    ].filter(Boolean).join('\n') : ''
 
     const chatFreePrompt = `Você é a IA assistente do sistema "Médicos de Resultado". Converse de forma natural, direta e útil.
 
@@ -214,12 +225,13 @@ Você ajuda médicos com:
 - Qualquer pergunta que o usuário fizer
 
 REGRAS:
-- Responda de forma natural e conversacional. NÃO gere posts a menos que o usuário peça explicitamente.
+- Responda de forma natural e conversacional.
+- Se o usuário pedir um post, carrossel ou conteúdo para Instagram, gere o JSON no formato de template (igual ao modo auto-post). Deixe claro que está gerando um post.
 - NÃO comece com "Claro!", "Com certeza!", "Aqui está!" ou introduções genéricas.
 - Seja direto, conciso e útil.
 - Use **negrito** para destaques (não CAPS).
 - Quando o mentorado perguntar sobre temas abordados nas aulas, referencie os frameworks e regras pelos nomes ensinados na mentoria.
-${context?.nome ? `\nO médico que está conversando se chama: ${context.nome}. Especialidade: ${context?.especialidade || 'medicina'}.` : ''}${aulasKnowledge}`
+${mentoradoContext ? `\n${mentoradoContext}` : ''}${aulasKnowledge}`
 
     const contentPrompt = isSecretaria ? secretariaPrompt : isChatMode ? chatFreePrompt : `Você é a IA "Médicos de Resultado", a máquina de conteúdo viral mais poderosa do marketing médico brasileiro. Você cria textos que PARAM O SCROLL, geram DEBATE e fazem as pessoas COMPARTILHAREM.
 
@@ -547,40 +559,78 @@ Solicitacao do usuario: ${message}`
       })
     }
 
-    const fullPrompt = `${contentPrompt}${contextPrompt}\n\nUsuário: ${message}\n\nResposta:`
+    // === CHAT MODE WITH STREAMING + HISTORY ===
+    // Build Gemini chat history from previous messages (skip image-only messages)
+    const geminiHistory: { role: 'user' | 'model'; parts: { text: string }[] }[] = []
+    if (history && Array.isArray(history) && history.length > 0) {
+      // Take last 10 messages, must alternate user/model
+      const filtered = history
+        .filter((m: any) => m.content && typeof m.content === 'string' && m.content.trim())
+        .slice(-10)
+      // Ensure proper alternation (starts with user)
+      let lastRole = ''
+      for (const m of filtered) {
+        const role = m.role === 'user' ? 'user' : 'model'
+        if (role !== lastRole) {
+          geminiHistory.push({ role, parts: [{ text: m.content }] })
+          lastRole = role
+        }
+      }
+    }
 
-    // Build request parts (text + optional image)
-    let result
+    const modelWithSystem = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash-lite',
+      systemInstruction: contentPrompt,
+      generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 4096 },
+    })
+
+    // If image attached, can't use chat streaming — fall back to regular generateContent
     if (imageBase64) {
-      // Multimodal: text + image
       const imagePart = {
         inlineData: {
           data: imageBase64.replace(/^data:image\/\w+;base64,/, ''),
           mimeType: imageBase64.match(/^data:(image\/\w+);/)?.[1] || 'image/jpeg',
         },
       }
-      result = await model.generateContent([fullPrompt, imagePart])
-    } else {
-      result = await model.generateContent(fullPrompt)
-    }
-
-    const aiResponse = result.response.text()
-
-    // Track chat usage
-    if (mentoradoId) {
-      await incrementUsage(mentoradoId, false).catch((err) => {
-        console.error('[chat-gemini] Failed to track chat usage:', err?.message || err)
+      const result = await modelWithSystem.generateContent([`${contextPrompt}\n\nUsuário: ${message}`, imagePart])
+      const aiResponse = result.response.text()
+      if (mentoradoId) incrementUsage(mentoradoId, false).catch(() => {})
+      const updatedUsage = mentoradoId ? await getUsage(mentoradoId).catch(() => null) : null
+      return NextResponse.json({
+        success: true, message: aiResponse, model: 'gemini-2.5-flash-lite',
+        timestamp: new Date().toISOString(),
+        usage: updatedUsage ? { ...updatedUsage, limits: MONTHLY_LIMITS } : undefined,
       })
     }
 
-    const updatedUsage = mentoradoId ? await getUsage(mentoradoId).catch(() => null) : null
+    // Streaming chat with history
+    const chat = modelWithSystem.startChat({ history: geminiHistory })
+    const userMessage = `${contextPrompt}\n\nUsuário: ${message}`
+    const streamResult = await chat.sendMessageStream(userMessage)
 
-    return NextResponse.json({
-      success: true,
-      message: aiResponse,
-      model: 'gemini-2.5-flash-lite',
-      timestamp: new Date().toISOString(),
-      usage: updatedUsage ? { ...updatedUsage, limits: MONTHLY_LIMITS } : undefined,
+    // Track usage (fire & forget)
+    if (mentoradoId) incrementUsage(mentoradoId, false).catch(() => {})
+
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of streamResult) {
+            const text = chunk.text()
+            if (text) controller.enqueue(encoder.encode(text))
+          }
+        } finally {
+          controller.close()
+        }
+      },
+    })
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'X-Streaming': '1',
+        'Cache-Control': 'no-cache',
+      },
     })
 
   } catch (error: any) {

@@ -226,3 +226,37 @@ export function buildAulasPrompt(): string {
   prompt += `=== FIM DA BASE DE CONHECIMENTO ===\n`
   return prompt
 }
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  imagem: ['imagem', 'roupa', 'vestuário', 'vestuario', 'look', 'blazer', 'visual', 'estilo', 'aparência', 'aparencia', 'sapato', 'terno', 'moda', 'visagismo', 'consultoria'],
+  gestao: ['gestão', 'gestao', 'equipe', 'time', 'liderança', 'lideranca', 'clínica', 'clinica', 'processo', 'sistema', 'delegação', 'delegacao', 'operacional', 'agenda clínica'],
+  vendas: ['vend', 'preço', 'preco', 'paciente', 'consulta', 'objeção', 'objecao', 'fechamento', 'negociação', 'negociacao', 'proposta', 'script', 'atendimento', 'high ticket', 'honorário'],
+  marketing: ['marketing', 'instagram', 'post', 'conteúdo', 'conteudo', 'redes sociais', 'digital', 'posicionamento', 'autoridade', 'seguidores', 'engajamento', 'stories', 'reels', 'carrossel', 'caption', 'bio'],
+  mindset: ['mindset', 'mentalidade', 'motivação', 'motivacao', 'sucesso', 'disciplina', 'hábito', 'habito', 'crescimento', 'desenvolvimento', 'foco', 'produtividade', 'rotina', 'burnout'],
+  financeiro: ['financeiro', 'dinheiro', 'investimento', 'renda', 'faturamento', 'receita', 'lucro', 'tesouraria', 'fluxo de caixa', 'precificação', 'precificacao', 'retorno', 'custos'],
+}
+
+/**
+ * Versão filtrada: injeta apenas as aulas relevantes à mensagem do usuário.
+ * Retorna string vazia se nenhuma categoria for relevante.
+ */
+export function buildFilteredAulasPrompt(message: string): string {
+  if (aulasResumos.length === 0) return ''
+  const msgLower = message.toLowerCase()
+
+  const relevantCategories = Object.entries(CATEGORY_KEYWORDS)
+    .filter(([, kws]) => kws.some(kw => msgLower.includes(kw)))
+    .map(([cat]) => cat)
+
+  if (relevantCategories.length === 0) return ''
+
+  const relevant = aulasResumos.filter(a => relevantCategories.includes(a.categoria))
+  if (relevant.length === 0) return ''
+
+  let prompt = `\n\n=== AULAS RELEVANTES DA MENTORIA (cite os frameworks pelo nome) ===\n`
+  for (const aula of relevant) {
+    prompt += `--- ${aula.titulo.toUpperCase()} ---\n${aula.conteudo.trim()}\n\n`
+  }
+  prompt += `=== FIM ===\n`
+  return prompt
+}

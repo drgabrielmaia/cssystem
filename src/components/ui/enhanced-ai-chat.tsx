@@ -542,6 +542,16 @@ export default function EnhancedAIChat() {
       const filledDores = dores.filter(Boolean);
       const filledDesejos = desejos.filter(Boolean);
 
+      // Detect post intent in chat mode → treat as auto-post
+      const POST_INTENT_KEYWORDS = ['cria um post','crie um post','faz um post','faça um post','post sobre','carrossel sobre','carrossel com','cria um carrossel','crie um carrossel'];
+      const hasPostIntent = contentMode === "chat" && POST_INTENT_KEYWORDS.some(kw => effectiveMsg.toLowerCase().includes(kw));
+
+      // Build conversation history (last 8 non-image messages)
+      const history = messages
+        .filter(m => !m.imageUrl && m.text)
+        .slice(-8)
+        .map(m => ({ role: m.isUser ? 'user' : 'assistant', content: m.text }));
+
       const res = await fetch("/api/chat-gemini", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -552,13 +562,19 @@ export default function EnhancedAIChat() {
           imageBase64: attachedImage || undefined,
           generateImage: isImageGen || undefined,
           referenceImages: isImageGen && referenceImages.length > 0 ? referenceImages : undefined,
+          history: (!isImageGen && !attachedImage) ? history : undefined,
           context: {
             nome: mentorado?.nome_completo,
             especialidade: mentorado?.especialidade,
+            areaAtuacao: (mentorado as any)?.area_atuacao,
+            faturamentoInicial: (mentorado as any)?.faturamento_inicial,
+            faturamentoMeta: (mentorado as any)?.faturamento_meta,
+            objetivoPrincipal: (mentorado as any)?.objetivo_principal,
+            turma: (mentorado as any)?.turma,
             persona: persona.resumo_persona,
             publicoAlvo: persona.profissao ? `${persona.nome_ficticio}, ${persona.idade} anos, ${persona.profissao}` : undefined,
             doresDesejos: [...filledDores, ...filledDesejos],
-            tipoPost: isSecretaria ? "secretaria" : isContent ? "auto-post" : undefined,
+            tipoPost: isSecretaria ? "secretaria" : (isContent || hasPostIntent) ? "auto-post" : undefined,
             tomComunicacao: persona.tom_voz_preferido?.join(", "),
             problemasAudiencia: persona.principais_problemas,
             desejoAudiencia: persona.desejo_6_meses,
@@ -572,17 +588,49 @@ export default function EnhancedAIChat() {
         console.error("[chat] API error:", res.status, errData);
         throw new Error(errData.error || "Erro na API");
       }
-      const data = await res.json();
 
-      // Update usage from API response
-      if (data.usage) setAiUsage(data.usage);
+      // Handle streaming response
+      const isStreaming = res.headers.get('X-Streaming') === '1';
 
-      // API returns 'message' for regular chat, 'reply' for auto-post
-      const aiReply = data.message || data.reply || '';
+      let aiReply = '';
+      let generatedImage: string | undefined;
+      let usageData: unknown;
+
+      if (isStreaming && res.body) {
+        // Add placeholder message and stream into it
+        const streamId = (Date.now() + 1).toString();
+        setMessages((prev) => [...prev, {
+          id: streamId,
+          text: '',
+          isUser: false,
+          timestamp: new Date(),
+          contentType: contentMode !== "chat" ? contentMode : undefined,
+        }]);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          accumulated += chunk;
+          const snapshot = accumulated;
+          setMessages((prev) => prev.map(m => m.id === streamId ? { ...m, text: snapshot } : m));
+        }
+        aiReply = accumulated;
+      } else {
+        const data = await res.json();
+        if (data.usage) usageData = data.usage;
+        generatedImage = data.generatedImage;
+        aiReply = data.message || data.reply || '';
+      }
+
+      if (usageData) setAiUsage(usageData as typeof aiUsage);
 
       // Try to auto-open PostCreationModal if AI returned a template JSON
       let autoOpened = false;
-      if (isContent && aiReply) {
+      if ((isContent || hasPostIntent) && aiReply) {
         try {
           const cleaned = aiReply.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
           const parsed = JSON.parse(cleaned);
@@ -606,20 +654,31 @@ export default function EnhancedAIChat() {
         }
       }
 
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
-        text: autoOpened ? "Post criado! Abrindo editor para voce personalizar..." : aiReply,
-        isUser: false,
-        timestamp: new Date(), contentType: contentMode !== "chat" ? contentMode : undefined,
-        imageUrl: data.generatedImage || undefined,
-      }]);
+      if (!isStreaming) {
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          text: autoOpened ? "Post criado! Abrindo editor para voce personalizar..." : aiReply,
+          isUser: false,
+          timestamp: new Date(), contentType: contentMode !== "chat" ? contentMode : undefined,
+          imageUrl: generatedImage || undefined,
+        }]);
+      } else if (autoOpened) {
+        // Replace streamed message with "post criado" text
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && !last.isUser) {
+            return [...prev.slice(0, -1), { ...last, text: "Post criado! Abrindo editor para voce personalizar..." }];
+          }
+          return prev;
+        });
+      }
 
       // Save messages to DB (fire & forget)
       if (mentorado?.id) {
         const userText = isImageGen ? (message.trim() ? message : `Gerar: ${templateLabel}`) : effectiveMsg;
         supabase.from("ai_chat_history").insert([
           { mentorado_id: mentorado.id, role: "user", content: (userText || "").substring(0, 2000), content_mode: contentMode, has_image: !!attachedImage },
-          { mentorado_id: mentorado.id, role: "assistant", content: (aiReply || "").substring(0, 2000), content_mode: contentMode, has_image: !!data.generatedImage },
+          { mentorado_id: mentorado.id, role: "assistant", content: (aiReply || "").substring(0, 2000), content_mode: contentMode, has_image: !!generatedImage },
         ]).then(() => {});
       }
     } catch {
@@ -631,7 +690,7 @@ export default function EnhancedAIChat() {
     } finally {
       setIsLoading(false);
     }
-  }, [message, isLoading, contentMode, persona, dores, desejos, mentorado, chatImage, referenceImages, templatePrompt, selectedTemplate]);
+  }, [message, isLoading, contentMode, persona, dores, desejos, mentorado, chatImage, referenceImages, templatePrompt, selectedTemplate, messages]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
