@@ -1,14 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { GoogleGenAI } from '@google/genai'
-import { createClient } from '@supabase/supabase-js'
 import { buildFilteredAulasPrompt } from '@/data/aulas-resumos'
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'SUA_NOVA_API_KEY_AQUI'
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-)
+const DB_API_URL = process.env.NEXT_PUBLIC_WHATSAPP_API_URL || 'https://api.medicosderesultado.com.br'
+
+// Server-side DB query helper — calls our Docker PostgreSQL API directly
+async function dbQuery(body: object): Promise<{ data: any; error: any }> {
+  try {
+    const res = await fetch(`${DB_API_URL}/api/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const result = await res.json()
+    if (!res.ok) return { data: null, error: result.error || 'Query failed' }
+    return { data: result.data, error: result.error || null }
+  } catch (err: any) {
+    return { data: null, error: err.message || 'Network error' }
+  }
+}
 
 // Limits: R$15/month ≈ US$2.70
 // Images: $0.039/each → ~25 images = $0.97
@@ -118,16 +130,13 @@ function getCurrentMonthYear() {
 
 async function getUsage(mentoradoId: string) {
   const monthYear = getCurrentMonthYear()
-  const { data, error } = await supabaseAdmin
-    .from('ai_usage')
-    .select('*')
-    .eq('mentorado_id', mentoradoId)
-    .eq('month_year', monthYear)
-    .single()
-  if (error && error.code !== 'PGRST116') {
-    console.error('[chat-gemini] getUsage error:', error.message, '| mentoradoId:', mentoradoId)
-  }
-  return data || { images_generated: 0, chat_messages_sent: 0, input_tokens_estimated: 0, output_tokens_estimated: 0 }
+  const { data, error } = await dbQuery({
+    table: 'ai_usage', operation: 'select', select: '*',
+    filters: [{ type: 'eq', column: 'mentorado_id', value: mentoradoId }, { type: 'eq', column: 'month_year', value: monthYear }],
+    single: true,
+  })
+  if (error) console.error('[chat-gemini] getUsage error:', error, '| mentoradoId:', mentoradoId)
+  return data || { images_generated: 0, chat_messages_sent: 0, input_tokens_estimated: 0, output_tokens_estimated: 0, brl_estimated_cost: 0 }
 }
 
 async function incrementCostUsage(mentoradoId: string, totalTokens: number) {
@@ -136,32 +145,31 @@ async function incrementCostUsage(mentoradoId: string, totalTokens: number) {
   // Gemini Flash Lite: ~$0.075/1M input tokens, USD→BRL ~5.8
   const brlCost = (totalTokens / 1_000_000) * 0.075 * 5.8
   try {
-    const { data: existing } = await supabaseAdmin
-      .from('ai_usage')
-      .select('id, brl_estimated_cost')
-      .eq('mentorado_id', mentoradoId)
-      .eq('month_year', monthYear)
-      .single()
+    const { data: existing } = await dbQuery({
+      table: 'ai_usage', operation: 'select', select: 'id, brl_estimated_cost',
+      filters: [{ type: 'eq', column: 'mentorado_id', value: mentoradoId }, { type: 'eq', column: 'month_year', value: monthYear }],
+      single: true,
+    })
     if (existing) {
-      await supabaseAdmin.from('ai_usage').update({
-        brl_estimated_cost: (existing.brl_estimated_cost || 0) + brlCost,
-        updated_at: new Date().toISOString(),
-      }).eq('id', existing.id)
+      await dbQuery({
+        table: 'ai_usage', operation: 'update',
+        data: { brl_estimated_cost: (existing.brl_estimated_cost || 0) + brlCost, updated_at: new Date().toISOString() },
+        filters: [{ type: 'eq', column: 'id', value: existing.id }],
+      })
     }
   } catch {
-    // Column may not exist yet — fail silently
+    // fail silently
   }
 }
 
 async function checkCostLimit(mentoradoId: string): Promise<boolean> {
   try {
     const monthYear = getCurrentMonthYear()
-    const { data } = await supabaseAdmin
-      .from('ai_usage')
-      .select('brl_estimated_cost')
-      .eq('mentorado_id', mentoradoId)
-      .eq('month_year', monthYear)
-      .single()
+    const { data } = await dbQuery({
+      table: 'ai_usage', operation: 'select', select: 'brl_estimated_cost',
+      filters: [{ type: 'eq', column: 'mentorado_id', value: mentoradoId }, { type: 'eq', column: 'month_year', value: monthYear }],
+      single: true,
+    })
     return (data?.brl_estimated_cost || 0) >= 15.0
   } catch {
     return false
@@ -170,36 +178,31 @@ async function checkCostLimit(mentoradoId: string): Promise<boolean> {
 
 async function incrementUsage(mentoradoId: string, isImage: boolean) {
   const monthYear = getCurrentMonthYear()
-  const { data: existing, error: selectError } = await supabaseAdmin
-    .from('ai_usage')
-    .select('id, images_generated, chat_messages_sent')
-    .eq('mentorado_id', mentoradoId)
-    .eq('month_year', monthYear)
-    .single()
+  const { data: existing, error: selectError } = await dbQuery({
+    table: 'ai_usage', operation: 'select', select: 'id, images_generated, chat_messages_sent',
+    filters: [{ type: 'eq', column: 'mentorado_id', value: mentoradoId }, { type: 'eq', column: 'month_year', value: monthYear }],
+    single: true,
+  })
 
-  if (selectError && selectError.code !== 'PGRST116') {
-    console.error('[chat-gemini] incrementUsage select error:', selectError.message)
-  }
+  if (selectError) console.error('[chat-gemini] incrementUsage select error:', selectError)
 
   if (existing) {
-    const { error: updateError } = await supabaseAdmin.from('ai_usage').update({
-      images_generated: existing.images_generated + (isImage ? 1 : 0),
-      chat_messages_sent: existing.chat_messages_sent + (isImage ? 0 : 1),
-      updated_at: new Date().toISOString(),
-    }).eq('id', existing.id)
-    if (updateError) {
-      console.error('[chat-gemini] incrementUsage update error:', updateError.message)
-    }
-  } else {
-    const { error: insertError } = await supabaseAdmin.from('ai_usage').insert({
-      mentorado_id: mentoradoId,
-      month_year: monthYear,
-      images_generated: isImage ? 1 : 0,
-      chat_messages_sent: isImage ? 0 : 1,
+    const { error: updateError } = await dbQuery({
+      table: 'ai_usage', operation: 'update',
+      data: {
+        images_generated: existing.images_generated + (isImage ? 1 : 0),
+        chat_messages_sent: existing.chat_messages_sent + (isImage ? 0 : 1),
+        updated_at: new Date().toISOString(),
+      },
+      filters: [{ type: 'eq', column: 'id', value: existing.id }],
     })
-    if (insertError) {
-      console.error('[chat-gemini] incrementUsage insert error:', insertError.message)
-    }
+    if (updateError) console.error('[chat-gemini] incrementUsage update error:', updateError)
+  } else {
+    const { error: insertError } = await dbQuery({
+      table: 'ai_usage', operation: 'insert',
+      data: [{ mentorado_id: mentoradoId, month_year: monthYear, images_generated: isImage ? 1 : 0, chat_messages_sent: isImage ? 0 : 1 }],
+    })
+    if (insertError) console.error('[chat-gemini] incrementUsage insert error:', insertError)
   }
 }
 
@@ -825,6 +828,9 @@ Solicitacao do usuario: ${message}`
             const text = chunk.text()
             if (text) controller.enqueue(encoder.encode(text))
           }
+        } catch (streamErr: any) {
+          console.error('[chat-gemini] stream error:', streamErr?.message || streamErr)
+          controller.enqueue(encoder.encode(`\n\n[Erro interno: ${streamErr?.message || 'falha na IA'}]`))
         } finally {
           controller.close()
         }
