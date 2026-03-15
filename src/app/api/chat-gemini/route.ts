@@ -218,15 +218,6 @@ export async function POST(request: NextRequest) {
 
     console.log('[chat-gemini] userEmail:', userEmail, '| message:', message?.substring(0, 50), '| generateImage:', !!generateImage)
 
-    const ALLOWED_EMAILS = ['emersonbljr2802@gmail.com', 'admin@system.com', 'gabriel@admin.com']
-    if (!ALLOWED_EMAILS.includes(userEmail)) {
-      console.log('[chat-gemini] BLOQUEADO: email não autorizado:', userEmail)
-      return NextResponse.json(
-        { error: 'Acesso não autorizado.' },
-        { status: 403 }
-      )
-    }
-
     if (!message) {
       return NextResponse.json(
         { error: 'Mensagem é obrigatória' },
