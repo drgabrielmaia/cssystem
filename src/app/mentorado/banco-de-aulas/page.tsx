@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  Play, BookOpen, Clock, CheckCircle, Lock, Search, ArrowLeft, Archive,
-  ChevronDown, ChevronRight, X, FileText, Save, Loader2, Check,
+  Play, BookOpen, Clock, CheckCircle, Search, ArrowLeft, Archive,
+  ChevronDown, ChevronRight, X, FileText, Save, Loader2, Check, StickyNote,
 } from 'lucide-react'
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { PandaVideoPlayer } from '@/components/PandaVideoPlayer'
@@ -59,6 +59,8 @@ export default function BancoDeAulasPage() {
   const [noteSaved, setNoteSaved] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [savedNotes, setSavedNotes] = useState<Array<{ id: string; content: string; created_at: string }>>([])
+  const [loadingNotes, setLoadingNotes] = useState(false)
 
   useEffect(() => {
     if (mentorado && !authLoading) {
@@ -183,21 +185,43 @@ export default function BancoDeAulasPage() {
     )
   }))
 
+  const loadNotes = async (lessonId: string) => {
+    if (!mentorado) return
+    setLoadingNotes(true)
+    try {
+      const { data } = await supabase
+        .from('lesson_notes')
+        .select('id, content, created_at')
+        .eq('mentorado_id', mentorado.id)
+        .eq('lesson_id', lessonId)
+        .order('created_at', { ascending: false })
+      setSavedNotes(data || [])
+    } catch (e) {
+      console.error('Erro ao carregar notas:', e)
+    } finally {
+      setLoadingNotes(false)
+    }
+  }
+
   const handleLessonClick = (lesson: VideoLesson) => {
     setSelectedLesson(lesson)
     setIsCompleted(!!lesson.progress?.is_completed)
     setLessonNote('')
     setNoteSaved(false)
+    setSavedNotes([])
     setShowVideoModal(true)
 
-    if (!MOCK_MODE && mentorado && !lesson.progress) {
-      supabase.from('lesson_progress').upsert({
-        mentorado_id: mentorado.id,
-        lesson_id: lesson.id,
-        started_at: new Date().toISOString(),
-        watch_time_minutes: 0,
-        is_completed: false
-      }, { onConflict: 'mentorado_id,lesson_id' }).then(() => {})
+    if (!MOCK_MODE && mentorado) {
+      loadNotes(lesson.id)
+      if (!lesson.progress) {
+        supabase.from('lesson_progress').upsert({
+          mentorado_id: mentorado.id,
+          lesson_id: lesson.id,
+          started_at: new Date().toISOString(),
+          watch_time_minutes: 0,
+          is_completed: false
+        }, { onConflict: 'mentorado_id,lesson_id' }).then(() => {})
+      }
     }
   }
 
@@ -206,11 +230,13 @@ export default function BancoDeAulasPage() {
     setSelectedLesson(null)
     setLessonNote('')
     setNoteSaved(false)
+    setSavedNotes([])
   }
 
   const handleSaveNote = async () => {
     if (!lessonNote.trim() || !selectedLesson || !mentorado) return
     setSavingNote(true)
+    const noteText = lessonNote.trim()
     try {
       const res = await fetch('/api/video/save-note', {
         method: 'POST',
@@ -218,12 +244,14 @@ export default function BancoDeAulasPage() {
         body: JSON.stringify({
           mentorado_id: mentorado.id,
           lesson_id: selectedLesson.id,
-          note_text: lessonNote.trim(),
+          note_text: noteText,
         })
       })
       if (res.ok) {
         setNoteSaved(true)
         setLessonNote('')
+        // Add to local list immediately
+        setSavedNotes(prev => [{ id: Date.now().toString(), content: noteText, created_at: new Date().toISOString() }, ...prev])
         setTimeout(() => setNoteSaved(false), 3000)
       }
     } catch (e) {
@@ -477,18 +505,14 @@ export default function BancoDeAulasPage() {
 
           {/* Main content: video + sidebar */}
           <div className="flex flex-1 min-h-0 overflow-hidden">
-            {/* Video area */}
-            <div className="flex-1 min-w-0 flex flex-col bg-black">
-              {/* 16:9 video container */}
-              <div className="w-full" style={{ maxHeight: 'calc(100vh - 52px - 0px)' }}>
-                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                  <div className="absolute inset-0">
-                    <PandaVideoPlayer
-                      embedUrl={selectedLesson.panda_video_embed_url}
-                      title={selectedLesson.title}
-                    />
-                  </div>
-                </div>
+            {/* Video area — fills available space, video letterboxed inside */}
+            <div className="flex-1 min-w-0 bg-black flex items-center justify-center overflow-hidden">
+              <div className="w-full h-full">
+                <PandaVideoPlayer
+                  embedUrl={selectedLesson.panda_video_embed_url}
+                  title={selectedLesson.title}
+                  className="w-full h-full"
+                />
               </div>
             </div>
 
@@ -528,7 +552,7 @@ export default function BancoDeAulasPage() {
               </div>
 
               {/* Notes */}
-              <div className="p-5 flex flex-col gap-3 flex-1">
+              <div className="p-5 flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-gray-400" />
                   <span className="text-sm font-medium text-white">Anotações</span>
@@ -537,13 +561,13 @@ export default function BancoDeAulasPage() {
                   value={lessonNote}
                   onChange={(e) => setLessonNote(e.target.value)}
                   placeholder="Escreva suas anotações sobre esta aula..."
-                  rows={6}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/40 resize-none transition-colors leading-relaxed"
+                  rows={4}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/40 resize-none transition-colors leading-relaxed flex-shrink-0"
                 />
                 <button
                   onClick={handleSaveNote}
                   disabled={!lessonNote.trim() || savingNote}
-                  className={`w-full py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+                  className={`w-full py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all flex-shrink-0 ${
                     noteSaved
                       ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                       : 'bg-white/5 hover:bg-white/10 text-gray-300 disabled:opacity-40'
@@ -557,6 +581,30 @@ export default function BancoDeAulasPage() {
                     <><Save className="w-3.5 h-3.5" /> Salvar nota</>
                   )}
                 </button>
+
+                {/* Saved notes list */}
+                {(loadingNotes || savedNotes.length > 0) && (
+                  <div className="mt-1 flex flex-col gap-2">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <StickyNote className="w-3 h-3" />
+                      Notas salvas ({savedNotes.length})
+                    </div>
+                    {loadingNotes ? (
+                      <div className="flex justify-center py-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-gray-600" />
+                      </div>
+                    ) : (
+                      savedNotes.map((note) => (
+                        <div key={note.id} className="bg-white/4 border border-white/8 rounded-lg p-3">
+                          <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                          <p className="text-[10px] text-gray-600 mt-1.5">
+                            {new Date(note.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
