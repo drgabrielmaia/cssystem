@@ -11,12 +11,106 @@ const supabaseAdmin = createClient(
 )
 
 // Limits: R$15/month ≈ US$2.70
-// Images: $0.039/each → ~50 images = $1.95
+// Images: $0.039/each → ~25 images = $0.97
 // Chat: $0.10/1M input + $0.40/1M output → ~2000 messages easily
 const MONTHLY_LIMITS = {
-  maxImages: 50,
+  maxImages: 25,
   maxChatMessages: 2000,
 }
+
+const FUNIL_DE_CONTEUDO = `
+=== FUNIL DE CONTEÚDO — SISTEMA COMPLETO ===
+
+CRIAÇÃO DE CONTEÚDO:
+
+Conteúdos de TOPO (Atração):
+- Headline forte, com dor ou desejo. Conteúdo raso; Conteúdo viral; Conteúdo Rápido (Máx 15 segundos); Headline direta
+- Vídeos curtos com legendas longas
+- Lei dos primeiros 3 segundos; Ganchos
+
+Conteúdos de MEIO (Retenção e Relacionamento):
+- Agregar valor aos interessados; Conteúdo denso; Conteúdo longo; Conteúdo para gerar autoridade
+- Vídeos longos com legendas curtas
+- Headline que retém (dor oculta, contraintuitiva, hype)
+
+Conteúdos de FUNDO (Conversão e Vendas):
+- Falar sobre dor ou desejo do paciente; Solucionar um problema comum; Mostrar a solução; Chamada para ação
+- Não passar de 30% da quantidade total de postagens
+
+TIPOS DE CONTEÚDO:
+- LEIA A LEGENDA: Vídeo curto 7 segundos, sendo os 5 primeiros uma headline forte + 2 segundos finais o "leia a legenda". Legenda longa com pelo menos "6 xpto na headline" seu @ no final. Música em alta
+- REACT: Fale sobre uma dor da sua persona com gancho de vídeo. Utilize vídeo auto-explicativo e comente + pergunte a opinião
+- DIÁLOGO: Você conversando com você mesmo sobre uma dor do paciente
+- CAIXINHA DE PERGUNTA: Perguntas estratégicas e intencionais que vão na dor ou desejo da persona. Entregue o ouro no INÍCIO do vídeo
+- LIVRE: Testar outro modelo
+
+DIVISÃO DE CONTEÚDO:
+- TOPO: 60-80% — ganhar novos seguidores
+- MEIO: 40-50% — despertar interesse e gerar autoridade
+- FUNDO: 20-30% — VENDER
+
+Exemplos de campanha:
+- Para ganhar seguidores: 70% topo - 20% meio - 10% fundo
+- Para gerar interesse: 40% topo - 40% meio - 20% fundo
+- Para vender: 30% topo - 40% meio - 30% fundo
+
+MODELOS DE TÍTULOS:
+- Como ______ em apenas ______
+- Como _____ em apenas _____ desde que _____!
+- 5 maneiras fáceis e rápidas de ______
+- 3 maneiras rápidas de _____ e evitar _____!
+- Quais desses erros de _______ que você já cometeu?
+- 5 erros no ________ que todo ______ precisa evitar para alcançar _________
+- Cuidado! O que todo ________ precisa saber sobre_________
+- Atenção! Nem pense em fazer _________ antes de ler isto!
+
+10 MODELOS DE GANCHOS ESCRITOS:
+1. Com essa única coisa eu consegui {resultado}
+2. Se você quer {resultado}, faça exatamente isso
+3. Veja o passo a passo para {resultado desejado}
+4. Cansado de {problema comum}, faça isso e resolva
+5. Imagine {resultado desejado}, é só você fazer assim
+6. Truque que ninguém te conta para {resultado}
+7. Pare de perder tempo com {estratégia ruim}, você só precisa fazer isso
+8. Maneiras de conseguir {resultado}, sem precisar {o que eles não querem}
+9. Maneira de parar de {resultado negativo}
+10. Esse é o atalho para {resultado desejado}
+
+MODELOS DE CARROSSÉIS:
+- Passo a passo de um processo (etapas em slides)
+- Lista de erros comuns e como corrigi-los
+- Dicas rápidas (uma por slide)
+- Mitos e verdades
+- Antes e depois com detalhes
+- Guia definitivo sobre um tema
+- Checklist prático
+- Como fazer em 5 passos
+- Estudo de caso (problema → solução)
+- Resultados de clientes
+
+MODELOS DE REELS:
+- Antes e depois de algo no nicho
+- Dica rápida em 15 segundos
+- Erros comuns e como evitar
+- Dia na vida
+- Bastidores do trabalho
+- Timelapse de um processo
+- Respondendo mito ou dúvida comum
+- Mensagem motivacional/inspiradora
+
+DICAS FINAIS:
+- Fixe os melhores comentários
+- Fixe o hater (gera debate)
+- Responda os comentários
+- Evite ao máximo repostagem
+- Descubra o desejo PROFUNDO e OCULTO da persona
+- Entregue o ouro no início
+- Crie revoltas; Abuse do inimigo em comum
+- Aproveite o timing; Use músicas em alta
+- Use hashtags estratégicas
+
+=== FIM DO FUNIL DE CONTEÚDO ===
+`
 
 function getCurrentMonthYear() {
   return new Date().toISOString().slice(0, 7) // '2026-02'
@@ -34,6 +128,44 @@ async function getUsage(mentoradoId: string) {
     console.error('[chat-gemini] getUsage error:', error.message, '| mentoradoId:', mentoradoId)
   }
   return data || { images_generated: 0, chat_messages_sent: 0, input_tokens_estimated: 0, output_tokens_estimated: 0 }
+}
+
+async function incrementCostUsage(mentoradoId: string, totalTokens: number) {
+  if (!totalTokens || totalTokens <= 0) return
+  const monthYear = getCurrentMonthYear()
+  // Gemini Flash Lite: ~$0.075/1M input tokens, USD→BRL ~5.8
+  const brlCost = (totalTokens / 1_000_000) * 0.075 * 5.8
+  try {
+    const { data: existing } = await supabaseAdmin
+      .from('ai_usage')
+      .select('id, brl_estimated_cost')
+      .eq('mentorado_id', mentoradoId)
+      .eq('month_year', monthYear)
+      .single()
+    if (existing) {
+      await supabaseAdmin.from('ai_usage').update({
+        brl_estimated_cost: (existing.brl_estimated_cost || 0) + brlCost,
+        updated_at: new Date().toISOString(),
+      }).eq('id', existing.id)
+    }
+  } catch {
+    // Column may not exist yet — fail silently
+  }
+}
+
+async function checkCostLimit(mentoradoId: string): Promise<boolean> {
+  try {
+    const monthYear = getCurrentMonthYear()
+    const { data } = await supabaseAdmin
+      .from('ai_usage')
+      .select('brl_estimated_cost')
+      .eq('mentorado_id', mentoradoId)
+      .eq('month_year', monthYear)
+      .single()
+    return (data?.brl_estimated_cost || 0) >= 15.0
+  } catch {
+    return false
+  }
 }
 
 async function incrementUsage(mentoradoId: string, isImage: boolean) {
@@ -108,13 +240,21 @@ export async function POST(request: NextRequest) {
       usage = await getUsage(mentoradoId)
       if (generateImage && usage.images_generated >= MONTHLY_LIMITS.maxImages) {
         return NextResponse.json({
-          error: `Limite de imagens atingido (${MONTHLY_LIMITS.maxImages}/mes). Renova no proximo mes.`,
+          error: `Você atingiu o limite do seu plano este mês. Aguarde a renovação ou entre em contato para fazer upgrade.`,
           usage: { ...usage, limits: MONTHLY_LIMITS },
         }, { status: 429 })
       }
       if (!generateImage && usage.chat_messages_sent >= MONTHLY_LIMITS.maxChatMessages) {
         return NextResponse.json({
-          error: `Limite de mensagens atingido (${MONTHLY_LIMITS.maxChatMessages}/mes). Renova no proximo mes.`,
+          error: `Você atingiu o limite do seu plano este mês. Aguarde a renovação ou entre em contato para fazer upgrade.`,
+          usage: { ...usage, limits: MONTHLY_LIMITS },
+        }, { status: 429 })
+      }
+      // Check BRL cost cap (hidden from user)
+      const costExceeded = await checkCostLimit(mentoradoId)
+      if (costExceeded) {
+        return NextResponse.json({
+          error: `Você atingiu o limite do seu plano este mês. Aguarde a renovação ou entre em contato para fazer upgrade.`,
           usage: { ...usage, limits: MONTHLY_LIMITS },
         }, { status: 429 })
       }
@@ -132,9 +272,11 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    const isPostRequest = context?.tipoPost && context.tipoPost !== 'chat' && context.tipoPost !== 'secretaria'
+    const isPostRequest = context?.tipoPost && context.tipoPost !== 'chat' && context.tipoPost !== 'secretaria' && context.tipoPost !== 'criador_conteudo' && context.tipoPost !== 'estrategista'
     const isCarousel = context?.tipoPost === 'carrossel'
     const isSecretaria = context?.tipoPost === 'secretaria'
+    const isCriadorConteudo = context?.tipoPost === 'criador_conteudo'
+    const isEstrategista = context?.tipoPost === 'estrategista'
 
     const postFormatInstructions = isCarousel
       ? `
@@ -198,6 +340,49 @@ REGRAS:
 - Se receber print de conversa, analise e sugira a resposta entre aspas para fácil cópia.
 - Não use linguagem técnica. Fale simples.`
 
+    const criadorConteudoPrompt = `Você é a Criadora de Conteúdo do sistema "Médicos de Resultado". Sua especialidade é criar estratégias e conteúdo para médicos crescerem no Instagram e captarem pacientes particulares.
+
+COMO VOCÊ FALA:
+- Direta, prática, sem enrolação
+- Usa exemplos concretos com números
+- Fala como uma estrategista experiente, não como uma IA genérica
+- Usa **negrito** para pontos-chave
+
+VOCÊ DOMINA:
+- Funil de conteúdo (topo, meio, fundo)
+- Hooks que param o scroll
+- Storytelling médico
+- Calendário de conteúdo estratégico
+- Criação de carrosséis, reels, stories
+- Posicionamento de autoridade médica
+
+${mentoradoContext ? `MÉDICO QUE VOCÊ ESTÁ AJUDANDO:\n${mentoradoContext}` : ''}
+
+${FUNIL_DE_CONTEUDO}`
+
+    const estrategistaPrompt = `Você é o Estrategista de Negócios do sistema "Médicos de Resultado". Sua especialidade é ajudar médicos a construírem negócios lucrativos e sustentáveis fora do plantão.
+
+COMO VOCÊ FALA:
+- Direto e pragmático como um consultor de negócios sênior
+- Foca em números, receita, posicionamento e execução
+- Não tem medo de dizer verdades difíceis
+- Usa **negrito** para pontos-chave
+
+VOCÊ DOMINA:
+- Precificação de consultas particulares e procedimentos
+- Posicionamento de especialidade
+- Captação de pacientes premium
+- Gestão de agenda para maximizar receita
+- Mentalidade de dono vs. empregado
+- Transição do plantão para consultório próprio
+
+${mentoradoContext ? `MÉDICO QUE VOCÊ ESTÁ AJUDANDO:\n${mentoradoContext}` : ''}
+
+REGRAS:
+- NÃO comece com "Claro!", "Com certeza!" ou introduções genéricas
+- Seja conciso e direto
+- Quando der números, seja específico`
+
     const isChatMode = !context?.tipoPost || context.tipoPost === 'chat'
 
     // Inject only lessons relevant to the current message
@@ -233,7 +418,7 @@ REGRAS:
 - Quando o mentorado perguntar sobre temas abordados nas aulas, referencie os frameworks e regras pelos nomes ensinados na mentoria.
 ${mentoradoContext ? `\n${mentoradoContext}` : ''}${aulasKnowledge}`
 
-    const contentPrompt = isSecretaria ? secretariaPrompt : isChatMode ? chatFreePrompt : `Você é a IA "Médicos de Resultado", a máquina de conteúdo viral mais poderosa do marketing médico brasileiro. Você cria textos que PARAM O SCROLL, geram DEBATE e fazem as pessoas COMPARTILHAREM.
+    const contentPrompt = isSecretaria ? secretariaPrompt : isCriadorConteudo ? criadorConteudoPrompt : isEstrategista ? estrategistaPrompt : isChatMode ? chatFreePrompt : `Você é a IA "Médicos de Resultado", a máquina de conteúdo viral mais poderosa do marketing médico brasileiro. Você cria textos que PARAM O SCROLL, geram DEBATE e fazem as pessoas COMPARTILHAREM.
 
 REGRAS ABSOLUTAS DE FORMATO:
 - NÃO comece com "Claro!", "Com certeza!", "Aqui está!", "Vamos lá!" ou qualquer introdução. Vá DIRETO ao conteúdo.
@@ -604,7 +789,11 @@ Solicitacao do usuario: ${message}`
       }
       const result = await modelWithSystem.generateContent([`${contextPrompt}\n\nUsuário: ${message}`, imagePart])
       const aiResponse = result.response.text()
-      if (mentoradoId) incrementUsage(mentoradoId, false).catch(() => {})
+      if (mentoradoId) {
+        incrementUsage(mentoradoId, false).catch(() => {})
+        const totalTokens = result.response.usageMetadata?.totalTokenCount
+        if (totalTokens) incrementCostUsage(mentoradoId, totalTokens).catch(() => {})
+      }
       const updatedUsage = mentoradoId ? await getUsage(mentoradoId).catch(() => null) : null
       return NextResponse.json({
         success: true, message: aiResponse, model: 'gemini-2.5-flash-lite',
@@ -619,7 +808,14 @@ Solicitacao do usuario: ${message}`
     const streamResult = await chat.sendMessageStream(userMessage)
 
     // Track usage (fire & forget)
-    if (mentoradoId) incrementUsage(mentoradoId, false).catch(() => {})
+    if (mentoradoId) {
+      incrementUsage(mentoradoId, false).catch(() => {})
+      // Estimate cost from response metadata (available after stream resolves)
+      streamResult.response.then(r => {
+        const totalTokens = r.usageMetadata?.totalTokenCount
+        if (totalTokens) incrementCostUsage(mentoradoId, totalTokens).catch(() => {})
+      }).catch(() => {})
+    }
 
     const encoder = new TextEncoder()
     const stream = new ReadableStream({

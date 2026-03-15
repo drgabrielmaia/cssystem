@@ -123,10 +123,59 @@ interface ProfileData {
 
 const CONTENT_MODES = [
   { id: "chat", label: "Chat Livre", icon: MessageSquare, description: "Conversa livre com a IA" },
-  { id: "conteudo", label: "Criar Post", icon: FileText, description: "IA escolhe template e cria o post" },
-  { id: "secretaria", label: "Secretaria", icon: Phone, description: "Atendimento de pacientes" },
+  { id: "criador_conteudo", label: "Criadora de Conteúdo", icon: FileText, description: "Posts com estratégia de funil" },
+  { id: "secretaria", label: "Secretária", icon: Phone, description: "Atendimento de pacientes" },
+  { id: "estrategista", label: "Estrategista", icon: Target, description: "Negócio e precificação" },
+  { id: "conteudo", label: "Criar Post Visual", icon: Palette, description: "IA escolhe template e cria o post" },
   { id: "imagem", label: "Gerar Imagem", icon: ImageIcon, description: "Crie imagens com IA" },
 ] as const;
+
+const PERSONAS = [
+  {
+    id: "secretaria",
+    label: "Secretária",
+    icon: Phone,
+    description: "Responde pacientes, gerencia agenda e atendimento",
+    gradient: "from-emerald-500 to-green-400",
+    glow: "shadow-emerald-500/20",
+    ring: "ring-emerald-500/30",
+    bg: "bg-emerald-500/10",
+    text: "text-emerald-300",
+  },
+  {
+    id: "criador_conteudo",
+    label: "Criadora de Conteúdo",
+    icon: FileText,
+    description: "Cria posts, reels e carrosséis com estratégia de funil",
+    gradient: "from-purple-500 to-violet-400",
+    glow: "shadow-purple-500/20",
+    ring: "ring-purple-500/30",
+    bg: "bg-purple-500/10",
+    text: "text-purple-300",
+  },
+  {
+    id: "estrategista",
+    label: "Estrategista",
+    icon: Target,
+    description: "Precificação, captação de particular e estratégia de negócio",
+    gradient: "from-amber-500 to-orange-400",
+    glow: "shadow-amber-500/20",
+    ring: "ring-amber-500/30",
+    bg: "bg-amber-500/10",
+    text: "text-amber-300",
+  },
+  {
+    id: "chat",
+    label: "Chat Livre",
+    icon: MessageSquare,
+    description: "Assistente geral para qualquer dúvida",
+    gradient: "from-blue-500 to-cyan-400",
+    glow: "shadow-blue-500/20",
+    ring: "ring-blue-500/30",
+    bg: "bg-blue-500/10",
+    text: "text-blue-300",
+  },
+];
 
 const IMAGE_TEMPLATES = [
   { id: "the-cover", label: "Capa de Revista", prompt: "Fotografia editorial hiper-realista de corpo inteiro em estúdio de alta moda. POSE EXATA: pessoa de pé com pernas afastadas na largura dos ombros, peso distribuído no pé esquerdo com quadril levemente deslocado, mão direita dentro do bolso do blazer com apenas o polegar para fora tocando o tecido, mão esquerda solta ao lado do corpo com dedos relaxados e levemente curvados — veias sutis visíveis no dorso da mão. ROUPA COM TEXTURA: terno slim fit em lã fria italiana azul marinho com micro-textura herringbone visível de perto, lapela notch estreita de 7cm com costura pick-stitch visível à mão, camisa branca de algodão egípcio 140 fios com colarinho cutaway aberto revelando a clavícula, sem gravata, punhos franceses com abotoaduras de ouro fosco, cinto de couro cognac com fivela de metal escovado, sapato oxford de couro polido marrom com brilho de cera, relógio de aço escovado no pulso esquerdo com mostrador azul. EXPRESSÃO: olhar direto penetrante para a câmera com microexpressão de confiança — canto dos olhos levemente contraídos (orbicular), sobrancelha esquerda 2mm mais elevada que a direita, sorriso fechado assimétrico com canto direito dos lábios 3mm mais alto, mandíbula relaxada mas definida, pele hiper-real com poros visíveis na zona T, leve sombra de barba de 12 horas no maxilar. CENÁRIO: estúdio com cyclorama infinito cinza grafite, chão de acrílico preto espelhado refletindo 40% da silhueta. ILUMINAÇÃO: key light softbox octogonal 150cm a 45° lateral direita, fill bounce -2EV no lado oposto, hair light Fresnel com grid de 20° a 60° atrás. CÂMERA: Canon EOS R5 Mark II, lente RF 24-70mm f/2.8L em 50mm, f/4.0, ISO 100, resolução 8K, color grading cinematográfico estilo capa GQ ou Forbes 30 Under 30", icon: "📸" },
@@ -170,6 +219,7 @@ export default function EnhancedAIChat() {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [contentMode, setContentMode] = useState("chat");
+  const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
   const [showContentMenu, setShowContentMenu] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -273,26 +323,7 @@ export default function EnhancedAIChat() {
         }
       } catch {}
 
-      // Load chat history
-      try {
-        const { data: chatData } = await supabase
-          .from("ai_chat_history")
-          .select("*")
-          .eq("mentorado_id", mentorado.id)
-          .order("created_at", { ascending: true })
-          .limit(100);
-        if (chatData && chatData.length > 0) {
-          const loadedMessages: ChatMessage[] = chatData.map((m: any) => ({
-            id: m.id.toString(),
-            text: m.content,
-            isUser: m.role === "user",
-            timestamp: new Date(m.created_at),
-            contentType: m.content_mode !== "chat" ? m.content_mode : undefined,
-            imageUrl: m.has_image && m.image_thumb ? m.image_thumb : undefined,
-          }));
-          setMessages(loadedMessages);
-        }
-      } catch {}
+      // Chat history is loaded per persona when persona is selected
     };
 
     load();
@@ -497,6 +528,38 @@ export default function EnhancedAIChat() {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   }, []);
 
+  const selectPersona = useCallback(async (personaId: string) => {
+    setSelectedPersona(personaId);
+    setContentMode(personaId);
+    setMessages([]);
+    if (!mentorado?.id) return;
+    try {
+      const { data } = await supabase
+        .from("ai_chat_history")
+        .select("*")
+        .eq("mentorado_id", mentorado.id)
+        .eq("content_mode", personaId)
+        .order("created_at", { ascending: true })
+        .limit(100);
+      if (data && data.length > 0) {
+        setMessages(data.map((m: any) => ({
+          id: m.id.toString(),
+          text: m.content,
+          isUser: m.role === "user",
+          timestamp: new Date(m.created_at),
+          contentType: m.content_mode !== "chat" ? m.content_mode : undefined,
+          imageUrl: m.has_image && m.image_thumb ? m.image_thumb : undefined,
+        })));
+      }
+    } catch {}
+  }, [mentorado?.id]);
+
+  const backToPersonaSelection = useCallback(() => {
+    setSelectedPersona(null);
+    setMessages([]);
+    setMessage("");
+  }, []);
+
   // ---- Chat ----
   const copyToClipboard = useCallback((text: string, id: string) => {
     navigator.clipboard.writeText(text.replace(/\*\*(.*?)\*\*/g, "$1"));
@@ -508,6 +571,8 @@ export default function EnhancedAIChat() {
     const isContent = contentMode === "conteudo";
     const isSecretaria = contentMode === "secretaria";
     const isImageGen = contentMode === "imagem";
+    const isCriadorConteudo = contentMode === "criador_conteudo";
+    const isEstrategista = contentMode === "estrategista";
 
     // Para imagem: usa templatePrompt por trás + message extra do user
     const effectiveMsg = isImageGen
@@ -538,6 +603,8 @@ export default function EnhancedAIChat() {
         ? (effectiveMsg.trim() || "Gere uma foto profissional de estúdio para marketing médico.")
         : isSecretaria
         ? (effectiveMsg.trim() || "Analise a imagem da conversa e sugira a melhor resposta.")
+        : (isCriadorConteudo || isEstrategista)
+        ? (effectiveMsg.trim() || "Como posso te ajudar?")
         : effectiveMsg;
       const filledDores = dores.filter(Boolean);
       const filledDesejos = desejos.filter(Boolean);
@@ -574,7 +641,11 @@ export default function EnhancedAIChat() {
             persona: persona.resumo_persona,
             publicoAlvo: persona.profissao ? `${persona.nome_ficticio}, ${persona.idade} anos, ${persona.profissao}` : undefined,
             doresDesejos: [...filledDores, ...filledDesejos],
-            tipoPost: isSecretaria ? "secretaria" : (isContent || hasPostIntent) ? "auto-post" : undefined,
+            tipoPost: isSecretaria ? "secretaria"
+              : contentMode === "criador_conteudo" ? "criador_conteudo"
+              : contentMode === "estrategista" ? "estrategista"
+              : (isContent || hasPostIntent) ? "auto-post"
+              : undefined,
             tomComunicacao: persona.tom_voz_preferido?.join(", "),
             problemasAudiencia: persona.principais_problemas,
             desejoAudiencia: persona.desejo_6_meses,
@@ -969,11 +1040,31 @@ export default function EnhancedAIChat() {
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg text-[#5a5a5f] hover:text-white hover:bg-white/5 transition-all">
             {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeft className="w-5 h-5" />}
           </button>
+          {selectedPersona && (
+            <button onClick={backToPersonaSelection} className="p-2 rounded-lg text-[#5a5a5f] hover:text-white hover:bg-white/5 transition-all" title="Voltar para seleção">
+              <ChevronDown className="w-4 h-4 rotate-90" />
+            </button>
+          )}
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
-              <Sparkles className="w-3.5 h-3.5 text-white" />
-            </div>
-            <span className="font-semibold text-sm tracking-tight truncate">Medicos de Resultado</span>
+            {selectedPersona ? (() => {
+              const p = PERSONAS.find(p => p.id === selectedPersona);
+              const Icon = p?.icon || Sparkles;
+              return (
+                <>
+                  <div className={cn("w-7 h-7 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-lg flex-shrink-0", p?.gradient || "from-blue-500 to-cyan-400", p?.glow || "shadow-blue-500/20")}>
+                    <Icon className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <span className="font-semibold text-sm tracking-tight truncate">{p?.label || "Chat"}</span>
+                </>
+              );
+            })() : (
+              <>
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
+                  <Sparkles className="w-3.5 h-3.5 text-white" />
+                </div>
+                <span className="font-semibold text-sm tracking-tight truncate">Médicos de Resultado — IA</span>
+              </>
+            )}
           </div>
           <button onClick={() => setCalendarOpen(true)}
             className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 text-xs font-medium transition-all ring-1 ring-purple-500/20 flex-shrink-0">
@@ -1071,7 +1162,55 @@ export default function EnhancedAIChat() {
           );
         })()}
 
+        {/* ======================== PERSONA SELECTION ======================== */}
+        {!selectedPersona && (
+          <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-4 py-8">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 blur-[80px] bg-gradient-to-r from-blue-500/20 via-purple-400/15 to-cyan-500/20 rounded-full scale-[2.5]" />
+              <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-2xl shadow-blue-500/25 ring-1 ring-white/10">
+                <Sparkles className="w-8 h-8 text-white" />
+              </div>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2 text-center tracking-tight">
+              Com quem você quer falar<span className="text-[#5a5a5f]">?</span>
+            </h1>
+            <p className="text-[#5a5a5f] text-sm mb-8 text-center max-w-sm">
+              Cada assistente tem histórico separado e conhecimento especializado.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
+              {PERSONAS.map((persona) => {
+                const Icon = persona.icon;
+                return (
+                  <button
+                    key={persona.id}
+                    onClick={() => selectPersona(persona.id)}
+                    className={cn(
+                      "flex items-start gap-3.5 p-4 rounded-2xl border transition-all duration-200 text-left group hover:scale-[1.02] active:scale-[0.98]",
+                      "border-white/[0.06] bg-[#111114]/80 hover:bg-[#18181c]",
+                      `hover:${persona.ring} hover:ring-1`
+                    )}
+                  >
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center flex-shrink-0 shadow-lg",
+                      persona.gradient,
+                      persona.glow
+                    )}>
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-white group-hover:text-white transition-colors">{persona.label}</p>
+                      <p className="text-[12px] text-[#5a5a5f] mt-0.5 leading-relaxed">{persona.description}</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-[#3a3a3f] group-hover:text-white/50 transition-colors mt-0.5 flex-shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Messages */}
+        {selectedPersona && (<>
         <div className="flex-1 overflow-y-auto">
           {contentMode === "imagem" ? (
             /* ===== IMAGE MODE: config panel + chat messages below ===== */
@@ -1231,35 +1370,26 @@ export default function EnhancedAIChat() {
             </div>
           ) : messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center px-4">
-              <div className="relative mb-8">
-                <div className="absolute inset-0 blur-[100px] bg-gradient-to-r from-blue-500/20 via-cyan-400/15 to-blue-600/20 rounded-full scale-[2.5]" />
-                <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-2xl shadow-blue-500/25 ring-1 ring-white/10">
-                  <Sparkles className="w-10 h-10 text-white" />
-                </div>
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2 text-center tracking-tight">
-                Como posso ajudar <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">hoje</span>?
-              </h1>
-              <p className="text-[#5a5a5f] text-base mb-10 text-center max-w-md">
-                Converse, crie conteudo ou peca estrategias personalizadas para seu perfil medico.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
-                {[
-                  { icon: Palette, text: "Criar post visual", mode: "post" },
-                  { icon: FileText, text: "Criar conteudo com IA", mode: "conteudo" },
-                  { icon: Phone, text: "Secretaria de pacientes", mode: "secretaria" },
-                  { icon: ImageIcon, text: "Gerar imagem com IA", mode: "imagem" },
-                ].map((action, i) => (
-                  <button key={i} onClick={() => {
-                    if (action.mode === 'post') { setPostCreationModalOpen(true); return; }
-                    setContentMode(action.mode); textareaRef.current?.focus();
-                  }}
-                    className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-white/[0.06] bg-[#111114]/80 hover:bg-[#18181c] text-[#7a7a7f] hover:text-white transition-all text-sm text-left group">
-                    <action.icon className="w-4 h-4 group-hover:text-blue-400 transition-colors flex-shrink-0" />
-                    <span>{action.text}</span>
-                  </button>
-                ))}
-              </div>
+              {(() => {
+                const p = PERSONAS.find(p => p.id === selectedPersona);
+                const Icon = p?.icon || Sparkles;
+                return (
+                  <>
+                    <div className="relative mb-6">
+                      <div className={cn("absolute inset-0 blur-[80px] rounded-full scale-[2.5]", p?.bg || "bg-blue-500/20")} />
+                      <div className={cn("relative w-16 h-16 rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-2xl ring-1 ring-white/10", p?.gradient || "from-blue-500 to-cyan-400", p?.glow || "shadow-blue-500/25")}>
+                        <Icon className="w-8 h-8 text-white" />
+                      </div>
+                    </div>
+                    <h1 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">
+                      {p?.label || "Chat"}
+                    </h1>
+                    <p className="text-[#5a5a5f] text-sm mb-8 text-center max-w-xs">
+                      {p?.description || "Como posso ajudar?"}
+                    </p>
+                  </>
+                );
+              })()}
             </div>
           ) : (
             <div className="max-w-3xl mx-auto px-3 md:px-4 py-4 md:py-6 space-y-4 md:space-y-6">
@@ -1363,7 +1493,7 @@ export default function EnhancedAIChat() {
                   </div>
                 )}
                 <textarea ref={textareaRef} value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={handleKeyDown}
-                  placeholder={contentMode === "imagem" ? "Descreva a imagem que deseja gerar..." : contentMode === "secretaria" ? "Cole o print ou descreva a conversa do paciente..." : contentMode !== "chat" ? `Descreva o contexto para ${currentMode.label.toLowerCase()}...` : "Pergunte qualquer coisa..."}
+                  placeholder={contentMode === "imagem" ? "Descreva a imagem que deseja gerar..." : contentMode === "secretaria" ? "Cole o print ou descreva a conversa do paciente..." : contentMode === "criador_conteudo" ? "Descreva o post, peça uma estratégia, cronograma de conteúdo..." : contentMode === "estrategista" ? "Pergunte sobre precificação, captação, posicionamento..." : contentMode !== "chat" ? `Descreva o contexto para ${currentMode?.label?.toLowerCase() ?? contentMode}...` : "Pergunte qualquer coisa..."}
                   className="w-full resize-none bg-transparent text-[14px] md:text-[15px] text-white placeholder-[#3a3a3f] px-4 md:px-5 pt-4 md:pt-5 pb-2 md:pb-3 focus:outline-none min-h-[60px] md:min-h-[80px] max-h-[200px]"
                   style={{ height: "60px" }} />
                 {/* Hidden file input for chat images */}
@@ -1376,7 +1506,7 @@ export default function EnhancedAIChat() {
                           contentMode !== "chat" ? "bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/20 hover:bg-blue-500/25" : "text-[#5a5a5f] hover:text-white hover:bg-white/5"
                         )}>
                         <Lightbulb className="w-4 h-4" />
-                        <span className="hidden sm:inline">{contentMode !== "chat" ? currentMode.label : "Criador de Conteudo"}</span>
+                        <span className="hidden sm:inline">{contentMode !== "chat" ? (currentMode?.label ?? contentMode) : "Modo"}</span>
                         <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", showContentMenu && "rotate-180")} />
                       </button>
                       {showContentMenu && (
@@ -1422,6 +1552,7 @@ export default function EnhancedAIChat() {
             <p className="text-center text-[11px] text-[#3a3a3f] mt-3">Medicos de Resultado pode cometer erros. Verifique informacoes importantes.</p>
           </div>
         </div>
+        </>)} {/* end selectedPersona */}
       </main>
 
       {/* ======================== POST EDITOR (legacy) ======================== */}
