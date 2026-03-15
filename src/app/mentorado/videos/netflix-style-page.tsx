@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { Play, BookOpen, Clock, CheckCircle, Lock, Search, Star, Trophy, Medal, Award, FileText, MessageSquare, ThumbsUp, Download } from 'lucide-react'
+import { Play, BookOpen, Clock, CheckCircle, Lock, Search, Star, Trophy, Medal, Award, FileText, Download, ArrowLeft, X, Save, Loader2, Check, StickyNote } from 'lucide-react'
 import { useMentoradoAuth } from '@/contexts/mentorado-auth'
 import { PandaVideoPlayer } from '@/components/PandaVideoPlayer'
 import { MOCK_MODE, MOCK_MODULES } from '@/lib/mock-data'
@@ -61,25 +61,17 @@ export default function NetflixStyleVideosPage() {
   const [showFullRankingModal, setShowFullRankingModal] = useState(false)
 
   // Estados para anotações e NPS
-  const [showNotesModal, setShowNotesModal] = useState(false)
   const [showNpsModal, setShowNpsModal] = useState(false)
   const [lessonNote, setLessonNote] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+  const [noteSaved, setNoteSaved] = useState(false)
+  const [savedNotes, setSavedNotes] = useState<Array<{ id: string; content: string; created_at: string }>>([])
+  const [loadingNotes, setLoadingNotes] = useState(false)
+  const [completing, setCompleting] = useState(false)
+  const [isCompleted, setIsCompleted] = useState(false)
   const [npsScore, setNpsScore] = useState<number | null>(null)
   const [npsFeedback, setNpsFeedback] = useState('')
-  const [isMobile, setIsMobile] = useState(false)
 
-  // Detectar dispositivo móvel
-  useEffect(() => {
-    const checkMobile = () => {
-      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-      const isSmallScreen = window.innerWidth <= 768
-      setIsMobile(isMobileDevice || isSmallScreen)
-    }
-
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
 
   useEffect(() => {
     if (mentorado && !authLoading) {
@@ -199,72 +191,119 @@ export default function NetflixStyleVideosPage() {
     }
   }
 
+  const loadNotes = async (lessonId: string) => {
+    if (!mentorado) return
+    setLoadingNotes(true)
+    try {
+      const { data } = await supabase
+        .from('lesson_notes')
+        .select('id, content, created_at')
+        .eq('mentorado_id', mentorado.id)
+        .eq('lesson_id', lessonId)
+        .order('created_at', { ascending: false })
+      setSavedNotes(data || [])
+    } catch (e) {
+      console.error('Erro ao carregar notas:', e)
+    } finally {
+      setLoadingNotes(false)
+    }
+  }
+
   const handleWatchLesson = (lesson: VideoLesson) => {
-    console.log('▶️ Assistir aula:', lesson.title)
     setSelectedLesson(lesson)
+    setIsCompleted(!!lesson.progress?.is_completed)
+    setLessonNote('')
+    setNoteSaved(false)
+    setSavedNotes([])
     setShowVideoModal(true)
 
-    // Marcar como iniciada se não foi ainda (skip em mock mode)
-    if (!MOCK_MODE && !lesson.progress && mentorado) {
-      supabase
-        .from('lesson_progress')
-        .upsert({
+    if (!MOCK_MODE && mentorado) {
+      loadNotes(lesson.id)
+      if (!lesson.progress) {
+        supabase.from('lesson_progress').upsert({
           mentorado_id: mentorado.id,
           lesson_id: lesson.id,
           started_at: new Date().toISOString(),
           watch_time_minutes: 0,
           is_completed: false
-        }, {
-          onConflict: 'mentorado_id,lesson_id'
-        })
-        .then(({ error }) => {
-          if (error) {
-            console.log('⚠️ Progresso já existe:', error.message)
-          } else {
-            console.log('✅ Progresso iniciado para:', lesson.title)
-          }
-        })
+        }, { onConflict: 'mentorado_id,lesson_id' }).then(() => {})
+      }
     }
   }
 
-  const handleCompleteLesson = async (lessonId: string) => {
-    if (!mentorado) return
+  const handleClose = () => {
+    setShowVideoModal(false)
+    setSelectedLesson(null)
+    setLessonNote('')
+    setNoteSaved(false)
+    setSavedNotes([])
+  }
 
-    // MOCK MODE: apenas fechar modal
+  const handleSaveNote = async () => {
+    if (!lessonNote.trim() || !selectedLesson || !mentorado) return
+    setSavingNote(true)
+    const noteText = lessonNote.trim()
+    try {
+      const res = await fetch('/api/video/save-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mentorado_id: mentorado.id,
+          lesson_id: selectedLesson.id,
+          note_text: noteText,
+        })
+      })
+      if (res.ok) {
+        setNoteSaved(true)
+        setLessonNote('')
+        setSavedNotes(prev => [{ id: Date.now().toString(), content: noteText, created_at: new Date().toISOString() }, ...prev])
+        setTimeout(() => setNoteSaved(false), 3000)
+      }
+    } catch (e) {
+      console.error('Erro ao salvar nota:', e)
+    } finally {
+      setSavingNote(false)
+    }
+  }
+
+  const handleCompleteLesson = async () => {
+    if (!mentorado || !selectedLesson || isCompleted || completing) return
+
     if (MOCK_MODE) {
-      setShowVideoModal(false)
+      setIsCompleted(true)
       return
     }
 
+    setCompleting(true)
     try {
       const { error } = await supabase
         .from('lesson_progress')
         .upsert({
           mentorado_id: mentorado.id,
-          lesson_id: lessonId,
+          lesson_id: selectedLesson.id,
           completed_at: new Date().toISOString(),
           is_completed: true,
-          completed: true,
           started_at: new Date().toISOString(),
-          watch_time_minutes: selectedLesson?.duration_minutes || 0,
-          watch_time_seconds: (selectedLesson?.duration_minutes || 0) * 60
-        }, {
-          onConflict: 'mentorado_id,lesson_id'
-        })
+          watch_time_minutes: selectedLesson.duration_minutes || 0,
+        }, { onConflict: 'mentorado_id,lesson_id' })
 
       if (error) {
         console.error('❌ Erro ao concluir aula:', error)
-        alert('Erro ao marcar como concluída. Tente novamente.')
         return
       }
 
-      console.log('✅ Aula concluída!')
-      setShowVideoModal(false)
-      loadVideoData(mentorado)
-      alert('Parabéns! Aula concluída! 🎉')
+      setIsCompleted(true)
+      setModules(prev => prev.map(m => ({
+        ...m,
+        lessons: m.lessons.map(l => l.id === selectedLesson.id
+          ? { ...l, progress: { ...l.progress, is_completed: true } as any }
+          : l
+        )
+      })))
     } catch (error) {
       console.error('❌ Erro ao concluir aula:', error)
-      alert('Erro ao marcar como concluída. Tente novamente.')
+    } finally {
+      setCompleting(false)
     }
   }
 
@@ -962,150 +1001,199 @@ export default function NetflixStyleVideosPage() {
         </div>
       )}
 
-      {/* Video Modal */}
-      <Dialog open={showVideoModal} onOpenChange={setShowVideoModal}>
-        <DialogContent className="sm:max-w-[95vw] sm:max-h-[95vh] p-0 bg-[#181818] border-gray-800 rounded-[8px] overflow-y-auto">
-          {selectedLesson && (
-            <div className="space-y-0">
+      {/* Fullscreen Lesson Overlay */}
+      {showVideoModal && selectedLesson && (
+        <div className="fixed inset-0 z-50 bg-[#0a0a0a] flex flex-col overflow-hidden">
+          {/* Top bar */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-white/5 flex-shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                onClick={handleClose}
+                className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm flex-shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Aulas
+              </button>
+              <div className="w-px h-4 bg-white/10 flex-shrink-0" />
+              <h2 className="text-sm font-medium text-white truncate">{selectedLesson.title}</h2>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-500">
+                <Clock className="w-3.5 h-3.5" />
+                {formatDuration(selectedLesson.duration_minutes)}
+              </div>
+              <button onClick={handleClose} className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors">
+                <X className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+          </div>
+
+          {/* Main content: video + sidebar */}
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            {/* Video area */}
+            <div className="flex-1 min-w-0 bg-black flex items-center justify-center overflow-hidden">
               {!selectedLesson.panda_video_embed_url && selectedLesson.pdf_url ? (
-                <div className="aspect-video bg-gradient-to-br from-red-500/10 via-[#1A1A1A] to-orange-500/10 rounded-t-[8px] flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center mx-auto mb-4">
-                      <FileText className="w-10 h-10 text-white" />
-                    </div>
-                    <h3 className="text-white text-xl font-semibold mb-2">Material em PDF</h3>
-                    <p className="text-gray-400 text-sm mb-4">{selectedLesson.pdf_filename || 'Material de apoio'}</p>
-                    <button
-                      onClick={() => window.open(selectedLesson.pdf_url, '_blank')}
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg text-base font-medium hover:from-red-600 hover:to-orange-600 transition-all"
-                    >
-                      <Download className="w-5 h-5" />
-                      Baixar PDF
-                    </button>
+                <div className="text-center p-8">
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center mx-auto mb-4">
+                    <FileText className="w-10 h-10 text-white" />
                   </div>
+                  <h3 className="text-white text-xl font-semibold mb-2">Material em PDF</h3>
+                  <p className="text-gray-400 text-sm mb-4">{selectedLesson.pdf_filename || 'Material de apoio'}</p>
+                  <button
+                    onClick={() => window.open(selectedLesson.pdf_url, '_blank')}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg font-medium hover:from-red-600 hover:to-orange-600 transition-all"
+                  >
+                    <Download className="w-5 h-5" />
+                    Baixar PDF
+                  </button>
                 </div>
               ) : (
-                <div className="aspect-video bg-[#1A1A1A] rounded-t-[8px] overflow-hidden">
+                <div className="w-full h-full">
                   <PandaVideoPlayer
                     embedUrl={selectedLesson.panda_video_embed_url}
                     title={selectedLesson.title}
-                    className="w-full h-full rounded-t-[8px]"
+                    className="w-full h-full"
                   />
                 </div>
               )}
+            </div>
 
-              <div className="p-6 text-white">
-                <h3 className="text-[18px] font-semibold text-white mb-2">
-                  {selectedLesson.title}
-                </h3>
-                <p className="text-[15px] text-gray-400 mb-4">
-                  {selectedLesson.description}
-                </p>
+            {/* Right sidebar */}
+            <div className="w-80 flex-shrink-0 border-l border-white/5 bg-[#111] hidden lg:flex flex-col overflow-y-auto">
+              {/* Lesson info */}
+              <div className="p-5 border-b border-white/5">
+                <h3 className="font-semibold text-white text-sm leading-snug mb-1">{selectedLesson.title}</h3>
+                {selectedLesson.description && (
+                  <p className="text-gray-400 text-xs leading-relaxed mt-2">{selectedLesson.description}</p>
+                )}
+                <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDuration(selectedLesson.duration_minutes)}</span>
+                </div>
+              </div>
 
-                {/* Botões de Anotações, NPS e PDF */}
-                <div className="flex gap-3 mb-4">
-                  <button
-                    onClick={() => setShowNotesModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-[4px] text-[14px] font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    <FileText className="w-4 h-4" />
-                    Fazer Anotação
-                  </button>
+              {/* Complete + NPS buttons */}
+              <div className="p-5 border-b border-white/5 flex flex-col gap-2">
+                <button
+                  onClick={handleCompleteLesson}
+                  disabled={isCompleted || completing}
+                  className={`w-full py-2.5 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+                    isCompleted
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-default'
+                      : 'bg-emerald-500 hover:bg-emerald-400 text-white'
+                  }`}
+                >
+                  {completing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : isCompleted ? (
+                    <><Check className="w-4 h-4" /> Aula concluída</>
+                  ) : (
+                    <><CheckCircle className="w-4 h-4" /> Marcar como concluída</>
+                  )}
+                </button>
+                <div className="flex gap-2">
                   <button
                     onClick={() => setShowNpsModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-[4px] text-[14px] font-medium hover:bg-emerald-700 transition-colors"
+                    className="flex-1 py-2 px-3 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-gray-300 flex items-center justify-center gap-1.5 transition-all"
                   >
-                    <Star className="w-4 h-4" />
-                    Avaliar Aula
+                    <Star className="w-3.5 h-3.5" />
+                    Avaliar aula
                   </button>
                   {selectedLesson.pdf_url && (
                     <button
                       onClick={() => window.open(selectedLesson.pdf_url, '_blank')}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-[4px] text-[14px] font-medium hover:bg-green-700 transition-colors"
-                      title={selectedLesson.pdf_filename || 'Material de apoio em PDF'}
+                      className="flex-1 py-2 px-3 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-gray-300 flex items-center justify-center gap-1.5 transition-all"
                     >
-                      <Download className="w-4 h-4" />
-                      PDF Material
+                      <Download className="w-3.5 h-3.5" />
+                      PDF
                     </button>
                   )}
                 </div>
+              </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center text-[13px] text-gray-400">
-                      <Clock className="w-4 h-4 mr-1" />
-                      <span>{formatDuration(selectedLesson.duration_minutes)}</span>
+              {/* Notes */}
+              <div className="p-5 flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm font-medium text-white">Anotações</span>
+                </div>
+                <textarea
+                  value={lessonNote}
+                  onChange={(e) => setLessonNote(e.target.value)}
+                  placeholder="Escreva suas anotações sobre esta aula..."
+                  rows={4}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/40 resize-none transition-colors leading-relaxed flex-shrink-0"
+                />
+                <button
+                  onClick={handleSaveNote}
+                  disabled={!lessonNote.trim() || savingNote}
+                  className={`w-full py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all flex-shrink-0 ${
+                    noteSaved
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : 'bg-white/5 hover:bg-white/10 text-gray-300 disabled:opacity-40'
+                  }`}
+                >
+                  {savingNote ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : noteSaved ? (
+                    <><Check className="w-3.5 h-3.5" /> Nota salva!</>
+                  ) : (
+                    <><Save className="w-3.5 h-3.5" /> Salvar nota</>
+                  )}
+                </button>
+
+                {(loadingNotes || savedNotes.length > 0) && (
+                  <div className="mt-1 flex flex-col gap-2">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <StickyNote className="w-3 h-3" />
+                      Notas salvas ({savedNotes.length})
                     </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3">
-                    <button
-                      onClick={() => setShowVideoModal(false)}
-                      className="px-4 py-2 bg-gray-600 text-white rounded-[4px] text-[14px] font-medium hover:bg-gray-700 transition-colors"
-                    >
-                      Fechar
-                    </button>
-                    {!selectedLesson.progress?.is_completed && (
-                      <button
-                        onClick={() => handleCompleteLesson(selectedLesson.id)}
-                        className="px-4 py-2 bg-[#34D399] text-white rounded-[4px] text-[14px] font-medium hover:bg-[#10B981] transition-colors flex items-center"
-                      >
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Marcar como Concluída
-                      </button>
+                    {loadingNotes ? (
+                      <div className="flex justify-center py-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-gray-600" />
+                      </div>
+                    ) : (
+                      savedNotes.map((note) => (
+                        <div key={note.id} className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-3">
+                          <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                          <p className="text-[10px] text-gray-600 mt-1.5">
+                            {new Date(note.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      ))
                     )}
                   </div>
-                </div>
+                )}
               </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de Anotações */}
-      <Dialog open={showNotesModal} onOpenChange={setShowNotesModal}>
-        <DialogContent className="sm:max-w-[600px] bg-[#181818] border-gray-800 text-white">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <FileText className="w-6 h-6 text-blue-400" />
-              <div>
-                <h3 className="text-xl font-semibold">Fazer Anotação</h3>
-                <p className="text-gray-400 text-sm">
-                  {selectedLesson?.title}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-300">
-                Sua anotação sobre esta aula:
-              </label>
-              <textarea
-                value={lessonNote}
-                onChange={(e) => setLessonNote(e.target.value)}
-                placeholder="Digite suas anotações, insights ou pontos importantes desta aula..."
-                className="w-full h-32 p-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:border-blue-400"
-              />
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                onClick={() => setShowNotesModal(false)}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={saveNote}
-                disabled={!lessonNote.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Salvar Anotação
-              </button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+
+          {/* Mobile bottom bar */}
+          <div className="lg:hidden border-t border-white/5 bg-[#111] px-4 py-3 flex items-center gap-3 flex-shrink-0">
+            <button
+              onClick={handleCompleteLesson}
+              disabled={isCompleted || completing}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+                isCompleted
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                  : 'bg-emerald-500 hover:bg-emerald-400 text-white'
+              }`}
+            >
+              {completing ? <Loader2 className="w-4 h-4 animate-spin" /> :
+               isCompleted ? <><Check className="w-4 h-4" /> Concluída</> :
+               <><CheckCircle className="w-4 h-4" /> Marcar concluída</>}
+            </button>
+            {selectedLesson.pdf_url && (
+              <button
+                onClick={() => window.open(selectedLesson.pdf_url, '_blank')}
+                className="py-2.5 px-4 rounded-lg text-sm font-medium bg-white/5 text-gray-300 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                PDF
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal de NPS */}
       <Dialog open={showNpsModal} onOpenChange={setShowNpsModal}>

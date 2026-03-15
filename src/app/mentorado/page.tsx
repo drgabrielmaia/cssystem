@@ -434,7 +434,7 @@ function MentoradoPageContent() {
                   className="group bg-white text-black px-6 md:px-8 py-3 md:py-3.5 rounded-xl font-semibold hover:bg-opacity-90 transition-all duration-300 flex items-center text-[14px] md:text-[15px] shadow-xl shadow-white/10 hover:shadow-white/20 hover:scale-[1.03] active:scale-[0.98]"
                 >
                   <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                  Assistir Aulas
+                  Aulas da Turma Atual
                 </Link>
                 <Link
                   href="/mentorado/banco-de-aulas"
