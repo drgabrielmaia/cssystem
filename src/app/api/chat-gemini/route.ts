@@ -316,6 +316,17 @@ TEXTO: (máximo 50 palavras - use storytelling, contraste emocional, e termine c
 - Após o slide, sugira 5-8 hashtags estratégicas.`
       : ''
 
+    // Build rich mentorado context string
+    const mentoradoContext = context?.nome ? [
+      `Médico: ${context.nome}`,
+      context.especialidade ? `Especialidade: ${context.especialidade}` : null,
+      context.areaAtuacao ? `Área de atuação: ${context.areaAtuacao}` : null,
+      context.faturamentoInicial ? `Faturamento ao entrar na mentoria: R$${context.faturamentoInicial}` : null,
+      context.faturamentoMeta ? `Meta de faturamento: R$${context.faturamentoMeta}` : null,
+      context.objetivoPrincipal ? `Objetivo principal: ${context.objetivoPrincipal}` : null,
+      context.turma ? `Turma: ${context.turma}` : null,
+    ].filter(Boolean).join('\n') : ''
+
     // Secretaria prompt - completely different system prompt
     const secretariaPrompt = `Você faz parte da equipe de atendimento da clínica do(a) ${context?.nome || 'Dr(a).'} (${context?.especialidade || 'medicina'}).
 
@@ -387,17 +398,6 @@ REGRAS:
 
     // Inject only lessons relevant to the current message
     const aulasKnowledge = mentoradoId ? buildFilteredAulasPrompt(message || '') : ''
-
-    // Build rich mentorado context string
-    const mentoradoContext = context?.nome ? [
-      `Médico: ${context.nome}`,
-      context.especialidade ? `Especialidade: ${context.especialidade}` : null,
-      context.areaAtuacao ? `Área de atuação: ${context.areaAtuacao}` : null,
-      context.faturamentoInicial ? `Faturamento ao entrar na mentoria: R$${context.faturamentoInicial}` : null,
-      context.faturamentoMeta ? `Meta de faturamento: R$${context.faturamentoMeta}` : null,
-      context.objetivoPrincipal ? `Objetivo principal: ${context.objetivoPrincipal}` : null,
-      context.turma ? `Turma: ${context.turma}` : null,
-    ].filter(Boolean).join('\n') : ''
 
     const chatFreePrompt = `Você é a IA assistente do sistema "Médicos de Resultado". Converse de forma natural, direta e útil.
 
